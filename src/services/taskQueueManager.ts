@@ -1,8 +1,22 @@
 import { BackgroundTask } from '../types';
 
+export interface OperationSignal {
+  paused: boolean;
+  cancelled: boolean;
+}
+
+export type ProgressCallback = (transferred: number, total: number) => void;
+export type OperationExecutor = (
+  onProgress: ProgressCallback,
+  signal: OperationSignal
+) => Promise<void>;
+
 class TaskQueueManager {
   private tasks: BackgroundTask[] = [];
   private listeners: Array<() => void> = [];
+  private executors: Map<string, OperationExecutor> = new Map();
+  private signals: Map<string, OperationSignal> = new Map();
+  private processing = false;
 
   constructor() {
     // Initial sample finished task for retro feel
@@ -27,7 +41,7 @@ class TaskQueueManager {
   }
 
   public getActiveCount(): number {
-    return this.tasks.filter(t => t.status === 'running').length;
+    return this.tasks.filter(t => t.status === 'running' || t.status === 'queued').length;
   }
 
   public subscribe(listener: () => void) {
@@ -45,7 +59,8 @@ class TaskQueueManager {
     type: BackgroundTask['type'],
     title: string,
     details?: string,
-    totalBytes?: number
+    totalBytes?: number,
+    executor?: OperationExecutor
   ): string {
     const id = `task_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const newTask: BackgroundTask = {
@@ -54,52 +69,119 @@ class TaskQueueManager {
       title,
       details,
       progress: 0,
-      status: 'running',
-      speed: '4.8 MB/s',
+      status: 'queued',
+      speed: '0 MB/s',
       transferredBytes: 0,
       totalBytes: totalBytes || 1024 * 1024,
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
     this.tasks.unshift(newTask);
+    if (executor) {
+      this.executors.set(id, executor);
+      this.signals.set(id, { paused: false, cancelled: false });
+    }
     this.notify();
 
-    // Simulate real task progress in background
-    let curr = 0;
-    const interval = setInterval(() => {
-      const task = this.tasks.find(t => t.id === id);
-      if (!task || task.status === 'cancelled') {
-        clearInterval(interval);
-        return;
-      }
-
-      if (task.status === 'paused') {
-        return;
-      }
-
-      curr += Math.floor(Math.random() * 20) + 10;
-      if (curr >= 100) {
-        task.progress = 100;
-        task.status = 'completed';
-        task.transferredBytes = task.totalBytes;
-        this.notify();
-        clearInterval(interval);
-      } else {
-        task.progress = curr;
-        if (task.totalBytes) {
-          task.transferredBytes = Math.floor((curr / 100) * task.totalBytes);
-        }
-        this.notify();
-      }
-    }, 280);
+    // Start processing queue if not already
+    this.processQueue();
 
     return id;
+  }
+
+  private async processQueue() {
+    if (this.processing) return;
+    this.processing = true;
+
+    try {
+      while (true) {
+        // Find next queued task
+        const task = this.tasks.find(t => t.status === 'queued');
+        if (!task) break;
+
+        const executor = this.executors.get(task.id);
+        if (!executor) {
+          // No executor - mark as completed immediately (legacy behavior)
+          task.status = 'completed';
+          task.progress = 100;
+          task.transferredBytes = task.totalBytes;
+          this.notify();
+          continue;
+        }
+
+        const signal = this.signals.get(task.id)!;
+        task.status = 'running';
+        this.notify();
+
+        const startTime = Date.now();
+        let lastTransferred = 0;
+        let lastTime = startTime;
+
+        try {
+          await executor((transferred, total) => {
+            if (signal.cancelled) return;
+            // Wait while paused
+            while (signal.paused && !signal.cancelled) {
+              // busy-wait (short sleep)
+            }
+            if (signal.cancelled) return;
+
+            const now = Date.now();
+            const elapsed = (now - lastTime) / 1000;
+            if (elapsed > 0.1) {
+              const speed = ((transferred - lastTransferred) / elapsed / (1024 * 1024)).toFixed(1);
+              task.speed = speed + ' MB/s';
+              lastTransferred = transferred;
+              lastTime = now;
+            }
+
+            task.transferredBytes = transferred;
+            task.totalBytes = total || task.totalBytes;
+            task.progress = total > 0 ? Math.min(100, Math.round((transferred / total) * 100)) : 0;
+
+            if (task.progress >= 100) {
+              task.status = 'completed';
+              task.transferredBytes = task.totalBytes;
+            }
+            this.notify();
+          }, signal);
+
+          // If not cancelled and not already completed by progress callback
+          if (!signal.cancelled && task.status === 'running') {
+            task.status = 'completed';
+            task.progress = 100;
+            task.transferredBytes = task.totalBytes;
+            this.notify();
+          }
+        } catch (e: any) {
+          if (!signal.cancelled) {
+            task.status = 'failed';
+            task.error = e?.message || 'Unknown error';
+            this.notify();
+          }
+        }
+
+        if (signal.cancelled) {
+          task.status = 'cancelled';
+          task.progress = 0;
+          this.notify();
+        }
+
+        // Clean up
+        this.executors.delete(task.id);
+        this.signals.delete(task.id);
+      }
+    } finally {
+      this.processing = false;
+    }
   }
 
   public pauseTask(id: string) {
     const task = this.tasks.find(t => t.id === id);
     if (task && task.status === 'running') {
       task.status = 'paused';
+      const signal = this.signals.get(id);
+      if (signal) signal.paused = true;
       this.notify();
     }
   }
@@ -108,6 +190,8 @@ class TaskQueueManager {
     const task = this.tasks.find(t => t.id === id);
     if (task && task.status === 'paused') {
       task.status = 'running';
+      const signal = this.signals.get(id);
+      if (signal) signal.paused = false;
       this.notify();
     }
   }
@@ -116,12 +200,14 @@ class TaskQueueManager {
     const task = this.tasks.find(t => t.id === id);
     if (task) {
       task.status = 'cancelled';
+      const signal = this.signals.get(id);
+      if (signal) signal.cancelled = true;
       this.notify();
     }
   }
 
   public clearCompleted() {
-    this.tasks = this.tasks.filter(t => t.status === 'running' || t.status === 'paused');
+    this.tasks = this.tasks.filter(t => t.status === 'running' || t.status === 'queued' || t.status === 'paused');
     this.notify();
   }
 }

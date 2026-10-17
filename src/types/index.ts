@@ -113,7 +113,7 @@ export interface BackgroundTask {
   title: string;
   details?: string;
   progress: number; // 0 to 100
-  status: 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
+  status: 'queued' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
   speed?: string;
   transferredBytes?: number;
   totalBytes?: number;
