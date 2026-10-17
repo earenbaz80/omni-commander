@@ -157,9 +157,19 @@ class FileSystemEngine {
           } catch (e) {
             log.warn("Could not read file properties/contents", entry.name, e);
           }
-          const parts = entry.name.split('.');
-          ext = parts.length > 1 ? parts.pop()!.toUpperCase() : '';
-          name = parts.join('.');
+          if (entry.name.startsWith('.')) {
+            ext = '';
+            name = entry.name;
+          } else {
+            const parts = entry.name.split('.');
+            if (parts.length > 1) {
+              ext = parts.pop()!.toUpperCase();
+              name = parts.join('.');
+            } else {
+              ext = '';
+              name = entry.name;
+            }
+          }
         } else {
           // Compute real recursive directory size for mounted File System Access trees
           try {
@@ -536,9 +546,15 @@ class FileSystemEngine {
     const cleanName = fileName.trim();
     if (!cleanName) throw new Error('Invalid file name');
 
-    const parts = cleanName.split('.');
-    const ext = parts.length > 1 ? parts.pop()!.toUpperCase() : '';
-    const name = parts.join('.');
+    let ext = '';
+    let name = cleanName;
+    if (!cleanName.startsWith('.')) {
+      const parts = cleanName.split('.');
+      if (parts.length > 1) {
+        ext = parts.pop()!.toUpperCase();
+        name = parts.join('.');
+      }
+    }
 
     const normParent = this.normalizePath(parentPath);
     const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
@@ -616,9 +632,15 @@ class FileSystemEngine {
       file.name = clean;
       file.ext = '';
     } else {
-      const parts = clean.split('.');
-      const ext = parts.length > 1 ? parts.pop()!.toUpperCase() : '';
-      const name = parts.join('.');
+      let ext = '';
+      let name = clean;
+      if (!clean.startsWith('.')) {
+        const parts = clean.split('.');
+        if (parts.length > 1) {
+          ext = parts.pop()!.toUpperCase();
+          name = parts.join('.');
+        }
+      }
       file.name = name;
       file.ext = ext;
     }
