@@ -5,6 +5,7 @@ import { Drive, FileItem, LanguageCode } from '../types';
 import { fsEngine } from '../services/fileSystem';
 import { soundManager } from '../services/soundEffects';
 import { getTranslations, tGlobal } from '../i18n/translations';
+import { log } from '../utils/logger';
 
 interface TreeNavigationPaneProps {
   theme: ThemeConfig;
@@ -101,7 +102,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
         }
       }
     } catch (err) {
-      console.warn('Drop on tree node error:', err);
+      log.warn('Drop on tree node error:', err);
     }
   };
 

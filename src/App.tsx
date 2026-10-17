@@ -25,6 +25,7 @@ import { CollapsibleInfoDrawer } from './components/CollapsibleInfoDrawer';
 
 // Modals
 import { taskQueue } from './services/taskQueueManager';
+import { log } from './utils/logger';
 
 export default function App() {
   // Global System Settings
@@ -454,7 +455,7 @@ export default function App() {
         if (err?.name === 'SecurityError' || String(err).includes('Cross origin sub frames')) {
           return;
         }
-        console.warn('Directory picker notification:', err);
+        log.warn('Directory picker notification:', err);
       }
     }
   };

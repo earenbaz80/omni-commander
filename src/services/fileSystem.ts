@@ -1,6 +1,7 @@
 import JSZip from 'jszip';
 import { Drive, FileItem, RecycleBinItem } from '../types';
 import { tGlobal } from '../i18n/translations';
+import { log } from '../utils/logger';
 
 const STORAGE_KEY = 'nc_filesystem_v1';
 const DRIVES_STORAGE_KEY = 'nc_drives_v1';
@@ -117,7 +118,7 @@ class FileSystemEngine {
       }
       this.saveToStorage();
     } catch (e) {
-      console.warn("Failed to restore real handles", e);
+      log.warn("Failed to restore real handles", e);
     }
   }
 
@@ -138,7 +139,7 @@ class FileSystemEngine {
         return true;
       }
     } catch (e) {
-      console.warn("Permission request info:", e);
+      log.warn("Permission request info:", e);
     }
     return false;
   }
@@ -196,7 +197,7 @@ class FileSystemEngine {
               } catch { /* ignore */ }
             }
           } catch (e) {
-            console.warn("Could not read file properties/contents", entry.name, e);
+            log.warn("Could not read file properties/contents", entry.name, e);
           }
           const parts = entry.name.split('.');
           ext = parts.length > 1 ? parts.pop()!.toUpperCase() : '';
@@ -222,7 +223,7 @@ class FileSystemEngine {
             });
             size = await calculateDirectorySize(entry);
           } catch (e) {
-            console.warn("Could not calculate directory size", entry.name, e);
+            log.warn("Could not calculate directory size", entry.name, e);
           }
         }
 
@@ -250,7 +251,7 @@ class FileSystemEngine {
       ];
       this.saveToStorage();
     } catch (err) {
-      console.warn("Could not sync physical directory", path, err);
+      log.warn("Could not sync physical directory", path, err);
     } finally {
       delete this.activeSyncingPaths[syncKey];
     }
@@ -373,7 +374,7 @@ class FileSystemEngine {
       this.files = [...untouched, ...mapped];
       this.saveToStorage();
     } catch (e) {
-      console.warn('Could not list system directory', path, e);
+      log.warn('Could not list system directory', path, e);
     }
   }
 
@@ -398,7 +399,7 @@ class FileSystemEngine {
         this.setDrives(data);
       }
     } catch (e) {
-      console.warn('Could not load real drives from API', e);
+      log.warn('Could not load real drives from API', e);
     }
   }
 
@@ -509,7 +510,7 @@ class FileSystemEngine {
         if (typeof (itemHandle as any).move === 'function') {
           await (itemHandle as any).move(newName);
         } else {
-          console.warn("Direct directory rename is not supported natively by this browser. Syncing back.");
+          log.warn("Direct directory rename is not supported natively by this browser. Syncing back.");
         }
       } else {
         const itemHandle = await dirHandle.getFileHandle(oldName);

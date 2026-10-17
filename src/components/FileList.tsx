@@ -6,6 +6,7 @@ import { ThemeConfig } from '../services/themeManager';
 import { getTranslations } from '../i18n/translations';
 import { soundManager } from '../services/soundEffects';
 import { loadColumnWidths, saveColumnWidths, autoFitWidth, MIN_COLUMN_WIDTH } from '../utils/columnWidths';
+import { log } from '../utils/logger';
 
 interface FileListProps {
   theme: ThemeConfig;
@@ -413,7 +414,7 @@ const FileListComponent: React.FC<FileListProps> = ({
         }
       }
     } catch (err) {
-      console.warn('Drag data parse warning:', err);
+      log.warn('Drag data parse warning:', err);
     }
 
     // 2. Check if external files dragged from OS desktop/folder

@@ -44,7 +44,7 @@ export default defineConfig(({ mode }) => {
                 ]
               },
               devOptions: {
-                enabled: true
+                enabled: false
               }
             })
           ])
@@ -60,6 +60,9 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': 'http://127.0.0.1:3001',
       },
+    },
+    build: {
+      chunkSizeWarningLimit: 1000,
     },
     test: {
       environment: 'jsdom',
