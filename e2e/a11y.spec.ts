@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test';
 
+// Pin the UI language so the specs don't break if the app default changes.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('nc_settings_v1', JSON.stringify({ language: 'es' }));
+  });
+});
+
 /**
  * Accessibility audit: every visible interactive control must expose an
  * accessible name. The computation mirrors the browser's simplified name

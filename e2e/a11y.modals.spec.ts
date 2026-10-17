@@ -1,5 +1,12 @@
 import { test, expect, Page } from '@playwright/test';
 
+// Pin the UI language so the specs don't break if the app default changes.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('nc_settings_v1', JSON.stringify({ language: 'es' }));
+  });
+});
+
 /**
  * Accessibility audit for modals: open each modal, then verify every visible
  * control inside the dialog exposes an accessible name.
