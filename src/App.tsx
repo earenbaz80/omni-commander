@@ -310,7 +310,7 @@ export default function App() {
         while (signal.paused && !signal.cancelled) { /* wait */ }
         if (signal.cancelled) return;
         try {
-          await fsEngine.copyItem(item.id, currentInactiveTab.driveId, targetPath, overwrite, (t, _total) => {
+          await fsEngine.copyItem(item.id, currentInactiveTab.driveId, targetPath, overwrite, (t) => {
             transferred += t;
             onProgress(transferred, totalBytes);
           });
@@ -335,7 +335,7 @@ export default function App() {
         while (signal.paused && !signal.cancelled) { /* wait */ }
         if (signal.cancelled) return;
         try {
-          await fsEngine.moveItem(item.id, currentInactiveTab.driveId, targetPath, (t, _total) => {
+          await fsEngine.moveItem(item.id, currentInactiveTab.driveId, targetPath, (t) => {
             transferred += t;
             onProgress(transferred, totalBytes);
           });

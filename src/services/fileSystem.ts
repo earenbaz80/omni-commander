@@ -3,6 +3,7 @@ import { Drive, FileItem, RecycleBinItem } from '../types';
 import { handleStore } from './handleStore';
 import { log } from '../utils/logger';
 import { tGlobal } from '../i18n/translations';
+import { fetchWithRetry } from '../utils/fetchWithRetry';
 import { calculateFileHashes as calculateFileHashesImpl } from './fileSystemCrypto';
 
 const STORAGE_KEY = 'nc_filesystem_v1';
@@ -302,7 +303,7 @@ class FileSystemEngine {
 
   public async loadSystemDriveDirectory(driveId: string, path: string): Promise<void> {
     try {
-      const response = await fetch(`${API_BASE}/api/list?driveId=${encodeURIComponent(driveId)}&path=${encodeURIComponent(path)}`);
+      const response = await fetchWithRetry(`${API_BASE}/api/list?driveId=${encodeURIComponent(driveId)}&path=${encodeURIComponent(path)}`, { timeoutMs: 10000, retries: 2 });
       if (!response.ok) return;
       const serverItems = await response.json();
       if (!Array.isArray(serverItems)) return;
@@ -349,7 +350,7 @@ class FileSystemEngine {
 
   public async loadRealDrivesFromApi() {
     try {
-      const response = await fetch(`${API_BASE}/api/drives`);
+      const response = await fetchWithRetry(`${API_BASE}/api/drives`, { timeoutMs: 10000, retries: 2 });
       if (!response.ok) return;
       const data = await response.json();
       if (Array.isArray(data)) {
