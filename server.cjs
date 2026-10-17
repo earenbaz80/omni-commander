@@ -247,10 +247,17 @@ async function readDirectoryEntries(safePath) {
       let stat = null;
       try { stat = await fs.promises.stat(full); } catch {}
       const isDirectory = entry.isDirectory();
-      const parts = entry.name.split('.');
-      const ext = parts.length > 1 ? parts.pop().toUpperCase() : '';
+      let ext = '';
+      let name = entry.name;
+      if (!entry.name.startsWith('.')) {
+        const parts = entry.name.split('.');
+        if (parts.length > 1) {
+          ext = parts.pop().toUpperCase();
+          name = parts.join('.');
+        }
+      }
       return {
-        name: parts.join('.'),
+        name,
         ext,
         isDirectory,
         size: stat && !isDirectory ? stat.size : 0,
