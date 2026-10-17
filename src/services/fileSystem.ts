@@ -744,7 +744,13 @@ class FileSystemEngine {
     this.saveToStorage();
   }
 
-  public copyItem(fileId: string, targetDriveId: string, targetPath: string, overwrite: boolean = true): FileItem | undefined {
+  public async copyItem(
+    fileId: string,
+    targetDriveId: string,
+    targetPath: string,
+    overwrite: boolean = true,
+    onProgress?: (transferred: number, total: number) => void
+  ): Promise<FileItem | undefined> {
     const file = this.files.find(f => f.id === fileId);
     if (!file) return undefined;
 
@@ -755,6 +761,9 @@ class FileSystemEngine {
     if (file.isDirectory) {
       const oldDirPath = `${this.normalizePath(file.path)}\\${file.name}`;
       const newDirPath = `${normTarget}\\${file.name}`;
+
+      // Collect children BEFORE pushing new items (fixes race condition)
+      const children = this.files.filter(f => f.driveId === file.driveId && (f.path === oldDirPath || f.path.startsWith(`${oldDirPath}\\`)));
 
       // Create target directory
       const newDir: FileItem = {
@@ -770,9 +779,11 @@ class FileSystemEngine {
       };
       this.files.push(newDir);
 
+      let transferred = 0;
+      const total = children.filter(c => !c.isDirectory).reduce((s, c) => s + (c.size || 0), 0);
+
       // Copy all children
-      const children = this.files.filter(f => f.driveId === file.driveId && (f.path === oldDirPath || f.path.startsWith(`${oldDirPath}\\`)));
-      children.forEach(child => {
+      for (const child of children) {
         const relativeChildPath = child.path.substring(oldDirPath.length);
         const childTargetPath = `${newDirPath}${relativeChildPath}`;
         const newChild: FileItem = {
@@ -787,7 +798,9 @@ class FileSystemEngine {
           cloudSyncStatus: targetDrive?.type === 'cloud' ? 'synced' : undefined
         };
         this.files.push(newChild);
-      });
+        transferred += child.size || 0;
+        if (onProgress) onProgress(transferred, total);
+      }
 
       this.saveToStorage();
       return newDir;
@@ -800,6 +813,7 @@ class FileSystemEngine {
           existing.size = file.size;
           existing.modifiedAt = now;
           this.saveToStorage();
+          if (onProgress) onProgress(file.size || 0, file.size || 0);
           return existing;
         } else {
           // make unique name
@@ -818,6 +832,7 @@ class FileSystemEngine {
           };
           this.files.push(newFile);
           this.saveToStorage();
+          if (onProgress) onProgress(file.size || 0, file.size || 0);
           return newFile;
         }
       } else {
@@ -834,12 +849,13 @@ class FileSystemEngine {
         };
         this.files.push(newFile);
         this.saveToStorage();
+        if (onProgress) onProgress(file.size || 0, file.size || 0);
         return newFile;
       }
     }
   }
 
-  public moveItem(fileId: string, targetDriveId: string, targetPath: string): boolean {
+  public async moveItem(fileId: string, targetDriveId: string, targetPath: string, onProgress?: (transferred: number, total: number) => void): Promise<boolean> {
     const file = this.files.find(f => f.id === fileId);
     if (!file) return false;
 
@@ -851,14 +867,15 @@ class FileSystemEngine {
       const oldDirPath = `${this.normalizePath(file.path)}\\${file.name}`;
       const newDirPath = `${normTarget}\\${file.name}`;
 
+      // Collect children BEFORE modifying (fixes race condition)
+      const children = this.files.filter(f => f.driveId === file.driveId && (f.path === oldDirPath || f.path.startsWith(`${oldDirPath}\\`)));
+
       // Update children
-      this.files.forEach(f => {
-        if (f.driveId === file.driveId && (f.path === oldDirPath || f.path.startsWith(`${oldDirPath}\\`))) {
-          const relativeChildPath = f.path.substring(oldDirPath.length);
-          f.path = `${newDirPath}${relativeChildPath}`;
-          f.driveId = targetDriveId;
-        }
-      });
+      for (const f of children) {
+        const relativeChildPath = f.path.substring(oldDirPath.length);
+        f.path = `${newDirPath}${relativeChildPath}`;
+        f.driveId = targetDriveId;
+      }
 
       file.path = normTarget;
       file.driveId = targetDriveId;
@@ -874,6 +891,7 @@ class FileSystemEngine {
     }
 
     this.saveToStorage();
+    if (onProgress) onProgress(1, 1);
     return true;
   }
 

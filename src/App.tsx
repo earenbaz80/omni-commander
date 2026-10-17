@@ -299,26 +299,63 @@ export default function App() {
     handleGoParent,
   });
 
-  const handleConfirmCopy = (targetPath: string, overwrite: boolean) => {
+  const handleConfirmCopy = async (targetPath: string, overwrite: boolean) => {
     const items: FileItem[] = modalData?.items || [];
     const totalBytes = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
-    taskQueue.addTask('copy', t.appCopying.replace('{n}', String(items.length)), t.appDest.replace('{path}', targetPath), totalBytes);
+    const taskId = taskQueue.addTask('copy', t.appCopying.replace('{n}', String(items.length)), t.appDest.replace('{path}', targetPath), totalBytes);
 
-    items.forEach(item => {
-      fsEngine.copyItem(item.id, currentInactiveTab.driveId, targetPath, overwrite);
-    });
+    let transferred = 0;
+    for (const item of items) {
+      try {
+        await fsEngine.copyItem(item.id, currentInactiveTab.driveId, targetPath, overwrite, (t, total) => {
+          transferred += t;
+          const task = taskQueue.getTasks().find(tk => tk.id === taskId);
+          if (task && total > 0) {
+            task.transferredBytes = Math.min(transferred, totalBytes);
+            task.progress = Math.min(100, Math.round((transferred / totalBytes) * 100));
+            if (task.progress >= 100) {
+              task.status = 'completed';
+              task.transferredBytes = totalBytes;
+            }
+            // Trigger re-render
+            setFsTick(x => x + 1);
+          }
+        });
+      } catch (e) {
+        console.error('Copy failed for', item.name, e);
+      }
+    }
+
     soundManager.playSuccess();
     setActiveModal(null);
   };
 
-  const handleConfirmMove = (targetPath: string) => {
+  const handleConfirmMove = async (targetPath: string) => {
     const items: FileItem[] = modalData?.items || [];
     const totalBytes = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
-    taskQueue.addTask('move', t.appMoving.replace('{n}', String(items.length)), t.appDest.replace('{path}', targetPath), totalBytes);
+    const taskId = taskQueue.addTask('move', t.appMoving.replace('{n}', String(items.length)), t.appDest.replace('{path}', targetPath), totalBytes);
 
-    items.forEach(item => {
-      fsEngine.moveItem(item.id, currentInactiveTab.driveId, targetPath);
-    });
+    let transferred = 0;
+    for (const item of items) {
+      try {
+        await fsEngine.moveItem(item.id, currentInactiveTab.driveId, targetPath, (t, total) => {
+          transferred += t;
+          const task = taskQueue.getTasks().find(tk => tk.id === taskId);
+          if (task && total > 0) {
+            task.transferredBytes = Math.min(transferred, totalBytes);
+            task.progress = Math.min(100, Math.round((transferred / totalBytes) * 100));
+            if (task.progress >= 100) {
+              task.status = 'completed';
+              task.transferredBytes = totalBytes;
+            }
+            setFsTick(x => x + 1);
+          }
+        });
+      } catch (e) {
+        console.error('Move failed for', item.name, e);
+      }
+    }
+
     soundManager.playSuccess();
     setActiveModal(null);
   };
@@ -394,14 +431,35 @@ export default function App() {
 
     const movedIds = new Set(draggedItems.map(i => i.id));
 
-    draggedItems.forEach(item => {
-      if (operation === 'move') {
-        fsEngine.moveItem(item.id, targetDriveId, targetPath);
-      } else {
-        const isSameDir = item.driveId === targetDriveId && item.path === targetPath;
-        fsEngine.copyItem(item.id, targetDriveId, targetPath, !isSameDir);
+    void (async () => {
+      for (const item of draggedItems) {
+        if (operation === 'move') {
+          await fsEngine.moveItem(item.id, targetDriveId, targetPath);
+        } else {
+          const isSameDir = item.driveId === targetDriveId && item.path === targetPath;
+          await fsEngine.copyItem(item.id, targetDriveId, targetPath, !isSameDir);
+        }
       }
-    });
+
+      if (operation === 'move') {
+        setLeftPanel(p => ({
+          ...p,
+          tabs: p.tabs.map(t => ({
+            ...t,
+            selectedIds: t.selectedIds.filter(id => !movedIds.has(id))
+          }))
+        }));
+        setRightPanel(p => ({
+          ...p,
+          tabs: p.tabs.map(t => ({
+            ...t,
+            selectedIds: t.selectedIds.filter(id => !movedIds.has(id))
+          }))
+        }));
+      }
+      soundManager.playSuccess();
+      setFsTick(t => t + 1);
+    })().catch(e => console.error('Drop operation failed', e));
 
     if (operation === 'move') {
       setLeftPanel(p => ({
