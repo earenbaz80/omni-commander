@@ -1,0 +1,179 @@
+@import "tailwindcss";
+
+@layer utilities {
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+}
+
+/* Custom retro scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  font-family: Consolas, "Cascadia Mono", "Segoe UI Mono", "Courier New", monospace;
+}
+
+/* Generic subtle elevation for every interactive button on hover */
+button {
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px -4px rgba(0, 0, 0, 0.65);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Retro blinking cursor for the focused file selector */
+@keyframes nc-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.nc-blink {
+  animation: nc-blink 0.9s steps(2, start) infinite;
+}
+
+/* --- RETRO CRT MONITOR OVERLAY STYLES (Ultra-soft & Readable) --- */
+.crt-overlay-subtle {
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.08) 50%
+  ), linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.015),
+    rgba(0, 255, 0, 0.005),
+    rgba(0, 0, 255, 0.015)
+  );
+  background-size: 100% 3px, 6px 100%;
+  box-shadow: inset 0 0 35px rgba(0, 0, 0, 0.3);
+}
+
+.crt-overlay-classic {
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.15) 50%
+  ), linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.025),
+    rgba(0, 255, 0, 0.01),
+    rgba(0, 0, 255, 0.025)
+  );
+  background-size: 100% 4px, 6px 100%;
+  box-shadow: inset 0 0 55px rgba(0, 0, 0, 0.45);
+  animation: crtFlicker 0.25s infinite;
+}
+
+.crt-overlay-intense {
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.28) 50%
+  ), linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.04),
+    rgba(0, 255, 0, 0.015),
+    rgba(0, 0, 255, 0.04)
+  );
+  background-size: 100% 4px, 4px 100%;
+  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.6);
+  animation: crtFlicker 0.15s infinite;
+}
+
+/* Curvature effect for phosphor monitor look */
+.crt-screen-curved {
+  border-radius: 8px;
+  overflow: hidden;
+  filter: contrast(102%) brightness(101%);
+}
+
+@keyframes crtFlicker {
+  0% { opacity: 0.99; }
+  50% { opacity: 1; }
+  100% { opacity: 0.995; }
+}
+
+/* --- BLINKING RETRO FILE CURSOR --- */
+.retro-file-cursor {
+  position: relative;
+}
+
+.retro-file-cursor::before {
+  content: "█";
+  display: inline-block;
+  margin-right: 4px;
+  animation: retroCursorBlink 0.8s infinite steps(2, start);
+  color: #fbbf24; /* Amber cursor by default */
+  font-weight: bold;
+}
+
+@keyframes retroCursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+
+/* Off-screen rendering optimization for grid views */
+.cv-auto { content-visibility: auto; contain-intrinsic-size: 0 120px; }
+
+/* Electron frameless window: drag the title bar, keep controls clickable */
+.nc-drag {
+  -webkit-app-region: drag;
+}
+
+.nc-drag button,
+.nc-drag a,
+.nc-drag input,
+.nc-drag select,
+.nc-drag textarea,
+.nc-drag [role="button"] {
+  -webkit-app-region: no-drag;
+}
+
+/* Column header resizer: the small visible divider between column labels.
+   Drag it to resize the column, double-click to auto-fit to the content. */
+.nc-col-resizer {
+  position: absolute;
+  right: 0;
+  top: 3px;
+  bottom: 3px;
+  width: 8px;
+  cursor: col-resize;
+  border-right: 1px solid rgba(255, 255, 255, 0.28);
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+  touch-action: none;
+  z-index: 1;
+}
+
+.nc-col-resizer:hover,
+.nc-col-resizer:active {
+  border-right-color: #fbbf24;
+  background-color: rgba(251, 191, 36, 0.25);
+}

@@ -1,0 +1,70 @@
+import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+import { defineConfig } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
+
+export default defineConfig(({ mode }) => {
+  // Inside Electron the app is already installed locally, so the PWA service
+  // worker adds nothing and can serve stale cached assets. Skip it there.
+  const isElectronBuild = mode === 'electron';
+  return {
+    plugins: [
+      react(),
+      tailwindcss(),
+      ...(isElectronBuild
+        ? []
+        : [
+            VitePWA({
+              registerType: 'autoUpdate',
+              includeAssets: ['icon.svg', 'icon-512.png'],
+              manifest: {
+                id: '/',
+                name: 'OmniCommander Pro for Windows',
+                short_name: 'OmniCmd',
+                description: 'Potente administrador de archivos de doble panel con pestañas, multi-nube y herramientas DOS.',
+                theme_color: '#000080',
+                background_color: '#0c101c',
+                display: 'standalone',
+                start_url: '/',
+                scope: '/',
+                icons: [
+                  {
+                    src: '/icon.svg',
+                    sizes: '512x512',
+                    type: 'image/svg+xml',
+                    purpose: 'any'
+                  },
+                  {
+                    src: '/icon-512.png',
+                    sizes: '512x512',
+                    type: 'image/png',
+                    purpose: 'any'
+                  }
+                ]
+              },
+              devOptions: {
+                enabled: true
+              }
+            })
+          ])
+    ],
+    resolve: {
+      alias: {
+        '@': path.resolve(import.meta.dirname, '.'),
+      },
+    },
+    server: {
+      hmr: process.env.DISABLE_HMR !== 'true',
+      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      proxy: {
+        '/api': 'http://127.0.0.1:3001',
+      },
+    },
+    test: {
+      environment: 'jsdom',
+      globals: true,
+      exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
+    },
+  };
+});

@@ -1,0 +1,153 @@
+import React from 'react';
+import { HardDrive, BarChart3 } from 'lucide-react';
+import { Drive, FileItem, LanguageCode } from '../../types';
+import { ThemeConfig } from '../../services/themeManager';
+import { getTranslations } from '../../i18n/translations';
+import { fsEngine } from '../../services/fileSystem';
+
+import { useModalDialog } from '../../hooks/useModalDialog';
+
+interface DiskUsageModalProps {
+  theme: ThemeConfig;
+  lang: LanguageCode;
+  drives: Drive[];
+  onClose: () => void;
+}
+
+export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({
+  theme,
+  lang,
+  drives,
+  onClose
+}) => {
+  const t = getTranslations(lang);
+  const allFiles = (fsEngine as any).files as FileItem[];
+
+  // Top largest files
+  const topFiles = [...allFiles]
+    .filter(f => !f.isDirectory)
+    .sort((a, b) => b.size - a.size)
+    .slice(0, 10);
+
+  const formatBytes = (bytes: number): string => {
+    if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${bytes} B`;
+  };
+
+  const dialogRef = useModalDialog<HTMLDivElement>(t.diskUsageModalTitle);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 font-mono select-none">
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded shadow-2xl border text-xs overflow-hidden"
+        style={{
+          backgroundColor: theme.modalBg,
+          borderColor: theme.modalBorder,
+          color: theme.itemText
+        }}
+      >
+        <div 
+          className="flex items-center justify-between px-3 py-2 border-b font-bold shrink-0"
+          style={{
+            backgroundColor: theme.modalHeaderBg,
+            color: theme.modalHeaderText,
+            borderColor: theme.modalBorder
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4" />
+            <span>{t.diskUsageTitle}</span>
+          </div>
+          <button onClick={onClose} className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer font-bold">✕</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-5">
+          {/* Drives capacity breakdown */}
+          <div>
+            <h3 className="font-bold text-amber-300 mb-2 uppercase tracking-wider text-[11px]">
+              {t.diskConnectedDrives}
+            </h3>
+            <div className="space-y-2.5">
+              {drives.filter(d => d.isMounted).map(drive => {
+                const used = drive.totalBytes - drive.freeBytes;
+                const percent = Math.round((used / drive.totalBytes) * 100);
+
+                return (
+                  <div key={drive.id} className="p-2.5 bg-black/40 rounded border border-white/10 space-y-1.5">
+                    <div className="flex items-center justify-between font-bold">
+                      <span className="flex items-center gap-1.5 text-white">
+                        <HardDrive className="w-3.5 h-3.5 text-amber-400" />
+                        <span>[{drive.letter}] {drive.name}</span>
+                      </span>
+                      <span className="tabular-nums opacity-80 text-[11px]">
+                        {t.diskUsedOf.replace('{size}', formatBytes(used)).replace('{total}', formatBytes(drive.totalBytes)).replace('{n}', String(percent))}
+                      </span>
+                    </div>
+
+                    {/* Progress bar */}
+                    <div className="w-full h-2.5 bg-black/60 rounded-full overflow-hidden border border-white/20">
+                      <div 
+                        className={`h-full transition-all ${percent > 85 ? 'bg-red-500' : percent > 60 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Top 10 Largest Files */}
+          <div>
+            <h3 className="font-bold text-amber-300 mb-2 uppercase tracking-wider text-[11px]">
+              {t.diskTopFiles}
+            </h3>
+            <div className="border border-white/10 rounded overflow-hidden bg-black/40">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-black/60 border-b border-white/20 text-amber-300 font-bold">
+                  <tr>
+                    <th className="p-2">{t.file}</th>
+                    <th className="p-2">{t.path}</th>
+                    <th className="p-2 text-right">{t.size}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topFiles.map((file, idx) => (
+                    <tr key={file.id} className="border-b border-white/5 hover:bg-white/5">
+                      <td className="p-2 font-bold truncate text-white flex items-center gap-1.5">
+                        <span className="text-[10px] opacity-40 tabular-nums">#{idx + 1}</span>
+                        <span>{file.name}.{file.ext}</span>
+                      </td>
+                      <td className="p-2 truncate opacity-70 text-[11px]">{file.path}</td>
+                      <td className="p-2 text-right font-bold text-amber-300 tabular-nums">{formatBytes(file.size)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div 
+          className="flex items-center justify-end px-3 py-2 border-t text-xs shrink-0"
+          style={{
+            backgroundColor: theme.modalBg,
+            borderColor: theme.modalBorder
+          }}
+        >
+          <button
+            onClick={onClose}
+            className="px-4 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-bold rounded cursor-pointer"
+          >
+            {t.btnClose}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};

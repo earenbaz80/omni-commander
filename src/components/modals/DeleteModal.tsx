@@ -1,0 +1,95 @@
+import React from 'react';
+import { Trash2, AlertTriangle } from 'lucide-react';
+import { FileItem, LanguageCode } from '../../types';
+import { ThemeConfig } from '../../services/themeManager';
+import { getTranslations } from '../../i18n/translations';
+import { soundManager } from '../../services/soundEffects';
+
+import { useModalDialog } from '../../hooks/useModalDialog';
+
+interface DeleteModalProps {
+  theme: ThemeConfig;
+  lang: LanguageCode;
+  items: FileItem[];
+  onConfirm: () => void;
+  onClose: () => void;
+}
+
+export const DeleteModal: React.FC<DeleteModalProps> = ({
+  theme,
+  lang,
+  items,
+  onConfirm,
+  onClose
+}) => {
+  const t = getTranslations(lang);
+  const totalSize = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
+
+  const handleConfirm = () => {
+    soundManager.playBeep(440, 0.1);
+    onConfirm();
+  };
+
+  const dialogRef = useModalDialog<HTMLDivElement>(t.deleteDialogLabel);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 font-mono select-none">
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        className="w-full max-w-md rounded shadow-2xl border text-xs overflow-hidden"
+        style={{
+          backgroundColor: theme.modalBg,
+          borderColor: theme.modalBorder,
+          color: theme.itemText
+        }}
+      >
+        <div 
+          className="flex items-center justify-between px-3 py-2 border-b font-bold shrink-0 bg-red-900/60 text-white"
+          style={{ borderColor: theme.modalBorder }}
+        >
+          <div className="flex items-center gap-2">
+            <Trash2 className="w-4 h-4 text-red-300" />
+            <span>{t.deleteTitle} (F8 / Supr)</span>
+          </div>
+          <button onClick={onClose} className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer">✕</button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-8 h-8 text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-white mb-1">{t.msgConfirmDelete}</p>
+              <p className="opacity-75 text-[11px]">
+                {t.deleteSummary.replace('{n}', String(items.length)).replace('{size}', totalSize.toLocaleString())}
+              </p>
+            </div>
+          </div>
+
+          <div className="max-h-32 overflow-y-auto bg-black/40 p-2 rounded border border-white/10 text-[11px] space-y-0.5">
+            {items.map(i => (
+              <div key={i.id} className="truncate text-red-300">
+                • {i.name}{i.ext ? `.${i.ext}` : ''} {i.isDirectory ? t.markerFolder : ''}
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+            <button
+              onClick={onClose}
+              className="px-4 py-1.5 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
+            >
+              {t.btnCancel} (Esc)
+            </button>
+            <button
+              onClick={handleConfirm}
+              className="px-5 py-1.5 bg-red-600 hover:bg-red-500 text-white font-extrabold rounded cursor-pointer shadow"
+            >
+              {t.delete} (Enter)
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
