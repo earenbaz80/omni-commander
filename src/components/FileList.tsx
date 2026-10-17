@@ -7,6 +7,7 @@ import { getTranslations } from '../i18n/translations';
 import { soundManager } from '../services/soundEffects';
 import { loadColumnWidths, saveColumnWidths, autoFitWidth, MIN_COLUMN_WIDTH } from '../utils/columnWidths';
 import { log } from '../utils/logger';
+import { FileListStatusBar } from './FileListStatusBar';
 
 interface FileListProps {
   theme: ThemeConfig;
@@ -1001,31 +1002,17 @@ const FileListComponent: React.FC<FileListProps> = ({
       )}
 
       {/* Retro Status Bar at bottom of panel */}
-      <div 
-        className="px-2 py-0.5 border-t text-[11px] select-none flex items-center justify-between shrink-0 font-mono"
-        style={{
-          backgroundColor: theme.headerBg,
-          color: theme.headerText,
-          borderColor: theme.borderPanel
-        }}
-      >
-        <div className="flex items-center gap-2 truncate">
-          <span>{stats.totalFiles} {t.filesCount}</span>
-          <span className="opacity-50">|</span>
-          <span>{stats.totalDirs} {t.dirsCount}</span>
-          {stats.selectedCount > 0 && (
-            <>
-              <span className="opacity-50">|</span>
-              <span className="font-extrabold text-amber-900 bg-amber-400 px-1 rounded-[2px]">
-                {stats.selectedCount} {t.selectedCount} ({Math.round(stats.selectedBytes / 1024)} kB)
-              </span>
-            </>
-          )}
-        </div>
-        <div className="tabular-nums font-bold">
-          {Math.round(stats.totalBytes / 1024)} kB total
-        </div>
-      </div>
+      <FileListStatusBar
+        theme={theme}
+        totalFiles={stats.totalFiles}
+        totalDirs={stats.totalDirs}
+        selectedCount={stats.selectedCount}
+        selectedBytes={stats.selectedBytes}
+        totalBytes={stats.totalBytes}
+        filesCountLabel={t.filesCount}
+        dirsCountLabel={t.dirsCount}
+        selectedCountLabel={t.selectedCount}
+      />
     </div>
   );
 };
