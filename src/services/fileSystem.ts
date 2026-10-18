@@ -409,7 +409,9 @@ class FileSystemEngine {
   public normalizePath(path: string): string {
     if (!path) return '';
     let p = path.replace(/\//g, '\\').trim();
-    // remove trailing slash unless it's just "C:" or "C:\"
+    // Normalize drive root to always have a trailing backslash: "C:" -> "C:\"
+    if (/^[A-Z]:$/i.test(p)) p += '\\';
+    // remove trailing slash unless it's just "C:\"
     if (p.endsWith('\\') && p.length > 3) {
       p = p.slice(0, -1);
     }
@@ -418,12 +420,12 @@ class FileSystemEngine {
 
   public getParentPath(path: string): string {
     const norm = this.normalizePath(path);
+    // Drive root (e.g. "C:\") — cannot navigate above it.
+    if (/^[A-Z]:\\$/i.test(norm)) return '';
     const lastSlash = norm.lastIndexOf('\\');
-    if (lastSlash === -1 || lastSlash === 2) { // "C:\folder" -> "C:"
-      if (norm.includes(':')) {
-        return norm.split(':')[0] + ':';
-      }
-      return '';
+    if (lastSlash <= 2) {
+      // Direct child of drive root (e.g. "C:\folder" -> "C:\")
+      return norm.substring(0, 3);
     }
     return norm.substring(0, lastSlash);
   }
