@@ -9,6 +9,10 @@ export default defineConfig(({ mode }) => {
   // worker adds nothing and can serve stale cached assets. Skip it there.
   const isElectronBuild = mode === 'electron';
   return {
+    // The packaged Electron renderer is loaded via file://, where absolute
+    // "/assets/..." URLs resolve to the drive root and never load (blank window).
+    // Relative URLs are required for the Electron build only.
+    base: isElectronBuild ? './' : '/',
     plugins: [
       react(),
       tailwindcss(),
