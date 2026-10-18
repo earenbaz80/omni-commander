@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
         : [
             VitePWA({
               registerType: 'autoUpdate',
-              includeAssets: ['icon.svg', 'icon-512.png'],
+              includeAssets: ['icon.svg', 'icon-512.png', 'icon-192.png'],
               manifest: {
                 id: '/',
                 name: 'OmniCommander Pro for Windows',
