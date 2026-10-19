@@ -10,7 +10,6 @@ interface DriveBarProps {
   drives: Drive[];
   currentDriveId: string;
   onSelectDrive: (driveId: string) => void;
-  onMountLocal: () => void;
   panelSide: 'left' | 'right';
   isActive: boolean;
 }
@@ -20,7 +19,6 @@ export const DriveBar: React.FC<DriveBarProps> = ({
   drives,
   currentDriveId,
   onSelectDrive,
-  onMountLocal,
   panelSide,
   isActive
 }) => {
@@ -99,18 +97,6 @@ export const DriveBar: React.FC<DriveBarProps> = ({
             </button>
           );
         })}
-
-        <button
-          onClick={() => {
-            soundManager.playKeyTick();
-            onMountLocal();
-          }}
-          title="Mount real directory from your PC"
-          className="px-1.5 py-0.5 bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 border border-emerald-500/40 rounded text-xs flex items-center gap-0.5 shrink-0 cursor-pointer"
-        >
-          <FolderSync className="w-3 h-3" />
-          <FolderSync className="w-3 h-3" /> <span>Mount PC</span>
-        </button>
       </div>
 
       {/* Disk Space Meter */}

@@ -27,7 +27,6 @@ import { CollapsibleInfoDrawer } from './components/CollapsibleInfoDrawer';
 
 // Modals
 import { taskQueue } from './services/taskQueueManager';
-import { log } from './utils/logger';
 
 export default function App() {
   // Global System Settings
@@ -75,9 +74,6 @@ export default function App() {
   const quickSearchTimerRef = useRef<NodeJS.Timeout | null>(null);
   const leftTreePaneRef = useRef<HTMLDivElement | null>(null);
   const leftTreeTabRef = useRef<HTMLButtonElement | null>(null);
-
-  // Storage Onboarding State
-  const [showOnboarding, setShowOnboarding] = useState<boolean>(() => false);
 
   // App Lock state
   const [isAppLocked, setIsAppLocked] = useState<boolean>(() => settings.appLockEnabled);
@@ -746,48 +742,6 @@ export default function App() {
     setFsTick(t => t + 1);
   }, []);
 
-  const handleMountDrivePhysically = async (driveId: 'drive_c' | 'drive_d' | 'drive_host') => {
-    // If running in a cross-origin iframe, showDirectoryPicker is disallowed by browser security
-    if (typeof window !== 'undefined' && window.self !== window.top) {
-      setShowOnboarding(true);
-      return;
-    }
-
-    if ('showDirectoryPicker' in window) {
-      try {
-        const handle = await (window as any).showDirectoryPicker();
-        await fsEngine.mountLocalDirectory(handle, driveId);
-        soundManager.playSuccess();
-        setFsTick(t => t + 1);
-
-        if (driveId === 'drive_c') {
-          await handleSelectDrive('left', 'drive_c');
-        } else if (driveId === 'drive_d') {
-          await handleSelectDrive('right', 'drive_d');
-        } else {
-          await handleSelectDrive(activePanel, 'drive_host');
-        }
-
-        setShowOnboarding(false);
-        localStorage.setItem('nc_onboarding_real_v1', 'true');
-      } catch (err: any) {
-        // User closed or cancelled the directory picker dialog
-        if (err?.name === 'AbortError') {
-          return;
-        }
-        // Browser sub-frame security policy restriction
-        if (err?.name === 'SecurityError' || String(err).includes('Cross origin sub frames')) {
-          return;
-        }
-        log.warn('Directory picker notification:', err);
-      }
-    }
-  };
-
-  const handleMountLocalPC = async () => {
-    await handleMountDrivePhysically('drive_host');
-  };
-
   // Password Folder Protection Handler
   const handleSetFolderPassword = (folderPath: string, password: string | null) => {
     setSettings(prev => {
@@ -953,7 +907,6 @@ export default function App() {
           onToggleTree={() => setLeftPanel(p => ({ ...p, isTreeVisible: !p.isTreeVisible }))}
           onDropItems={handleDropItems}
           onDropNativeFiles={handleDropNativeFiles}
-          onMountLocalPC={handleMountLocalPC}
           onNavigate={(p) => handleNavigate('left', p)}
           onSelectDrive={(dId) => handleSelectDrive('left', dId)}
           onSelectTab={(tId) => handleSelectTab('left', tId)}
@@ -1011,7 +964,6 @@ export default function App() {
           setIsFilterOpen={setIsRightFilterOpen}
           onDropItems={handleDropItems}
           onDropNativeFiles={handleDropNativeFiles}
-          onMountLocalPC={handleMountLocalPC}
           onNavigate={(p) => handleNavigate('right', p)}
           onSelectDrive={(dId) => handleSelectDrive('right', dId)}
           onSelectTab={(tId) => handleSelectTab('right', tId)}
@@ -1220,8 +1172,6 @@ export default function App() {
         setLeftPanel={setLeftPanel}
         setRightPanel={setRightPanel}
         setFsTick={setFsTick}
-        showOnboarding={showOnboarding}
-        setShowOnboarding={setShowOnboarding}
         handleConfirmCopy={handleConfirmCopy}
         handleConfirmMove={handleConfirmMove}
         handleConfirmDelete={handleConfirmDelete}
@@ -1236,7 +1186,6 @@ export default function App() {
         handleSetFolderPassword={handleSetFolderPassword}
         handleSelectDrive={handleSelectDrive}
         handleExecuteCommand={handleExecuteCommand}
-        handleMountDrivePhysically={handleMountDrivePhysically}
       />
 
       {conflictPrompt && (

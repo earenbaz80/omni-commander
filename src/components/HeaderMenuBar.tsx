@@ -168,9 +168,6 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
                 <span>{t.quickView}</span> <span className="opacity-60">Ctrl+Q</span>
               </button>
               <div className="h-px bg-current opacity-20 my-1"></div>
-              <button onClick={() => handleAction(() => onOpenModal('mountLocal'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
-                <span>{t.mountLocal}</span> <span className="opacity-60">Z:</span>
-              </button>
               <button onClick={() => handleAction(onRefresh)} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
                 <span>{t.refresh}</span> <span className="opacity-60">Ctrl+R</span>
               </button>

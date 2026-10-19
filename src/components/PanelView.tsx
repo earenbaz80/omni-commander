@@ -40,7 +40,6 @@ interface PanelViewProps {
     operation: 'copy' | 'move'
   ) => void;
   onDropNativeFiles?: (files: globalThis.FileList, targetPath: string, targetDriveId: string) => void;
-  onMountLocalPC: () => Promise<void>;
   onNavigate: (path: string) => void;
   onSelectDrive: (driveId: string) => void;
   onSelectTab: (tabId: string) => void;
@@ -90,7 +89,6 @@ export const PanelView: React.FC<PanelViewProps> = ({
   onToggleTree,
   onDropItems,
   onDropNativeFiles,
-  onMountLocalPC,
   onNavigate,
   onSelectDrive,
   onSelectTab,
@@ -150,7 +148,6 @@ export const PanelView: React.FC<PanelViewProps> = ({
           drives={drives}
           currentDriveId={tab.driveId}
           onSelectDrive={onSelectDrive}
-          onMountLocal={onMountLocalPC}
           panelSide={side}
           isActive={isActive}
         />

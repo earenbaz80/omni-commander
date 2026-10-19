@@ -1,6 +1,5 @@
 import JSZip from 'jszip';
 import { ConflictResolution, Drive, FileItem, FileProgressEntry, PendingConflict, RecycleBinItem, TransferOptions, TransferPlan } from '../types';
-import { handleStore } from './handleStore';
 import { log } from '../utils/logger';
 import { tGlobal } from '../i18n/translations';
 import { fetchWithRetry } from '../utils/fetchWithRetry';
@@ -69,9 +68,6 @@ class FileSystemEngine {
   private recycleBin: RecycleBinItem[] = [];
   private listeners: Array<() => void> = [];
 
-  // Real Physical Directory Handles (HTML5 File System Access API)
-  private mountedHandles: { [driveId: string]: any } = {};
-  private activeSyncingPaths: { [key: string]: boolean } = {};
   private storageSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Index of files by `${driveId}|${normalizedPath}` for O(1) getFiles lookups.
@@ -81,185 +77,8 @@ class FileSystemEngine {
 
   constructor() {
     this.loadFromStorage();
-    this.restoreRealHandles();
     if (typeof window !== 'undefined') {
       window.addEventListener('beforeunload', () => this.flushStorage());
-    }
-  }
-
-  private async restoreRealHandles() {
-    if (typeof window === 'undefined' || typeof indexedDB === 'undefined') return;
-    try {
-      const driveIds = ['drive_c', 'drive_d', 'drive_e', 'drive_host'];
-      for (const id of driveIds) {
-        const handle = await handleStore.get(id);
-        if (handle) {
-          this.mountedHandles[id] = handle;
-          const drive = this.drives.find(d => d.id === id);
-          const realDrive = {
-            id,
-            letter: drive?.letter || 'Z:',
-            name: tGlobal('fsHostDriveName').replace('{name}', handle.name),
-            type: 'host_fs' as any,
-            totalBytes: 1024 * 1024 * 1024 * 1024,
-            freeBytes: 500 * 1024 * 1024 * 1024,
-            description: tGlobal('fsHostDriveDesc').replace('{name}', handle.name),
-            isMounted: true
-          };
-          if (drive) {
-            Object.assign(drive, realDrive);
-          } else {
-            this.drives.push(realDrive as any);
-          }
-        }
-      }
-      this.saveToStorage();
-    } catch (e) {
-      log.warn("Failed to restore real handles", e);
-    }
-  }
-
-  public async requestPermissionForDrive(driveId: string): Promise<boolean> {
-    const handle = this.mountedHandles[driveId];
-    if (!handle) return false;
-    if (typeof window !== 'undefined' && window.self !== window.top) {
-      return false;
-    }
-    try {
-      const opt = { mode: 'readwrite' };
-      const status = await handle.requestPermission(opt);
-      if (status === 'granted') {
-        const drive = this.getDrive(driveId);
-        if (drive) {
-          await this.syncRealDirectory(driveId, drive.letter);
-        }
-        return true;
-      }
-    } catch (e) {
-      log.warn("Permission request info:", e);
-    }
-    return false;
-  }
-
-  public hasRealHandle(driveId: string): boolean {
-    return !!this.mountedHandles[driveId];
-  }
-
-  private async resolvePhysicalPath(rootHandle: any, path: string, create: boolean = false): Promise<any> {
-    let cleanPath = path.replace(/^[a-zA-Z]:/, '').trim();
-    if (cleanPath.startsWith('\\')) {
-      cleanPath = cleanPath.substring(1);
-    }
-    if (!cleanPath) return rootHandle;
-
-    const segments = cleanPath.split('\\').filter(Boolean);
-    let current = rootHandle;
-    for (const segment of segments) {
-      current = await current.getDirectoryHandle(segment, { create });
-    }
-    return current;
-  }
-
-  public async syncRealDirectory(driveId: string, path: string): Promise<void> {
-    const rootHandle = this.mountedHandles[driveId];
-    if (!rootHandle) return;
-
-    const syncKey = `${driveId}::${path}`;
-    if (this.activeSyncingPaths[syncKey]) return;
-    this.activeSyncingPaths[syncKey] = true;
-
-    try {
-      const dirHandle = await this.resolvePhysicalPath(rootHandle, path, false);
-      const items: FileItem[] = [];
-      const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
-
-      for await (const entry of dirHandle.values()) {
-        const isDirectory = entry.kind === 'directory';
-        let size = 0;
-        let modifiedAt = now;
-        let ext = '';
-        let name = entry.name;
-        let content = '';
-
-        if (!isDirectory) {
-          try {
-            const file = await entry.getFile();
-            size = file.size;
-            modifiedAt = new Date(file.lastModified).toISOString().replace('T', ' ').substring(0, 19);
-            
-            // Read contents of small text files to enable editing and viewing
-            if (size < 500 * 1024) {
-              try {
-                content = await file.text();
-              } catch { /* ignore */ }
-            }
-          } catch (e) {
-            log.warn("Could not read file properties/contents", entry.name, e);
-          }
-          if (entry.name.startsWith('.')) {
-            ext = '';
-            name = entry.name;
-          } else {
-            const parts = entry.name.split('.');
-            if (parts.length > 1) {
-              ext = parts.pop()!.toUpperCase();
-              name = parts.join('.');
-            } else {
-              ext = '';
-              name = entry.name;
-            }
-          }
-        } else {
-          // Compute real recursive directory size for mounted File System Access trees
-          try {
-            const calculateDirectorySize = (async function walk(handle: any): Promise<number> {
-              let total = 0;
-              try {
-                for await (const child of handle.values()) {
-                  if (child.kind === 'file') {
-                    try {
-                      const file = await child.getFile();
-                      total += Number(file.size) || 0;
-                    } catch { /* ignore */ }
-                  } else if (child.kind === 'directory') {
-                    total += await walk(child);
-                  }
-                }
-              } catch { /* ignore */ }
-              return total;
-            });
-            size = await calculateDirectorySize(entry);
-          } catch (e) {
-            log.warn("Could not calculate directory size", entry.name, e);
-          }
-        }
-
-        items.push({
-          id: `real_${driveId}_${entry.name}_${isDirectory ? 'dir' : 'file'}_${Date.now()}`,
-          name,
-          ext,
-          path: this.normalizePath(path),
-          driveId,
-          isDirectory,
-          size,
-          modifiedAt,
-          createdAt: modifiedAt,
-          attributes: { readOnly: false, hidden: entry.name.startsWith('.'), system: false, archive: !isDirectory },
-          content
-        });
-      }
-
-      // Overwrite the cache in memory
-      const normPath = this.normalizePath(path);
-      this.files = [
-        ...this.files.filter(f => !(f.driveId === driveId && this.normalizePath(f.path) === normPath)),
-        ...items
-      ];
-      this.saveToStorage();
-    } catch (err) {
-      log.warn("Could not sync physical directory", path, err);
-    } finally {
-      delete this.activeSyncingPaths[syncKey];
     }
   }
 
@@ -419,14 +238,6 @@ class FileSystemEngine {
     return this.drives.find(d => d.letter.toUpperCase() === formatted.toUpperCase());
   }
 
-  public mountDrive(driveId: string, isMounted: boolean = true) {
-    const drive = this.drives.find(d => d.id === driveId);
-    if (drive) {
-      drive.isMounted = isMounted;
-      this.saveToStorage();
-    }
-  }
-
   public getFiles(driveId: string, currentPath: string): FileItem[] {
     if (this.filesIndexVersion !== this.filesVersion) {
       this.filesIndex.clear();
@@ -467,79 +278,6 @@ class FileSystemEngine {
       return norm.substring(0, 3);
     }
     return norm.substring(0, lastSlash);
-  }
-
-  // Physical writing helper tasks run in the background to avoid blocking VFS UI
-  private async writeRealFilePhysically(driveId: string, parentPath: string, fileName: string, content: string): Promise<void> {
-    const rootHandle = this.mountedHandles[driveId];
-    if (!rootHandle) return;
-    try {
-      const dirHandle = await this.resolvePhysicalPath(rootHandle, parentPath, true);
-      const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
-      const writable = await fileHandle.createWritable();
-      await writable.write(content);
-      await writable.close();
-      await this.syncRealDirectory(driveId, parentPath);
-    } catch (err) {
-      console.error("Physical file write error:", err);
-    }
-  }
-
-  private async createRealFolderPhysically(driveId: string, parentPath: string, dirName: string): Promise<void> {
-    const rootHandle = this.mountedHandles[driveId];
-    if (!rootHandle) return;
-    try {
-      const dirHandle = await this.resolvePhysicalPath(rootHandle, parentPath, true);
-      await dirHandle.getDirectoryHandle(dirName, { create: true });
-      await this.syncRealDirectory(driveId, parentPath);
-    } catch (err) {
-      console.error("Physical folder creation error:", err);
-    }
-  }
-
-  private async deleteRealItemPhysically(driveId: string, parentPath: string, name: string, isDirectory: boolean): Promise<void> {
-    const rootHandle = this.mountedHandles[driveId];
-    if (!rootHandle) return;
-    try {
-      const dirHandle = await this.resolvePhysicalPath(rootHandle, parentPath, false);
-      await dirHandle.removeEntry(name, { recursive: isDirectory });
-      await this.syncRealDirectory(driveId, parentPath);
-    } catch (err) {
-      console.error("Physical delete error:", err);
-    }
-  }
-
-  private async renameRealItemPhysically(driveId: string, parentPath: string, oldName: string, newName: string, isDirectory: boolean): Promise<void> {
-    const rootHandle = this.mountedHandles[driveId];
-    if (!rootHandle) return;
-    try {
-      const dirHandle = await this.resolvePhysicalPath(rootHandle, parentPath, false);
-      if (isDirectory) {
-        const itemHandle = await dirHandle.getDirectoryHandle(oldName);
-        if (typeof (itemHandle as any).move === 'function') {
-          await (itemHandle as any).move(newName);
-        } else {
-          log.warn("Direct directory rename is not supported natively by this browser. Syncing back.");
-        }
-      } else {
-        const itemHandle = await dirHandle.getFileHandle(oldName);
-        if (typeof (itemHandle as any).move === 'function') {
-          await (itemHandle as any).move(newName);
-        } else {
-          // Alternative copy-and-delete fallback
-          const file = await (itemHandle as any).getFile();
-          const content = await file.text();
-          const newFileHandle = await dirHandle.getFileHandle(newName, { create: true });
-          const writable = await newFileHandle.createWritable();
-          await writable.write(content);
-          await writable.close();
-          await dirHandle.removeEntry(oldName);
-        }
-      }
-      await this.syncRealDirectory(driveId, parentPath);
-    } catch (err) {
-      console.error("Physical rename error:", err);
-    }
   }
 
   // -----------------------------------------------------------------------
@@ -870,8 +608,6 @@ class FileSystemEngine {
     // Real-drive write-through: the server owns the disk write.
     if (this.isSystemDrive(driveId)) {
       this.runRealJob('mkdir', { path: this.childAbsolutePath(parentPath, cleanName) }, driveId, parentPath);
-    } else if (this.mountedHandles[driveId]) {
-      this.createRealFolderPhysically(driveId, parentPath, cleanName);
     }
 
     this.saveToStorage();
@@ -915,8 +651,6 @@ class FileSystemEngine {
     // Real-drive write-through: the server owns the disk write.
     if (this.isSystemDrive(driveId)) {
       this.runRealJob('write', { path: this.childAbsolutePath(parentPath, cleanName), content }, driveId, parentPath);
-    } else if (this.mountedHandles[driveId]) {
-      this.writeRealFilePhysically(driveId, parentPath, cleanName, content);
     }
 
     this.saveToStorage();
@@ -935,9 +669,6 @@ class FileSystemEngine {
     // Real-drive write-through: the server owns the disk write.
     if (this.isSystemDrive(file.driveId)) {
       void this.callServerFs('write', { path: this.realAbsolutePath(file), content });
-    } else if (this.mountedHandles[file.driveId]) {
-      const fileName = file.ext ? `${file.name}.${file.ext}` : file.name;
-      this.writeRealFilePhysically(file.driveId, file.path, fileName, content);
     }
 
     this.saveToStorage();
@@ -950,7 +681,6 @@ class FileSystemEngine {
     const clean = newFullName.trim();
     if (!clean) throw new Error('Invalid name');
 
-    const oldFullName = file.ext ? `${file.name}.${file.ext}` : file.name;
     // Resolve the real on-disk path before `name`/`ext` are mutated below.
     const realSourcePath = this.isSystemDrive(file.driveId) ? this.realAbsolutePath(file) : '';
 
@@ -986,8 +716,6 @@ class FileSystemEngine {
     // Real-drive write-through: the server owns the disk write.
     if (this.isSystemDrive(file.driveId)) {
       this.runRealJob('rename', { path: realSourcePath, newName: clean }, file.driveId, file.path);
-    } else if (this.mountedHandles[file.driveId]) {
-      this.renameRealItemPhysically(file.driveId, file.path, oldFullName, clean, file.isDirectory);
     }
 
     this.saveToStorage();
@@ -1016,7 +744,6 @@ class FileSystemEngine {
       );
     }
 
-    const oldFullName = file.ext ? `${file.name}.${file.ext}` : file.name;
 
     if (file.isDirectory) {
       const dirPath = `${this.normalizePath(file.path)}\\${file.name}`;
@@ -1025,11 +752,6 @@ class FileSystemEngine {
     }
 
     this.files = this.files.filter(f => f.id !== fileId);
-
-    // Physical FileSystem write-through (mounted-handle drives only)
-    if (!isReal && this.mountedHandles[file.driveId]) {
-      this.deleteRealItemPhysically(file.driveId, file.path, oldFullName, file.isDirectory);
-    }
 
     this.saveToStorage();
   }
@@ -1430,44 +1152,6 @@ class FileSystemEngine {
 
     this.saveToStorage();
     return extractedCount;
-  }
-
-  // Real Local Host Directory Mount (File System Access API)
-  public async mountLocalDirectory(dirHandle: any, targetDriveId: string = 'drive_host'): Promise<Drive> {
-    const drive = this.getDrive(targetDriveId);
-    const letter = drive?.letter || 'Z:';
-
-    const hostDrive: Drive = {
-      id: targetDriveId,
-      letter,
-      name: tGlobal('fsHostDriveName').replace('{name}', dirHandle.name || tGlobal('fsLocalFolder')),
-      type: 'host_fs',
-      driveKind: 'removable',
-      fileSystem: 'Host Link (File System Access API)',
-      totalBytes: 1024 * 1024 * 1024 * 1024,
-      freeBytes: 500 * 1024 * 1024 * 1024,
-      description: tGlobal('fsHostDriveDesc').replace('{name}', dirHandle.name),
-      isMounted: true
-    };
-
-    const existingDriveIdx = this.drives.findIndex(d => d.id === targetDriveId);
-    if (existingDriveIdx >= 0) {
-      this.drives[existingDriveIdx] = hostDrive;
-    } else {
-      this.drives.push(hostDrive);
-    }
-
-    // Save handle in-memory and in IndexedDB
-    this.mountedHandles[targetDriveId] = dirHandle;
-    if (typeof window !== 'undefined') {
-      await handleStore.set(targetDriveId, dirHandle);
-    }
-
-    // Sync directories for real
-    await this.syncRealDirectory(targetDriveId, letter);
-
-    this.saveToStorage();
-    return hostDrive;
   }
 
   // Import external real file from browser input

@@ -209,14 +209,10 @@ export function usePanels(deps: PanelDeps) {
 
   // Trigger host filesystem sync on navigation instead of during render/getFiles
   useEffect(() => {
-    if (fsEngine.hasRealHandle(leftTab.driveId)) {
-      fsEngine.syncRealDirectory(leftTab.driveId, leftTab.currentPath);
-    } else if (leftTab.driveId.startsWith('real_')) {
+    if (leftTab.driveId.startsWith('real_')) {
       void fsEngine.loadSystemDriveDirectory(leftTab.driveId, leftTab.currentPath);
     }
-    if (fsEngine.hasRealHandle(rightTab.driveId)) {
-      fsEngine.syncRealDirectory(rightTab.driveId, rightTab.currentPath);
-    } else if (rightTab.driveId.startsWith('real_')) {
+    if (rightTab.driveId.startsWith('real_')) {
       void fsEngine.loadSystemDriveDirectory(rightTab.driveId, rightTab.currentPath);
     }
   }, [leftTab.driveId, leftTab.currentPath, rightTab.driveId, rightTab.currentPath]);
@@ -344,9 +340,7 @@ export function usePanels(deps: PanelDeps) {
 
   const handleRefresh = useCallback(async (panelSide: 'left' | 'right') => {
     const tab = panelSide === 'left' ? leftTab : rightTab;
-    if (fsEngine.hasRealHandle(tab.driveId)) {
-      await fsEngine.syncRealDirectory(tab.driveId, tab.currentPath);
-    } else if (tab.driveId.startsWith('real_')) {
+    if (tab.driveId.startsWith('real_')) {
       await fsEngine.loadSystemDriveDirectory(tab.driveId, tab.currentPath);
     }
     setFsTick(t => t + 1);
@@ -394,10 +388,6 @@ export function usePanels(deps: PanelDeps) {
   const handleSelectDrive = useCallback(async (panelSide: 'left' | 'right', driveId: string) => {
     const drive = drives.find(d => d.id === driveId);
     if (!drive) return;
-
-    if (fsEngine.hasRealHandle(driveId)) {
-      await fsEngine.requestPermissionForDrive(driveId);
-    }
 
     const targetSet = panelSide === 'left' ? setLeftPanel : setRightPanel;
     targetSet(p => ({

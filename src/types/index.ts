@@ -273,8 +273,6 @@ export type ActiveModal =
   | 'disk_usage'
   | 'diskUsage'
   | 'settings'
-  | 'mount_local'
-  | 'mountLocal'
   | 'new_file'
   | 'shortcuts_cheat'
   | 'protect_folder'

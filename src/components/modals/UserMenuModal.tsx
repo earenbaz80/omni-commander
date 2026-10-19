@@ -29,7 +29,6 @@ export const UserMenuModal: React.FC<UserMenuModalProps> = ({
     { key: '4', title: t.userMenuChecksum, modal: 'checksum' as ActiveModal },
     { key: '5', title: t.userMenuZip, modal: 'zipArchive' as ActiveModal },
     { key: '6', title: t.userMenuDiskUsage, modal: 'diskUsage' as ActiveModal },
-    { key: '8', title: t.userMenuMountLocal, modal: 'mountLocal' as ActiveModal },
     { key: '9', title: t.userMenuSettings, modal: 'settings' as ActiveModal },
   ];
 

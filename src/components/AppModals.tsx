@@ -31,7 +31,6 @@ const CmdWingetLibraryModal = React.lazy(() => import('./modals/CmdWingetLibrary
 const BookmarksHotlistModal = React.lazy(() => import('./modals/BookmarksHotlistModal').then(m => ({ default: m.BookmarksHotlistModal })));
 const RecycleBinModal = React.lazy(() => import('./modals/RecycleBinModal').then(m => ({ default: m.RecycleBinModal })));
 const BackgroundTasksModal = React.lazy(() => import('./modals/BackgroundTasksModal').then(m => ({ default: m.BackgroundTasksModal })));
-const RealStorageOnboardingModal = React.lazy(() => import('./modals/RealStorageOnboardingModal').then(m => ({ default: m.RealStorageOnboardingModal })));
 
 type UnlockTarget = {
   side: 'left' | 'right';
@@ -64,8 +63,6 @@ interface AppModalsProps {
   setLeftPanel: React.Dispatch<React.SetStateAction<PanelState>>;
   setRightPanel: React.Dispatch<React.SetStateAction<PanelState>>;
   setFsTick: React.Dispatch<React.SetStateAction<number>>;
-  showOnboarding: boolean;
-  setShowOnboarding: React.Dispatch<React.SetStateAction<boolean>>;
   handleConfirmCopy: (targetPath: string, options: TransferOptions) => void;
   handleConfirmMove: (targetPath: string, options: TransferOptions) => void;
   handleConfirmDelete: () => void;
@@ -80,7 +77,6 @@ interface AppModalsProps {
   handleSetFolderPassword: (folderPath: string, password: string | null) => void;
   handleSelectDrive: (panelSide: 'left' | 'right', driveId: string) => Promise<void>;
   handleExecuteCommand: (cmd: string) => void;
-  handleMountDrivePhysically: (driveId: 'drive_c' | 'drive_d' | 'drive_host') => Promise<void>;
   onRunCopyList: (plans: TransferPlan[]) => void;
 }
 
@@ -113,8 +109,6 @@ export const AppModals: React.FC<AppModalsProps> = ({
   setLeftPanel,
   setRightPanel,
   setFsTick,
-  showOnboarding,
-  setShowOnboarding,
   handleConfirmCopy,
   handleConfirmMove,
   handleConfirmDelete,
@@ -129,7 +123,6 @@ export const AppModals: React.FC<AppModalsProps> = ({
   handleSetFolderPassword,
   handleSelectDrive,
   handleExecuteCommand,
-  handleMountDrivePhysically,
   onRunCopyList,
 }) => {
   return (
@@ -475,18 +468,6 @@ export const AppModals: React.FC<AppModalsProps> = ({
               setActiveModal(null);
             }}
             onClose={() => setActiveModal(null)}
-          />
-        )}
-
-        {showOnboarding && (
-          <RealStorageOnboardingModal
-            theme={currentTheme}
-            lang={lang}
-            onMountDrive={handleMountDrivePhysically}
-            onClose={() => {
-              setShowOnboarding(false);
-              localStorage.setItem('nc_onboarding_real_v1', 'true');
-            }}
           />
         )}
 

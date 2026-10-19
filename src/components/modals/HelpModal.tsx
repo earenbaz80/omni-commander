@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Keyboard, Terminal, Layers, Wrench, BookOpen, FolderSync, FileText, Search, GitCompare, Hash } from 'lucide-react';
+import { Keyboard, Terminal, Layers, Wrench, BookOpen, FileText, Search, GitCompare, Hash } from 'lucide-react';
 import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
@@ -19,7 +19,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
   onClose
 }) => {
   const t = getTranslations(lang);
-  const [activeTab, setActiveTab] = useState<'shortcuts' | 'dual_panel' | 'commands' | 'mount' | 'tools'>('shortcuts');
+  const [activeTab, setActiveTab] = useState<'shortcuts' | 'dual_panel' | 'commands' | 'tools'>('shortcuts');
 
   const shortcutGroups = [
     {
@@ -138,18 +138,6 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           <button
             onClick={() => {
               soundManager.playKeyTick();
-              setActiveTab('mount');
-            }}
-            className={`px-3 py-1 rounded text-xs flex items-center gap-1.5 cursor-pointer font-semibold ${
-              activeTab === 'mount' ? 'bg-amber-400 text-black shadow' : 'hover:bg-white/10 text-white/80'
-            }`}
-          >
-            <FolderSync className="w-3.5 h-3.5" /> {t.helpMountTitle}
-          </button>
-
-          <button
-            onClick={() => {
-              soundManager.playKeyTick();
               setActiveTab('tools');
             }}
             className={`px-3 py-1 rounded text-xs flex items-center gap-1.5 cursor-pointer font-semibold ${
@@ -242,21 +230,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
             </div>
           )}
 
-          {/* 4. PC Mount Tab */}
-          {activeTab === 'mount' && (
-            <div className="space-y-3 leading-relaxed text-[11px]">
-              <div className="p-3 bg-black/40 rounded border border-emerald-500/30 space-y-2">
-                <h4 className="text-emerald-300 font-bold text-xs uppercase flex items-center gap-1.5">
-                  <FolderSync className="w-4 h-4" /> {t.helpMountTitle}
-                </h4>
-                <p>
-                  {t.helpMountDescPart1}<em>File System Access</em>{t.helpMountDescPart2}<strong>{t.helpMountButton}</strong>{t.helpMountDescPart3}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* 5. Tools Tab */}
+          {/* 4. Tools Tab */}
           {activeTab === 'tools' && (
             <div className="space-y-3 leading-relaxed text-[11px]">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
