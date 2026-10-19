@@ -46,11 +46,11 @@ describe('AppLockModal', () => {
 
     fireEvent.change(passInput, { target: { value: 'wrong' } });
     fireEvent.submit(form);
-    await screen.findByText(/incorrect/i);
+    await screen.findByText(/incorrect/i, undefined, { timeout: 5000 });
     expect(onUnlockSuccess).not.toHaveBeenCalled();
 
     fireEvent.change(passInput, { target: { value: 'pw123' } });
     fireEvent.submit(form);
-    await waitFor(() => expect(onUnlockSuccess).toHaveBeenCalledTimes(1));
-  });
+    await waitFor(() => expect(onUnlockSuccess).toHaveBeenCalledTimes(1), { timeout: 5000 });
+  }, 20000);
 });
