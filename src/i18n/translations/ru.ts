@@ -169,6 +169,7 @@ export const ru = {
     bgTasksRunning: "активных выполняемых задач",
     bgTasksClearCompleted: "Очистить завершённые",
     bgTasksNote: "Передачи и сжатия выполняются асинхронно",
+    bgTasksFiles: "Файлы",
     escToExit: "ESC для выхода",
     escToClose: "ESC для закрытия",
     renameFindText: "Искомый текст:",

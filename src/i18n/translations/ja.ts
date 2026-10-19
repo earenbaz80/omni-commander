@@ -169,6 +169,7 @@ export const ja = {
     bgTasksRunning: "実行中のタスク",
     bgTasksClearCompleted: "完了済みを消去",
     bgTasksNote: "転送と圧縮は非同期で実行されます",
+    bgTasksFiles: "ファイル",
     escToExit: "ESC で終了",
     escToClose: "ESC で閉じる",
     renameFindText: "検索するテキスト:",

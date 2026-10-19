@@ -38,6 +38,13 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
   if (activeTasks.length === 0) return null;
 
   const topTask = activeTasks[0];
+  // The newest row of the bounded per-file list is the file being written now.
+  const currentFileEntry = topTask.files && topTask.files.length > 0
+    ? topTask.files[topTask.files.length - 1]
+    : undefined;
+  const currentFilePercent = currentFileEntry && currentFileEntry.size > 0
+    ? Math.min(100, Math.round((currentFileEntry.copied / currentFileEntry.size) * 100))
+    : 0;
 
   return (
     <div className="fixed bottom-7 right-4 z-40 animate-fadeIn select-none font-mono text-xs">
@@ -83,6 +90,17 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
               cells={22}
               className="text-[11px]"
             />
+
+            {currentFileEntry && (
+              <div className="flex items-center gap-1.5 text-[9px] opacity-70 font-mono">
+                <span className="truncate flex-1" title={currentFileEntry.path}>
+                  {currentFileEntry.name}
+                </span>
+                <span className="tabular-nums shrink-0">
+                  {currentFileEntry.size > 0 ? `${currentFilePercent}%` : ''}
+                </span>
+              </div>
+            )}
 
             <div className="flex items-center justify-between text-[10px] opacity-70">
               <span className={topTask.status === 'failed' ? 'text-rose-400 font-bold truncate' : ''}>

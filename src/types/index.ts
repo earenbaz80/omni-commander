@@ -113,6 +113,17 @@ export interface RecycleBinItem {
   item: FileItem;
 }
 
+/** One file inside a running transfer, as reported by the transfer engine. */
+export interface FileProgressEntry {
+  /** Destination path, used as the identity of the row. */
+  path: string;
+  /** Display name of the destination entry. */
+  name: string;
+  size: number;
+  copied: number;
+  status: 'copying' | 'done' | 'skipped' | 'error';
+}
+
 export interface BackgroundTask {
   id: string;
   type: 'copy' | 'move' | 'delete' | 'archive' | 'extract' | 'sync' | 'checksum';
@@ -129,6 +140,8 @@ export interface BackgroundTask {
   etaSeconds?: number;
   /** File currently being written, shown as progress detail. */
   currentFile?: string;
+  /** Tail of the files this task touched, for per-file progress rows. */
+  files?: FileProgressEntry[];
 }
 
 /** What to do when the destination entry already exists. 'ask' prompts per entry. */

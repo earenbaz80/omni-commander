@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import { ConflictResolution, Drive, FileItem, PendingConflict, RecycleBinItem, TransferOptions } from '../types';
+import { ConflictResolution, Drive, FileItem, FileProgressEntry, PendingConflict, RecycleBinItem, TransferOptions } from '../types';
 import { handleStore } from './handleStore';
 import { log } from '../utils/logger';
 import { tGlobal } from '../i18n/translations';
@@ -38,6 +38,8 @@ interface RealFsJob {
   currentFile: string;
   /** Destination parked for a human answer; present only while status is 'waiting'. */
   pendingConflict: { source: string; destination: string } | null;
+  /** Tail of the files this job touched, newest last. Bounded by the server. */
+  recentFiles: FileProgressEntry[];
   speedBps: number;
   etaSeconds: number;
   errors: Array<{ path: string; message: string }>;
@@ -738,7 +740,8 @@ class FileSystemEngine {
     onProgress?: (transferred: number, total: number) => void,
     signal?: { paused: boolean; cancelled: boolean },
     options?: TransferOptions,
-    onConflict?: (conflict: PendingConflict) => void
+    onConflict?: (conflict: PendingConflict) => void,
+    onFiles?: (files: FileProgressEntry[]) => void
   ): Promise<FileItem | undefined> {
     const started = await this.callServerFs<{ jobId?: string }>(op, {
       sources: [this.realAbsolutePath(file)],
@@ -750,7 +753,15 @@ class FileSystemEngine {
     });
     if (!started?.jobId) throw new Error(op === 'move' ? 'Real move could not start' : 'Real copy could not start');
 
-    const job = await this.awaitServerJob(started.jobId, onProgress, signal, undefined, onConflict);
+    // The per-file rows come from the same snapshot the progress callback reads,
+    // so both surfaces stay in lockstep without a second poll.
+    const job = await this.awaitServerJob(
+      started.jobId,
+      onProgress,
+      signal,
+      onFiles ? snapshot => onFiles(snapshot.recentFiles || []) : undefined,
+      onConflict
+    );
     if (job && job.status === 'done-with-errors') {
       throw new Error(job.errors[0]?.message || 'Operation failed');
     }
@@ -991,7 +1002,8 @@ class FileSystemEngine {
     items: FileItem[],
     useRecycleBin: boolean,
     onProgress?: (done: number, total: number) => void,
-    signal?: { paused: boolean; cancelled: boolean }
+    signal?: { paused: boolean; cancelled: boolean },
+    onFiles?: (files: FileProgressEntry[]) => void
   ): Promise<void> {
     const real = items.filter(item => this.isSystemDrive(item.driveId));
     const virtual = items.filter(item => !this.isSystemDrive(item.driveId));
@@ -1016,6 +1028,7 @@ class FileSystemEngine {
 
     const job = await this.awaitServerJob(started.jobId, undefined, signal, snapshot => {
       onProgress?.(done + (snapshot.itemsDone || 0), total);
+      onFiles?.(snapshot.recentFiles || []);
     });
     if (job && job.status === 'done-with-errors') {
       throw new Error(job.errors[0]?.message || 'Delete failed');
@@ -1140,14 +1153,15 @@ class FileSystemEngine {
     onProgress?: (transferred: number, total: number) => void,
     signal?: { paused: boolean; cancelled: boolean },
     options?: TransferOptions,
-    onConflict?: (conflict: PendingConflict) => void
+    onConflict?: (conflict: PendingConflict) => void,
+    onFiles?: (files: FileProgressEntry[]) => void
   ): Promise<FileItem | undefined> {
     const file = this.files.find(f => f.id === fileId);
     if (!file) return undefined;
 
     // Real drives are written by the local server, never simulated in memory.
     if (this.isSystemDrive(file.driveId) || this.isSystemDrive(targetDriveId)) {
-      return this.realCopyOrMove(file, 'copy', targetDriveId, targetPath, overwrite, onProgress, signal, options, onConflict);
+      return this.realCopyOrMove(file, 'copy', targetDriveId, targetPath, overwrite, onProgress, signal, options, onConflict, onFiles);
     }
 
     const normTarget = this.normalizePath(targetPath);
@@ -1251,13 +1265,13 @@ class FileSystemEngine {
     }
   }
 
-  public async moveItem(fileId: string, targetDriveId: string, targetPath: string, onProgress?: (transferred: number, total: number) => void, signal?: { paused: boolean; cancelled: boolean }, options?: TransferOptions, onConflict?: (conflict: PendingConflict) => void): Promise<boolean> {
+  public async moveItem(fileId: string, targetDriveId: string, targetPath: string, onProgress?: (transferred: number, total: number) => void, signal?: { paused: boolean; cancelled: boolean }, options?: TransferOptions, onConflict?: (conflict: PendingConflict) => void, onFiles?: (files: FileProgressEntry[]) => void): Promise<boolean> {
     const file = this.files.find(f => f.id === fileId);
     if (!file) return false;
 
     // Real drives are written by the local server, never simulated in memory.
     if (this.isSystemDrive(file.driveId) || this.isSystemDrive(targetDriveId)) {
-      await this.realCopyOrMove(file, 'move', targetDriveId, targetPath, true, onProgress, signal, options, onConflict);
+      await this.realCopyOrMove(file, 'move', targetDriveId, targetPath, true, onProgress, signal, options, onConflict, onFiles);
       return true;
     }
 

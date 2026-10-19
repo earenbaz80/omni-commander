@@ -195,6 +195,7 @@ export const en = {
     bgTasksRunning: "active running tasks",
     bgTasksClearCompleted: "Clear Completed",
     bgTasksNote: "Transfers and compressions run asynchronously",
+    bgTasksFiles: "Files",
     escToExit: "ESC to exit",
     escToClose: "ESC to close",
     renameFindText: "Text to find:",

@@ -169,6 +169,7 @@ export const it = {
     bgTasksRunning: "attività in esecuzione",
     bgTasksClearCompleted: "Cancella completate",
     bgTasksNote: "Trasferimenti e compressioni vengono eseguiti in modo asincrono",
+    bgTasksFiles: "File",
     escToExit: "ESC per uscire",
     escToClose: "ESC per chiudere",
     renameFindText: "Testo da cercare:",

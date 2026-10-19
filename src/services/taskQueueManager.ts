@@ -1,4 +1,4 @@
-import { BackgroundTask } from '../types';
+import { BackgroundTask, FileProgressEntry } from '../types';
 
 export interface OperationSignal {
   paused: boolean;
@@ -12,6 +12,13 @@ export type OperationExecutor = (
 ) => Promise<void>;
 
 class TaskQueueManager {
+  /**
+   * How many per-file rows a task keeps. The engine reports each job's tail, and
+   * a transfer can touch hundreds of thousands of files, so the merged list is
+   * capped to what a human could actually read.
+   */
+  private static readonly FILE_WINDOW = 60;
+
   private tasks: BackgroundTask[] = [];
   private listeners: Array<() => void> = [];
   private executors: Map<string, OperationExecutor> = new Map();
@@ -215,6 +222,24 @@ class TaskQueueManager {
     if (meta.totalBytes !== undefined) task.totalBytes = meta.totalBytes;
     if (meta.currentFile !== undefined) task.currentFile = meta.currentFile;
     if (meta.error !== undefined) task.error = meta.error;
+    this.notify();
+  }
+
+  /**
+   * Merges per-file progress rows into a task. Each server job reports only the
+   * tail of its own work, so rows are accumulated by destination path and the
+   * list is capped rather than growing one entry per file ever touched.
+   */
+  public updateTaskFiles(id: string, entries: FileProgressEntry[]): void {
+    const task = this.tasks.find(t => t.id === id);
+    if (!task || entries.length === 0) return;
+    const merged = new Map((task.files || []).map(f => [f.path, f]));
+    for (const entry of entries) merged.set(entry.path, entry);
+    const all = [...merged.values()];
+    task.files =
+      all.length > TaskQueueManager.FILE_WINDOW
+        ? all.slice(all.length - TaskQueueManager.FILE_WINDOW)
+        : all;
     this.notify();
   }
 

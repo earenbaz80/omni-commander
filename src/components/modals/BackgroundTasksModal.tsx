@@ -147,6 +147,43 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
                   </div>
                 )}
 
+                {/* DOS-style per-file rows, newest first: one line per file, each
+                    with its own progress readout. */}
+                {task.files && task.files.length > 0 && (
+                  <div className="bg-black/40 border border-white/10 rounded-sm px-2 py-1 max-h-32 overflow-y-auto">
+                    <div className="flex items-center justify-between text-[9px] uppercase opacity-50">
+                      <span>{t.bgTasksFiles}</span>
+                      <span className="tabular-nums">{task.files.length}</span>
+                    </div>
+                    {task.files.slice().reverse().map((file) => {
+                      const pct = file.size > 0 ? Math.min(100, Math.round((file.copied / file.size) * 100)) : 0;
+                      const tone =
+                        file.status === 'done' ? 'text-emerald-400'
+                          : file.status === 'error' ? 'text-rose-300'
+                            : file.status === 'skipped' ? 'text-neutral-500'
+                              : 'text-cyan-300';
+                      const mark =
+                        file.status === 'done' ? 'OK'
+                          : file.status === 'error' ? '!!'
+                          : file.status === 'skipped' ? '--'
+                          : '>>';
+                      return (
+                        <div
+                          key={file.path}
+                          className="flex items-center gap-2 text-[10px] font-mono py-0.5"
+                          title={file.path}
+                        >
+                          <span className={`shrink-0 ${tone}`}>{mark}</span>
+                          <span className="flex-1 truncate">{file.name}</span>
+                          <span className="tabular-nums opacity-60 shrink-0 w-10 text-right">
+                            {file.status === 'done' ? '' : file.size > 0 ? `${pct}%` : ''}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
                 {task.error && (
                   <div className="text-[10px] text-rose-300 bg-rose-950/40 border-l-2 border-rose-500 px-2 py-1 rounded-sm break-words">
                     {task.error}

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { fsEngine, lostJobRetryPolicy } from './fileSystem';
-import { Drive, PendingConflict } from '../types';
+import { Drive, FileProgressEntry, PendingConflict } from '../types';
 
 /**
  * Real drives are never mutated in memory: every copy/move/delete/mkdir/rename
@@ -228,6 +228,65 @@ describe('FileSystemEngine real-drive bridge', () => {
     expect(prompts[0].destination).toBe('T:\\dest\\a.txt');
     expect(prompts[0].name).toBe('a.txt');
     expect(resolved).toEqual({ decision: 'overwrite', applyToAll: true });
+  });
+
+  it('streams the per-file progress rows reported by the engine', async () => {
+    const batches: FileProgressEntry[][] = [];
+
+    vi.stubGlobal('fetch', async (input: any) => {
+      const url = String(input);
+      const reply = (data: unknown) =>
+        ({ ok: true, status: 200, json: async () => data }) as unknown as Response;
+      if (url.includes('/api/fs/copy')) {
+        return reply({ jobId: 'job_files', totalBytes: 100, itemsTotal: 2 });
+      }
+      if (url.includes('/api/fs/job/job_files')) {
+        return reply({ ...job('job_files', 'copy', 'done', 100), recentFiles: [
+          { path: 'T:\\dest\\a.txt', name: 'a.txt', size: 100, copied: 40, status: 'copying' }
+        ] });
+      }
+      return reply(listing);
+    });
+
+    const file = fsEngine.getFiles('real_T', 'T:').find(i => i.fullName === 'hola.mundo.txt')!;
+
+    await fsEngine.copyItem(
+      file.id,
+      'real_T',
+      'T:\\dest',
+      true,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      files => batches.push(files)
+    );
+
+    expect(batches).toHaveLength(1);
+    expect(batches[0]).toEqual([
+      { path: 'T:\\dest\\a.txt', name: 'a.txt', size: 100, copied: 40, status: 'copying' }
+    ]);
+  });
+
+  it('tolerates a snapshot without per-file rows instead of crashing', async () => {
+    const batches: FileProgressEntry[][] = [];
+    const file = fsEngine.getFiles('real_T', 'T:').find(i => i.fullName === 'hola.mundo.txt')!;
+
+    // The shared mock's job() has no `recentFiles`, which is what an older or
+    // partial server response looks like.
+    await fsEngine.copyItem(
+      file.id,
+      'real_T',
+      'T:\\dest',
+      true,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      files => batches.push(files)
+    );
+
+    expect(batches.every(batch => Array.isArray(batch))).toBe(true);
   });
 
   it('moves a real item through the server instead of rewriting memory', async () => {

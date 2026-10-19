@@ -388,7 +388,7 @@ export default function App() {
               current = t;
               onProgress(transferred + t, totalBytes);
               reportMeta(transferred + t, item.name);
-            }, signal, options, askConflict);
+            }, signal, options, askConflict, files => taskQueue.updateTaskFiles(taskId, files));
           } catch (e) {
             console.error('Copy failed for', item.name, e);
             taskQueue.updateTaskMeta(taskId, { error: e instanceof Error ? e.message : `Copy failed: ${item.name}` });
@@ -442,7 +442,7 @@ export default function App() {
               current = t;
               onProgress(transferred + t, totalBytes);
               reportMeta(transferred + t, item.name);
-            }, signal, options, askConflict);
+            }, signal, options, askConflict, files => taskQueue.updateTaskFiles(taskId, files));
           } catch (e) {
             console.error('Move failed for', item.name, e);
             taskQueue.updateTaskMeta(taskId, { error: e instanceof Error ? e.message : `Move failed: ${item.name}` });
@@ -480,7 +480,7 @@ export default function App() {
           taskQueue.updateTaskMeta(taskId, {
             etaSeconds: rate > 0 && total > done ? Math.round((total - done) / rate) : 0
           });
-        }, signal);
+        }, signal, files => taskQueue.updateTaskFiles(taskId, files));
       } catch (e) {
         console.error('Delete failed', e);
         taskQueue.updateTaskMeta(taskId, { error: e instanceof Error ? e.message : 'Delete failed' });

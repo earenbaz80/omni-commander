@@ -195,6 +195,7 @@ export const es = {
     bgTasksRunning: "tareas en ejecución activa",
     bgTasksClearCompleted: "Limpiar Completadas",
     bgTasksNote: "Las transferencias y compresiones se ejecutan asíncronamente",
+    bgTasksFiles: "Archivos",
     escToExit: "ESC para salir",
     escToClose: "ESC para cerrar",
     renameFindText: "Texto a Buscar:",

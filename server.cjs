@@ -439,6 +439,13 @@ function jobSnapshot(job) {
     pendingConflict: job.pendingConflict
       ? { source: job.pendingConflict.source, destination: job.pendingConflict.destination }
       : null,
+    recentFiles: (job.recentFiles || []).map(f => ({
+      path: f.path,
+      name: f.name,
+      size: f.size,
+      copied: f.copied,
+      status: f.status
+    })),
     speedBps: Math.round(rate),
     etaSeconds: rate > 0 && remaining > 0 ? Math.round(remaining / rate) : 0,
     errors: job.errors,
@@ -483,6 +490,16 @@ function dashboardHtml() {
   .stats { display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:#94a3b8; }
   .stats b { color:#e2e8f0; }
   .file { margin-top:8px; font-size:11px; color:#64748b; word-break:break-all; font-family:ui-monospace,Consolas,monospace; }
+  .files { margin-top:6px; display:grid; gap:2px; }
+  .frow { display:flex; align-items:center; gap:8px; font:11px/1.4 ui-monospace,Consolas,monospace; color:#94a3b8; }
+  .frow .fn { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .frow .fb { width:110px; height:5px; background:#1e293b; border-radius:3px; overflow:hidden; flex:none; }
+  .frow .fb i { display:block; height:100%; background:#22d3ee; }
+  .frow .fp { width:38px; text-align:right; flex:none; }
+  .frow.done .fb i { background:#4ade80; }
+  .frow.done .fp { color:#4ade80; }
+  .frow.skipped { color:#64748b; }
+  .frow.skipped .fp, .frow.error .fp { color:#f87171; }
   .errs { margin:8px 0 0; padding:8px 10px; border-left:2px solid #b91c1c; background:#1a0d0d; border-radius:4px; font-size:11px; color:#fca5a5; }
   .errs div + div { margin-top:4px; }
   .acts { display:flex; gap:6px; }
@@ -544,6 +561,15 @@ function dashboardHtml() {
       var errs=(j.errors&&j.errors.length)?('<div class="errs">'+j.errors.map(function(e){
         return '<div>'+esc(e.path||'(job)')+' &mdash; '+esc(e.message)+'</div>';
       }).join('')+'</div>'):'';
+      // Newest rows first: the file being written right now is always on top.
+      var recent=(j.recentFiles||[]).slice(-6).reverse();
+      var files=recent.length?('<div class="files">'+recent.map(function(f){
+        var fp=f.size>0?Math.min(100,Math.round(f.copied/f.size*100)):0;
+        var right=f.status==='skipped'?'skip':(f.status==='error'?'fail':fp+'%');
+        return '<div class="frow '+esc(f.status)+'"><span class="fn">'+esc(f.name)+'</span>'+
+          '<span class="fb"><i style="width:'+fp+'%"></i></span>'+
+          '<span class="fp">'+right+'</span></div>';
+      }).join('')+'</div>'):'';
       return '<section class="job '+cls+'">'+
         '<div class="row"><div><span class="badge s-'+esc(j.status)+'">'+esc(j.status)+'</span> '+
         '<span class="name">'+esc(j.label)+'</span> <span class="pill">'+esc(j.op)+'</span></div>'+btns+'</div>'+
@@ -557,6 +583,7 @@ function dashboardHtml() {
           (j.itemsSkipped?'<span>skipped <b>'+j.itemsSkipped+'</b></span>':'')+
         '</div>'+
         (j.currentFile?'<div class="file">'+esc(j.currentFile)+'</div>':'')+
+        files+
         (j.pendingConflict?('<div class="file">waiting for answer: '+esc(j.pendingConflict.destination)+'</div>'):'')+
         errs+
       '</section>';
@@ -589,6 +616,28 @@ function dashboardHtml() {
 </html>`;
 }
 
+// Per-file progress is a bounded window: a scanned tree can hold hundreds of
+// thousands of files, so the snapshot keeps only the tail of what was touched
+// instead of growing a list nobody could ever render.
+const RECENT_FILES_LIMIT = 40;
+
+// Registers one entry as it enters the transfer so the UI can show a progress
+// row per file instead of only the file currently being written.
+function noteFile(job, filePath, size) {
+  const entry = {
+    path: filePath,
+    name: path.win32.basename(filePath),
+    size: Number(size) || 0,
+    copied: 0,
+    status: 'copying'
+  };
+  job.recentFiles.push(entry);
+  if (job.recentFiles.length > RECENT_FILES_LIMIT) {
+    job.recentFiles.splice(0, job.recentFiles.length - RECENT_FILES_LIMIT);
+  }
+  return entry;
+}
+
 function makeJob(op, label) {
   const id = `job_${++jobSeq}_${Date.now().toString(36)}`;
   const job = {
@@ -617,7 +666,10 @@ function makeJob(op, label) {
     pendingConflict: null,
     conflictDecision: null,
     // "Apply to all" promotes one answer into the policy for the whole job.
-    conflictOverride: null
+    conflictOverride: null,
+    // Tail of the files this job touched, newest last. Bounded by
+    // RECENT_FILES_LIMIT so a huge tree cannot blow up the snapshot.
+    recentFiles: []
   };
   jobs.set(id, job);
   // Keep memory bounded: drop the oldest finished jobs.
@@ -727,6 +779,10 @@ async function planDestination(src, dest, job) {
       const stat = await fs.promises.lstat(src);
       if (stat.isFile()) job.bytesSkipped += stat.size;
     } catch { /* unreadable source is reported by the copy itself */ }
+    // Recorded here so every skip surfaces as a row, whether it happened at the
+    // top level or deep inside a copied tree.
+    const skipped = noteFile(job, dest, 0);
+    skipped.status = 'skipped';
     return null;
   }
   if (policy === 'rename') {
@@ -744,6 +800,7 @@ async function copyOneFile(src, dest, job) {
   const stat = await fs.promises.stat(src);
   await fs.promises.mkdir(path.win32.dirname(dest), { recursive: true });
   job.currentFile = dest;
+  const entry = noteFile(job, dest, stat.size);
   const reader = fs.createReadStream(src, { highWaterMark: 1024 * 1024 });
   const writer = fs.createWriteStream(dest);
   const fileStart = Date.now();
@@ -754,6 +811,7 @@ async function copyOneFile(src, dest, job) {
       if (!writer.write(chunk)) await once(writer, 'drain');
       job.copiedBytes += chunk.length;
       bytesThisFile += chunk.length;
+      entry.copied = bytesThisFile;
       if (job.throttleBps > 0) {
         const expectedMs = (bytesThisFile / job.throttleBps) * 1000;
         const actualMs = Date.now() - fileStart;
@@ -764,8 +822,11 @@ async function copyOneFile(src, dest, job) {
   } catch (err) {
     reader.destroy();
     writer.destroy();
+    entry.status = 'error';
     throw err;
   }
+  entry.copied = stat.size;
+  entry.status = 'done';
   try { await fs.promises.utimes(dest, stat.atime, stat.mtime); } catch {}
 }
 
@@ -798,6 +859,11 @@ async function moveTree(src, dest, job, alreadyPlanned = false) {
     const measured = await measureTree(dest);
     job.copiedBytes += measured.bytes;
     job.itemsDone += Math.max(1, measured.files);
+    // A same-volume move is one instant rename, so it lands as a single finished
+    // row rather than a stream of per-byte updates.
+    const moved = noteFile(job, dest, measured.bytes);
+    moved.copied = measured.bytes;
+    moved.status = 'done';
   } catch (err) {
     if (err.code !== 'EXDEV' && err.code !== 'EPERM') throw err;
     await copyTree(src, dest, job, alreadyPlanned);
@@ -976,10 +1042,16 @@ function registerFsRoutes() {
       startJob(job, (async () => {
         for (const target of targets) {
           await waitWhilePaused(job);
+          let entry = null;
           try {
+            const stat = await fs.promises.lstat(target).catch(() => null);
+            entry = noteFile(job, target, stat && stat.isFile() ? stat.size : 0);
             await deleteTarget(target, useTrash);
+            entry.copied = entry.size;
+            entry.status = 'done';
             job.itemsDone += 1;
           } catch (err) {
+            if (entry) entry.status = 'error';
             if (err.message === '__cancelled__') throw err;
             job.errors.push({ path: target, message: err.message });
           }
