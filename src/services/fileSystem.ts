@@ -755,7 +755,7 @@ class FileSystemEngine {
       // the server keeps its `overwrite`-derived default.
       ...(options ? { collision: options.collision, throttleBps: options.throttleBps } : {})
     });
-    if (!started?.jobId) throw new Error(op === 'move' ? 'Real move could not start' : 'Real copy could not start');
+    if (!started?.jobId) throw new Error(op === 'move' ? 'Move could not start' : 'Copy could not start');
 
     // The per-file rows come from the same snapshot the progress callback reads,
     // so both surfaces stay in lockstep without a second poll.
@@ -1082,7 +1082,7 @@ class FileSystemEngine {
       targets: real.map(item => this.realAbsolutePath(item)),
       useTrash: useRecycleBin
     });
-    if (!started?.jobId) throw new Error('Real delete could not start');
+    if (!started?.jobId) throw new Error('Delete could not start');
 
     const job = await this.awaitServerJob(started.jobId, undefined, signal, snapshot => {
       onProgress?.(done + (snapshot.itemsDone || 0), total);
