@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Copy, Scissors } from 'lucide-react';
-import { FileItem, LanguageCode } from '../../types';
+import { CollisionPolicy, FileItem, LanguageCode, TransferOptions } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
@@ -15,9 +15,17 @@ interface CopyMoveModalProps {
   sourcePath: string;
   targetPath: string;
   targetDriveId: string;
-  onConfirm: (targetPath: string, overwrite: boolean) => void;
+  onConfirm: (targetPath: string, options: TransferOptions) => void;
   onClose: () => void;
 }
+
+const COLLISION_OPTIONS: Array<[CollisionPolicy, 'collisionOverwrite' | 'collisionSkip' | 'collisionRename']> = [
+  ['overwrite', 'collisionOverwrite'],
+  ['skip', 'collisionSkip'],
+  ['rename', 'collisionRename']
+];
+
+const SPEED_OPTIONS_MB = [1, 5, 10, 50];
 
 export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
   type,
@@ -30,7 +38,9 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
 }) => {
   const t = getTranslations(lang);
   const [destPath, setDestPath] = useState(targetPath);
-  const [overwrite, setOverwrite] = useState(true);
+  const [collision, setCollision] = useState<CollisionPolicy>('overwrite');
+  // 0 means "no cap"; anything else is a cap in MB/s, converted to bytes on submit.
+  const [speedLimitMb, setSpeedLimitMb] = useState(0);
 
   const isCopy = type === 'copy';
   const totalSize = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
@@ -39,7 +49,10 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
     e.preventDefault();
     if (!destPath.trim()) return;
     soundManager.playDiskAccess();
-    onConfirm(destPath.trim(), overwrite);
+    onConfirm(destPath.trim(), {
+      collision,
+      throttleBps: speedLimitMb > 0 ? Math.round(speedLimitMb * 1024 * 1024) : 0
+    });
   };
 
   const dialogRef = useModalDialog<HTMLDivElement>(t.copyMoveModalTitle);
@@ -49,11 +62,20 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className="w-full max-w-lg rounded shadow-2xl border text-xs overflow-hidden"
+        className="flex flex-col rounded shadow-2xl border text-xs overflow-hidden"
         style={{
           backgroundColor: theme.modalBg,
           borderColor: theme.modalBorder,
-          color: theme.itemText
+          color: theme.itemText,
+          // User-resizable: drag any edge or the bottom-right corner. The dialog
+          // starts at 32rem wide, can grow up to the overlay (never past the
+          // viewport) and cannot collapse below a usable minimum.
+          resize: 'both',
+          width: '32rem',
+          minWidth: '18rem',
+          minHeight: '12rem',
+          maxWidth: '100%',
+          maxHeight: '100%'
         }}
       >
         {/* Header */}
@@ -73,14 +95,14 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
         </div>
 
         {/* Body Form */}
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          <div>
+        <form onSubmit={handleSubmit} className="p-4 flex flex-col gap-4 min-h-0 flex-1 overflow-y-auto">
+          <div className="flex flex-col min-h-0 flex-1">
             <span className="opacity-75 block mb-1">
               {isCopy
                 ? t.copyItemsLead.replace('{n}', String(items.length)).replace('{size}', totalSize.toLocaleString())
                 : t.moveItemsLead.replace('{n}', String(items.length)).replace('{size}', totalSize.toLocaleString())}
             </span>
-            <div className="max-h-24 overflow-y-auto bg-black/40 p-2 rounded border border-white/10 text-[11px] mb-2">
+            <div className="flex-1 min-h-16 overflow-y-auto bg-black/40 p-2 rounded border border-white/10 text-[11px]">
               {items.map(i => (
                 <div key={i.id} className="truncate text-amber-300">
                   • {i.name}{i.ext ? `.${i.ext}` : ''} {i.isDirectory ? '<DIR>' : ''}
@@ -100,17 +122,40 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             />
           </div>
 
-          <div className="flex items-center gap-2 pt-1">
-            <input
-              type="checkbox"
-              id="overwriteCheck"
-              checked={overwrite}
-              onChange={(e) => setOverwrite(e.target.checked)}
-              className="cursor-pointer"
-            />
-            <label htmlFor="overwriteCheck" className="cursor-pointer opacity-90">
-              {t.copyMoveOverwrite}
-            </label>
+          {/* What to do when the destination entry already exists. */}
+          <div>
+            <span className="block font-bold text-white mb-1">{t.collisionPolicy}</span>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1" role="radiogroup" aria-label={t.collisionPolicy}>
+              {COLLISION_OPTIONS.map(([value, labelKey]) => (
+                <label key={value} className="flex items-center gap-1.5 cursor-pointer opacity-90">
+                  <input
+                    type="radio"
+                    name="collisionPolicy"
+                    value={value}
+                    checked={collision === value}
+                    onChange={() => setCollision(value)}
+                    className="cursor-pointer"
+                  />
+                  <span>{t[labelKey]}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Optional bandwidth cap, SuperCopier style. */}
+          <div>
+            <label className="block font-bold text-white mb-1" htmlFor="speedLimitSelect">{t.speedLimit}</label>
+            <select
+              id="speedLimitSelect"
+              value={speedLimitMb}
+              onChange={(e) => setSpeedLimitMb(Number(e.target.value))}
+              className="w-full bg-black/50 border border-white/30 rounded px-2.5 py-1.5 text-white font-mono text-xs focus:ring-1 focus:ring-amber-400 outline-none cursor-pointer"
+            >
+              <option value={0}>{t.speedUnlimited}</option>
+              {SPEED_OPTIONS_MB.map(mb => (
+                <option key={mb} value={mb}>{mb} MB/s</option>
+              ))}
+            </select>
           </div>
 
           {/* Action buttons */}

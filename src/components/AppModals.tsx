@@ -1,6 +1,6 @@
 import React from 'react';
 import { ThemeConfig } from '../services/themeManager';
-import { ActiveModal, Drive, FileItem, LanguageCode, PanelState, PanelTab, UserSettings } from '../types';
+import { ActiveModal, Drive, FileItem, LanguageCode, PanelState, PanelTab, TransferOptions, UserSettings } from '../types';
 import { fsEngine } from '../services/fileSystem';
 import { TaskQueueBar } from './TaskQueueBar';
 import { OfflineIndicator } from './OfflineIndicator';
@@ -67,8 +67,8 @@ interface AppModalsProps {
   setFsTick: React.Dispatch<React.SetStateAction<number>>;
   showOnboarding: boolean;
   setShowOnboarding: React.Dispatch<React.SetStateAction<boolean>>;
-  handleConfirmCopy: (targetPath: string, overwrite: boolean) => void;
-  handleConfirmMove: (targetPath: string) => void;
+  handleConfirmCopy: (targetPath: string, options: TransferOptions) => void;
+  handleConfirmMove: (targetPath: string, options: TransferOptions) => void;
   handleConfirmDelete: () => void;
   handleConfirmMkDir: (dirName: string) => void;
   handleConfirmNewFile: (fileName: string) => void;
@@ -502,7 +502,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
         )}
 
         {/* Floating Background Task Queue Bar */}
-        <TaskQueueBar onOpenTasksModal={() => setActiveModal('background_tasks')} lang={lang} />
+        <TaskQueueBar onOpenTasksModal={() => setActiveModal('background_tasks')} lang={lang} theme={currentTheme} />
 
         {/* Offline Status Indicator */}
         <OfflineIndicator lang={lang} />

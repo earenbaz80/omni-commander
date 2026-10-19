@@ -18,23 +18,9 @@ class TaskQueueManager {
   private signals: Map<string, OperationSignal> = new Map();
   private processing = false;
 
-  constructor() {
-    // Initial sample finished task for retro feel
-    this.tasks = [
-      {
-        id: 'task_init_1',
-        type: 'sync',
-        title: 'Cloud Catalog Indexing',
-        details: 'Google Drive & OneDrive metadata cache verified',
-        progress: 100,
-        status: 'completed',
-        speed: '12.4 MB/s',
-        transferredBytes: 45000000,
-        totalBytes: 45000000,
-        createdAt: new Date(Date.now() - 1000 * 60 * 5).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }
-    ];
-  }
+  // Intentionally empty: the queue must start with no tasks. A hardcoded
+  // "finished" demo task used to seed this list, which kept the corner
+  // indicator permanently visible and made real transfers look simulated.
 
   public getTasks(): BackgroundTask[] {
     return [...this.tasks];
@@ -120,11 +106,10 @@ class TaskQueueManager {
         try {
           await executor((transferred, total) => {
             if (signal.cancelled) return;
-            // Wait while paused
-            while (signal.paused && !signal.cancelled) {
-              // busy-wait (short sleep)
-            }
-            if (signal.cancelled) return;
+            // Pause/cancel is deliberately NOT awaited here: this callback is
+            // synchronous, so blocking it would stall the event loop and freeze
+            // the UI. The executor owns the pause loop (await + setTimeout) and
+            // the server mirrors pause/cancel onto the real transfer.
 
             const now = Date.now();
             const elapsed = (now - lastTime) / 1000;
@@ -204,6 +189,33 @@ class TaskQueueManager {
       if (signal) signal.cancelled = true;
       this.notify();
     }
+  }
+
+  /**
+   * Merges live transfer metadata (speed, ETA, current file, failure reason)
+   * into a task. Only defined values are written, so a caller can update one
+   * field at a time without clobbering the rest.
+   */
+  public updateTaskMeta(
+    id: string,
+    meta: {
+      speed?: string;
+      etaSeconds?: number;
+      transferredBytes?: number;
+      totalBytes?: number;
+      currentFile?: string;
+      error?: string;
+    }
+  ): void {
+    const task = this.tasks.find(t => t.id === id);
+    if (!task) return;
+    if (meta.speed !== undefined) task.speed = meta.speed;
+    if (meta.etaSeconds !== undefined) task.etaSeconds = meta.etaSeconds;
+    if (meta.transferredBytes !== undefined) task.transferredBytes = meta.transferredBytes;
+    if (meta.totalBytes !== undefined) task.totalBytes = meta.totalBytes;
+    if (meta.currentFile !== undefined) task.currentFile = meta.currentFile;
+    if (meta.error !== undefined) task.error = meta.error;
+    this.notify();
   }
 
   public clearCompleted() {

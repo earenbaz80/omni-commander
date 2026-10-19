@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { FileItem, Drive, ActiveModal, CommandHistoryItem, LanguageCode, ThemeId } from './types';
+import { FileItem, Drive, ActiveModal, CommandHistoryItem, LanguageCode, ThemeId, TransferOptions } from './types';
 import { fsEngine } from './services/fileSystem';
 import { themes, ThemeConfig } from './services/themeManager';
 import { soundManager } from './services/soundEffects';
@@ -312,64 +312,137 @@ export default function App() {
     handleGoParent,
   });
 
-  const handleConfirmCopy = (targetPath: string, overwrite: boolean) => {
+  const handleConfirmCopy = (targetPath: string, options: TransferOptions) => {
     const items: FileItem[] = transferItems;
     const totalBytes = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
+    // The simulated (non-real-drive) path only understands a boolean; the real
+    // server path receives the full policy and lets `collision` win.
+    const overwrite = options.collision === 'overwrite';
+    const startedAt = Date.now();
+    let taskId = '';
+
+    const reportMeta = (done: number, currentFile: string) => {
+      const elapsed = (Date.now() - startedAt) / 1000;
+      const rate = elapsed > 0 ? done / elapsed : 0;
+      taskQueue.updateTaskMeta(taskId, {
+        speed: rate > 0 ? `${(rate / (1024 * 1024)).toFixed(1)} MB/s` : undefined,
+        etaSeconds: rate > 0 && totalBytes > done ? Math.round((totalBytes - done) / rate) : 0,
+        currentFile
+      });
+    };
 
     const executor = async (onProgress: (transferred: number, total: number) => void, signal: { paused: boolean; cancelled: boolean }) => {
       let transferred = 0;
       for (const item of items) {
         if (signal.cancelled) return;
-        while (signal.paused && !signal.cancelled) { /* wait */ }
+        while (signal.paused && !signal.cancelled) {
+          await new Promise(resolve => setTimeout(resolve, 120));
+        }
         if (signal.cancelled) return;
+
+        // `onProgress` reports cumulative bytes for the item in flight (a real
+        // server job streams growing byte counts), so the running total is
+        // everything already finished plus the current item's progress.
+        let current = 0;
         try {
           await fsEngine.copyItem(item.id, currentInactiveTab.driveId, targetPath, overwrite, (t) => {
-            transferred += t;
-            onProgress(transferred, totalBytes);
-          });
+            current = t;
+            onProgress(transferred + t, totalBytes);
+            reportMeta(transferred + t, item.name);
+          }, signal, options);
         } catch (e) {
           console.error('Copy failed for', item.name, e);
+          taskQueue.updateTaskMeta(taskId, { error: e instanceof Error ? e.message : `Copy failed: ${item.name}` });
         }
+        transferred += current || (item.isDirectory ? 0 : item.size);
       }
     };
 
-    taskQueue.addTask('copy', t.appCopying.replace('{n}', String(items.length)), t.appDest.replace('{path}', targetPath), totalBytes, executor);
+    taskId = taskQueue.addTask('copy', t.appCopying.replace('{n}', String(items.length)), t.appDest.replace('{path}', targetPath), totalBytes, executor);
     setActiveModal(null);
   };
 
-  const handleConfirmMove = (targetPath: string) => {
+  const handleConfirmMove = (targetPath: string, options: TransferOptions) => {
     const items: FileItem[] = transferItems;
     const totalBytes = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
+    const startedAt = Date.now();
+    let taskId = '';
+
+    const reportMeta = (done: number, currentFile: string) => {
+      const elapsed = (Date.now() - startedAt) / 1000;
+      const rate = elapsed > 0 ? done / elapsed : 0;
+      taskQueue.updateTaskMeta(taskId, {
+        speed: rate > 0 ? `${(rate / (1024 * 1024)).toFixed(1)} MB/s` : undefined,
+        etaSeconds: rate > 0 && totalBytes > done ? Math.round((totalBytes - done) / rate) : 0,
+        currentFile
+      });
+    };
 
     const executor = async (onProgress: (transferred: number, total: number) => void, signal: { paused: boolean; cancelled: boolean }) => {
       let transferred = 0;
       for (const item of items) {
         if (signal.cancelled) return;
-        while (signal.paused && !signal.cancelled) { /* wait */ }
+        while (signal.paused && !signal.cancelled) {
+          await new Promise(resolve => setTimeout(resolve, 120));
+        }
         if (signal.cancelled) return;
+
+        let current = 0;
         try {
           await fsEngine.moveItem(item.id, currentInactiveTab.driveId, targetPath, (t) => {
-            transferred += t;
-            onProgress(transferred, totalBytes);
-          });
+            current = t;
+            onProgress(transferred + t, totalBytes);
+            reportMeta(transferred + t, item.name);
+          }, signal, options);
         } catch (e) {
           console.error('Move failed for', item.name, e);
+          taskQueue.updateTaskMeta(taskId, { error: e instanceof Error ? e.message : `Move failed: ${item.name}` });
         }
+        transferred += current || (item.isDirectory ? 0 : item.size);
       }
     };
 
-    taskQueue.addTask('move', t.appMoving.replace('{n}', String(items.length)), t.appDest.replace('{path}', targetPath), totalBytes, executor);
+    taskId = taskQueue.addTask('move', t.appMoving.replace('{n}', String(items.length)), t.appDest.replace('{path}', targetPath), totalBytes, executor);
     setActiveModal(null);
   };
 
   const handleConfirmDelete = () => {
     const items: FileItem[] = transferItems;
     const useTrash = settings.useRecycleBin !== false;
-    taskQueue.addTask('delete', `${useTrash ? t.appSendingTrash : t.appDeleting} ${t.appItemsCount.replace('{n}', String(items.length))}`);
+    const startedAt = Date.now();
+    const totalEntries = items.length || 1;
+    let taskId = '';
 
-    items.forEach(item => {
-      fsEngine.deleteItem(item.id, useTrash);
-    });
+    // A delete moves no bytes, so progress is measured in entries and the ETA is
+    // derived from the entry rate instead of a byte throughput.
+    const executor = async (
+      onProgress: (transferred: number, total: number) => void,
+      signal: { paused: boolean; cancelled: boolean }
+    ) => {
+      try {
+        await fsEngine.deleteItems(items, useTrash, (done, total) => {
+          onProgress(done, total);
+          const elapsed = (Date.now() - startedAt) / 1000;
+          const rate = elapsed > 0 ? done / elapsed : 0;
+          taskQueue.updateTaskMeta(taskId, {
+            etaSeconds: rate > 0 && total > done ? Math.round((total - done) / rate) : 0
+          });
+        }, signal);
+      } catch (e) {
+        console.error('Delete failed', e);
+        taskQueue.updateTaskMeta(taskId, { error: e instanceof Error ? e.message : 'Delete failed' });
+      }
+    };
+
+    taskId = taskQueue.addTask(
+      'delete',
+      `${useTrash ? t.appSendingTrash : t.appDeleting} ${t.appItemsCount.replace('{n}', String(items.length))}`,
+      undefined,
+      totalEntries,
+      executor
+    );
+    // A delete has no byte throughput, so clear the misleading "0 MB/s" readout.
+    taskQueue.updateTaskMeta(taskId, { speed: '' });
     soundManager.playSuccess();
     setActiveModal(null);
   };

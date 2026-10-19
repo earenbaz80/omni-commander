@@ -4,13 +4,16 @@ import { BackgroundTask, LanguageCode } from '../types';
 import { getTranslations } from '../i18n/translations';
 import { taskQueue } from '../services/taskQueueManager';
 import { soundManager } from '../services/soundEffects';
+import { ThemeConfig } from '../services/themeManager';
+import { RetroProgressBar } from './RetroProgressBar';
 
 interface TaskQueueBarProps {
   onOpenTasksModal: () => void;
   lang: LanguageCode;
+  theme: ThemeConfig;
 }
 
-export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, lang }) => {
+export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, lang, theme }) => {
   const t = getTranslations(lang);
   const [tasks, setTasks] = useState<BackgroundTask[]>(() => taskQueue.getTasks());
   const [isMinimized, setIsMinimized] = useState(false);
@@ -21,10 +24,20 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
     });
   }, []);
 
-  const runningTasks = tasks.filter(t => t.status === 'running');
-  if (tasks.length === 0) return null;
+  // The corner indicator exists for LIVE work and for FAILURES. Finished and
+  // cancelled transfers stay in the background-tasks modal, so the corner stays
+  // clear while the app is idle. A failed transfer is the one thing that must
+  // NOT be hidden: it means the file on disk may be incomplete.
+  const activeTasks = tasks.filter(
+    t =>
+      t.status === 'running' ||
+      t.status === 'queued' ||
+      t.status === 'paused' ||
+      t.status === 'failed'
+  );
+  if (activeTasks.length === 0) return null;
 
-  const topTask = runningTasks[0] || tasks[0];
+  const topTask = activeTasks[0];
 
   return (
     <div className="fixed bottom-7 right-4 z-40 animate-fadeIn select-none font-mono text-xs">
@@ -36,7 +49,7 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
         >
           <div className="flex items-center gap-2 font-bold text-cyan-300">
             <Activity className="w-3.5 h-3.5 animate-pulse text-cyan-400" />
-            <span>{t.taskQueueShort} ({runningTasks.length} {t.activeLabel})</span>
+            <span>{t.taskQueueShort} ({activeTasks.length} {t.activeLabel})</span>
           </div>
 
           <div className="flex items-center gap-1">
@@ -63,17 +76,23 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
               <span className="font-bold text-cyan-400 shrink-0 ml-2">{topTask.progress}%</span>
             </div>
 
-            <div className="w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden border border-white/10">
-              <div 
-                className={`h-full transition-all duration-200 ${
-                  topTask.status === 'completed' ? 'bg-cyan-400' : 'bg-gradient-to-r from-cyan-500 to-emerald-400'
-                }`}
-                style={{ width: `${topTask.progress}%` }}
-              />
-            </div>
+            <RetroProgressBar
+              percent={topTask.progress}
+              theme={theme}
+              status={topTask.status}
+              cells={22}
+              className="text-[11px]"
+            />
 
             <div className="flex items-center justify-between text-[10px] opacity-70">
-              <span>{topTask.speed || t.inProgress}</span>
+              <span className={topTask.status === 'failed' ? 'text-rose-400 font-bold truncate' : ''}>
+                {topTask.status === 'failed' && topTask.error
+                  ? topTask.error
+                  : topTask.speed || t.inProgress}
+                {topTask.status !== 'failed' && topTask.etaSeconds != null && topTask.etaSeconds > 0
+                  ? ` · ${t.etaLabel} ${topTask.etaSeconds}s`
+                  : ''}
+              </span>
               <span 
                 onClick={onOpenTasksModal}
                 className="underline hover:text-cyan-300 cursor-pointer font-bold"

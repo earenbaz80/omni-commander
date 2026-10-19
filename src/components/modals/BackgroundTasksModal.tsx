@@ -7,6 +7,7 @@ import { soundManager } from '../../services/soundEffects';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
 import { getTranslations } from '../../i18n/translations';
+import { RetroProgressBar } from '../RetroProgressBar';
 
 interface BackgroundTasksModalProps {
   theme: ThemeConfig;
@@ -105,7 +106,6 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
             const isRunning = task.status === 'running';
             const isPaused = task.status === 'paused';
             const isCompleted = task.status === 'completed';
-            const isCancelled = task.status === 'cancelled';
 
             return (
               <div 
@@ -124,6 +124,9 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
                     {task.speed && isRunning && (
                       <span className="text-amber-300 font-bold">{task.speed}</span>
                     )}
+                    {task.etaSeconds != null && task.etaSeconds > 0 && (
+                      <span className="text-neutral-400">{t.etaLabel} {task.etaSeconds}s</span>
+                    )}
                     <span className={`font-bold uppercase ${
                       isRunning ? 'text-emerald-400' : isPaused ? 'text-amber-400' : isCompleted ? 'text-cyan-400' : 'text-rose-400'
                     }`}>
@@ -138,15 +141,25 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
                   </div>
                 )}
 
-                {/* Progress Bar */}
-                <div className="w-full h-2 bg-black rounded-full overflow-hidden border border-white/10 relative">
-                  <div 
-                    className={`h-full transition-all duration-200 ${
-                      isCompleted ? 'bg-cyan-500' : isPaused ? 'bg-amber-500' : isCancelled ? 'bg-rose-500' : 'bg-gradient-to-r from-emerald-500 to-teal-400'
-                    }`}
-                    style={{ width: `${task.progress}%` }}
-                  />
-                </div>
+                {task.currentFile && (isRunning || isPaused) && (
+                  <div className="text-[10px] opacity-50 truncate font-mono">
+                    {task.currentFile}
+                  </div>
+                )}
+
+                {task.error && (
+                  <div className="text-[10px] text-rose-300 bg-rose-950/40 border-l-2 border-rose-500 px-2 py-1 rounded-sm break-words">
+                    {task.error}
+                  </div>
+                )}
+
+                {/* DOS-style progress bar, spanning the full card width */}
+                <RetroProgressBar
+                  percent={task.progress}
+                  theme={theme}
+                  status={task.status}
+                  className="text-xs w-full"
+                />
 
                 <div className="flex items-center justify-between text-[10px] opacity-75 tabular-nums">
                   <span>{t.bgTasksProgress.replace('{n}', String(task.progress))}</span>
