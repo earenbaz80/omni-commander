@@ -240,28 +240,41 @@ export default function App() {
     return [];
   };
 
-  const handleTriggerCopy = () => {
-    const items = getSelectedOrFocusedItems();
-    if (items.length === 0) return;
+  // Snapshot-or-selection: one list shared by the transfer dialogs AND their
+  // confirm handlers, so what the dialog previews is exactly what gets copied.
+  // Falling back to the current selection guarantees a transfer can never run
+  // against zero sources, even when an entry point forgets to snapshot.
+  const transferItems: FileItem[] = modalData?.items?.length
+    ? modalData.items
+    : getSelectedOrFocusedItems();
+
+  // Single funnel for the copy/move/delete dialogs. Child components reach it
+  // through setActiveModal, so the toolbar, menu bar, user menu and F-key bar
+  // all snapshot the selection before the dialog is opened.
+  const openTransferModal = (modal: ActiveModal): boolean => {
+    if (modal !== 'copy' && modal !== 'move' && modal !== 'delete') return false;
+    if (transferItems.length === 0) return true;
     soundManager.playKeyTick();
-    setModalData({ items, type: 'copy' });
-    setActiveModal('copy');
+    setModalData({ items: transferItems, type: modal });
+    setActiveModal(modal);
+    return true;
+  };
+
+  const handleSetActiveModal: React.Dispatch<React.SetStateAction<ActiveModal>> = (action) => {
+    if (typeof action === 'string' && openTransferModal(action)) return;
+    setActiveModal(action);
+  };
+
+  const handleTriggerCopy = () => {
+    openTransferModal('copy');
   };
 
   const handleTriggerMove = () => {
-    const items = getSelectedOrFocusedItems();
-    if (items.length === 0) return;
-    soundManager.playKeyTick();
-    setModalData({ items, type: 'move' });
-    setActiveModal('move');
+    openTransferModal('move');
   };
 
   const handleTriggerDelete = () => {
-    const items = getSelectedOrFocusedItems();
-    if (items.length === 0) return;
-    soundManager.playKeyTick();
-    setModalData({ items });
-    setActiveModal('delete');
+    openTransferModal('delete');
   };
 
   // Keyboard navigation engine
@@ -300,7 +313,7 @@ export default function App() {
   });
 
   const handleConfirmCopy = (targetPath: string, overwrite: boolean) => {
-    const items: FileItem[] = modalData?.items || [];
+    const items: FileItem[] = transferItems;
     const totalBytes = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
 
     const executor = async (onProgress: (transferred: number, total: number) => void, signal: { paused: boolean; cancelled: boolean }) => {
@@ -325,7 +338,7 @@ export default function App() {
   };
 
   const handleConfirmMove = (targetPath: string) => {
-    const items: FileItem[] = modalData?.items || [];
+    const items: FileItem[] = transferItems;
     const totalBytes = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
 
     const executor = async (onProgress: (transferred: number, total: number) => void, signal: { paused: boolean; cancelled: boolean }) => {
@@ -350,7 +363,7 @@ export default function App() {
   };
 
   const handleConfirmDelete = () => {
-    const items: FileItem[] = modalData?.items || [];
+    const items: FileItem[] = transferItems;
     const useTrash = settings.useRecycleBin !== false;
     taskQueue.addTask('delete', `${useTrash ? t.appSendingTrash : t.appDeleting} ${t.appItemsCount.replace('{n}', String(items.length))}`);
 
@@ -601,7 +614,7 @@ export default function App() {
             setIsAppLocked(true);
             return;
           }
-          setActiveModal(m);
+          handleSetActiveModal(m);
         }}
         onRefresh={() => {
           soundManager.playKeyTick();
@@ -659,7 +672,7 @@ export default function App() {
         setFsTick={setFsTick}
         activeFocusedItem={activeFocusedItem}
         setSelectedFileForModal={setSelectedFileForModal}
-        setActiveModal={setActiveModal}
+        setActiveModal={handleSetActiveModal}
       />
 
       {/* 2. Main Dual-Panel Viewport */}
@@ -815,7 +828,7 @@ export default function App() {
             if (m === 'viewer' || m === 'editor' || m === 'checksum' || m === 'properties') {
               if (activeFocusedItem) setSelectedFileForModal(activeFocusedItem);
             }
-            setActiveModal(m);
+            handleSetActiveModal(m);
           }}
           onCopy={handleTriggerCopy}
           onMove={handleTriggerMove}
@@ -937,9 +950,9 @@ export default function App() {
         currentTheme={currentTheme}
         lang={lang}
         selectedFileForModal={selectedFileForModal}
-        setActiveModal={setActiveModal}
+        setActiveModal={handleSetActiveModal}
         activeModal={activeModal}
-        modalData={modalData}
+        modalData={modalData?.items?.length ? modalData : { ...modalData, items: transferItems }}
         setModalData={setModalData}
         currentActiveTab={currentActiveTab}
         currentInactiveTab={currentInactiveTab}
