@@ -135,7 +135,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
               className="p-0.5 hover:bg-red-500/80 rounded transition-colors cursor-pointer"
               title={t.btnClose}
             >
-              <X className="w-3 h-3" />
+              <X className="w-3 h-3 text-red-500" />
             </button>
           </div>
         )}
