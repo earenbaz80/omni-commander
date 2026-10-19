@@ -27,7 +27,7 @@ export default defineConfig({
     },
     {
       command: 'npm run server',
-      url: 'http://127.0.0.1:3001/api/drives',
+      url: `http://127.0.0.1:${process.env.OMNI_API_PORT || 3001}/api/drives`,
       timeout: 60000,
       reuseExistingServer: !process.env.CI,
     },

@@ -62,7 +62,9 @@ export default defineConfig(({ mode }) => {
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
       proxy: {
-        '/api': 'http://127.0.0.1:3001',
+        // Follows the same port the local server binds. Override with OMNI_API_PORT
+        // when the server had to walk past a busy 3001.
+        '/api': `http://127.0.0.1:${process.env.OMNI_API_PORT || process.env.PORT || 3001}`,
       },
     },
     build: {
