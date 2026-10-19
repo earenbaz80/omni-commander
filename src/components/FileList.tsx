@@ -9,6 +9,12 @@ import { loadColumnWidths, saveColumnWidths, autoFitWidth, MIN_COLUMN_WIDTH } fr
 import { log } from '../utils/logger';
 import { FileListStatusBar } from './FileListStatusBar';
 
+const THUMB_MIN = 48;
+const THUMB_MAX = 192;
+const THUMB_STEP = 16;
+const THUMB_DEFAULT = 80;
+const THUMB_CELL_PADDING = 24;
+
 interface FileListProps {
   theme: ThemeConfig;
   lang: LanguageCode;
@@ -78,6 +84,8 @@ const FileListComponent: React.FC<FileListProps> = ({
   const t = getTranslations(lang);
   const listContainerRef = useRef<HTMLDivElement>(null);
   const filterInputRef = useRef<HTMLInputElement>(null);
+  const [thumbSize, setThumbSize] = useState(THUMB_DEFAULT);
+  const [containerWidth, setContainerWidth] = useState(0);
 
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => loadColumnWidths());
   const resizingColumnRef = useRef<string | null>(null);
@@ -150,9 +158,11 @@ const FileListComponent: React.FC<FileListProps> = ({
   });
 
   // Generic grid virtualizer for brief/thumbnail/gallery modes
+  const thumbCellSize = thumbSize + THUMB_CELL_PADDING;
+  const thumbColumns = Math.max(1, Math.floor(containerWidth / thumbCellSize));
   const getGridColumns = () => {
     if (viewMode === 'brief') return 3;
-    if (viewMode === 'thumbnails') return 4;
+    if (viewMode === 'thumbnails') return thumbColumns;
     if (viewMode === 'gallery') return 4;
     return 1;
   };
@@ -163,12 +173,31 @@ const FileListComponent: React.FC<FileListProps> = ({
     getScrollElement: () => listContainerRef.current,
     estimateSize: () => {
       if (viewMode === 'brief') return 34;
-      if (viewMode === 'thumbnails') return 150;
+      if (viewMode === 'thumbnails') return thumbSize + 70;
       if (viewMode === 'gallery') return 210;
       return 34;
     },
     overscan: 4,
   });
+
+  useEffect(() => {
+    const el = listContainerRef.current;
+    if (!el) return;
+    setContainerWidth(el.clientWidth);
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => setContainerWidth(el.clientWidth));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const handleThumbWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (viewMode !== 'thumbnails' || !e.ctrlKey) return;
+    e.preventDefault();
+    setThumbSize((size) => {
+      const next = size + (e.deltaY < 0 ? THUMB_STEP : -THUMB_STEP);
+      return Math.min(THUMB_MAX, Math.max(THUMB_MIN, next));
+    });
+  };
 
   // HTML5 Drag & Drop visual state
   const [isDragOverPanel, setIsDragOverPanel] = useState(false);
@@ -207,33 +236,33 @@ const FileListComponent: React.FC<FileListProps> = ({
     return `${bytes}`;
   };
 
-  const getFileIcon = (item: FileItem, size = 'w-3.5 h-3.5') => {
+  const getFileIcon = (item: FileItem, size = 'w-3.5 h-3.5', style?: React.CSSProperties) => {
     if (item.isDirectory) {
-      return <Folder className={`${size} text-amber-300 fill-amber-300/30 shrink-0`} />;
+      return <Folder className={`${size} text-amber-300 fill-amber-300/30 shrink-0`} style={style} />;
     }
     const ext = item.ext.toUpperCase();
     if (['EXE', 'COM', 'BAT', 'CMD', 'SH', 'PS1'].includes(ext)) {
-      return <Terminal className={`${size} text-emerald-400 shrink-0`} />;
+      return <Terminal className={`${size} text-emerald-400 shrink-0`} style={style} />;
     }
     if (['ZIP', 'RAR', '7Z', 'TAR', 'GZ', 'ISO'].includes(ext)) {
-      return <FileArchive className={`${size} text-red-400 shrink-0`} />;
+      return <FileArchive className={`${size} text-red-400 shrink-0`} style={style} />;
     }
     if (['TXT', 'DOC', 'DOCX', 'PDF', 'MD', 'RTF'].includes(ext)) {
-      return <FileText className={`${size} text-sky-300 shrink-0`} />;
+      return <FileText className={`${size} text-sky-300 shrink-0`} style={style} />;
     }
     if (['JS', 'TS', 'TSX', 'JSX', 'HTML', 'CSS', 'JSON', 'PY', 'C', 'CPP', 'RS', 'GO', 'SQL'].includes(ext)) {
-      return <FileCode className={`${size} text-yellow-300 shrink-0`} />;
+      return <FileCode className={`${size} text-yellow-300 shrink-0`} style={style} />;
     }
     if (['JPG', 'JPEG', 'PNG', 'GIF', 'BMP', 'SVG', 'WEBP', 'ICO'].includes(ext)) {
-      return <ImageIcon className={`${size} text-purple-400 shrink-0`} />;
+      return <ImageIcon className={`${size} text-purple-400 shrink-0`} style={style} />;
     }
     if (['MP3', 'WAV', 'OGG', 'FLAC', 'AAC', 'MID'].includes(ext)) {
-      return <Music className={`${size} text-pink-400 shrink-0`} />;
+      return <Music className={`${size} text-pink-400 shrink-0`} style={style} />;
     }
     if (['MP4', 'AVI', 'MKV', 'MOV', 'WMV', 'WEBM'].includes(ext)) {
-      return <Film className={`${size} text-rose-400 shrink-0`} />;
+      return <Film className={`${size} text-rose-400 shrink-0`} style={style} />;
     }
-    return <File className={`${size} text-slate-400 shrink-0`} />;
+    return <File className={`${size} text-slate-400 shrink-0`} style={style} />;
   };
 
   const getItemTextColor = (item: FileItem, isSelected: boolean): string => {
@@ -761,12 +790,12 @@ const FileListComponent: React.FC<FileListProps> = ({
         )}
         {/* Thumbnails Mode */}
         {viewMode === 'thumbnails' && (
-          <div style={{ height: `${gridRowVirtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}>
+          <div onWheel={handleThumbWheel} style={{ height: `${gridRowVirtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}>
             {gridRowVirtualizer.getVirtualItems().map((virtualRow) => {
-              const base = virtualRow.index * 4;
-              const rowItems = items.slice(base, base + 4);
+              const base = virtualRow.index * thumbColumns;
+              const rowItems = items.slice(base, base + thumbColumns);
               return (
-                <div key={virtualRow.key} data-index={virtualRow.index} ref={gridRowVirtualizer.measureElement} style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${virtualRow.start}px)`, display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '8px', padding: '8px' }} className="cv-auto">
+                <div key={virtualRow.key} data-index={virtualRow.index} ref={gridRowVirtualizer.measureElement} style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${virtualRow.start}px)`, display: 'grid', gridTemplateColumns: `repeat(${thumbColumns}, minmax(0, 1fr))`, gap: '8px', padding: '8px' }} className="cv-auto">
                   {rowItems.map((item, offset) => {
                     const idx = base + offset;
               const isFocused = idx === focusedIndex && isActive;
@@ -810,8 +839,8 @@ const FileListComponent: React.FC<FileListProps> = ({
                       : 'border-white/10 hover:bg-white/5'
                   }`}
                 >
-                  <div className="flex items-center justify-center mb-1">
-                    {getFileIcon(item, 'w-20 h-20')}
+                  <div className="flex items-center justify-center mb-1" style={{ width: thumbSize, height: thumbSize }}>
+                    {getFileIcon(item, '', { width: thumbSize, height: thumbSize })}
                   </div>
                   <span className="truncate w-full text-[11px] font-medium" style={{ color: textColor }}>
                     {item.name}{item.ext ? `.${item.ext}` : ''}
