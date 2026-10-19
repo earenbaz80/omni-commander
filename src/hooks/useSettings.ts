@@ -35,7 +35,7 @@ export function useSettings() {
       blinkingCursorEnabled: true,
       cursorBlinkColor: 'cyan',
       fileSelectorColor: 'blue',
-      authorName: 'earenbaz020880@gmail.com',
+      authorName: 'Edel Arencibia Baez',
       appLockEnabled: false,
       appUsername: 'admin',
       appPasswordHash: 'admin123',

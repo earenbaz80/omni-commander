@@ -23,7 +23,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({
 
   const creationDate = t.aboutCreationDate;
   const buildVersion = 'v5.50.2026 Pro (Build 2026.09.24-x64)';
-  const displayAuthor = authorName || 'earenbaz020880@gmail.com';
+  const displayAuthor = authorName || 'Edel Arencibia Baez';
 
   const dialogRef = useModalDialog<HTMLDivElement>(t.aboutTitle);
 
