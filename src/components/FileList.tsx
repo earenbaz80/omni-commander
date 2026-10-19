@@ -190,14 +190,23 @@ const FileListComponent: React.FC<FileListProps> = ({
     return () => observer.disconnect();
   }, []);
 
-  const handleThumbWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    if (viewMode !== 'thumbnails' || !e.ctrlKey) return;
-    e.preventDefault();
-    setThumbSize((size) => {
-      const next = size + (e.deltaY < 0 ? THUMB_STEP : -THUMB_STEP);
-      return Math.min(THUMB_MAX, Math.max(THUMB_MIN, next));
-    });
-  };
+  const thumbnailsActiveRef = useRef(false);
+  thumbnailsActiveRef.current = viewMode === 'thumbnails';
+
+  useEffect(() => {
+    const el = listContainerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!thumbnailsActiveRef.current || !e.ctrlKey) return;
+      e.preventDefault();
+      setThumbSize((size) => {
+        const next = size + (e.deltaY < 0 ? THUMB_STEP : -THUMB_STEP);
+        return Math.min(THUMB_MAX, Math.max(THUMB_MIN, next));
+      });
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
 
   // HTML5 Drag & Drop visual state
   const [isDragOverPanel, setIsDragOverPanel] = useState(false);
@@ -790,7 +799,7 @@ const FileListComponent: React.FC<FileListProps> = ({
         )}
         {/* Thumbnails Mode */}
         {viewMode === 'thumbnails' && (
-          <div onWheel={handleThumbWheel} style={{ height: `${gridRowVirtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}>
+          <div style={{ height: `${gridRowVirtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}>
             {gridRowVirtualizer.getVirtualItems().map((virtualRow) => {
               const base = virtualRow.index * thumbColumns;
               const rowItems = items.slice(base, base + thumbColumns);
