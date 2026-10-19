@@ -54,6 +54,8 @@ function createMainWindow() {
     },
   });
 
+  mainWindow.webContents.setVisualZoomLevelLimits(1, 1);
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
