@@ -163,7 +163,7 @@ const FileListComponent: React.FC<FileListProps> = ({
     getScrollElement: () => listContainerRef.current,
     estimateSize: () => {
       if (viewMode === 'brief') return 34;
-      if (viewMode === 'thumbnails') return 124;
+      if (viewMode === 'thumbnails') return 150;
       if (viewMode === 'gallery') return 210;
       return 34;
     },
@@ -207,33 +207,33 @@ const FileListComponent: React.FC<FileListProps> = ({
     return `${bytes}`;
   };
 
-  const getFileIcon = (item: FileItem) => {
+  const getFileIcon = (item: FileItem, size = 'w-3.5 h-3.5') => {
     if (item.isDirectory) {
-      return <Folder className="w-3.5 h-3.5 text-amber-300 fill-amber-300/30 shrink-0" />;
+      return <Folder className={`${size} text-amber-300 fill-amber-300/30 shrink-0`} />;
     }
     const ext = item.ext.toUpperCase();
     if (['EXE', 'COM', 'BAT', 'CMD', 'SH', 'PS1'].includes(ext)) {
-      return <Terminal className="w-3.5 h-3.5 text-emerald-400 shrink-0" />;
+      return <Terminal className={`${size} text-emerald-400 shrink-0`} />;
     }
     if (['ZIP', 'RAR', '7Z', 'TAR', 'GZ', 'ISO'].includes(ext)) {
-      return <FileArchive className="w-3.5 h-3.5 text-red-400 shrink-0" />;
+      return <FileArchive className={`${size} text-red-400 shrink-0`} />;
     }
     if (['TXT', 'DOC', 'DOCX', 'PDF', 'MD', 'RTF'].includes(ext)) {
-      return <FileText className="w-3.5 h-3.5 text-sky-300 shrink-0" />;
+      return <FileText className={`${size} text-sky-300 shrink-0`} />;
     }
     if (['JS', 'TS', 'TSX', 'JSX', 'HTML', 'CSS', 'JSON', 'PY', 'C', 'CPP', 'RS', 'GO', 'SQL'].includes(ext)) {
-      return <FileCode className="w-3.5 h-3.5 text-yellow-300 shrink-0" />;
+      return <FileCode className={`${size} text-yellow-300 shrink-0`} />;
     }
     if (['JPG', 'JPEG', 'PNG', 'GIF', 'BMP', 'SVG', 'WEBP', 'ICO'].includes(ext)) {
-      return <ImageIcon className="w-3.5 h-3.5 text-purple-400 shrink-0" />;
+      return <ImageIcon className={`${size} text-purple-400 shrink-0`} />;
     }
     if (['MP3', 'WAV', 'OGG', 'FLAC', 'AAC', 'MID'].includes(ext)) {
-      return <Music className="w-3.5 h-3.5 text-pink-400 shrink-0" />;
+      return <Music className={`${size} text-pink-400 shrink-0`} />;
     }
     if (['MP4', 'AVI', 'MKV', 'MOV', 'WMV', 'WEBM'].includes(ext)) {
-      return <Film className="w-3.5 h-3.5 text-rose-400 shrink-0" />;
+      return <Film className={`${size} text-rose-400 shrink-0`} />;
     }
-    return <File className="w-3.5 h-3.5 text-slate-400 shrink-0" />;
+    return <File className={`${size} text-slate-400 shrink-0`} />;
   };
 
   const getItemTextColor = (item: FileItem, isSelected: boolean): string => {
@@ -810,8 +810,8 @@ const FileListComponent: React.FC<FileListProps> = ({
                       : 'border-white/10 hover:bg-white/5'
                   }`}
                 >
-                  <div className="w-12 h-12 flex items-center justify-center bg-black/40 rounded mb-1">
-                    {getFileIcon(item)}
+                  <div className="w-20 h-20 flex items-center justify-center bg-black/40 rounded mb-1">
+                    {getFileIcon(item, 'w-16 h-16')}
                   </div>
                   <span className="truncate w-full text-[11px] font-medium" style={{ color: textColor }}>
                     {item.name}{item.ext ? `.${item.ext}` : ''}
