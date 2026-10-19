@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, Music, Film, Play, Pause, Volume2, VolumeX, Repeat, Cloud } from 'lucide-react';
+import { Eye, Music, Film, Play, Pause, Volume2, VolumeX, Repeat } from 'lucide-react';
 import { FileItem, LanguageCode } from '../types';
 import { ThemeConfig } from '../services/themeManager';
 import { soundManager } from '../services/soundEffects';
@@ -278,9 +278,6 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({
               <div><span className="opacity-60">{t.modifiedLabel}</span> {targetItem.modifiedAt}</div>
               <div><span className="opacity-60">{t.createdLabel}</span> {targetItem.createdAt}</div>
               <div><span className="opacity-60">{t.attributesLabel}</span> {JSON.stringify(targetItem.attributes)}</div>
-              {targetItem.isCloud && (
-                <div className="text-sky-300 font-bold flex items-center gap-1"><Cloud className="w-3 h-3" /> {t.propCloud} {targetItem.cloudProvider?.toUpperCase()} ({t.synced})</div>
-              )}
             </div>
           </div>
         )}

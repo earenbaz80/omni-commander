@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Folder, FileText, FileCode, FileArchive, Image as ImageIcon, Music, Film, Terminal, Check, Cloud, File, Copy, Scissors } from 'lucide-react';
+import { Folder, FileText, FileCode, FileArchive, Image as ImageIcon, Music, Film, Terminal, Check, File, Copy, Scissors } from 'lucide-react';
 import { FileItem, SortField, SortDirection, ViewMode, LanguageCode } from '../types';
 import { ThemeConfig } from '../services/themeManager';
 import { getTranslations } from '../i18n/translations';
@@ -663,12 +663,6 @@ const FileListComponent: React.FC<FileListProps> = ({
                     <span className={`truncate ${item.isDirectory ? 'font-bold' : ''}`} title={item.name}>
                       {item.name}
                     </span>
-
-                    {item.isCloud && (
-                      <span title="Cloud Synced" className="inline-flex">
-                        <Cloud className="w-2.5 h-2.5 text-sky-400 shrink-0 opacity-80" />
-                      </span>
-                    )}
 
                     {isHoveredTarget && item.isDirectory && (
                       <span className="ml-auto text-[9px] bg-amber-400 text-black px-1.5 py-0.5 rounded font-extrabold uppercase shrink-0 shadow animate-pulse">

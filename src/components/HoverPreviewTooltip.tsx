@@ -1,7 +1,7 @@
 import React from 'react';
 import { FileItem, LanguageCode } from '../types';
 import { ThemeConfig } from '../services/themeManager';
-import { Image as ImageIcon, Calendar, HardDrive, Shield, Cloud } from 'lucide-react';
+import { Image as ImageIcon, Calendar, HardDrive, Shield } from 'lucide-react';
 import { createSvgDataUrl } from '../utils/svgPreview';
 import { getTranslations } from '../i18n/translations';
 
@@ -65,7 +65,6 @@ export const HoverPreviewTooltip: React.FC<HoverPreviewTooltipProps> = ({
         }}
       >
         <span className="truncate">{item.name}{item.ext ? `.${item.ext}` : ''}</span>
-        {item.isCloud && <Cloud className="w-3 h-3 text-sky-300 shrink-0 ml-1" />}
       </div>
 
       {/* Floating Image Thumbnail Preview if image and enabled */}

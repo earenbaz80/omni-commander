@@ -245,8 +245,7 @@ class FileSystemEngine {
           modifiedAt,
           createdAt: modifiedAt,
           attributes: { readOnly: false, hidden: entry.name.startsWith('.'), system: false, archive: !isDirectory },
-          content,
-          isCloud: false
+          content
         });
       }
 
@@ -851,7 +850,6 @@ class FileSystemEngine {
       throw new Error(`Directory ${cleanName} already exists`);
     }
 
-    const drive = this.getDrive(driveId);
     const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
     const newItem: FileItem = {
       id: `dir_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -864,10 +862,7 @@ class FileSystemEngine {
       size: 0,
       modifiedAt: now,
       createdAt: now,
-      attributes: { readOnly: false, hidden: false, system: false, archive: false },
-      isCloud: drive?.type === 'cloud',
-      cloudProvider: drive?.cloudProvider,
-      cloudSyncStatus: drive?.type === 'cloud' ? 'synced' : undefined
+      attributes: { readOnly: false, hidden: false, system: false, archive: false }
     };
 
     this.files.push(newItem);
@@ -899,7 +894,6 @@ class FileSystemEngine {
 
     const normParent = this.normalizePath(parentPath);
     const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    const drive = this.getDrive(driveId);
 
     const newItem: FileItem = {
       id: `file_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -913,10 +907,7 @@ class FileSystemEngine {
       modifiedAt: now,
       createdAt: now,
       attributes: { readOnly: false, hidden: false, system: false, archive: true },
-      content,
-      isCloud: drive?.type === 'cloud',
-      cloudProvider: drive?.cloudProvider,
-      cloudSyncStatus: drive?.type === 'cloud' ? 'synced' : undefined
+      content
     };
 
     this.files.push(newItem);
@@ -940,9 +931,6 @@ class FileSystemEngine {
     file.size = new Blob([content]).size;
     file.modifiedAt = new Date().toISOString().replace('T', ' ').substring(0, 19);
     file.attributes.archive = true;
-    if (file.isCloud) {
-      file.cloudSyncStatus = 'synced';
-    }
 
     // Real-drive write-through: the server owns the disk write.
     if (this.isSystemDrive(file.driveId)) {
@@ -1223,7 +1211,6 @@ class FileSystemEngine {
     }
 
     const normTarget = this.normalizePath(targetPath);
-    const targetDrive = this.getDrive(targetDriveId);
     const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
     if (file.isDirectory) {
@@ -1241,9 +1228,6 @@ class FileSystemEngine {
         path: normTarget,
         createdAt: now,
         modifiedAt: now,
-        isCloud: targetDrive?.type === 'cloud',
-        cloudProvider: targetDrive?.cloudProvider,
-        cloudSyncStatus: targetDrive?.type === 'cloud' ? 'synced' : undefined
       };
       this.files.push(newDir);
 
@@ -1261,9 +1245,6 @@ class FileSystemEngine {
           path: childTargetPath,
           createdAt: now,
           modifiedAt: now,
-          isCloud: targetDrive?.type === 'cloud',
-          cloudProvider: targetDrive?.cloudProvider,
-          cloudSyncStatus: targetDrive?.type === 'cloud' ? 'synced' : undefined
         };
         this.files.push(newChild);
         transferred += child.size || 0;
@@ -1294,9 +1275,6 @@ class FileSystemEngine {
             name: newName,
             createdAt: now,
             modifiedAt: now,
-            isCloud: targetDrive?.type === 'cloud',
-            cloudProvider: targetDrive?.cloudProvider,
-            cloudSyncStatus: targetDrive?.type === 'cloud' ? 'synced' : undefined
           };
           this.files.push(newFile);
           this.saveToStorage();
@@ -1311,9 +1289,6 @@ class FileSystemEngine {
           path: normTarget,
           createdAt: now,
           modifiedAt: now,
-          isCloud: targetDrive?.type === 'cloud',
-          cloudProvider: targetDrive?.cloudProvider,
-          cloudSyncStatus: targetDrive?.type === 'cloud' ? 'synced' : undefined
         };
         this.files.push(newFile);
         this.saveToStorage();
@@ -1334,7 +1309,6 @@ class FileSystemEngine {
     }
 
     const normTarget = this.normalizePath(targetPath);
-    const targetDrive = this.getDrive(targetDriveId);
     const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
     if (file.isDirectory) {
@@ -1354,14 +1328,10 @@ class FileSystemEngine {
       file.path = normTarget;
       file.driveId = targetDriveId;
       file.modifiedAt = now;
-      file.isCloud = targetDrive?.type === 'cloud';
-      file.cloudProvider = targetDrive?.cloudProvider;
     } else {
       file.path = normTarget;
       file.driveId = targetDriveId;
       file.modifiedAt = now;
-      file.isCloud = targetDrive?.type === 'cloud';
-      file.cloudProvider = targetDrive?.cloudProvider;
     }
 
     this.saveToStorage();

@@ -91,9 +91,6 @@ export const PropertiesModal: React.FC<PropertiesModalProps> = ({
             <div className="flex"><span className="w-28 opacity-60">{t.propSizeOnDisk}</span> <span className="text-white">{formatBytes(Math.ceil(Math.max(file.size, 4096) / 4096) * 4096)}</span></div>
             <div className="flex"><span className="w-28 opacity-60">{t.createdLabel}</span> <span className="text-white">{file.createdAt}</span></div>
             <div className="flex"><span className="w-28 opacity-60">{t.modifiedLabel}</span> <span className="text-white">{file.modifiedAt}</span></div>
-            {file.isCloud && (
-              <div className="flex"><span className="w-28 opacity-60">{t.propCloud}</span> <span className="text-sky-300 font-bold">{file.cloudProvider?.toUpperCase()} {t.propCloudSynced}</span></div>
-            )}
           </div>
 
           {/* Attributes Checkboxes */}

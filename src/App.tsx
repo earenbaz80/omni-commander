@@ -954,7 +954,6 @@ export default function App() {
           onDropItems={handleDropItems}
           onDropNativeFiles={handleDropNativeFiles}
           onMountLocalPC={handleMountLocalPC}
-          onOpenCloudManager={() => setActiveModal('cloud_manager')}
           onNavigate={(p) => handleNavigate('left', p)}
           onSelectDrive={(dId) => handleSelectDrive('left', dId)}
           onSelectTab={(tId) => handleSelectTab('left', tId)}
@@ -1013,7 +1012,6 @@ export default function App() {
           onDropItems={handleDropItems}
           onDropNativeFiles={handleDropNativeFiles}
           onMountLocalPC={handleMountLocalPC}
-          onOpenCloudManager={() => setActiveModal('cloud_manager')}
           onNavigate={(p) => handleNavigate('right', p)}
           onSelectDrive={(dId) => handleSelectDrive('right', dId)}
           onSelectTab={(tId) => handleSelectTab('right', tId)}
@@ -1235,7 +1233,6 @@ export default function App() {
         handleSelectIndex={handleSelectIndex}
         handleCompressZip={handleCompressZip}
         handleExtractZip={handleExtractZip}
-        handleMountLocalPC={handleMountLocalPC}
         handleSetFolderPassword={handleSetFolderPassword}
         handleSelectDrive={handleSelectDrive}
         handleExecuteCommand={handleExecuteCommand}

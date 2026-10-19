@@ -16,7 +16,6 @@ const SearchGrepModal = React.lazy(() => import('./modals/SearchGrepModal').then
 const ChecksumModal = React.lazy(() => import('./modals/ChecksumModal').then(m => ({ default: m.ChecksumModal })));
 const ZipArchiveModal = React.lazy(() => import('./modals/ZipArchiveModal').then(m => ({ default: m.ZipArchiveModal })));
 const DiskUsageModal = React.lazy(() => import('./modals/DiskUsageModal').then(m => ({ default: m.DiskUsageModal })));
-const CloudManagerModal = React.lazy(() => import('./modals/CloudManagerModal').then(m => ({ default: m.CloudManagerModal })));
 const PropertiesModal = React.lazy(() => import('./modals/PropertiesModal').then(m => ({ default: m.PropertiesModal })));
 const SettingsModal = React.lazy(() => import('./modals/SettingsModal').then(m => ({ default: m.SettingsModal })));
 const HelpModal = React.lazy(() => import('./modals/HelpModal').then(m => ({ default: m.HelpModal })));
@@ -78,7 +77,6 @@ interface AppModalsProps {
   handleSelectIndex: (panelSide: 'left' | 'right', index: number) => void;
   handleCompressZip: (archiveName: string) => Promise<void>;
   handleExtractZip: (zipFile: FileItem) => Promise<void>;
-  handleMountLocalPC: () => Promise<void>;
   handleSetFolderPassword: (folderPath: string, password: string | null) => void;
   handleSelectDrive: (panelSide: 'left' | 'right', driveId: string) => Promise<void>;
   handleExecuteCommand: (cmd: string) => void;
@@ -128,7 +126,6 @@ export const AppModals: React.FC<AppModalsProps> = ({
   handleSelectIndex,
   handleCompressZip,
   handleExtractZip,
-  handleMountLocalPC,
   handleSetFolderPassword,
   handleSelectDrive,
   handleExecuteCommand,
@@ -280,17 +277,6 @@ export const AppModals: React.FC<AppModalsProps> = ({
             theme={currentTheme}
             lang={lang}
             drives={drives}
-            onClose={() => setActiveModal(null)}
-          />
-        )}
-
-        {activeModal === 'cloud_manager' && (
-          <CloudManagerModal
-            theme={currentTheme}
-            lang={lang}
-            drives={drives}
-            onMountDrive={(driveId, isMounted) => fsEngine.mountDrive(driveId, isMounted)}
-            onMountLocalPC={handleMountLocalPC}
             onClose={() => setActiveModal(null)}
           />
         )}

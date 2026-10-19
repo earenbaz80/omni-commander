@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Keyboard, Terminal, Layers, Cloud, Wrench, BookOpen, FolderSync, FileText, Search, GitCompare, Hash } from 'lucide-react';
+import { Keyboard, Terminal, Layers, Wrench, BookOpen, FolderSync, FileText, Search, GitCompare, Hash } from 'lucide-react';
 import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
@@ -19,7 +19,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
   onClose
 }) => {
   const t = getTranslations(lang);
-  const [activeTab, setActiveTab] = useState<'shortcuts' | 'dual_panel' | 'commands' | 'cloud' | 'tools'>('shortcuts');
+  const [activeTab, setActiveTab] = useState<'shortcuts' | 'dual_panel' | 'commands' | 'mount' | 'tools'>('shortcuts');
 
   const shortcutGroups = [
     {
@@ -138,13 +138,13 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           <button
             onClick={() => {
               soundManager.playKeyTick();
-              setActiveTab('cloud');
+              setActiveTab('mount');
             }}
             className={`px-3 py-1 rounded text-xs flex items-center gap-1.5 cursor-pointer font-semibold ${
-              activeTab === 'cloud' ? 'bg-amber-400 text-black shadow' : 'hover:bg-white/10 text-white/80'
+              activeTab === 'mount' ? 'bg-amber-400 text-black shadow' : 'hover:bg-white/10 text-white/80'
             }`}
           >
-            <Cloud className="w-3.5 h-3.5" /> {t.helpTabCloud}
+            <FolderSync className="w-3.5 h-3.5" /> {t.helpMountTitle}
           </button>
 
           <button
@@ -242,24 +242,9 @@ export const HelpModal: React.FC<HelpModalProps> = ({
             </div>
           )}
 
-          {/* 4. Cloud & Host PC Tab */}
-          {activeTab === 'cloud' && (
+          {/* 4. PC Mount Tab */}
+          {activeTab === 'mount' && (
             <div className="space-y-3 leading-relaxed text-[11px]">
-              <div className="p-3 bg-black/40 rounded border border-sky-500/30 space-y-2">
-                <h4 className="text-sky-300 font-bold text-xs uppercase flex items-center gap-1.5">
-                  <Cloud className="w-4 h-4" /> {t.helpCloudDrivesTitle}
-                </h4>
-                <p>
-                  {t.helpCloudIntro}
-                </p>
-                <ul className="list-disc pl-5 space-y-1 opacity-90">
-                  <li><strong>GD:</strong> {t.helpCloudGd}</li>
-                  <li><strong>OD:</strong> {t.helpCloudOd}</li>
-                  <li><strong>DB:</strong> {t.helpCloudDb}</li>
-                  <li><strong>WD:</strong> {t.helpCloudWd}</li>
-                </ul>
-              </div>
-
               <div className="p-3 bg-black/40 rounded border border-emerald-500/30 space-y-2">
                 <h4 className="text-emerald-300 font-bold text-xs uppercase flex items-center gap-1.5">
                   <FolderSync className="w-4 h-4" /> {t.helpMountTitle}

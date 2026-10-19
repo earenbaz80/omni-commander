@@ -1,5 +1,5 @@
 import React from 'react';
-import { Info, User, Calendar, Cpu, Sparkles, Globe } from 'lucide-react';
+import { Info, User, Calendar, Cpu, Sparkles } from 'lucide-react';
 import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
@@ -106,15 +106,6 @@ export const AboutModal: React.FC<AboutModalProps> = ({
               </span>
               <span className="text-slate-200">
                 Dual-Pane Orthodox Engine + HTML5 Host FS Access
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 opacity-70">
-                <Globe className="w-3.5 h-3.5 text-sky-400" /> {t.aboutCloudLabel}
-              </span>
-              <span className="text-sky-300">
-                Google Drive, OneDrive, Dropbox, WebDAV
               </span>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Settings, Cloud, Terminal, Minimize2, Maximize2, Minus, Square, X, Clock } from 'lucide-react';
+import { Settings, Terminal, Minimize2, Maximize2, Minus, Square, X, Clock } from 'lucide-react';
 import { ActiveModal, LanguageCode, ThemeId } from '../types';
 import { getTranslations } from '../i18n/translations';
 import { ThemeConfig } from '../services/themeManager';
@@ -325,35 +325,19 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
           )}
         </div>
 
-        {/* Cloud menu */}
+        {/* FTP menu */}
         <div className="relative inline-block">
           <button
-            onClick={() => handleMenuClick('cloud')}
-            className={`px-2 py-0.5 hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'cloud' ? 'bg-black/30 font-bold' : ''}`}
+            onClick={() => handleMenuClick('ftp')}
+            className={`px-2 py-0.5 hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'ftp' ? 'bg-black/30 font-bold' : ''}`}
           >
-            <u>C</u>loud
+            <u>F</u>TP
           </button>
-          {openMenu === 'cloud' && (
+          {openMenu === 'ftp' && (
             <div 
               className="absolute left-0 mt-0.5 w-60 shadow-2xl border py-1 z-50 text-xs font-mono"
               style={{ backgroundColor: theme.modalBg, color: theme.itemText, borderColor: theme.borderPanel }}
             >
-              <button onClick={() => handleAction(() => onOpenModal('cloud_manager'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between font-bold">
-                <span className="flex items-center gap-1">{t.cloudTitle} <Cloud className="w-3 h-3" /></span>
-              </button>
-              <div className="h-px bg-current opacity-20 my-1"></div>
-              <button onClick={() => handleAction(() => onOpenModal('cloud_manager'))} className="w-full text-left px-3 py-1 hover:bg-white/20">
-                Google Drive (GD:)
-              </button>
-              <button onClick={() => handleAction(() => onOpenModal('cloud_manager'))} className="w-full text-left px-3 py-1 hover:bg-white/20">
-                Microsoft OneDrive (OD:)
-              </button>
-              <button onClick={() => handleAction(() => onOpenModal('cloud_manager'))} className="w-full text-left px-3 py-1 hover:bg-white/20">
-                Dropbox (DB:)
-              </button>
-              <button onClick={() => handleAction(() => onOpenModal('cloud_manager'))} className="w-full text-left px-3 py-1 hover:bg-white/20">
-                WebDAV / Nextcloud (WD:)
-              </button>
               <button onClick={() => handleAction(() => onOpenModal('ftp_manager'))} className="w-full text-left px-3 py-1 hover:bg-white/20 text-emerald-300 font-bold flex justify-between">
                 <span>{t.connectFtp}</span> <span className="opacity-60">🌐</span>
               </button>
@@ -422,19 +406,6 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
       <div className="flex items-center gap-1.5">
         {/* PWA Install App Button */}
         <PWAInstallButton compact={true} lang={lang} />
-
-        {/* Quick cloud trigger */}
-        <button
-          onClick={() => {
-            soundManager.playKeyTick();
-            onOpenModal('cloud_manager');
-          }}
-          title="Cloud Services"
-          className="px-2 py-0.5 bg-black/20 hover:bg-black/30 rounded flex items-center gap-1 cursor-pointer font-bold"
-        >
-          <Cloud className="w-3.5 h-3.5 text-sky-300" />
-          <span className="hidden md:inline">Cloud</span>
-        </button>
 
         {/* CMD & Winget Library button */}
         <button

@@ -1,5 +1,5 @@
 import React from 'react';
-import { HardDrive, Cloud, Plus, FolderSync, Database, Cpu } from 'lucide-react';
+import { HardDrive, FolderSync, Database, Cpu } from 'lucide-react';
 import { Drive, DriveType } from '../types';
 import { ThemeConfig } from '../services/themeManager';
 import { soundManager } from '../services/soundEffects';
@@ -11,7 +11,6 @@ interface DriveBarProps {
   currentDriveId: string;
   onSelectDrive: (driveId: string) => void;
   onMountLocal: () => void;
-  onOpenCloudManager: () => void;
   panelSide: 'left' | 'right';
   isActive: boolean;
 }
@@ -22,7 +21,6 @@ export const DriveBar: React.FC<DriveBarProps> = ({
   currentDriveId,
   onSelectDrive,
   onMountLocal,
-  onOpenCloudManager,
   panelSide,
   isActive
 }) => {
@@ -50,8 +48,6 @@ export const DriveBar: React.FC<DriveBarProps> = ({
 
   const getDriveIcon = (type: DriveType) => {
     switch (type) {
-      case 'cloud':
-        return <Cloud className="w-3 h-3 text-sky-400 inline mr-1" />;
       case 'ram':
         return <Cpu className="w-3 h-3 text-emerald-400 inline mr-1" />;
       case 'network':
@@ -103,19 +99,6 @@ export const DriveBar: React.FC<DriveBarProps> = ({
             </button>
           );
         })}
-
-        {/* Quick Add Cloud / Mount Host Button */}
-        <button
-          onClick={() => {
-            soundManager.playKeyTick();
-            onOpenCloudManager();
-          }}
-          title="Connect Cloud / Remote Storage"
-          className="px-1.5 py-0.5 bg-sky-900/60 hover:bg-sky-800 text-sky-200 border border-sky-500/40 rounded text-xs flex items-center gap-0.5 shrink-0 cursor-pointer"
-        >
-          <Plus className="w-3 h-3" />
-          <Cloud className="w-3 h-3" /> <span>Cloud</span>
-        </button>
 
         <button
           onClick={() => {

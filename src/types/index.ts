@@ -1,5 +1,3 @@
-export type CloudProvider = 'gdrive' | 'onedrive' | 'dropbox' | 'webdav' | 's3';
-
 export interface FileItem {
   id: string;
   name: string;
@@ -24,14 +22,11 @@ export interface FileItem {
   };
   content?: string; // Text content or base64 data
   mimeType?: string;
-  isCloud?: boolean;
-  cloudProvider?: CloudProvider;
-  cloudSyncStatus?: 'synced' | 'pending' | 'syncing' | 'cloud_only';
   icon?: string;
   isLocked?: boolean;
 }
 
-export type DriveType = 'local' | 'usb' | 'cloud' | 'network' | 'ram' | 'host_fs';
+export type DriveType = 'local' | 'usb' | 'network' | 'ram' | 'host_fs';
 
 export interface Drive {
   id: string;
@@ -41,7 +36,6 @@ export interface Drive {
   totalBytes: number;
   freeBytes: number;
   icon?: string;
-  cloudProvider?: CloudProvider;
   isMounted: boolean;
   readOnly?: boolean;
   description?: string;
@@ -241,7 +235,7 @@ export interface ClipboardState {
 }
 
 export interface FileOperationProgress {
-  type: 'copy' | 'move' | 'delete' | 'zip' | 'unzip' | 'cloud_sync' | 'search';
+  type: 'copy' | 'move' | 'delete' | 'zip' | 'unzip' | 'search';
   title: string;
   currentItem: string;
   current: number;
@@ -274,7 +268,6 @@ export type ActiveModal =
   | 'searchGrep'
   | 'checksum'
   | 'properties'
-  | 'cloud_manager'
   | 'zip_archive'
   | 'zipArchive'
   | 'disk_usage'
