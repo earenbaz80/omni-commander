@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import { Drive, FileItem, RecycleBinItem, TransferOptions } from '../types';
+import { ConflictResolution, Drive, FileItem, PendingConflict, RecycleBinItem, TransferOptions } from '../types';
 import { handleStore } from './handleStore';
 import { log } from '../utils/logger';
 import { tGlobal } from '../i18n/translations';
@@ -29,13 +29,15 @@ const API_BASE = (() => {
 interface RealFsJob {
   id: string;
   op: string;
-  status: 'running' | 'paused' | 'done' | 'done-with-errors' | 'cancelled' | 'error';
+  status: 'running' | 'paused' | 'waiting' | 'done' | 'done-with-errors' | 'cancelled' | 'error';
   totalBytes: number;
   copiedBytes: number;
   itemsTotal: number;
   itemsDone: number;
   itemsSkipped: number;
   currentFile: string;
+  /** Destination parked for a human answer; present only while status is 'waiting'. */
+  pendingConflict: { source: string; destination: string } | null;
   speedBps: number;
   etaSeconds: number;
   errors: Array<{ path: string; message: string }>;
@@ -615,10 +617,14 @@ class FileSystemEngine {
     jobId: string,
     onProgress?: (transferred: number, total: number) => void,
     signal?: { paused: boolean; cancelled: boolean },
-    onJob?: (job: RealFsJob) => void
+    onJob?: (job: RealFsJob) => void,
+    onConflict?: (conflict: PendingConflict) => void
   ): Promise<RealFsJob | null> {
     let lastPaused = false;
     let lastCancelled = false;
+    // Tracks the conflict already handed to the UI so one prompt is raised per
+    // destination instead of once per poll. Cleared once the prompt is gone.
+    let promptedConflict = '';
     // A job that cannot be observed is NOT a finished job. With the server gone
     // we keep asking for a bounded window before giving up, so a brief hiccup
     // does not fail an otherwise healthy transfer, but a real outage is reported
@@ -650,6 +656,26 @@ class FileSystemEngine {
       // snapshot here instead of the byte-oriented `onProgress` hook.
       onJob?.(job);
 
+      // Raise a collision prompt at most once. Fire and forget on purpose: the
+      // poller must never block on a human, and the UI answers through
+      // resolveConflict(), which is what releases the parked server job.
+      if (job.pendingConflict) {
+        const signature = `${job.id}|${job.pendingConflict.source}|${job.pendingConflict.destination}`;
+        if (signature !== promptedConflict) {
+          promptedConflict = signature;
+          onConflict?.({
+            jobId: job.id,
+            source: job.pendingConflict.source,
+            destination: job.pendingConflict.destination,
+            name:
+              job.pendingConflict.destination.split(/[\\/]/).filter(Boolean).pop() ||
+              job.pendingConflict.destination
+          });
+        }
+      } else {
+        promptedConflict = '';
+      }
+
       if (signal) {
         if (signal.cancelled && !lastCancelled) {
           lastCancelled = true;
@@ -660,9 +686,26 @@ class FileSystemEngine {
         }
       }
 
-      if (job.status !== 'running' && job.status !== 'paused') return job;
+      if (job.status !== 'running' && job.status !== 'paused' && job.status !== 'waiting') return job;
       await new Promise(resolve => setTimeout(resolve, 200));
     }
+  }
+
+  /**
+   * Answers a collision prompt raised by a running job. `applyToAll` promotes the
+   * single answer into the policy for the rest of that transfer, so a large copy
+   * does not ask once per colliding file.
+   */
+  public async resolveConflict(jobId: string, action: ConflictResolution, applyToAll: boolean): Promise<void> {
+    await this.callServerFs(`job/${encodeURIComponent(jobId)}/resolve`, {
+      decision: action,
+      applyToAll: !!applyToAll
+    });
+  }
+
+  /** Aborts a job outright, used when the user backs out of a collision prompt. */
+  public async cancelJob(jobId: string): Promise<void> {
+    await this.callServerFs(`job/${encodeURIComponent(jobId)}/cancel`, {});
   }
 
   // Fire-and-forget mutation helper: start the server job, wait for it and then
@@ -694,7 +737,8 @@ class FileSystemEngine {
     overwrite: boolean,
     onProgress?: (transferred: number, total: number) => void,
     signal?: { paused: boolean; cancelled: boolean },
-    options?: TransferOptions
+    options?: TransferOptions,
+    onConflict?: (conflict: PendingConflict) => void
   ): Promise<FileItem | undefined> {
     const started = await this.callServerFs<{ jobId?: string }>(op, {
       sources: [this.realAbsolutePath(file)],
@@ -706,7 +750,7 @@ class FileSystemEngine {
     });
     if (!started?.jobId) throw new Error(op === 'move' ? 'Real move could not start' : 'Real copy could not start');
 
-    const job = await this.awaitServerJob(started.jobId, onProgress, signal);
+    const job = await this.awaitServerJob(started.jobId, onProgress, signal, undefined, onConflict);
     if (job && job.status === 'done-with-errors') {
       throw new Error(job.errors[0]?.message || 'Operation failed');
     }
@@ -1095,14 +1139,15 @@ class FileSystemEngine {
     overwrite: boolean = true,
     onProgress?: (transferred: number, total: number) => void,
     signal?: { paused: boolean; cancelled: boolean },
-    options?: TransferOptions
+    options?: TransferOptions,
+    onConflict?: (conflict: PendingConflict) => void
   ): Promise<FileItem | undefined> {
     const file = this.files.find(f => f.id === fileId);
     if (!file) return undefined;
 
     // Real drives are written by the local server, never simulated in memory.
     if (this.isSystemDrive(file.driveId) || this.isSystemDrive(targetDriveId)) {
-      return this.realCopyOrMove(file, 'copy', targetDriveId, targetPath, overwrite, onProgress, signal, options);
+      return this.realCopyOrMove(file, 'copy', targetDriveId, targetPath, overwrite, onProgress, signal, options, onConflict);
     }
 
     const normTarget = this.normalizePath(targetPath);
@@ -1206,13 +1251,13 @@ class FileSystemEngine {
     }
   }
 
-  public async moveItem(fileId: string, targetDriveId: string, targetPath: string, onProgress?: (transferred: number, total: number) => void, signal?: { paused: boolean; cancelled: boolean }, options?: TransferOptions): Promise<boolean> {
+  public async moveItem(fileId: string, targetDriveId: string, targetPath: string, onProgress?: (transferred: number, total: number) => void, signal?: { paused: boolean; cancelled: boolean }, options?: TransferOptions, onConflict?: (conflict: PendingConflict) => void): Promise<boolean> {
     const file = this.files.find(f => f.id === fileId);
     if (!file) return false;
 
     // Real drives are written by the local server, never simulated in memory.
     if (this.isSystemDrive(file.driveId) || this.isSystemDrive(targetDriveId)) {
-      await this.realCopyOrMove(file, 'move', targetDriveId, targetPath, true, onProgress, signal, options);
+      await this.realCopyOrMove(file, 'move', targetDriveId, targetPath, true, onProgress, signal, options, onConflict);
       return true;
     }
 

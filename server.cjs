@@ -414,21 +414,31 @@ function invalidateListings() {
 function jobSnapshot(job) {
   const elapsedSec = Math.max(0.05, ((job.endedAt || Date.now()) - job.startedAt) / 1000);
   const rate = job.copiedBytes / elapsedSec;
-  const remaining = Math.max(0, job.totalBytes - job.copiedBytes);
-  // A paused job is still "in flight"; exposing the pause as a status keeps
+  // Skipped entries will never be copied, so they leave the goal. Without this a
+  // job that skipped anything would sit short of 100% forever.
+  const goalBytes = Math.max(0, job.totalBytes - (job.bytesSkipped || 0));
+  const remaining = Math.max(0, goalBytes - job.copiedBytes);
+  // A paused or waiting job is still "in flight"; exposing that as a status keeps
   // clients from polling forever or mistaking it for completion.
-  const status = job.status === 'running' && job.paused ? 'paused' : job.status;
+  let status = job.status;
+  if (job.status === 'running') {
+    if (job.pendingConflict) status = 'waiting';
+    else if (job.paused) status = 'paused';
+  }
   return {
     id: job.id,
     op: job.op,
     status,
     label: job.label,
-    totalBytes: job.totalBytes,
+    totalBytes: goalBytes,
     copiedBytes: job.copiedBytes,
     itemsTotal: job.itemsTotal,
     itemsDone: job.itemsDone,
     itemsSkipped: job.itemsSkipped,
     currentFile: job.currentFile,
+    pendingConflict: job.pendingConflict
+      ? { source: job.pendingConflict.source, destination: job.pendingConflict.destination }
+      : null,
     speedBps: Math.round(rate),
     etaSeconds: rate > 0 && remaining > 0 ? Math.round(remaining / rate) : 0,
     errors: job.errors,
@@ -464,7 +474,7 @@ function dashboardHtml() {
   .row { display:flex; align-items:center; gap:10px; justify-content:space-between; flex-wrap:wrap; }
   .name { font-weight:600; }
   .badge { font-size:10px; text-transform:uppercase; letter-spacing:.6px; border-radius:4px; padding:2px 7px; border:1px solid currentColor; }
-  .s-running { color:#22d3ee; } .s-paused { color:#fbbf24; } .s-done { color:#4ade80; }
+  .s-running { color:#22d3ee; } .s-paused { color:#fbbf24; } .s-waiting { color:#f472b6; } .s-done { color:#4ade80; }
   .s-done-with-errors, .s-error, .s-cancelled { color:#f87171; }
   .bar { height:7px; border-radius:4px; background:#1e293b; overflow:hidden; margin:10px 0 8px; }
   .fill { height:100%; background:linear-gradient(90deg,#0891b2,#22d3ee); transition:width .25s linear; }
@@ -513,7 +523,7 @@ function dashboardHtml() {
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
   }
-  var ORDER={running:0,paused:1,'done-with-errors':2,error:2,cancelled:3,done:4};
+  var ORDER={running:0,waiting:0,paused:1,'done-with-errors':2,error:2,cancelled:3,done:4};
   function render(list){
     var host=document.getElementById('jobs');
     if(!list.length){ host.innerHTML='<div class="empty">No transfer jobs yet. Start a copy or move in the app.</div>'; return; }
@@ -525,7 +535,7 @@ function dashboardHtml() {
       var pct=j.totalBytes>0?Math.min(100,Math.round(j.copiedBytes/j.totalBytes*100)):0;
       var cls=j.status==='done'?'done':(j.status==='paused'?'paused':(j.status==='done-with-errors'||j.status==='error'?'done-with-errors':''));
       var fillCls=j.status==='paused'?'warn':((j.status==='done-with-errors'||j.status==='error')?'bad':'');
-      var canAct=j.status==='running'||j.status==='paused';
+      var canAct=j.status==='running'||j.status==='paused'||j.status==='waiting';
       var btns=canAct?('<div class="acts">'+
           (j.status==='paused'
             ? '<button data-act="resume" data-id="'+esc(j.id)+'">Resume</button>'
@@ -547,6 +557,7 @@ function dashboardHtml() {
           (j.itemsSkipped?'<span>skipped <b>'+j.itemsSkipped+'</b></span>':'')+
         '</div>'+
         (j.currentFile?'<div class="file">'+esc(j.currentFile)+'</div>':'')+
+        (j.pendingConflict?('<div class="file">waiting for answer: '+esc(j.pendingConflict.destination)+'</div>'):'')+
         errs+
       '</section>';
     }).join('');
@@ -597,7 +608,16 @@ function makeJob(op, label) {
     paused: false,
     cancelled: false,
     throttleBps: 0,
-    collision: 'overwrite'
+    collision: 'overwrite',
+    // Bytes belonging to entries that were skipped. Tracking them separately lets
+    // the progress goal shrink instead of stalling short of 100% forever.
+    bytesSkipped: 0,
+    // Interactive collision state: set while the transfer parks waiting for a
+    // human answer, then consumed as soon as that answer arrives.
+    pendingConflict: null,
+    conflictDecision: null,
+    // "Apply to all" promotes one answer into the policy for the whole job.
+    conflictOverride: null
   };
   jobs.set(id, job);
   // Keep memory bounded: drop the oldest finished jobs.
@@ -610,6 +630,9 @@ function makeJob(op, label) {
 }
 
 function finishJob(job) {
+  // Never leave a finished job advertising a conflict prompt that nobody can
+  // answer any more.
+  job.pendingConflict = null;
   job.endedAt = Date.now();
   if (job.cancelled) job.status = 'cancelled';
   else if (job.errors.length) job.status = 'done-with-errors';
@@ -668,13 +691,53 @@ async function uniqueName(dir, name) {
 }
 
 // Collision policy: overwrite replaces, skip leaves the existing entry, rename
-// creates a unique sibling name (mirrors "Keep both files" in Explorer).
-async function resolveDestination(src, destDir, job) {
-  const dest = path.win32.join(destDir, path.win32.basename(src));
+// creates a unique sibling name (mirrors "Keep both files" in Explorer) and ask
+// parks the transfer until a human answers for this one destination.
+async function effectiveCollision(job, src, dest) {
+  // An "apply to all" answer already settled the policy for the rest of the job.
+  if (job.conflictOverride) return job.conflictOverride;
+  if (job.collision !== 'ask') return job.collision;
+  return awaitConflictAnswer(job, src, dest);
+}
+
+// Parks the transfer until the client answers. The snapshot exposes
+// `pendingConflict` so the UI can render the prompt, and the answer arrives
+// through POST /api/fs/job/:id/resolve. Cancel is honoured while waiting.
+async function awaitConflictAnswer(job, src, dest) {
+  job.conflictDecision = null;
+  job.pendingConflict = { source: src, destination: dest };
+  while (!job.cancelled && job.pendingConflict) await sleep(120);
+  job.pendingConflict = null;
+  if (job.cancelled) throw new Error('__cancelled__');
+  const answer = job.conflictDecision;
+  job.conflictDecision = null;
+  return answer || 'overwrite';
+}
+
+/**
+ * Decides the final destination for one entry and returns null when it must be
+ * skipped. Entries nested inside a copied tree come through here too, so a
+ * policy covers the whole tree rather than only the top-level sources.
+ */
+async function planDestination(src, dest, job) {
   if (!(await pathExists(dest))) return dest;
-  if (job.collision === 'skip') return null;
-  if (job.collision === 'rename') return path.win32.join(destDir, await uniqueName(destDir, path.win32.basename(src)));
+  const policy = await effectiveCollision(job, src, dest);
+  if (policy === 'skip') {
+    try {
+      const stat = await fs.promises.lstat(src);
+      if (stat.isFile()) job.bytesSkipped += stat.size;
+    } catch { /* unreadable source is reported by the copy itself */ }
+    return null;
+  }
+  if (policy === 'rename') {
+    const dir = path.win32.dirname(dest);
+    return path.win32.join(dir, await uniqueName(dir, path.win32.basename(dest)));
+  }
   return dest;
+}
+
+async function resolveDestination(src, destDir, job) {
+  return planDestination(src, path.win32.join(destDir, path.win32.basename(src)), job);
 }
 
 async function copyOneFile(src, dest, job) {
@@ -706,7 +769,11 @@ async function copyOneFile(src, dest, job) {
   try { await fs.promises.utimes(dest, stat.atime, stat.mtime); } catch {}
 }
 
-async function copyTree(src, dest, job) {
+// `alreadyPlanned` marks an entry whose destination the caller has already
+// cleared through resolveDestination, so it is not asked about a second time.
+// Entries below it are always planned, because a copied tree can collide at any
+// depth.
+async function copyTree(src, dest, job, alreadyPlanned = false) {
   await waitWhilePaused(job);
   const stat = await fs.promises.lstat(src);
   if (stat.isDirectory()) {
@@ -716,13 +783,15 @@ async function copyTree(src, dest, job) {
     }
     return;
   }
-  await copyOneFile(src, dest, job);
+  const planned = alreadyPlanned ? dest : await planDestination(src, dest, job);
+  if (!planned) { job.itemsSkipped += 1; return; }
+  await copyOneFile(src, planned, job);
   job.itemsDone += 1;
 }
 
 // Same-volume moves are an instant rename; across volumes rename fails with
 // EXDEV and we fall back to copy-then-delete.
-async function moveTree(src, dest, job) {
+async function moveTree(src, dest, job, alreadyPlanned = false) {
   await waitWhilePaused(job);
   try {
     await fs.promises.rename(src, dest);
@@ -731,7 +800,7 @@ async function moveTree(src, dest, job) {
     job.itemsDone += Math.max(1, measured.files);
   } catch (err) {
     if (err.code !== 'EXDEV' && err.code !== 'EPERM') throw err;
-    await copyTree(src, dest, job);
+    await copyTree(src, dest, job, alreadyPlanned);
     await fs.promises.rm(src, { recursive: true, force: true, maxRetries: 3 });
   }
 }
@@ -795,8 +864,8 @@ async function runTransferJob(job, sources, targetDir) {
     const dest = await resolveDestination(src, targetDir, job);
     if (!dest) { job.itemsSkipped += 1; continue; }
     try {
-      if (job.op === 'move') await moveTree(src, dest, job);
-      else await copyTree(src, dest, job);
+      if (job.op === 'move') await moveTree(src, dest, job, true);
+      else await copyTree(src, dest, job, true);
     } catch (err) {
       if (err.message === '__cancelled__') throw err;
       job.errors.push({ path: src, message: err.message });
@@ -835,6 +904,19 @@ function registerFsRoutes() {
     const job = jobs.get(req.params.id);
     if (!job) return res.status(404).json({ error: 'Unknown job' });
     const action = req.params.action;
+    if (action === 'resolve') {
+      // Answer for one queued collision prompt. `applyToAll` promotes the answer
+      // into the job policy so the rest of the transfer stops asking.
+      const decision = String((req.body || {}).decision || '').toLowerCase();
+      if (!['overwrite', 'skip', 'rename'].includes(decision)) {
+        return res.status(400).json({ error: 'Unknown conflict answer' });
+      }
+      if (!job.pendingConflict) return res.status(409).json({ error: 'No pending conflict' });
+      if (req.body && req.body.applyToAll) job.conflictOverride = decision;
+      job.conflictDecision = decision;
+      job.pendingConflict = null;
+      return res.json(jobSnapshot(job));
+    }
     if (action === 'pause') job.paused = true;
     else if (action === 'resume') job.paused = false;
     else if (action === 'cancel') { job.cancelled = true; job.paused = false; }
@@ -860,7 +942,7 @@ function registerFsRoutes() {
       const verb = op === 'move' ? 'Mover' : 'Copiar';
       const job = makeJob(op, `${verb} ${sources.length} elemento(s)`);
       const requestedPolicy = String(body.collision || '').toLowerCase();
-      job.collision = ['overwrite', 'skip', 'rename'].includes(requestedPolicy)
+      job.collision = ['overwrite', 'skip', 'rename', 'ask'].includes(requestedPolicy)
         ? requestedPolicy
         : (body.overwrite === false ? 'rename' : 'overwrite');
       job.throttleBps = Number(body.throttleBps) > 0 ? Number(body.throttleBps) : 0;

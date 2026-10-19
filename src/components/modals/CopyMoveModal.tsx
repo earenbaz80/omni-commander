@@ -19,10 +19,13 @@ interface CopyMoveModalProps {
   onClose: () => void;
 }
 
-const COLLISION_OPTIONS: Array<[CollisionPolicy, 'collisionOverwrite' | 'collisionSkip' | 'collisionRename']> = [
+const COLLISION_OPTIONS: Array<
+  [CollisionPolicy, 'collisionOverwrite' | 'collisionSkip' | 'collisionRename' | 'collisionAsk']
+> = [
   ['overwrite', 'collisionOverwrite'],
   ['skip', 'collisionSkip'],
-  ['rename', 'collisionRename']
+  ['rename', 'collisionRename'],
+  ['ask', 'collisionAsk']
 ];
 
 const SPEED_OPTIONS_MB = [1, 5, 10, 50];

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { FileItem, Drive, ActiveModal, CommandHistoryItem, LanguageCode, ThemeId, TransferOptions } from './types';
+import { FileItem, Drive, ActiveModal, CommandHistoryItem, ConflictResolution, LanguageCode, PendingConflict, ThemeId, TransferOptions } from './types';
 import { fsEngine } from './services/fileSystem';
 import { themes, ThemeConfig } from './services/themeManager';
 import { soundManager } from './services/soundEffects';
@@ -9,6 +9,7 @@ import { getTranslations, setCurrentLang } from './i18n/translations';
 // Components
 import { HeaderMenuBar } from './components/HeaderMenuBar';
 import { AppModals } from './components/AppModals';
+import { ConflictPromptModal } from './components/modals/ConflictPromptModal';
 import { Toolbar } from './components/Toolbar';
 import { PanelView } from './components/PanelView';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -312,6 +313,38 @@ export default function App() {
     handleGoParent,
   });
 
+  // A real transfer running with the "ask" collision policy parks on disk until
+  // this prompt is answered, so the prompt keeps both the job id and the
+  // executor's cancel signal: every exit path has to reach the server.
+  const [conflictPrompt, setConflictPrompt] = useState<PendingConflict | null>(null);
+  const conflictSignalRef = useRef<{ paused: boolean; cancelled: boolean } | null>(null);
+
+  const handleConflictPrompt = useCallback(
+    (conflict: PendingConflict, signal: { paused: boolean; cancelled: boolean }) => {
+      conflictSignalRef.current = signal;
+      setConflictPrompt(conflict);
+    },
+    []
+  );
+
+  const handleResolveConflict = (action: ConflictResolution, applyToAll: boolean) => {
+    const conflict = conflictPrompt;
+    conflictSignalRef.current = null;
+    setConflictPrompt(null);
+    if (conflict) void fsEngine.resolveConflict(conflict.jobId, action, applyToAll);
+  };
+
+  // Backing out of a prompt cannot simply close it: the transfer would stay
+  // parked forever, so the whole job is aborted instead.
+  const handleAbortConflict = () => {
+    const conflict = conflictPrompt;
+    const signal = conflictSignalRef.current;
+    conflictSignalRef.current = null;
+    setConflictPrompt(null);
+    if (signal) signal.cancelled = true;
+    if (conflict) void fsEngine.cancelJob(conflict.jobId);
+  };
+
   const handleConfirmCopy = (targetPath: string, options: TransferOptions) => {
     const items: FileItem[] = transferItems;
     const totalBytes = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
@@ -333,28 +366,38 @@ export default function App() {
 
     const executor = async (onProgress: (transferred: number, total: number) => void, signal: { paused: boolean; cancelled: boolean }) => {
       let transferred = 0;
-      for (const item of items) {
-        if (signal.cancelled) return;
-        while (signal.paused && !signal.cancelled) {
-          await new Promise(resolve => setTimeout(resolve, 120));
-        }
-        if (signal.cancelled) return;
+      let promptedJobId = '';
+      const askConflict = (conflict: PendingConflict) => {
+        promptedJobId = conflict.jobId;
+        handleConflictPrompt(conflict, signal);
+      };
+      try {
+        for (const item of items) {
+          if (signal.cancelled) return;
+          while (signal.paused && !signal.cancelled) {
+            await new Promise(resolve => setTimeout(resolve, 120));
+          }
+          if (signal.cancelled) return;
 
-        // `onProgress` reports cumulative bytes for the item in flight (a real
-        // server job streams growing byte counts), so the running total is
-        // everything already finished plus the current item's progress.
-        let current = 0;
-        try {
-          await fsEngine.copyItem(item.id, currentInactiveTab.driveId, targetPath, overwrite, (t) => {
-            current = t;
-            onProgress(transferred + t, totalBytes);
-            reportMeta(transferred + t, item.name);
-          }, signal, options);
-        } catch (e) {
-          console.error('Copy failed for', item.name, e);
-          taskQueue.updateTaskMeta(taskId, { error: e instanceof Error ? e.message : `Copy failed: ${item.name}` });
+          // `onProgress` reports cumulative bytes for the item in flight (a real
+          // server job streams growing byte counts), so the running total is
+          // everything already finished plus the current item's progress.
+          let current = 0;
+          try {
+            await fsEngine.copyItem(item.id, currentInactiveTab.driveId, targetPath, overwrite, (t) => {
+              current = t;
+              onProgress(transferred + t, totalBytes);
+              reportMeta(transferred + t, item.name);
+            }, signal, options, askConflict);
+          } catch (e) {
+            console.error('Copy failed for', item.name, e);
+            taskQueue.updateTaskMeta(taskId, { error: e instanceof Error ? e.message : `Copy failed: ${item.name}` });
+          }
+          transferred += current || (item.isDirectory ? 0 : item.size);
         }
-        transferred += current || (item.isDirectory ? 0 : item.size);
+      } finally {
+        // A cancelled or failed transfer must not leave its prompt on screen.
+        setConflictPrompt(current => (current && current.jobId === promptedJobId ? null : current));
       }
     };
 
@@ -380,25 +423,35 @@ export default function App() {
 
     const executor = async (onProgress: (transferred: number, total: number) => void, signal: { paused: boolean; cancelled: boolean }) => {
       let transferred = 0;
-      for (const item of items) {
-        if (signal.cancelled) return;
-        while (signal.paused && !signal.cancelled) {
-          await new Promise(resolve => setTimeout(resolve, 120));
-        }
-        if (signal.cancelled) return;
+      let promptedJobId = '';
+      const askConflict = (conflict: PendingConflict) => {
+        promptedJobId = conflict.jobId;
+        handleConflictPrompt(conflict, signal);
+      };
+      try {
+        for (const item of items) {
+          if (signal.cancelled) return;
+          while (signal.paused && !signal.cancelled) {
+            await new Promise(resolve => setTimeout(resolve, 120));
+          }
+          if (signal.cancelled) return;
 
-        let current = 0;
-        try {
-          await fsEngine.moveItem(item.id, currentInactiveTab.driveId, targetPath, (t) => {
-            current = t;
-            onProgress(transferred + t, totalBytes);
-            reportMeta(transferred + t, item.name);
-          }, signal, options);
-        } catch (e) {
-          console.error('Move failed for', item.name, e);
-          taskQueue.updateTaskMeta(taskId, { error: e instanceof Error ? e.message : `Move failed: ${item.name}` });
+          let current = 0;
+          try {
+            await fsEngine.moveItem(item.id, currentInactiveTab.driveId, targetPath, (t) => {
+              current = t;
+              onProgress(transferred + t, totalBytes);
+              reportMeta(transferred + t, item.name);
+            }, signal, options, askConflict);
+          } catch (e) {
+            console.error('Move failed for', item.name, e);
+            taskQueue.updateTaskMeta(taskId, { error: e instanceof Error ? e.message : `Move failed: ${item.name}` });
+          }
+          transferred += current || (item.isDirectory ? 0 : item.size);
         }
-        transferred += current || (item.isDirectory ? 0 : item.size);
+      } finally {
+        // A cancelled or failed transfer must not leave its prompt on screen.
+        setConflictPrompt(current => (current && current.jobId === promptedJobId ? null : current));
       }
     };
 
@@ -1063,6 +1116,16 @@ export default function App() {
         handleExecuteCommand={handleExecuteCommand}
         handleMountDrivePhysically={handleMountDrivePhysically}
       />
+
+      {conflictPrompt && (
+        <ConflictPromptModal
+          conflict={conflictPrompt}
+          theme={currentTheme}
+          lang={lang}
+          onAnswer={handleResolveConflict}
+          onCancel={handleAbortConflict}
+        />
+      )}
 
       <button
         ref={leftTreeTabRef}

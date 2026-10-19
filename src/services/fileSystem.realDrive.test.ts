@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { fsEngine, lostJobRetryPolicy } from './fileSystem';
-import { Drive } from '../types';
+import { Drive, PendingConflict } from '../types';
 
 /**
  * Real drives are never mutated in memory: every copy/move/delete/mkdir/rename
@@ -172,6 +172,62 @@ describe('FileSystemEngine real-drive bridge', () => {
 
     const copyCall = calls.find(c => c.url.includes('/api/fs/copy'));
     expect(copyCall!.body.overwrite).toBe(false);
+  });
+
+  it('raises one collision prompt per destination and sends the answer back', async () => {
+    let resolved: any;
+    const prompts: PendingConflict[] = [];
+    let snapshots = 0;
+
+    vi.stubGlobal('fetch', async (input: any, init: any = {}) => {
+      const url = String(input);
+      const body = init.body ? JSON.parse(String(init.body)) : undefined;
+      const reply = (data: unknown) =>
+        ({ ok: true, status: 200, json: async () => data }) as unknown as Response;
+
+      if (url.includes('/api/fs/copy')) {
+        return reply({ jobId: 'job_conflict', totalBytes: 100, itemsTotal: 1 });
+      }
+      if (url.includes('/api/fs/job/job_conflict/resolve')) {
+        resolved = body;
+        return reply(job('job_conflict', 'copy', 'done', 100));
+      }
+      if (url.includes('/api/fs/job/job_conflict')) {
+        snapshots += 1;
+        // Park for a few polls, then finish. The prompt has to be raised once
+        // even though the poller keeps asking while the transfer waits.
+        if (snapshots <= 3) {
+          return reply({
+            ...job('job_conflict', 'copy', 'waiting', 0),
+            pendingConflict: { source: 'T:\\a.txt', destination: 'T:\\dest\\a.txt' }
+          });
+        }
+        return reply(job('job_conflict', 'copy', 'done', 100));
+      }
+      return reply(listing);
+    });
+
+    const file = fsEngine.getFiles('real_T', 'T:').find(i => i.fullName === 'hola.mundo.txt')!;
+
+    await fsEngine.copyItem(
+      file.id,
+      'real_T',
+      'T:\\dest',
+      true,
+      undefined,
+      undefined,
+      { collision: 'ask', throttleBps: 0 },
+      conflict => {
+        prompts.push(conflict);
+        void fsEngine.resolveConflict(conflict.jobId, 'overwrite', true);
+      }
+    );
+
+    expect(prompts).toHaveLength(1);
+    expect(prompts[0].jobId).toBe('job_conflict');
+    expect(prompts[0].destination).toBe('T:\\dest\\a.txt');
+    expect(prompts[0].name).toBe('a.txt');
+    expect(resolved).toEqual({ decision: 'overwrite', applyToAll: true });
   });
 
   it('moves a real item through the server instead of rewriting memory', async () => {

@@ -131,8 +131,20 @@ export interface BackgroundTask {
   currentFile?: string;
 }
 
-/** What to do when the destination entry already exists. */
-export type CollisionPolicy = 'overwrite' | 'skip' | 'rename';
+/** What to do when the destination entry already exists. 'ask' prompts per entry. */
+export type CollisionPolicy = 'overwrite' | 'skip' | 'rename' | 'ask';
+
+/** Answer given to a single collision prompt raised by the transfer engine. */
+export type ConflictResolution = 'overwrite' | 'skip' | 'rename';
+
+/** A destination the running transfer cannot resolve without a human answer. */
+export interface PendingConflict {
+  jobId: string;
+  source: string;
+  destination: string;
+  /** Name of the destination entry, shown in the prompt headline. */
+  name: string;
+}
 
 /** User-chosen knobs for a real copy/move operation. */
 export interface TransferOptions {
