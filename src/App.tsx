@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { FileItem, Drive, ActiveModal, CommandHistoryItem, ConflictResolution, LanguageCode, PendingConflict, ThemeId, TransferOptions } from './types';
+import { FileItem, Drive, ActiveModal, CommandHistoryItem, ConflictResolution, LanguageCode, PendingConflict, ThemeId, TransferOptions, TransferPlan } from './types';
 import { fsEngine } from './services/fileSystem';
 import { themes, ThemeConfig } from './services/themeManager';
 import { soundManager } from './services/soundEffects';
@@ -345,9 +345,132 @@ export default function App() {
     if (conflict) void fsEngine.cancelJob(conflict.jobId);
   };
 
+  // A transfer plan is what a saved copy list is made of. Only real-drive
+  // sources can be replayed in a later session, because a replay addresses the
+  // disk directly instead of going through the in-memory catalogue.
+  const buildTransferPlan = (
+    op: 'copy' | 'move',
+    items: FileItem[],
+    targetPath: string,
+    options: TransferOptions
+  ): TransferPlan | undefined => {
+    if (items.length === 0 || !items.every(item => fsEngine.isRealFile(item))) return undefined;
+    return {
+      op,
+      sourceDriveId: currentActiveTab.driveId,
+      targetDriveId: currentInactiveTab.driveId,
+      targetDir: targetPath,
+      overwrite: options.collision === 'overwrite',
+      collision: options.collision,
+      throttleBps: options.throttleBps,
+      entries: items.map(item => ({
+        path: fsEngine.absolutePathOf(item),
+        name: item.name,
+        isDirectory: !!item.isDirectory,
+        size: item.size
+      }))
+    };
+  };
+
+  // Queues one planned transfer. A replay only has paths, so it reaches the
+  // server through `transferPaths`, while sharing the live path's pause, cancel,
+  // collision-prompt and per-file reporting behaviour.
+  const enqueueTransferPlan = (plan: TransferPlan): string => {
+    const totalBytes = plan.entries.reduce((acc, entry) => acc + (entry.isDirectory ? 0 : entry.size), 0);
+    const startedAt = Date.now();
+    let taskId = '';
+
+    const reportMeta = (done: number, currentFile: string) => {
+      const elapsed = (Date.now() - startedAt) / 1000;
+      const rate = elapsed > 0 ? done / elapsed : 0;
+      taskQueue.updateTaskMeta(taskId, {
+        speed: rate > 0 ? `${(rate / (1024 * 1024)).toFixed(1)} MB/s` : undefined,
+        etaSeconds: rate > 0 && totalBytes > done ? Math.round((totalBytes - done) / rate) : 0,
+        currentFile
+      });
+    };
+
+    const executor = async (
+      onProgress: (transferred: number, total: number) => void,
+      signal: { paused: boolean; cancelled: boolean }
+    ) => {
+      let transferred = 0;
+      let promptedJobId = '';
+      const askConflict = (conflict: PendingConflict) => {
+        promptedJobId = conflict.jobId;
+        handleConflictPrompt(conflict, signal);
+      };
+      try {
+        for (const entry of plan.entries) {
+          if (signal.cancelled) return;
+          while (signal.paused && !signal.cancelled) {
+            await new Promise(resolve => setTimeout(resolve, 120));
+          }
+          if (signal.cancelled) return;
+
+          let current = 0;
+          try {
+            await fsEngine.transferPaths(
+              plan.op,
+              [entry.path],
+              plan.targetDir,
+              plan.overwrite,
+              (copied) => {
+                current = copied;
+                onProgress(transferred + copied, totalBytes);
+                reportMeta(transferred + copied, entry.name);
+              },
+              signal,
+              { collision: plan.collision, throttleBps: plan.throttleBps },
+              askConflict,
+              files => taskQueue.updateTaskFiles(taskId, files)
+            );
+          } catch (e) {
+            console.error('Queued transfer failed for', entry.name, e);
+            taskQueue.updateTaskMeta(taskId, {
+              error: e instanceof Error ? e.message : `Transfer failed: ${entry.name}`
+            });
+          }
+          transferred += current || (entry.isDirectory ? 0 : entry.size);
+        }
+      } finally {
+        // A cancelled or failed transfer must not leave its prompt on screen.
+        setConflictPrompt(current => (current && current.jobId === promptedJobId ? null : current));
+        // A replayed batch writes to disk behind the panels' back, so refresh
+        // the target folder (and the source folder for moves) once it ends.
+        try {
+          await fsEngine.loadSystemDriveDirectory(plan.targetDriveId, plan.targetDir);
+          const first = plan.entries[0];
+          if (plan.op === 'move' && first) {
+            await fsEngine.loadSystemDriveDirectory(plan.sourceDriveId, fsEngine.getParentPath(first.path));
+          }
+        } catch (error) {
+          console.error('[transfer] directory reload failed', error);
+        }
+      }
+    };
+
+    const verb = plan.op === 'move' ? t.appMoving : t.appCopying;
+    taskId = taskQueue.addTask(
+      plan.op,
+      verb.replace('{n}', String(plan.entries.length)),
+      t.appDest.replace('{path}', plan.targetDir),
+      totalBytes,
+      executor,
+      plan
+    );
+    return taskId;
+  };
+
+  // Replays every transfer in a loaded copy list, one queued task per batch.
+  const handleRunCopyList = (plans: TransferPlan[]) => {
+    for (const plan of plans) enqueueTransferPlan(plan);
+  };
+
   const handleConfirmCopy = (targetPath: string, options: TransferOptions) => {
     const items: FileItem[] = transferItems;
     const totalBytes = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
+    const plan = buildTransferPlan('copy', items, targetPath, options);
     // The simulated (non-real-drive) path only understands a boolean; the real
     // server path receives the full policy and lets `collision` win.
     const overwrite = options.collision === 'overwrite';
@@ -401,13 +524,14 @@ export default function App() {
       }
     };
 
-    taskId = taskQueue.addTask('copy', t.appCopying.replace('{n}', String(items.length)), t.appDest.replace('{path}', targetPath), totalBytes, executor);
+    taskId = taskQueue.addTask('copy', t.appCopying.replace('{n}', String(items.length)), t.appDest.replace('{path}', targetPath), totalBytes, executor, plan);
     setActiveModal(null);
   };
 
   const handleConfirmMove = (targetPath: string, options: TransferOptions) => {
     const items: FileItem[] = transferItems;
     const totalBytes = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
+    const plan = buildTransferPlan('move', items, targetPath, options);
     const startedAt = Date.now();
     let taskId = '';
 
@@ -455,7 +579,7 @@ export default function App() {
       }
     };
 
-    taskId = taskQueue.addTask('move', t.appMoving.replace('{n}', String(items.length)), t.appDest.replace('{path}', targetPath), totalBytes, executor);
+    taskId = taskQueue.addTask('move', t.appMoving.replace('{n}', String(items.length)), t.appDest.replace('{path}', targetPath), totalBytes, executor, plan);
     setActiveModal(null);
   };
 
@@ -1080,6 +1204,7 @@ export default function App() {
         activeModal={activeModal}
         modalData={modalData?.items?.length ? modalData : { ...modalData, items: transferItems }}
         setModalData={setModalData}
+        onRunCopyList={handleRunCopyList}
         currentActiveTab={currentActiveTab}
         currentInactiveTab={currentInactiveTab}
         activePanel={activePanel}

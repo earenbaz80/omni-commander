@@ -1,6 +1,6 @@
 import React from 'react';
 import { ThemeConfig } from '../services/themeManager';
-import { ActiveModal, Drive, FileItem, LanguageCode, PanelState, PanelTab, TransferOptions, UserSettings } from '../types';
+import { ActiveModal, Drive, FileItem, LanguageCode, PanelState, PanelTab, TransferOptions, TransferPlan, UserSettings } from '../types';
 import { fsEngine } from '../services/fileSystem';
 import { TaskQueueBar } from './TaskQueueBar';
 import { OfflineIndicator } from './OfflineIndicator';
@@ -83,6 +83,7 @@ interface AppModalsProps {
   handleSelectDrive: (panelSide: 'left' | 'right', driveId: string) => Promise<void>;
   handleExecuteCommand: (cmd: string) => void;
   handleMountDrivePhysically: (driveId: 'drive_c' | 'drive_d' | 'drive_host') => Promise<void>;
+  onRunCopyList: (plans: TransferPlan[]) => void;
 }
 
 /**
@@ -132,6 +133,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
   handleSelectDrive,
   handleExecuteCommand,
   handleMountDrivePhysically,
+  onRunCopyList,
 }) => {
   return (
     <>
@@ -474,6 +476,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
           <BackgroundTasksModal
             theme={currentTheme}
             lang={lang}
+            onRunCopyList={onRunCopyList}
             onClose={() => setActiveModal(null)}
           />
         )}

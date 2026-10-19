@@ -1,4 +1,4 @@
-import { BackgroundTask, FileProgressEntry } from '../types';
+import { BackgroundTask, FileProgressEntry, TransferPlan } from '../types';
 
 export interface OperationSignal {
   paused: boolean;
@@ -37,6 +37,18 @@ class TaskQueueManager {
     return this.tasks.filter(t => t.status === 'running' || t.status === 'queued').length;
   }
 
+  /**
+   * The planned transfers behind the queue, oldest first, which is the order a
+   * saved copy list replays in. Tasks without a plan (delete, archive) have no
+   * reproducible batch and are skipped.
+   */
+  public getPlans(): TransferPlan[] {
+    return this.tasks
+      .filter((task): task is BackgroundTask & { plan: TransferPlan } => !!task.plan)
+      .map(task => task.plan)
+      .reverse();
+  }
+
   public subscribe(listener: () => void) {
     this.listeners.push(listener);
     return () => {
@@ -53,7 +65,8 @@ class TaskQueueManager {
     title: string,
     details?: string,
     totalBytes?: number,
-    executor?: OperationExecutor
+    executor?: OperationExecutor,
+    plan?: TransferPlan
   ): string {
     const id = `task_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const newTask: BackgroundTask = {
@@ -66,7 +79,8 @@ class TaskQueueManager {
       speed: '0 MB/s',
       transferredBytes: 0,
       totalBytes: totalBytes || 1024 * 1024,
-      createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      plan
     };
 
     this.tasks.unshift(newTask);

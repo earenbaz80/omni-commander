@@ -1104,6 +1104,48 @@ function registerFsRoutes() {
       res.status(400).json({ error: err.message });
     }
   });
+
+  // ---- Copy list -----------------------------------------------------------
+  // A SuperCopier-style transfer list persisted on real disk, so a batch of
+  // transfers can be queued again in a later session. The default location is
+  // per-user; an explicit absolute path is accepted for named lists.
+  const defaultCopyListPath = () => path.join(os.homedir(), '.omnicommander', 'copy-list.json');
+  const resolveCopyListPath = (value) => (value ? assertSafePath(value) : defaultCopyListPath());
+
+  app.post('/api/fs/copylist/save', async (req, res) => {
+    try {
+      const body = req.body || {};
+      const target = resolveCopyListPath(body.path);
+      if (!Array.isArray(body.list)) {
+        return res.status(400).json({ error: 'The copy list must be an array' });
+      }
+      await fs.promises.mkdir(path.dirname(target), { recursive: true });
+      const payload = { version: 1, kind: 'omnicommander-copy-list', savedAt: new Date().toISOString(), list: body.list };
+      await fs.promises.writeFile(target, JSON.stringify(payload, null, 2), 'utf8');
+      res.json({ ok: true, path: target, saved: body.list.length });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/fs/copylist/load', async (req, res) => {
+    try {
+      const target = resolveCopyListPath((req.body || {}).path);
+      const raw = await fs.promises.readFile(target, 'utf8').catch(() => null);
+      if (raw === null) return res.json({ ok: true, path: target, list: [], found: false });
+      let parsed;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        return res.status(400).json({ error: 'The copy list file is not valid JSON' });
+      }
+      const list = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.list) ? parsed.list : null);
+      if (!list) return res.status(400).json({ error: 'The copy list file has no transfer list' });
+      res.json({ ok: true, path: target, list, found: true });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
 }
 
 registerFsRoutes();

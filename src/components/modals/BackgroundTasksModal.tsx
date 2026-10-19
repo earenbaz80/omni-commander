@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Play, Pause, XCircle, Trash2 } from 'lucide-react';
-import { BackgroundTask, LanguageCode } from '../../types';
+import { Activity, Play, Pause, XCircle, Trash2, Save, FolderOpen } from 'lucide-react';
+import { BackgroundTask, LanguageCode, TransferPlan } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { taskQueue } from '../../services/taskQueueManager';
+import { fsEngine } from '../../services/fileSystem';
 import { soundManager } from '../../services/soundEffects';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
@@ -12,22 +13,59 @@ import { RetroProgressBar } from '../RetroProgressBar';
 interface BackgroundTasksModalProps {
   theme: ThemeConfig;
   lang: LanguageCode;
+  onRunCopyList: (plans: TransferPlan[]) => void;
   onClose: () => void;
 }
 
 export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
   theme,
   lang,
+  onRunCopyList,
   onClose
 }) => {
   const t = getTranslations(lang);
   const [tasks, setTasks] = useState<BackgroundTask[]>(() => taskQueue.getTasks());
+  const [listStatus, setListStatus] = useState('');
 
   useEffect(() => {
     return taskQueue.subscribe(() => {
       setTasks(taskQueue.getTasks());
     });
   }, []);
+
+  // The transfer list lives on real disk, so it outlives the session and can be
+  // replayed later. A list with no planned transfer (only deletes, say) has
+  // nothing reproducible to write.
+  const handleSaveList = async () => {
+    soundManager.playKeyTick();
+    const plans = taskQueue.getPlans();
+    if (plans.length === 0) {
+      setListStatus(t.copyListNothing);
+      return;
+    }
+    const result = await fsEngine.saveCopyList(plans);
+    setListStatus(
+      result
+        ? t.copyListSaved.replace('{n}', String(result.saved)).replace('{path}', result.path)
+        : t.copyListFailed
+    );
+  };
+
+  const handleLoadList = async () => {
+    soundManager.playKeyTick();
+    const result = await fsEngine.loadCopyList();
+    if (!result) {
+      setListStatus(t.copyListFailed);
+      return;
+    }
+    const plans = Array.isArray(result.list) ? result.list : [];
+    if (plans.length === 0) {
+      setListStatus(t.copyListNothing);
+      return;
+    }
+    onRunCopyList(plans);
+    setListStatus(t.copyListLoaded.replace('{n}', String(plans.length)).replace('{path}', result.path));
+  };
 
   const handlePause = (id: string) => {
     taskQueue.pauseTask(id);
@@ -91,14 +129,38 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
             <span className="opacity-75">{t.bgTasksRunning}</span>
           </div>
 
-          <button
-            onClick={handleClearCompleted}
-            className="px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded flex items-center gap-1 font-bold cursor-pointer"
-          >
-            <Trash2 className="w-3 h-3" />
-            <span>{t.bgTasksClearCompleted}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { void handleSaveList(); }}
+              className="px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded flex items-center gap-1 font-bold cursor-pointer"
+            >
+              <Save className="w-3 h-3" />
+              <span>{t.copyListSave}</span>
+            </button>
+
+            <button
+              onClick={() => { void handleLoadList(); }}
+              className="px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded flex items-center gap-1 font-bold cursor-pointer"
+            >
+              <FolderOpen className="w-3 h-3" />
+              <span>{t.copyListLoad}</span>
+            </button>
+
+            <button
+              onClick={handleClearCompleted}
+              className="px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded flex items-center gap-1 font-bold cursor-pointer"
+            >
+              <Trash2 className="w-3 h-3" />
+              <span>{t.bgTasksClearCompleted}</span>
+            </button>
+          </div>
         </div>
+
+        {listStatus && (
+          <div className="px-3 py-1.5 bg-black/60 border-b border-white/10 text-[10px] text-cyan-300 break-all">
+            {listStatus}
+          </div>
+        )}
 
         {/* Task List */}
         <div className="flex-1 overflow-y-auto p-3 space-y-2 max-h-96">

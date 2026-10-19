@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { taskQueue } from './taskQueueManager';
-import { FileProgressEntry } from '../types';
+import { FileProgressEntry, TransferPlan } from '../types';
 
 /**
  * The transfer engine reports only the tail of the files it touched, once per
@@ -71,5 +71,32 @@ describe('taskQueue per-file progress', () => {
     taskQueue.updateTaskFiles(id, []);
 
     expect(taskById(id).files).toBeUndefined();
+  });
+
+  it('exposes only planned transfers, oldest first, for the copy list', () => {
+    const copyPlan: TransferPlan = {
+      op: 'copy',
+      sourceDriveId: 'real_T',
+      targetDriveId: 'real_T',
+      targetDir: 'T:\\dest',
+      overwrite: true,
+      collision: 'overwrite',
+      throttleBps: 0,
+      entries: [{ path: 'T:\\a.txt', name: 'a', isDirectory: false, size: 1 }]
+    };
+    const movePlan: TransferPlan = { ...copyPlan, op: 'move', targetDir: 'T:\\otro' };
+
+    taskQueue.addTask('copy', 'Copy 1', undefined, 1, undefined, copyPlan);
+    // A delete moves no bytes and cannot be replayed from a saved list.
+    taskQueue.addTask('delete', 'Delete 1', undefined, 1);
+    taskQueue.addTask('move', 'Move 1', undefined, 1, undefined, movePlan);
+
+    expect(taskQueue.getPlans()).toEqual([copyPlan, movePlan]);
+  });
+
+  it('returns no plans at all when nothing reproducible was queued', () => {
+    taskQueue.addTask('delete', 'Delete 3', undefined, 3);
+
+    expect(taskQueue.getPlans()).toEqual([]);
   });
 });

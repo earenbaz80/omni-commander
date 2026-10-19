@@ -142,6 +142,33 @@ export interface BackgroundTask {
   currentFile?: string;
   /** Tail of the files this task touched, for per-file progress rows. */
   files?: FileProgressEntry[];
+  /** What this task transfers, kept so the copy list can be saved and re-run. */
+  plan?: TransferPlan;
+}
+
+/** One queued source of a transfer plan, addressed by its real absolute path. */
+export interface TransferPlanEntry {
+  /** Absolute source path on disk. */
+  path: string;
+  /** Entry name, shown in per-file rows. */
+  name: string;
+  isDirectory: boolean;
+  size: number;
+}
+
+/**
+ * A transfer as planned, which is what a saved copy list is made of: enough to
+ * queue the same batch again in a later session, without the in-memory catalogue.
+ */
+export interface TransferPlan {
+  op: 'copy' | 'move';
+  sourceDriveId: string;
+  targetDriveId: string;
+  targetDir: string;
+  overwrite: boolean;
+  collision: CollisionPolicy;
+  throttleBps: number;
+  entries: TransferPlanEntry[];
 }
 
 /** What to do when the destination entry already exists. 'ask' prompts per entry. */

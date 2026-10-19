@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { fsEngine, lostJobRetryPolicy } from './fileSystem';
-import { Drive, FileProgressEntry, PendingConflict } from '../types';
+import { Drive, FileProgressEntry, PendingConflict, TransferPlan } from '../types';
 
 /**
  * Real drives are never mutated in memory: every copy/move/delete/mkdir/rename
@@ -82,6 +82,22 @@ function installFetchMock() {
     const reply = (data: unknown) =>
       ({ ok: true, status: 200, json: async () => data }) as unknown as Response;
 
+    // The copy-list routes are matched first on purpose: their URLs contain
+    // `/api/fs/copy` as a prefix and the transfer check below would swallow them.
+    if (url.includes('/api/fs/copylist/save')) {
+      return reply({ ok: true, path: 'C:\\Users\\test\\.omnicommander\\copy-list.json', saved: (body?.list || []).length });
+    }
+    if (url.includes('/api/fs/copylist/load')) {
+      const bodyPath = body?.path;
+      if (!bodyPath) {
+        return reply({ ok: true, path: 'C:\\Users\\test\\.omnicommander\\copy-list.json', list: [], found: false });
+      }
+      const p = String(bodyPath);
+      if (p === 'C:\\Users\\test\\.omnicommander\\copy-list.json') {
+        return reply({ ok: true, path: p, list: [], found: false });
+      }
+      return reply({ ok: true, path: p, list: [], found: true });
+    }
     if (url.includes('/api/fs/copy') || url.includes('/api/fs/move')) {
       polls = 0;
       return reply({ jobId: 'job_1', totalBytes: 100, itemsTotal: 1 });
@@ -172,6 +188,59 @@ describe('FileSystemEngine real-drive bridge', () => {
 
     const copyCall = calls.find(c => c.url.includes('/api/fs/copy'));
     expect(copyCall!.body.overwrite).toBe(false);
+  });
+
+  it('replays a planned transfer from absolute paths, without the catalogue', async () => {
+    // A saved copy list only keeps paths: the entry it names may be long gone
+    // from the in-memory listing, and the replay still has to address the disk.
+    await fsEngine.transferPaths('copy', ['T:\\externa\\gone.txt'], 'T:\\dest', true);
+
+    const copyCall = calls.find(c => c.url.includes('/api/fs/copy'));
+    expect(copyCall).toBeDefined();
+    expect(copyCall!.body.sources).toEqual(['T:\\externa\\gone.txt']);
+    expect(copyCall!.body.targetDir).toBe('T:\\dest');
+    expect(calls.some(c => c.url.includes('/api/fs/job/job_1'))).toBe(true);
+  });
+
+  it('saves the transfer list to disk through the server', async () => {
+    const plan: TransferPlan = {
+      op: 'move',
+      sourceDriveId: 'real_T',
+      targetDriveId: 'real_T',
+      targetDir: 'T:\\dest',
+      overwrite: false,
+      collision: 'skip',
+      throttleBps: 1024,
+      entries: [{ path: 'T:\\hola.mundo.txt', name: 'hola.mundo', isDirectory: false, size: 10 }]
+    };
+
+    const result = await fsEngine.saveCopyList([plan]);
+
+    const call = calls.find(c => c.url.includes('/api/fs/copylist/save'));
+    expect(call).toBeDefined();
+    expect(call!.method).toBe('POST');
+    expect(call!.body.list).toEqual([plan]);
+    // No explicit path means the server's per-user default.
+    expect(call!.body.path).toBeUndefined();
+    expect(result?.saved).toBe(1);
+    expect(result?.path).toContain('copy-list.json');
+  });
+
+  it('treats a missing copy list file as an empty list, not an error', async () => {
+    const result = await fsEngine.loadCopyList();
+
+    const call = calls.find(c => c.url.includes('/api/fs/copylist/load'));
+    expect(call).toBeDefined();
+    expect(result?.found).toBe(false);
+    expect(result?.list).toEqual([]);
+    expect(result?.path).toContain('copy-list.json');
+  });
+
+  it('forwards an explicit copy list path when one is given', async () => {
+    await fsEngine.loadCopyList('T:\\listas\\backup.json');
+
+    const call = calls.find(c => c.url.includes('/api/fs/copylist/load'));
+    expect(call!.body.path).toBe('T:\\listas\\backup.json');
   });
 
   it('raises one collision prompt per destination and sends the answer back', async () => {

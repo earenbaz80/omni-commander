@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import { ConflictResolution, Drive, FileItem, FileProgressEntry, PendingConflict, RecycleBinItem, TransferOptions } from '../types';
+import { ConflictResolution, Drive, FileItem, FileProgressEntry, PendingConflict, RecycleBinItem, TransferOptions, TransferPlan } from '../types';
 import { handleStore } from './handleStore';
 import { log } from '../utils/logger';
 import { tGlobal } from '../i18n/translations';
@@ -731,21 +731,25 @@ class FileSystemEngine {
     })();
   }
 
-  private async realCopyOrMove(
-    file: FileItem,
+  /**
+   * Runs one server-side transfer of absolute source paths and waits for it.
+   * This is the shared core of both a live selection transfer and a transfer
+   * replayed from a saved copy list, which only has paths to work with.
+   */
+  public async transferPaths(
     op: 'copy' | 'move',
-    targetDriveId: string,
-    targetPath: string,
+    sources: string[],
+    targetDir: string,
     overwrite: boolean,
     onProgress?: (transferred: number, total: number) => void,
     signal?: { paused: boolean; cancelled: boolean },
     options?: TransferOptions,
     onConflict?: (conflict: PendingConflict) => void,
     onFiles?: (files: FileProgressEntry[]) => void
-  ): Promise<FileItem | undefined> {
+  ): Promise<void> {
     const started = await this.callServerFs<{ jobId?: string }>(op, {
-      sources: [this.realAbsolutePath(file)],
-      targetDir: targetPath,
+      sources,
+      targetDir,
       overwrite,
       // SuperCopier-style knobs. Omitted when the caller has no preference, so
       // the server keeps its `overwrite`-derived default.
@@ -765,6 +769,31 @@ class FileSystemEngine {
     if (job && job.status === 'done-with-errors') {
       throw new Error(job.errors[0]?.message || 'Operation failed');
     }
+  }
+
+  private async realCopyOrMove(
+    file: FileItem,
+    op: 'copy' | 'move',
+    targetDriveId: string,
+    targetPath: string,
+    overwrite: boolean,
+    onProgress?: (transferred: number, total: number) => void,
+    signal?: { paused: boolean; cancelled: boolean },
+    options?: TransferOptions,
+    onConflict?: (conflict: PendingConflict) => void,
+    onFiles?: (files: FileProgressEntry[]) => void
+  ): Promise<FileItem | undefined> {
+    await this.transferPaths(
+      op,
+      [this.realAbsolutePath(file)],
+      targetPath,
+      overwrite,
+      onProgress,
+      signal,
+      options,
+      onConflict,
+      onFiles
+    );
 
     const sourceDriveId = file.driveId;
     await this.loadSystemDriveDirectory(targetDriveId, targetPath);
@@ -779,6 +808,35 @@ class FileSystemEngine {
       this.normalizePath(candidate.path) === normTarget &&
       this.realEntryName(candidate) === wanted
     );
+  }
+
+  /**
+   * Absolute on-disk path of a real-drive entry, for callers that need to record
+   * or replay a transfer without holding the in-memory catalogue entry.
+   */
+  public absolutePathOf(file: FileItem): string {
+    return this.realAbsolutePath(file);
+  }
+
+  /** True when the entry lives on a real drive and is written by the server. */
+  public isRealFile(file: FileItem): boolean {
+    return this.isSystemDrive(file.driveId);
+  }
+
+  /**
+   * Saves the transfer list on disk. Returns the file that was written, or null
+   * when the server could not be reached.
+   */
+  public async saveCopyList(plans: TransferPlan[], path?: string): Promise<{ path: string; saved: number } | null> {
+    return this.callServerFs<{ path: string; saved: number }>('copylist/save', { list: plans, path: path || undefined });
+  }
+
+  /**
+   * Reads a saved transfer list from disk. A missing file is an empty list, not
+   * an error: there is simply nothing to replay yet.
+   */
+  public async loadCopyList(path?: string): Promise<{ path: string; list: TransferPlan[]; found: boolean } | null> {
+    return this.callServerFs<{ path: string; list: TransferPlan[]; found: boolean }>('copylist/load', { path: path || undefined });
   }
 
   public createDirectory(driveId: string, parentPath: string, dirName: string): FileItem {
