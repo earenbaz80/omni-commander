@@ -810,8 +810,8 @@ const FileListComponent: React.FC<FileListProps> = ({
                       : 'border-white/10 hover:bg-white/5'
                   }`}
                 >
-                  <div className="w-20 h-20 flex items-center justify-center bg-black/40 rounded mb-1">
-                    {getFileIcon(item, 'w-16 h-16')}
+                  <div className="flex items-center justify-center mb-1">
+                    {getFileIcon(item, 'w-20 h-20')}
                   </div>
                   <span className="truncate w-full text-[11px] font-medium" style={{ color: textColor }}>
                     {item.name}{item.ext ? `.${item.ext}` : ''}
