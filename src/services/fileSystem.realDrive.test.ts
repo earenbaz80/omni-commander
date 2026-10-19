@@ -1,0 +1,234 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { fsEngine, lostJobRetryPolicy } from './fileSystem';
+import { Drive } from '../types';
+
+/**
+ * Real drives are never mutated in memory: every copy/move/delete/mkdir/rename
+ * is delegated to the local server, which owns the disk. These tests pin that
+ * contract down, because a regression here silently turns real transfers back
+ * into the in-memory simulation the app used to have.
+ */
+
+const realDrive: Drive = {
+  id: 'real_T',
+  letter: 'T:',
+  name: 'Test',
+  type: 'local',
+  driveKind: 'fixed',
+  fileSystem: 'NTFS',
+  totalBytes: 1000,
+  freeBytes: 500,
+  isMounted: true
+};
+
+interface RecordedCall {
+  url: string;
+  method: string;
+  body: any;
+}
+
+// The server listing contract: `name`/`ext` are a display split, `fullName` is
+// the exact on-disk entry name and is the only thing that can be addressed.
+const listing = [
+  {
+    name: 'mundo',
+    ext: 'TXT',
+    fullName: 'hola.mundo.txt',
+    isDirectory: false,
+    size: 42,
+    modifiedAt: '2026-01-01 00:00:00',
+    createdAt: '2026-01-01 00:00:00',
+    attributes: { readOnly: false, hidden: false, system: false, archive: true },
+    content: ''
+  },
+  {
+    name: 'Python 3.11',
+    ext: '',
+    fullName: 'Python 3.11',
+    isDirectory: true,
+    size: 0,
+    modifiedAt: '2026-01-01 00:00:00',
+    createdAt: '2026-01-01 00:00:00',
+    attributes: { readOnly: false, hidden: false, system: false, archive: false },
+    content: ''
+  }
+];
+
+const job = (id: string, op: string, status: string, copiedBytes = 0) => ({
+  id,
+  op,
+  status,
+  totalBytes: 100,
+  copiedBytes,
+  itemsTotal: 1,
+  itemsDone: status === 'done' ? 1 : 0,
+  itemsSkipped: 0,
+  currentFile: '',
+  speedBps: 0,
+  etaSeconds: 0,
+  errors: [] as Array<{ path: string; message: string }>
+});
+
+function installFetchMock() {
+  const calls: RecordedCall[] = [];
+  let polls = 0;
+
+  const impl = async (input: any, init: any = {}) => {
+    const url = String(input);
+    const method = String(init.method || 'GET').toUpperCase();
+    const body = init.body ? JSON.parse(String(init.body)) : undefined;
+    calls.push({ url, method, body });
+
+    const reply = (data: unknown) =>
+      ({ ok: true, status: 200, json: async () => data }) as unknown as Response;
+
+    if (url.includes('/api/fs/copy') || url.includes('/api/fs/move')) {
+      polls = 0;
+      return reply({ jobId: 'job_1', totalBytes: 100, itemsTotal: 1 });
+    }
+    if (url.includes('/api/fs/job/job_1')) {
+      polls += 1;
+      return reply(polls > 1 ? job('job_1', 'copy', 'done', 100) : job('job_1', 'copy', 'running', 0));
+    }
+    if (url.includes('/api/fs/delete')) {
+      return reply({ jobId: 'job_2', itemsTotal: 1 });
+    }
+    if (url.includes('/api/fs/job/job_2')) return reply(job('job_2', 'delete', 'done'));
+
+    // /api/list
+    return reply(listing);
+  };
+
+  vi.stubGlobal('fetch', impl);
+  return calls;
+}
+
+async function waitFor(predicate: () => boolean, timeoutMs = 2000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (predicate()) return true;
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  return predicate();
+}
+
+describe('FileSystemEngine real-drive bridge', () => {
+  let calls: RecordedCall[];
+
+  beforeEach(async () => {
+    fsEngine.resetToDefaults();
+    fsEngine.setDrives([realDrive]);
+    calls = installFetchMock();
+    await fsEngine.loadSystemDriveDirectory('real_T', 'T:');
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    fsEngine.resetToDefaults();
+  });
+
+  it('keeps the exact on-disk name instead of the display split', () => {
+    const items = fsEngine.getFiles('real_T', 'T:');
+    const file = items.find(i => i.fullName === 'hola.mundo.txt');
+    const folder = items.find(i => i.fullName === 'Python 3.11');
+
+    expect(file).toBeDefined();
+    expect(folder).toBeDefined();
+    // A folder must never be split into "Python 3" + extension "11".
+    expect(folder!.name).toBe('Python 3.11');
+    expect(folder!.ext).toBe('');
+    expect(folder!.isDirectory).toBe(true);
+  });
+
+  it('copies a real file by its full on-disk name through the server', async () => {
+    const file = fsEngine.getFiles('real_T', 'T:').find(i => i.fullName === 'hola.mundo.txt')!;
+
+    await fsEngine.copyItem(file.id, 'real_T', 'T:\\dest', true);
+
+    const copyCall = calls.find(c => c.url.includes('/api/fs/copy'));
+    expect(copyCall).toBeDefined();
+    expect(copyCall!.method).toBe('POST');
+    expect(copyCall!.body.sources).toEqual(['T:\\hola.mundo.txt']);
+    expect(copyCall!.body.targetDir).toBe('T:\\dest');
+    expect(copyCall!.body.overwrite).toBe(true);
+
+    // The job must actually be followed to completion.
+    expect(calls.some(c => c.url.includes('/api/fs/job/job_1'))).toBe(true);
+  });
+
+  it('addresses a directory by its unsplit name (no data loss on copy)', async () => {
+    const folder = fsEngine.getFiles('real_T', 'T:').find(i => i.fullName === 'Python 3.11')!;
+
+    await fsEngine.copyItem(folder.id, 'real_T', 'T:\\dest', true);
+
+    const copyCall = calls.find(c => c.url.includes('/api/fs/copy'));
+    expect(copyCall!.body.sources).toEqual(['T:\\Python 3.11']);
+  });
+
+  it('never overwrites when overwrite is false', async () => {
+    const file = fsEngine.getFiles('real_T', 'T:').find(i => i.fullName === 'hola.mundo.txt')!;
+
+    await fsEngine.copyItem(file.id, 'real_T', 'T:\\dest', false);
+
+    const copyCall = calls.find(c => c.url.includes('/api/fs/copy'));
+    expect(copyCall!.body.overwrite).toBe(false);
+  });
+
+  it('moves a real item through the server instead of rewriting memory', async () => {
+    const file = fsEngine.getFiles('real_T', 'T:').find(i => i.fullName === 'hola.mundo.txt')!;
+
+    await fsEngine.moveItem(file.id, 'real_T', 'T:\\dest');
+
+    const moveCall = calls.find(c => c.url.includes('/api/fs/move'));
+    expect(moveCall).toBeDefined();
+    expect(moveCall!.body.sources).toEqual(['T:\\hola.mundo.txt']);
+    expect(moveCall!.body.targetDir).toBe('T:\\dest');
+  });
+
+  it('deletes a real item through the server, honouring the recycle-bin setting', async () => {
+    const file = fsEngine.getFiles('real_T', 'T:').find(i => i.fullName === 'hola.mundo.txt')!;
+
+    fsEngine.deleteItem(file.id, true);
+
+    const found = await waitFor(() => calls.some(c => c.url.includes('/api/fs/delete')));
+    expect(found).toBe(true);
+
+    const deleteCall = calls.find(c => c.url.includes('/api/fs/delete'))!;
+    expect(deleteCall.body.targets).toEqual(['T:\\hola.mundo.txt']);
+    // Real deletes go to the Windows Recycle Bin, never the virtual one.
+    expect(deleteCall.body.useTrash).toBe(true);
+    expect(fsEngine.getRecycleBinItems()).toEqual([]);
+  });
+
+  it('fails the transfer when the server stops answering, instead of a fake success', async () => {
+    const previous = { ...lostJobRetryPolicy };
+    lostJobRetryPolicy.maxPolls = 2;
+    lostJobRetryPolicy.pollDelayMs = 1;
+
+    try {
+      // The job starts, then the server dies mid-copy: every snapshot request
+      // fails at the transport level. That used to look identical to a finished
+      // transfer, leaving a truncated file behind a green 100%.
+      vi.stubGlobal('fetch', async (input: any) => {
+        const url = String(input);
+        const reply = (data: unknown) =>
+          ({ ok: true, status: 200, json: async () => data }) as unknown as Response;
+        if (url.includes('/api/fs/copy')) {
+          return reply({ jobId: 'job_lost', totalBytes: 100, itemsTotal: 1 });
+        }
+        if (url.includes('/api/fs/job/job_lost')) {
+          throw new TypeError('fetch failed');
+        }
+        return reply(listing);
+      });
+
+      const file = fsEngine.getFiles('real_T', 'T:').find(i => i.fullName === 'hola.mundo.txt')!;
+
+      await expect(fsEngine.copyItem(file.id, 'real_T', 'T:\\dest', true)).rejects.toThrow(
+        /Transfer lost/i
+      );
+    } finally {
+      Object.assign(lostJobRetryPolicy, previous);
+    }
+  });
+});

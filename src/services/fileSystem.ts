@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import { Drive, FileItem, RecycleBinItem } from '../types';
+import { Drive, FileItem, RecycleBinItem, TransferOptions } from '../types';
 import { handleStore } from './handleStore';
 import { log } from '../utils/logger';
 import { tGlobal } from '../i18n/translations';
@@ -14,10 +14,45 @@ const RECYCLE_BIN_STORAGE_KEY = 'nc_recycle_bin_v1';
 // /api/* requests never reach the embedded server. Resolve against the local
 // server's absolute URL when running inside Electron; keep relative paths in
 // dev/web mode where Vite proxies /api to http://127.0.0.1:3001.
-const API_BASE =
-  typeof window !== 'undefined' && (window as any).electronAPI?.isElectron
-    ? 'http://127.0.0.1:3001'
-    : '';
+//
+// The port is NOT assumed: the embedded server takes the first free port (3001
+// is frequently held by unrelated software) and the main process passes the one
+// it actually bound through the preload bridge.
+const API_BASE = (() => {
+  const bridge = typeof window !== 'undefined' ? (window as any).electronAPI : undefined;
+  if (!bridge?.isElectron) return '';
+  const port = Number(bridge.apiPort);
+  return `http://127.0.0.1:${Number.isFinite(port) && port > 0 ? port : 3001}`;
+})();
+
+/** Progress snapshot of a real filesystem job owned by the local server. */
+interface RealFsJob {
+  id: string;
+  op: string;
+  status: 'running' | 'paused' | 'done' | 'done-with-errors' | 'cancelled' | 'error';
+  totalBytes: number;
+  copiedBytes: number;
+  itemsTotal: number;
+  itemsDone: number;
+  itemsSkipped: number;
+  currentFile: string;
+  speedBps: number;
+  etaSeconds: number;
+  errors: Array<{ path: string; message: string }>;
+}
+
+/**
+ * How long an unobservable job is retried before a transfer is declared failed.
+ * The defaults hold a transfer for about ten seconds, which rides out a brief
+ * hiccup but refuses to call a dead server a success. Exposed so tests can
+ * shrink the window instead of waiting ten real seconds.
+ */
+export const lostJobRetryPolicy = {
+  /** Consecutive polls that may fail to observe the job before giving up. */
+  maxPolls: 20,
+  /** Delay between those polls, in milliseconds. */
+  pollDelayMs: 500
+};
 
 // Initial Virtual Drives
 export const initialDrives: Drive[] = [];
@@ -324,6 +359,7 @@ class FileSystemEngine {
         id: `sys_${driveId}_${index}_${Date.now()}`,
         name: item.name,
         ext: item.ext || '',
+        fullName: item.fullName || undefined,
         path: normPath,
         driveId,
         isDirectory: !!item.isDirectory,
@@ -503,6 +539,193 @@ class FileSystemEngine {
     }
   }
 
+  // -----------------------------------------------------------------------
+  // Real-drive bridge
+  // -----------------------------------------------------------------------
+  // A browser renderer cannot write to arbitrary paths (the File System Access
+  // API needs a user-granted handle per root), so any mutation on a "real_*"
+  // drive is executed by the local server, which has full filesystem access.
+  // After the server confirms, the affected directory is re-listed from disk
+  // so the UI reflects the real state instead of an optimistic guess.
+
+  private isSystemDrive(driveId: string): boolean {
+    return !!driveId && driveId.startsWith('real_');
+  }
+
+  // Display splits `name`/`ext`; the on-disk name is what actually has to be
+  // addressed, and for directories it is always the untouched original.
+  private realEntryName(file: FileItem): string {
+    if (file.fullName) return file.fullName;
+    if (file.isDirectory) return file.name;
+    return file.ext ? `${file.name}.${file.ext}` : file.name;
+  }
+
+  private realAbsolutePath(file: FileItem): string {
+    const parent = this.normalizePath(file.path);
+    const trimmed = parent.endsWith('\\') ? parent.slice(0, -1) : parent;
+    return `${trimmed}\\${this.realEntryName(file)}`;
+  }
+
+  private childAbsolutePath(parentPath: string, childName: string): string {
+    const parent = this.normalizePath(parentPath);
+    const trimmed = parent.endsWith('\\') ? parent.slice(0, -1) : parent;
+    return `${trimmed}\\${childName}`;
+  }
+
+  private async callServerFs<T>(route: string, body: unknown): Promise<T | null> {
+    try {
+      const response = await fetchWithRetry(`${API_BASE}/api/fs/${route}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body ?? {}),
+        timeoutMs: 20000,
+        retries: 0
+      });
+      if (!response.ok) {
+        const detail = await response.json().catch(() => null);
+        log.warn('Real filesystem request rejected', route, detail);
+        return null;
+      }
+      return (await response.json()) as T;
+    } catch (error) {
+      log.warn('Real filesystem request failed', route, error);
+      return null;
+    }
+  }
+
+  /**
+   * Reads a job snapshot. A 404 means the server no longer knows about the job,
+   * which the caller decides how to treat. Transport failures deliberately
+   * PROPAGATE: swallowing them here is what let a dead server look like a
+   * finished transfer, turning a half-written file into a green 100% in the UI.
+   */
+  private async getServerJob(jobId: string): Promise<RealFsJob | null> {
+    const response = await fetchWithRetry(`${API_BASE}/api/fs/job/${encodeURIComponent(jobId)}`, { timeoutMs: 10000, retries: 1 });
+    if (response.status === 404) return null;
+    if (!response.ok) throw new Error(`Job status request failed with HTTP ${response.status}`);
+    return (await response.json()) as RealFsJob;
+  }
+
+  /**
+   * Follows a server-side job to completion. The caller's pause/cancel intent
+   * is mirrored onto the running job, so pausing in the UI actually stops the
+   * transfer on disk instead of only freezing the progress bar.
+   */
+  private async awaitServerJob(
+    jobId: string,
+    onProgress?: (transferred: number, total: number) => void,
+    signal?: { paused: boolean; cancelled: boolean },
+    onJob?: (job: RealFsJob) => void
+  ): Promise<RealFsJob | null> {
+    let lastPaused = false;
+    let lastCancelled = false;
+    // A job that cannot be observed is NOT a finished job. With the server gone
+    // we keep asking for a bounded window before giving up, so a brief hiccup
+    // does not fail an otherwise healthy transfer, but a real outage is reported
+    // instead of silently completing with a truncated destination file.
+    let lostPolls = 0;
+    for (;;) {
+      let job: RealFsJob | null = null;
+      let unobservable = false;
+      try {
+        job = await this.getServerJob(jobId);
+      } catch {
+        unobservable = true;
+      }
+
+      if (unobservable || !job) {
+        lostPolls += 1;
+        if (lostPolls > lostJobRetryPolicy.maxPolls) {
+          throw new Error(
+            'Transfer lost: the local file server stopped responding, so the destination may be incomplete.'
+          );
+        }
+        await new Promise(resolve => setTimeout(resolve, lostJobRetryPolicy.pollDelayMs));
+        continue;
+      }
+      lostPolls = 0;
+
+      onProgress?.(job.copiedBytes, job.totalBytes);
+      // Callers that need entry counts (delete has no byte total) read the raw
+      // snapshot here instead of the byte-oriented `onProgress` hook.
+      onJob?.(job);
+
+      if (signal) {
+        if (signal.cancelled && !lastCancelled) {
+          lastCancelled = true;
+          await this.callServerFs(`job/${encodeURIComponent(jobId)}/cancel`, {});
+        } else if (!signal.cancelled && signal.paused !== lastPaused) {
+          lastPaused = signal.paused;
+          await this.callServerFs(`job/${encodeURIComponent(jobId)}/${signal.paused ? 'pause' : 'resume'}`, {});
+        }
+      }
+
+      if (job.status !== 'running' && job.status !== 'paused') return job;
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+  }
+
+  // Fire-and-forget mutation helper: start the server job, wait for it and then
+  // re-read the directory from disk. Reloading unconditionally is deliberate —
+  // it repairs the optimistic in-memory state after a cancel or a failure.
+  private runRealJob(route: string, body: unknown, driveId: string, reloadPath: string): void {
+    void (async () => {
+      try {
+        const started = await this.callServerFs<{ jobId?: string }>(route, body);
+        if (started?.jobId) await this.awaitServerJob(started.jobId);
+      } catch (error) {
+        // A fire-and-forget job has no task to report on, but a lost transfer
+        // must not become an unhandled rejection either.
+        console.error('[fileSystem] background job failed', error);
+      }
+      try {
+        await this.loadSystemDriveDirectory(driveId, reloadPath);
+      } catch (error) {
+        console.error('[fileSystem] directory reload failed', error);
+      }
+    })();
+  }
+
+  private async realCopyOrMove(
+    file: FileItem,
+    op: 'copy' | 'move',
+    targetDriveId: string,
+    targetPath: string,
+    overwrite: boolean,
+    onProgress?: (transferred: number, total: number) => void,
+    signal?: { paused: boolean; cancelled: boolean },
+    options?: TransferOptions
+  ): Promise<FileItem | undefined> {
+    const started = await this.callServerFs<{ jobId?: string }>(op, {
+      sources: [this.realAbsolutePath(file)],
+      targetDir: targetPath,
+      overwrite,
+      // SuperCopier-style knobs. Omitted when the caller has no preference, so
+      // the server keeps its `overwrite`-derived default.
+      ...(options ? { collision: options.collision, throttleBps: options.throttleBps } : {})
+    });
+    if (!started?.jobId) throw new Error(op === 'move' ? 'Real move could not start' : 'Real copy could not start');
+
+    const job = await this.awaitServerJob(started.jobId, onProgress, signal);
+    if (job && job.status === 'done-with-errors') {
+      throw new Error(job.errors[0]?.message || 'Operation failed');
+    }
+
+    const sourceDriveId = file.driveId;
+    await this.loadSystemDriveDirectory(targetDriveId, targetPath);
+    if (op === 'move' && sourceDriveId !== targetDriveId) {
+      await this.loadSystemDriveDirectory(sourceDriveId, file.path);
+    }
+
+    const normTarget = this.normalizePath(targetPath);
+    const wanted = this.realEntryName(file);
+    return this.files.find(candidate =>
+      candidate.driveId === targetDriveId &&
+      this.normalizePath(candidate.path) === normTarget &&
+      this.realEntryName(candidate) === wanted
+    );
+  }
+
   public createDirectory(driveId: string, parentPath: string, dirName: string): FileItem {
     const cleanName = dirName.replace(/[\\/:*?"<>|]/g, '').trim();
     if (!cleanName) throw new Error('Invalid directory name');
@@ -521,6 +744,7 @@ class FileSystemEngine {
       id: `dir_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       name: cleanName,
       ext: '',
+      fullName: cleanName,
       path: normParent,
       driveId,
       isDirectory: true,
@@ -535,8 +759,10 @@ class FileSystemEngine {
 
     this.files.push(newItem);
 
-    // Physical FileSystem write-through
-    if (this.mountedHandles[driveId]) {
+    // Real-drive write-through: the server owns the disk write.
+    if (this.isSystemDrive(driveId)) {
+      this.runRealJob('mkdir', { path: this.childAbsolutePath(parentPath, cleanName) }, driveId, parentPath);
+    } else if (this.mountedHandles[driveId]) {
       this.createRealFolderPhysically(driveId, parentPath, cleanName);
     }
 
@@ -566,6 +792,7 @@ class FileSystemEngine {
       id: `file_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       name,
       ext,
+      fullName: cleanName,
       path: normParent,
       driveId,
       isDirectory: false,
@@ -581,8 +808,10 @@ class FileSystemEngine {
 
     this.files.push(newItem);
 
-    // Physical FileSystem write-through
-    if (this.mountedHandles[driveId]) {
+    // Real-drive write-through: the server owns the disk write.
+    if (this.isSystemDrive(driveId)) {
+      this.runRealJob('write', { path: this.childAbsolutePath(parentPath, cleanName), content }, driveId, parentPath);
+    } else if (this.mountedHandles[driveId]) {
       this.writeRealFilePhysically(driveId, parentPath, cleanName, content);
     }
 
@@ -602,8 +831,10 @@ class FileSystemEngine {
       file.cloudSyncStatus = 'synced';
     }
 
-    // Physical FileSystem write-through
-    if (this.mountedHandles[file.driveId]) {
+    // Real-drive write-through: the server owns the disk write.
+    if (this.isSystemDrive(file.driveId)) {
+      void this.callServerFs('write', { path: this.realAbsolutePath(file), content });
+    } else if (this.mountedHandles[file.driveId]) {
       const fileName = file.ext ? `${file.name}.${file.ext}` : file.name;
       this.writeRealFilePhysically(file.driveId, file.path, fileName, content);
     }
@@ -619,6 +850,8 @@ class FileSystemEngine {
     if (!clean) throw new Error('Invalid name');
 
     const oldFullName = file.ext ? `${file.name}.${file.ext}` : file.name;
+    // Resolve the real on-disk path before `name`/`ext` are mutated below.
+    const realSourcePath = this.isSystemDrive(file.driveId) ? this.realAbsolutePath(file) : '';
 
     if (file.isDirectory) {
       const oldDirPath = `${this.normalizePath(file.path)}\\${file.name}`;
@@ -649,8 +882,10 @@ class FileSystemEngine {
 
     file.modifiedAt = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
-    // Physical FileSystem write-through
-    if (this.mountedHandles[file.driveId]) {
+    // Real-drive write-through: the server owns the disk write.
+    if (this.isSystemDrive(file.driveId)) {
+      this.runRealJob('rename', { path: realSourcePath, newName: clean }, file.driveId, file.path);
+    } else if (this.mountedHandles[file.driveId]) {
       this.renameRealItemPhysically(file.driveId, file.path, oldFullName, clean, file.isDirectory);
     }
 
@@ -661,9 +896,23 @@ class FileSystemEngine {
     const file = this.files.find(f => f.id === fileId);
     if (!file) return;
 
-    if (useRecycleBin) {
+    const isReal = this.isSystemDrive(file.driveId);
+
+    // The app's own recycle bin is a virtual overlay. Real drives use the
+    // Windows Recycle Bin (the server performs the trash move), so they must
+    // not also be duplicated into the virtual one.
+    if (useRecycleBin && !isReal) {
       this.moveToRecycleBin(fileId);
       return;
+    }
+
+    if (isReal) {
+      this.runRealJob(
+        'delete',
+        { targets: [this.realAbsolutePath(file)], useTrash: useRecycleBin },
+        file.driveId,
+        file.path
+      );
     }
 
     const oldFullName = file.ext ? `${file.name}.${file.ext}` : file.name;
@@ -676,12 +925,82 @@ class FileSystemEngine {
 
     this.files = this.files.filter(f => f.id !== fileId);
 
-    // Physical FileSystem write-through
-    if (this.mountedHandles[file.driveId]) {
+    // Physical FileSystem write-through (mounted-handle drives only)
+    if (!isReal && this.mountedHandles[file.driveId]) {
       this.deleteRealItemPhysically(file.driveId, file.path, oldFullName, file.isDirectory);
     }
 
     this.saveToStorage();
+  }
+
+  /**
+   * Deletes a batch with real, entry-based progress.
+   *
+   * A delete moves no bytes, so completion is measured in entries: the server
+   * reports `itemsDone`/`itemsTotal` for the batch job and this method streams
+   * that ratio to the caller. Virtual drives resolve immediately because they
+   * only exist in the app's overlay store, and the affected directories are
+   * re-read from disk afterwards so a cancel or a partial failure still leaves
+   * the panes showing reality.
+   */
+  public async deleteItems(
+    items: FileItem[],
+    useRecycleBin: boolean,
+    onProgress?: (done: number, total: number) => void,
+    signal?: { paused: boolean; cancelled: boolean }
+  ): Promise<void> {
+    const real = items.filter(item => this.isSystemDrive(item.driveId));
+    const virtual = items.filter(item => !this.isSystemDrive(item.driveId));
+
+    for (const item of virtual) {
+      this.deleteItem(item.id, useRecycleBin);
+    }
+
+    const total = items.length || 1;
+    let done = virtual.length;
+    if (real.length === 0) {
+      onProgress?.(total, total);
+      return;
+    }
+    onProgress?.(done, total);
+
+    const started = await this.callServerFs<{ jobId?: string }>('delete', {
+      targets: real.map(item => this.realAbsolutePath(item)),
+      useTrash: useRecycleBin
+    });
+    if (!started?.jobId) throw new Error('Real delete could not start');
+
+    const job = await this.awaitServerJob(started.jobId, undefined, signal, snapshot => {
+      onProgress?.(done + (snapshot.itemsDone || 0), total);
+    });
+    if (job && job.status === 'done-with-errors') {
+      throw new Error(job.errors[0]?.message || 'Delete failed');
+    }
+
+    // Mirror the removal in the overlay listing, then re-read from disk.
+    for (const item of real) {
+      const file = this.files.find(f => f.id === item.id);
+      if (!file) continue;
+      if (file.isDirectory) {
+        const dirPath = `${this.normalizePath(file.path)}\\${file.name}`;
+        this.files = this.files.filter(
+          f => !(f.driveId === file.driveId && (f.path === dirPath || f.path.startsWith(`${dirPath}\\`)))
+        );
+      }
+      this.files = this.files.filter(f => f.id !== file.id);
+    }
+    this.saveToStorage();
+
+    const reloaded = new Set<string>();
+    for (const item of real) {
+      const key = `${item.driveId}|${this.normalizePath(item.path)}`;
+      if (reloaded.has(key)) continue;
+      reloaded.add(key);
+      await this.loadSystemDriveDirectory(item.driveId, item.path);
+    }
+
+    done = total;
+    onProgress?.(done, total);
   }
 
   public moveToRecycleBin(fileId: string): boolean {
@@ -774,10 +1093,17 @@ class FileSystemEngine {
     targetDriveId: string,
     targetPath: string,
     overwrite: boolean = true,
-    onProgress?: (transferred: number, total: number) => void
+    onProgress?: (transferred: number, total: number) => void,
+    signal?: { paused: boolean; cancelled: boolean },
+    options?: TransferOptions
   ): Promise<FileItem | undefined> {
     const file = this.files.find(f => f.id === fileId);
     if (!file) return undefined;
+
+    // Real drives are written by the local server, never simulated in memory.
+    if (this.isSystemDrive(file.driveId) || this.isSystemDrive(targetDriveId)) {
+      return this.realCopyOrMove(file, 'copy', targetDriveId, targetPath, overwrite, onProgress, signal, options);
+    }
 
     const normTarget = this.normalizePath(targetPath);
     const targetDrive = this.getDrive(targetDriveId);
@@ -880,9 +1206,15 @@ class FileSystemEngine {
     }
   }
 
-  public async moveItem(fileId: string, targetDriveId: string, targetPath: string, onProgress?: (transferred: number, total: number) => void): Promise<boolean> {
+  public async moveItem(fileId: string, targetDriveId: string, targetPath: string, onProgress?: (transferred: number, total: number) => void, signal?: { paused: boolean; cancelled: boolean }, options?: TransferOptions): Promise<boolean> {
     const file = this.files.find(f => f.id === fileId);
     if (!file) return false;
+
+    // Real drives are written by the local server, never simulated in memory.
+    if (this.isSystemDrive(file.driveId) || this.isSystemDrive(targetDriveId)) {
+      await this.realCopyOrMove(file, 'move', targetDriveId, targetPath, true, onProgress, signal, options);
+      return true;
+    }
 
     const normTarget = this.normalizePath(targetPath);
     const targetDrive = this.getDrive(targetDriveId);

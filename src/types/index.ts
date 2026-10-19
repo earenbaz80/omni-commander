@@ -4,6 +4,12 @@ export interface FileItem {
   id: string;
   name: string;
   ext: string;
+  /**
+   * Exact on-disk entry name (e.g. "Python 3.11", "archive.tar.gz").
+   * `name`/`ext` are display-only splits, so this is the authority for any
+   * operation that must address the real file.
+   */
+  fullName?: string;
   path: string; // e.g. "C:\WINDOWS\SYSTEM32"
   driveId: string;
   isDirectory: boolean;
@@ -119,6 +125,20 @@ export interface BackgroundTask {
   totalBytes?: number;
   createdAt: string;
   error?: string;
+  /** Seconds remaining, as reported by the transfer engine. */
+  etaSeconds?: number;
+  /** File currently being written, shown as progress detail. */
+  currentFile?: string;
+}
+
+/** What to do when the destination entry already exists. */
+export type CollisionPolicy = 'overwrite' | 'skip' | 'rename';
+
+/** User-chosen knobs for a real copy/move operation. */
+export interface TransferOptions {
+  collision: CollisionPolicy;
+  /** Transfer cap in bytes per second; 0 means unlimited. */
+  throttleBps: number;
 }
 
 export interface UserSettings {

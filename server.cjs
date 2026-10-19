@@ -4,11 +4,40 @@ const { promisify } = require('util');
 const execFileAsync = promisify(execFile);
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
+const net = require('net');
 const app = express();
 
-// Allow cross-origin requests from the packaged Electron renderer (file:// origin).
+// The renderer is either same-origin (dev: localhost:3000) or loaded from
+// file:// in the packaged app, which the browser reports as the literal
+// string "null". Any other origin is a third-party page trying to drive the
+// local filesystem API.
+function isAllowedOrigin(origin) {
+  if (!origin) return true; // same-origin or non-browser client
+  if (origin === 'null') return true; // packaged Electron renderer (file://)
+  try {
+    const host = new URL(origin).hostname;
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+  } catch {
+    return false;
+  }
+}
+
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // Marks every response as ours, even error responses. The bind handshake at
+  // the bottom of this file relies on it to prove that the socket which
+  // answered is this server and not a foreign app sharing the same port.
+  res.setHeader('X-OmniCmd-Server', '1');
+  const origin = req.headers.origin;
+  // Refusing here (rather than leaving it to the browser) matters: a
+  // cross-origin "simple" request would otherwise still reach the handler and
+  // mutate the disk, even though the browser hides the response.
+  if (!isAllowedOrigin(origin)) {
+    res.status(403).json({ error: 'Origin not allowed' });
+    return;
+  }
+  res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') {
@@ -17,7 +46,39 @@ app.use((req, res, next) => {
   }
   next();
 });
-const PORT = process.env.PORT || 3001;
+
+app.use(express.json({ limit: '2mb' }));
+
+// The preferred port is only a preference. Another application frequently holds
+// it (this machine has seen 3001 taken by unrelated software), and a hard
+// EADDRINUSE crash would take the whole Electron main process down with it, so
+// the server walks forward until it finds a free port instead.
+const PREFERRED_PORT = Number(process.env.PORT) || 3001;
+const MAX_PORT_ATTEMPTS = 25;
+
+let activePort = null;
+const portReadyListeners = [];
+
+/** Runs `listener` as soon as the server is listening, or immediately if it already is. */
+function onPortReady(listener) {
+  if (activePort != null) listener(activePort);
+  else portReadyListeners.push(listener);
+}
+
+function announcePort(port) {
+  activePort = port;
+  // Also exported through process.env so a parent process can read it without
+  // reaching into this module.
+  process.env.OMNI_API_PORT = String(port);
+  while (portReadyListeners.length > 0) {
+    const listener = portReadyListeners.shift();
+    try {
+      listener(port);
+    } catch (error) {
+      console.error('Port listener failed:', error);
+    }
+  }
+}
 
 function mapWin32DriveType(value) {
   switch (Number(value)) {
@@ -249,16 +310,21 @@ async function readDirectoryEntries(safePath) {
       const isDirectory = entry.isDirectory();
       let ext = '';
       let name = entry.name;
-      if (!entry.name.startsWith('.')) {
-        const parts = entry.name.split('.');
-        if (parts.length > 1) {
-          ext = parts.pop().toUpperCase();
-          name = parts.join('.');
+      // Never split a directory name: a folder called "Python 3.11" must render
+      // as "Python 3.11", not as "Python 3" plus extension "11". Dotfiles also
+      // keep their whole name. `lastIndexOf` with an index > 0 handles names
+      // like "file.tar.gz" and ".env.local" correctly.
+      if (!isDirectory && !entry.name.startsWith('.')) {
+        const dot = entry.name.lastIndexOf('.');
+        if (dot > 0) {
+          ext = entry.name.slice(dot + 1).toUpperCase();
+          name = entry.name.slice(0, dot);
         }
       }
       return {
         name,
         ext,
+        fullName: entry.name,
         isDirectory,
         size: stat && !isDirectory ? stat.size : 0,
         modifiedAt: formatDt(stat && stat.mtime),
@@ -324,12 +390,664 @@ app.get('/api/list', async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Real filesystem operations: copy / move / delete / mkdir / rename / write
+// ---------------------------------------------------------------------------
+// A renderer cannot write to arbitrary paths (the File System Access API needs
+// a user-granted handle per directory), so every mutating operation on a real
+// drive runs here, where Node has full filesystem access. Long transfers are
+// modelled as jobs that report byte progress and can be paused, resumed or
+// cancelled while they are running.
+
+const { once } = require('events');
+const os = require('os');
+
+const jobs = new Map();
+let jobSeq = 0;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function invalidateListings() {
+  listCache.clear();
+}
+
+function jobSnapshot(job) {
+  const elapsedSec = Math.max(0.05, ((job.endedAt || Date.now()) - job.startedAt) / 1000);
+  const rate = job.copiedBytes / elapsedSec;
+  const remaining = Math.max(0, job.totalBytes - job.copiedBytes);
+  // A paused job is still "in flight"; exposing the pause as a status keeps
+  // clients from polling forever or mistaking it for completion.
+  const status = job.status === 'running' && job.paused ? 'paused' : job.status;
+  return {
+    id: job.id,
+    op: job.op,
+    status,
+    label: job.label,
+    totalBytes: job.totalBytes,
+    copiedBytes: job.copiedBytes,
+    itemsTotal: job.itemsTotal,
+    itemsDone: job.itemsDone,
+    itemsSkipped: job.itemsSkipped,
+    currentFile: job.currentFile,
+    speedBps: Math.round(rate),
+    etaSeconds: rate > 0 && remaining > 0 ? Math.round(remaining / rate) : 0,
+    errors: job.errors,
+    startedAt: job.startedAt,
+    endedAt: job.endedAt
+  };
+}
+
+// Zero-build monitoring page for the real filesystem engine. It is served
+// straight from this file so the packaged app needs no extra assets: opening
+// http://127.0.0.1:<port>/__jobs shows every transfer with live bytes, speed
+// and ETA, and can pause/resume/cancel a running job from outside the app.
+function dashboardHtml() {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OmniCommander Pro - Transfer Engine</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#020617; color:#e2e8f0; font:13px/1.5 "Segoe UI",system-ui,sans-serif; }
+  header { padding:16px 20px; border-bottom:1px solid #1e293b; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  h1 { font-size:14px; margin:0 8px 0 0; letter-spacing:.5px; color:#67e8f9; text-transform:uppercase; }
+  .pill { border:1px solid #1e293b; border-radius:999px; padding:3px 10px; font-size:11px; color:#94a3b8; }
+  .pill b { color:#e2e8f0; font-weight:600; }
+  main { padding:18px 20px 40px; display:grid; gap:12px; }
+  .job { border:1px solid #1e293b; border-radius:10px; background:#0b1220; padding:14px; }
+  .job.paused { border-color:#a16207; }
+  .job.done { border-color:#14532d; opacity:.72; }
+  .job.done-with-errors { border-color:#7f1d1d; }
+  .row { display:flex; align-items:center; gap:10px; justify-content:space-between; flex-wrap:wrap; }
+  .name { font-weight:600; }
+  .badge { font-size:10px; text-transform:uppercase; letter-spacing:.6px; border-radius:4px; padding:2px 7px; border:1px solid currentColor; }
+  .s-running { color:#22d3ee; } .s-paused { color:#fbbf24; } .s-done { color:#4ade80; }
+  .s-done-with-errors, .s-error, .s-cancelled { color:#f87171; }
+  .bar { height:7px; border-radius:4px; background:#1e293b; overflow:hidden; margin:10px 0 8px; }
+  .fill { height:100%; background:linear-gradient(90deg,#0891b2,#22d3ee); transition:width .25s linear; }
+  .fill.warn { background:linear-gradient(90deg,#b45309,#fbbf24); }
+  .fill.bad { background:linear-gradient(90deg,#b91c1c,#f87171); }
+  .stats { display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:#94a3b8; }
+  .stats b { color:#e2e8f0; }
+  .file { margin-top:8px; font-size:11px; color:#64748b; word-break:break-all; font-family:ui-monospace,Consolas,monospace; }
+  .errs { margin:8px 0 0; padding:8px 10px; border-left:2px solid #b91c1c; background:#1a0d0d; border-radius:4px; font-size:11px; color:#fca5a5; }
+  .errs div + div { margin-top:4px; }
+  .acts { display:flex; gap:6px; }
+  button { background:#111c30; color:#cbd5e1; border:1px solid #1e293b; border-radius:6px; padding:4px 10px; font-size:11px; cursor:pointer; }
+  button:hover { border-color:#22d3ee; color:#67e8f9; }
+  .empty { border:1px dashed #1e293b; border-radius:10px; padding:26px; text-align:center; color:#475569; }
+</style>
+</head>
+<body>
+<header>
+  <h1>OmniCommander Pro &middot; Transfer Engine</h1>
+  <span class="pill">port <b id="port">-</b></span>
+  <span class="pill">platform <b id="platform">-</b></span>
+  <span class="pill">uptime <b id="uptime">-</b></span>
+  <span class="pill">active <b id="active">0</b></span>
+</header>
+<main id="jobs"><div class="empty">Loading jobs...</div></main>
+<script>
+(function(){
+  var KB=1024, MB=KB*1024, GB=MB*1024;
+  function bytes(n){
+    n=Number(n)||0;
+    if(n>=GB) return (n/GB).toFixed(2)+' GB';
+    if(n>=MB) return (n/MB).toFixed(1)+' MB';
+    if(n>=KB) return (n/KB).toFixed(1)+' KB';
+    return n+' B';
+  }
+  function dur(s){
+    s=Math.round(Number(s)||0);
+    if(s<=0) return '-';
+    if(s<60) return s+'s';
+    var m=Math.floor(s/60), r=s%60;
+    if(m<60) return m+'m '+r+'s';
+    return Math.floor(m/60)+'h '+(m%60)+'m';
+  }
+  function esc(v){
+    return String(v==null?'':v).replace(/[&<>"']/g,function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  var ORDER={running:0,paused:1,'done-with-errors':2,error:2,cancelled:3,done:4};
+  function render(list){
+    var host=document.getElementById('jobs');
+    if(!list.length){ host.innerHTML='<div class="empty">No transfer jobs yet. Start a copy or move in the app.</div>'; return; }
+    list.sort(function(a,b){
+      var d=(ORDER[a.status]==null?9:ORDER[a.status])-(ORDER[b.status]==null?9:ORDER[b.status]);
+      return d!==0?d:(b.startedAt||0)-(a.startedAt||0);
+    });
+    host.innerHTML=list.map(function(j){
+      var pct=j.totalBytes>0?Math.min(100,Math.round(j.copiedBytes/j.totalBytes*100)):0;
+      var cls=j.status==='done'?'done':(j.status==='paused'?'paused':(j.status==='done-with-errors'||j.status==='error'?'done-with-errors':''));
+      var fillCls=j.status==='paused'?'warn':((j.status==='done-with-errors'||j.status==='error')?'bad':'');
+      var canAct=j.status==='running'||j.status==='paused';
+      var btns=canAct?('<div class="acts">'+
+          (j.status==='paused'
+            ? '<button data-act="resume" data-id="'+esc(j.id)+'">Resume</button>'
+            : '<button data-act="pause" data-id="'+esc(j.id)+'">Pause</button>')+
+          '<button data-act="cancel" data-id="'+esc(j.id)+'">Cancel</button></div>'):'';
+      var errs=(j.errors&&j.errors.length)?('<div class="errs">'+j.errors.map(function(e){
+        return '<div>'+esc(e.path||'(job)')+' &mdash; '+esc(e.message)+'</div>';
+      }).join('')+'</div>'):'';
+      return '<section class="job '+cls+'">'+
+        '<div class="row"><div><span class="badge s-'+esc(j.status)+'">'+esc(j.status)+'</span> '+
+        '<span class="name">'+esc(j.label)+'</span> <span class="pill">'+esc(j.op)+'</span></div>'+btns+'</div>'+
+        '<div class="bar"><div class="fill '+fillCls+'" style="width:'+pct+'%"></div></div>'+
+        '<div class="stats">'+
+          '<span>progress <b>'+pct+'%</b></span>'+
+          '<span>copied <b>'+bytes(j.copiedBytes)+'</b> / '+bytes(j.totalBytes)+'</span>'+
+          '<span>speed <b>'+(j.status==='running'&&j.speedBps>0?bytes(j.speedBps)+'/s':'-')+'</b></span>'+
+          '<span>eta <b>'+dur(j.etaSeconds)+'</b></span>'+
+          '<span>items <b>'+(j.itemsDone||0)+'</b> / '+(j.itemsTotal||0)+'</span>'+
+          (j.itemsSkipped?'<span>skipped <b>'+j.itemsSkipped+'</b></span>':'')+
+        '</div>'+
+        (j.currentFile?'<div class="file">'+esc(j.currentFile)+'</div>':'')+
+        errs+
+      '</section>';
+    }).join('');
+  }
+  document.addEventListener('click', function(ev){
+    var btn=ev.target.closest('button[data-act]');
+    if(!btn) return;
+    fetch('/api/fs/job/'+encodeURIComponent(btn.getAttribute('data-id'))+'/'+btn.getAttribute('data-act'), { method:'POST' }).catch(function(){});
+  });
+  var lastMeta=0;
+  function tick(){
+    fetch('/api/fs/jobs').then(function(r){return r.json();}).then(render).catch(function(){});
+    var now=Date.now();
+    if(now-lastMeta>2000){
+      lastMeta=now;
+      fetch('/api/fs/dashboard').then(function(r){return r.json();}).then(function(m){
+        document.getElementById('port').textContent=m.port;
+        document.getElementById('platform').textContent=m.platform;
+        document.getElementById('uptime').textContent=dur(m.uptimeSeconds);
+        document.getElementById('active').textContent=m.activeCount;
+      }).catch(function(){});
+    }
+  }
+  tick();
+  setInterval(tick,600);
+})();
+</script>
+</body>
+</html>`;
+}
+
+function makeJob(op, label) {
+  const id = `job_${++jobSeq}_${Date.now().toString(36)}`;
+  const job = {
+    id,
+    op,
+    label,
+    status: 'running',
+    totalBytes: 0,
+    copiedBytes: 0,
+    itemsTotal: 0,
+    itemsDone: 0,
+    itemsSkipped: 0,
+    currentFile: '',
+    errors: [],
+    startedAt: Date.now(),
+    endedAt: null,
+    paused: false,
+    cancelled: false,
+    throttleBps: 0,
+    collision: 'overwrite'
+  };
+  jobs.set(id, job);
+  // Keep memory bounded: drop the oldest finished jobs.
+  if (jobs.size > 200) {
+    for (const [key, value] of jobs) {
+      if (value.status !== 'running' && value.status !== 'paused') { jobs.delete(key); break; }
+    }
+  }
+  return job;
+}
+
+function finishJob(job) {
+  job.endedAt = Date.now();
+  if (job.cancelled) job.status = 'cancelled';
+  else if (job.errors.length) job.status = 'done-with-errors';
+  else job.status = 'done';
+  invalidateListings();
+}
+
+async function waitWhilePaused(job) {
+  while (job.paused && !job.cancelled) await sleep(120);
+  if (job.cancelled) throw new Error('__cancelled__');
+}
+
+function isAbsoluteLocalPath(value) {
+  const text = String(value || '').trim();
+  return /^[a-zA-Z]:[\\/]/.test(text) || /^\\\\[^\\]/.test(text);
+}
+
+// Reject anything that is not an absolute local/UNC path so a malformed or
+// hostile request can never be resolved relative to the server's cwd.
+function assertSafePath(value) {
+  if (!isAbsoluteLocalPath(value)) throw new Error(`Unsafe path: ${value}`);
+  return path.win32.normalize(String(value).trim());
+}
+
+async function measureTree(target) {
+  let bytes = 0;
+  let files = 0;
+  let stat;
+  try { stat = await fs.promises.lstat(target); } catch { return { bytes, files }; }
+  if (stat.isDirectory()) {
+    let entries = [];
+    try { entries = await fs.promises.readdir(target); } catch { return { bytes, files }; }
+    for (const name of entries) {
+      const sub = await measureTree(path.win32.join(target, name));
+      bytes += sub.bytes;
+      files += sub.files;
+    }
+  } else {
+    bytes += stat.size;
+    files += 1;
+  }
+  return { bytes, files };
+}
+
+async function pathExists(target) {
+  try { await fs.promises.access(target); return true; } catch { return false; }
+}
+
+async function uniqueName(dir, name) {
+  const parsed = path.win32.parse(name);
+  for (let i = 2; i < 1000; i++) {
+    const candidate = `${parsed.name} (${i})${parsed.ext}`;
+    if (!(await pathExists(path.win32.join(dir, candidate)))) return candidate;
+  }
+  return `${parsed.name} (${Date.now()})${parsed.ext}`;
+}
+
+// Collision policy: overwrite replaces, skip leaves the existing entry, rename
+// creates a unique sibling name (mirrors "Keep both files" in Explorer).
+async function resolveDestination(src, destDir, job) {
+  const dest = path.win32.join(destDir, path.win32.basename(src));
+  if (!(await pathExists(dest))) return dest;
+  if (job.collision === 'skip') return null;
+  if (job.collision === 'rename') return path.win32.join(destDir, await uniqueName(destDir, path.win32.basename(src)));
+  return dest;
+}
+
+async function copyOneFile(src, dest, job) {
+  const stat = await fs.promises.stat(src);
+  await fs.promises.mkdir(path.win32.dirname(dest), { recursive: true });
+  job.currentFile = dest;
+  const reader = fs.createReadStream(src, { highWaterMark: 1024 * 1024 });
+  const writer = fs.createWriteStream(dest);
+  const fileStart = Date.now();
+  let bytesThisFile = 0;
+  try {
+    for await (const chunk of reader) {
+      await waitWhilePaused(job);
+      if (!writer.write(chunk)) await once(writer, 'drain');
+      job.copiedBytes += chunk.length;
+      bytesThisFile += chunk.length;
+      if (job.throttleBps > 0) {
+        const expectedMs = (bytesThisFile / job.throttleBps) * 1000;
+        const actualMs = Date.now() - fileStart;
+        if (expectedMs > actualMs) await sleep(expectedMs - actualMs);
+      }
+    }
+    await new Promise((resolve, reject) => writer.end((err) => (err ? reject(err) : resolve())));
+  } catch (err) {
+    reader.destroy();
+    writer.destroy();
+    throw err;
+  }
+  try { await fs.promises.utimes(dest, stat.atime, stat.mtime); } catch {}
+}
+
+async function copyTree(src, dest, job) {
+  await waitWhilePaused(job);
+  const stat = await fs.promises.lstat(src);
+  if (stat.isDirectory()) {
+    await fs.promises.mkdir(dest, { recursive: true });
+    for (const name of await fs.promises.readdir(src)) {
+      await copyTree(path.win32.join(src, name), path.win32.join(dest, name), job);
+    }
+    return;
+  }
+  await copyOneFile(src, dest, job);
+  job.itemsDone += 1;
+}
+
+// Same-volume moves are an instant rename; across volumes rename fails with
+// EXDEV and we fall back to copy-then-delete.
+async function moveTree(src, dest, job) {
+  await waitWhilePaused(job);
+  try {
+    await fs.promises.rename(src, dest);
+    const measured = await measureTree(dest);
+    job.copiedBytes += measured.bytes;
+    job.itemsDone += Math.max(1, measured.files);
+  } catch (err) {
+    if (err.code !== 'EXDEV' && err.code !== 'EPERM') throw err;
+    await copyTree(src, dest, job);
+    await fs.promises.rm(src, { recursive: true, force: true, maxRetries: 3 });
+  }
+}
+
+// Windows Recycle Bin access needs the VisualBasic FileSystem API, which is
+// only reachable through PowerShell. The helper script is generated once.
+let recycleScriptPath = null;
+function ensureRecycleScript() {
+  if (recycleScriptPath) return recycleScriptPath;
+  const scriptPath = path.join(os.tmpdir(), `omnicommander-recycle-${process.pid}.ps1`);
+  const lines = [
+    'param([Parameter(ValueFromRemainingArguments=$true)][string[]]$Targets)',
+    'Add-Type -AssemblyName Microsoft.VisualBasic',
+    'foreach ($t in $Targets) {',
+    '  if (-not (Test-Path -LiteralPath $t)) { continue }',
+    '  if ((Get-Item -LiteralPath $t -Force).PSIsContainer) {',
+    "    [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory($t, 'OnlyErrorDialogs', 'SendToRecycleBin')",
+    '  } else {',
+    "    [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($t, 'OnlyErrorDialogs', 'SendToRecycleBin')",
+    '  }',
+    '}'
+  ];
+  fs.writeFileSync(scriptPath, lines.join('\r\n'), 'utf8');
+  recycleScriptPath = scriptPath;
+  return scriptPath;
+}
+
+async function sendToRecycleBin(targets) {
+  await execFileAsync(
+    'powershell',
+    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ensureRecycleScript(), ...targets],
+    { encoding: 'utf8', windowsHide: true, maxBuffer: 8 * 1024 * 1024, timeout: 300000 }
+  );
+}
+
+async function deleteTarget(target, useTrash) {
+  if (useTrash && process.platform === 'win32') {
+    await sendToRecycleBin([target]);
+    return;
+  }
+  await fs.promises.rm(target, { recursive: true, force: true, maxRetries: 3 });
+}
+
+function startJob(job, runner) {
+  runner
+    .then(() => finishJob(job))
+    .catch((err) => {
+      if (err && err.message === '__cancelled__') {
+        job.cancelled = true;
+      } else {
+        job.errors.push({ path: '', message: err && err.message ? err.message : String(err) });
+      }
+      finishJob(job);
+    });
+  return job;
+}
+
+async function runTransferJob(job, sources, targetDir) {
+  for (const src of sources) {
+    await waitWhilePaused(job);
+    const dest = await resolveDestination(src, targetDir, job);
+    if (!dest) { job.itemsSkipped += 1; continue; }
+    try {
+      if (job.op === 'move') await moveTree(src, dest, job);
+      else await copyTree(src, dest, job);
+    } catch (err) {
+      if (err.message === '__cancelled__') throw err;
+      job.errors.push({ path: src, message: err.message });
+    }
+  }
+}
+
+function registerFsRoutes() {
+  app.get('/api/fs/jobs', (_req, res) => {
+    res.json([...jobs.values()].map(jobSnapshot));
+  });
+
+  // Live monitoring surface for the transfer engine.
+  app.get('/__jobs', (_req, res) => {
+    res.type('html').send(dashboardHtml());
+  });
+
+  app.get('/api/fs/dashboard', (_req, res) => {
+    const all = [...jobs.values()];
+    res.json({
+      port: activePort ?? PREFERRED_PORT,
+      platform: process.platform,
+      uptimeSeconds: Math.round(process.uptime()),
+      activeCount: all.filter(j => j.status === 'running' || j.status === 'paused').length,
+      totalCount: all.length
+    });
+  });
+
+  app.get('/api/fs/job/:id', (req, res) => {
+    const job = jobs.get(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Unknown job' });
+    res.json(jobSnapshot(job));
+  });
+
+  app.post('/api/fs/job/:id/:action', (req, res) => {
+    const job = jobs.get(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Unknown job' });
+    const action = req.params.action;
+    if (action === 'pause') job.paused = true;
+    else if (action === 'resume') job.paused = false;
+    else if (action === 'cancel') { job.cancelled = true; job.paused = false; }
+    else return res.status(400).json({ error: 'Unknown action' });
+    res.json(jobSnapshot(job));
+  });
+
+  const transfer = (op) => async (req, res) => {
+    try {
+      const body = req.body || {};
+      const sources = (body.sources || []).map(assertSafePath);
+      const targetDir = assertSafePath(body.targetDir);
+      if (!sources.length) return res.status(400).json({ error: 'No sources provided' });
+      const targetStat = await fs.promises.stat(targetDir).catch(() => null);
+      if (!targetStat || !targetStat.isDirectory()) {
+        return res.status(400).json({ error: 'Target is not a directory' });
+      }
+      for (const src of sources) {
+        if (src.toUpperCase() === targetDir.toUpperCase()) {
+          return res.status(400).json({ error: 'Source and target are the same' });
+        }
+      }
+      const verb = op === 'move' ? 'Mover' : 'Copiar';
+      const job = makeJob(op, `${verb} ${sources.length} elemento(s)`);
+      const requestedPolicy = String(body.collision || '').toLowerCase();
+      job.collision = ['overwrite', 'skip', 'rename'].includes(requestedPolicy)
+        ? requestedPolicy
+        : (body.overwrite === false ? 'rename' : 'overwrite');
+      job.throttleBps = Number(body.throttleBps) > 0 ? Number(body.throttleBps) : 0;
+      let bytes = 0;
+      let files = 0;
+      for (const src of sources) {
+        const measured = await measureTree(src);
+        bytes += measured.bytes;
+        files += measured.files;
+      }
+      job.totalBytes = bytes;
+      job.itemsTotal = files;
+      startJob(job, runTransferJob(job, sources, targetDir));
+      res.json({ jobId: job.id, totalBytes: bytes, itemsTotal: files });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  app.post('/api/fs/copy', transfer('copy'));
+  app.post('/api/fs/move', transfer('move'));
+
+  app.post('/api/fs/delete', (req, res) => {
+    try {
+      const body = req.body || {};
+      const targets = (body.targets || []).map(assertSafePath);
+      const useTrash = body.useTrash !== false;
+      if (!targets.length) return res.status(400).json({ error: 'No targets provided' });
+      const job = makeJob('delete', `Eliminar ${targets.length} elemento(s)`);
+      job.itemsTotal = targets.length;
+      startJob(job, (async () => {
+        for (const target of targets) {
+          await waitWhilePaused(job);
+          try {
+            await deleteTarget(target, useTrash);
+            job.itemsDone += 1;
+          } catch (err) {
+            if (err.message === '__cancelled__') throw err;
+            job.errors.push({ path: target, message: err.message });
+          }
+        }
+      })());
+      res.json({ jobId: job.id, itemsTotal: targets.length });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/fs/mkdir', async (req, res) => {
+    try {
+      const target = assertSafePath((req.body || {}).path);
+      await fs.promises.mkdir(target, { recursive: true });
+      invalidateListings();
+      res.json({ ok: true, path: target });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/fs/rename', async (req, res) => {
+    try {
+      const body = req.body || {};
+      const source = assertSafePath(body.path);
+      const newName = String(body.newName || '').trim();
+      if (!newName || /[\\/:*?"<>|]/.test(newName)) {
+        return res.status(400).json({ error: 'Invalid file name' });
+      }
+      const dest = path.win32.join(path.win32.dirname(source), newName);
+      if (await pathExists(dest)) return res.status(409).json({ error: 'A file with that name already exists' });
+      await fs.promises.rename(source, dest);
+      invalidateListings();
+      res.json({ ok: true, path: dest });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/fs/write', async (req, res) => {
+    try {
+      const body = req.body || {};
+      const target = assertSafePath(body.path);
+      await fs.promises.mkdir(path.win32.dirname(target), { recursive: true });
+      await fs.promises.writeFile(target, body.content == null ? '' : String(body.content), 'utf8');
+      invalidateListings();
+      res.json({ ok: true, path: target });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+}
+
+registerFsRoutes();
+
 // Optional static serving
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // Warm the drive metadata cache in the background. Never blocks a request.
 enrichDrivesFromWmi();
 
-app.listen(PORT, '127.0.0.1', () => {
-  console.log(`REA/local drive server listening on http://localhost:${PORT}`);
+/**
+ * True when something already accepts connections on this loopback port.
+ *
+ * On Windows a process may bind 127.0.0.1:PORT while another one holds the same
+ * port on 0.0.0.0, and the two then split incoming requests between them. A
+ * silent EADDRINUSE never happens, so we ask the port instead of trusting bind().
+ */
+function probePortBusy(port) {
+  return new Promise(resolve => {
+    const socket = net.connect({ host: '127.0.0.1', port });
+    let settled = false;
+    const settle = busy => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve(busy);
+    };
+    socket.setTimeout(500, () => settle(true));
+    socket.once('connect', () => settle(true));
+    socket.once('error', () => settle(false));
+  });
+}
+
+/**
+ * True when the socket answering this port is this server.
+ * A foreign server on the same port answers without our marker header.
+ */
+function probeOwned(port) {
+  return new Promise(resolve => {
+    const request = http.get(
+      { host: '127.0.0.1', port, path: '/api/fs/jobs', timeout: 1000 },
+      response => {
+        response.resume();
+        resolve(response.headers['x-omnicmd-server'] === '1');
+      }
+    );
+    let settled = false;
+    const settle = owned => {
+      if (settled) return;
+      settled = true;
+      resolve(owned);
+    };
+    request.on('timeout', () => {
+      request.destroy();
+      settle(false);
+    });
+    request.on('error', () => settle(false));
+  });
+}
+
+async function listenOn(port, attempt) {
+  if (attempt >= MAX_PORT_ATTEMPTS || port > 65535) {
+    console.error(`Local drive server found no usable port after ${MAX_PORT_ATTEMPTS} attempts (last: ${port}).`);
+    return;
+  }
+  if (await probePortBusy(port)) {
+    console.warn(`Port ${port} is in use, trying ${port + 1}...`);
+    return listenOn(port + 1, attempt + 1);
+  }
+
+  const server = app.listen(port, '127.0.0.1');
+  server.on('error', error => {
+    if (error && error.code === 'EADDRINUSE') {
+      console.warn(`Port ${port} is in use, trying ${port + 1}...`);
+      listenOn(port + 1, attempt + 1);
+      return;
+    }
+    // Never throw out of here: an unhandled 'error' event kills the Electron
+    // main process. The renderer already degrades to its offline state.
+    console.error('Local drive server failed to listen:', error);
+  });
+  server.on('listening', async () => {
+    const bound = server.address().port;
+    if (!(await probeOwned(bound))) {
+      // Another process claimed this port between the probe and the bind.
+      server.close();
+      console.warn(`Port ${bound} answers to another application, trying ${bound + 1}...`);
+      listenOn(bound + 1, attempt + 1);
+      return;
+    }
+    announcePort(bound);
+    console.log(`REA/local drive server listening on http://localhost:${bound}`);
+  });
+}
+
+listenOn(PREFERRED_PORT, 0).catch(error => {
+  // A dead local server must never take the host application down with it.
+  console.error('Local drive server failed to start:', error);
 });
+
+module.exports = { onPortReady, getPort: () => activePort, PREFERRED_PORT };
