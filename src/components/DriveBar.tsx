@@ -44,16 +44,17 @@ export const DriveBar: React.FC<DriveBarProps> = ({
     return `${bytes} B`;
   };
 
-  const getDriveIcon = (type: DriveType) => {
+  const getDriveIcon = (type: DriveType, selected: boolean) => {
+    const tone = (color: string) => (selected ? 'text-black' : color);
     switch (type) {
       case 'ram':
-        return <Cpu className="w-3 h-3 text-emerald-400 inline mr-1" />;
+        return <Cpu className={`w-3 h-3 ${tone('text-emerald-400')} inline mr-1`} />;
       case 'network':
-        return <FolderSync className="w-3 h-3 text-purple-400 inline mr-1" />;
+        return <FolderSync className={`w-3 h-3 ${tone('text-purple-400')} inline mr-1`} />;
       case 'host_fs':
-        return <Database className="w-3 h-3 text-amber-400 inline mr-1" />;
+        return <Database className={`w-3 h-3 ${tone('text-amber-400')} inline mr-1`} />;
       default:
-        return <HardDrive className="w-3 h-3 text-blue-300 inline mr-1" />;
+        return <HardDrive className={`w-3 h-3 ${tone('text-blue-300')} inline mr-1`} />;
     }
   };
 
@@ -92,7 +93,7 @@ export const DriveBar: React.FC<DriveBarProps> = ({
                   : 'bg-black/30 hover:bg-black/50 text-white/90 border border-white/20'
               }`}
             >
-              {getDriveIcon(drive.type)}
+              {getDriveIcon(drive.type, isSelected)}
               <span>[{drive.letter}]</span>
             </button>
           );
