@@ -162,8 +162,7 @@ const FileListComponent: React.FC<FileListProps> = ({
   const thumbColumns = Math.max(1, Math.floor(containerWidth / thumbCellSize));
   const getGridColumns = () => {
     if (viewMode === 'brief') return 3;
-    if (viewMode === 'thumbnails') return thumbColumns;
-    if (viewMode === 'gallery') return 4;
+    if (viewMode === 'thumbnails' || viewMode === 'gallery') return thumbColumns;
     return 1;
   };
   const gridColumns = getGridColumns();
@@ -174,7 +173,7 @@ const FileListComponent: React.FC<FileListProps> = ({
     estimateSize: () => {
       if (viewMode === 'brief') return 34;
       if (viewMode === 'thumbnails') return thumbSize + 70;
-      if (viewMode === 'gallery') return 210;
+      if (viewMode === 'gallery') return thumbSize + 130;
       return 34;
     },
     overscan: 4,
@@ -190,14 +189,11 @@ const FileListComponent: React.FC<FileListProps> = ({
     return () => observer.disconnect();
   }, []);
 
-  const thumbnailsActiveRef = useRef(false);
-  thumbnailsActiveRef.current = viewMode === 'thumbnails';
-
   useEffect(() => {
     const el = listContainerRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
-      if (!thumbnailsActiveRef.current || !e.ctrlKey) return;
+      if (!e.ctrlKey) return;
       e.preventDefault();
       setThumbSize((size) => {
         const next = size + (e.deltaY < 0 ? THUMB_STEP : -THUMB_STEP);
@@ -696,7 +692,7 @@ const FileListComponent: React.FC<FileListProps> = ({
                       </span>
                     )}
 
-                    {getFileIcon(item)}
+                    {getFileIcon(item, '', { width: thumbSize * 0.4, height: thumbSize * 0.4 })}
 
                     <span className={`truncate ${item.isDirectory ? 'font-bold' : ''}`} title={item.name}>
                       {item.name}
@@ -783,7 +779,7 @@ const FileListComponent: React.FC<FileListProps> = ({
                     color: isHoveredTarget ? '#ffff55' : isFocused ? theme.cursorText : textColor
                   }}
                 >
-                  {getFileIcon(item)}
+                  {getFileIcon(item, '', { width: thumbSize * 0.4, height: thumbSize * 0.4 })}
                   <span className="truncate font-medium flex-1" title={item.name + (item.ext ? '.' + item.ext : '')}>
                     {item.name}{item.ext ? `.${item.ext}` : ''}
                   </span>
@@ -875,10 +871,10 @@ const FileListComponent: React.FC<FileListProps> = ({
         {viewMode === 'gallery' && (
           <div style={{ height: `${gridRowVirtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}>
             {gridRowVirtualizer.getVirtualItems().map((virtualRow) => {
-              const base = virtualRow.index * 4;
-              const rowItems = items.slice(base, base + 4);
+              const base = virtualRow.index * thumbColumns;
+              const rowItems = items.slice(base, base + thumbColumns);
               return (
-                <div key={virtualRow.key} data-index={virtualRow.index} ref={gridRowVirtualizer.measureElement} style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${virtualRow.start}px)`, display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '10px', padding: '8px' }} className="cv-auto">
+                <div key={virtualRow.key} data-index={virtualRow.index} ref={gridRowVirtualizer.measureElement} style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${virtualRow.start}px)`, display: 'grid', gridTemplateColumns: `repeat(${thumbColumns}, minmax(0, 1fr))`, gap: '10px', padding: '8px' }} className="cv-auto">
                   {rowItems.map((item, offset) => {
                     const idx = base + offset;
               const isFocused = idx === focusedIndex && isActive;
@@ -947,7 +943,7 @@ const FileListComponent: React.FC<FileListProps> = ({
                       </div>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-slate-400">
-                        {getFileIcon(item)}
+                        {getFileIcon(item, '', { width: thumbSize, height: thumbSize })}
                       </div>
                     )}
 
