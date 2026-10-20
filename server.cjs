@@ -81,6 +81,19 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '2mb' }));
 
+// Probe and WMI failures are expected on locked or unmounted volumes, so they
+// never change control flow. They do leave a trail at debug level, because a
+// permanently failing query with no diagnostic is the hardest kind to notice.
+function logDebug(...args) {
+  if (process.env.OMNI_DEBUG) console.error('[omni]', ...args);
+}
+
+// Timer tuning, in milliseconds. Named so the polling intervals and the WMI
+// timeout can be reasoned about instead of appearing as bare literals.
+const JOB_TICK_MS = 120;       // pause / cancel polling granularity
+const POWERSHELL_TIMEOUT_MS = 60000;  // normal ceiling for one PowerShell query
+const WMI_TIMEOUT_MS = 300000; // hard ceiling for the slow os/WMI fallback
+
 // The preferred port is only a preference. Another application frequently holds
 // it (this machine has seen 3001 taken by unrelated software), and a hard
 // EADDRINUSE crash would take the whole Electron main process down with it, so
@@ -203,7 +216,9 @@ async function probeDriveLetters() {
         const blockSize = Number(sf.bsize) || 0;
         totalBytes = blockSize * (Number(sf.blocks) || 0);
         freeBytes = blockSize * (Number(sf.bavail != null ? sf.bavail : sf.bfree) || 0);
-      } catch {}
+      } catch (error) {
+        logDebug('statfs failed for', root, error?.message || error);
+      }
       return { letter: root.slice(0, 2).toUpperCase(), totalBytes, freeBytes };
     } catch {
       return null;
@@ -249,7 +264,7 @@ async function queryWmiDriveInfo() {
   const { stdout: out } = await execFileAsync(
     'powershell',
     ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', command],
-    { encoding: 'utf8', windowsHide: true, maxBuffer: 8 * 1024 * 1024, timeout: 60000 }
+    { encoding: 'utf8', windowsHide: true, maxBuffer: 8 * 1024 * 1024, timeout: POWERSHELL_TIMEOUT_MS }
   );
   const parsed = JSON.parse((out || '').trim() || '[]');
   const entries = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
@@ -285,8 +300,9 @@ async function enrichDrivesFromWmi() {
     if (!meta.size) return;
     drivesMeta = meta;
     drivesCache = { at: 0, data: null, inflight: null };
-  } catch {
+  } catch (error) {
     // Keep the fast probe's generic metadata; the next new letter retries.
+    logDebug('WMI drive enrichment failed:', error?.message || error);
   } finally {
     wmiInflight = false;
   }
@@ -311,13 +327,24 @@ async function computeRealDrives() {
       return fast;
     }
     // Fall back to WMI only when the filesystem probe found nothing at all.
+    // Shares the inflight flag with the background warm-up so a slow WMI query
+    // is never stacked on top of the one already running.
     try {
-      const meta = await queryWmiDriveInfo();
-      if (meta.size) {
-        drivesMeta = meta;
-        return drivesFromMeta(meta);
+      if (!wmiInflight) {
+        wmiInflight = true;
+        try {
+          const meta = await queryWmiDriveInfo();
+          if (meta.size) {
+            drivesMeta = meta;
+            return drivesFromMeta(meta);
+          }
+        } finally {
+          wmiInflight = false;
+        }
       }
-    } catch {}
+    } catch (error) {
+      logDebug('WMI drive probe failed:', error?.message || error);
+    }
     return [];
   }
   // Unix fallback
@@ -358,6 +385,10 @@ function formatDt(date) {
 // forth or listing from both panes doesn't re-read the disk every time.
 const listCache = new Map();
 const LIST_CACHE_MS = 2000;
+// Retention cap. The TTL only decides how fresh a cached listing is: without a
+// size bound, browsing hundreds of directories would keep every full listing for
+// the whole session, since entries are otherwise dropped only on error or write.
+const LIST_CACHE_LIMIT = 200;
 
 async function readDirectoryEntries(safePath) {
   const entries = await fs.promises.readdir(safePath, { withFileTypes: true });
@@ -404,11 +435,31 @@ function readDirectoryCached(safePath) {
     if (cached.data && now - cached.at < LIST_CACHE_MS) return Promise.resolve(cached.data);
   }
   const inflight = readDirectoryEntries(safePath).then(
-    (data) => { listCache.set(key, { at: Date.now(), data, inflight: null }); return data; },
+    (data) => {
+      listCache.set(key, { at: Date.now(), data, inflight: null });
+      pruneListCache();
+      return data;
+    },
     (err) => { listCache.delete(key); throw err; }
   );
   listCache.set(key, { at: now, data: null, inflight });
+  pruneListCache();
   return inflight;
+}
+
+// Keeps the listing cache bounded in size. Map preserves insertion order, so the
+// oldest keys come first; in-flight reads are skipped because their promise owns
+// that entry and would otherwise be orphaned.
+function pruneListCache() {
+  if (listCache.size <= LIST_CACHE_LIMIT) return;
+  const excess = listCache.size - LIST_CACHE_LIMIT;
+  let dropped = 0;
+  for (const [key, entry] of listCache) {
+    if (dropped >= excess) break;
+    if (entry.inflight) continue;
+    listCache.delete(key);
+    dropped += 1;
+  }
 }
 
 async function listDirectory(driveId, requestedPath) {
@@ -679,6 +730,9 @@ function dashboardHtml() {
 // thousands of files, so the snapshot keeps only the tail of what was touched
 // instead of growing a list nobody could ever render.
 const RECENT_FILES_LIMIT = 40;
+// Finished jobs kept in memory for the UI to poll. Live jobs are never evicted.
+const JOBS_LIMIT = 200;
+const CONFLICT_ANSWER_MS = 5 * 60 * 1000;
 
 // Registers one entry as it enters the transfer so the UI can show a progress
 // row per file instead of only the file currently being written.
@@ -731,11 +785,17 @@ function makeJob(op, label) {
     recentFiles: []
   };
   jobs.set(id, job);
-  // Keep memory bounded: drop the oldest finished jobs.
-  if (jobs.size > 200) {
+  // Keep memory bounded: drop the oldest finished jobs until we are back under the
+  // cap. A job parked on a conflict is live work, not garbage, so it is never
+  // evicted even though its status may look terminal.
+  while (jobs.size > JOBS_LIMIT) {
+    let evicted = false;
     for (const [key, value] of jobs) {
-      if (value.status !== 'running' && value.status !== 'paused') { jobs.delete(key); break; }
+      const terminal = value.status !== 'running' && value.status !== 'paused' && value.status !== 'waiting';
+      if (terminal && !value.pendingConflict) { jobs.delete(key); evicted = true; break; }
     }
+    // Every remaining entry is live: nothing safe to drop, so stop growing the map.
+    if (!evicted) break;
   }
   return job;
 }
@@ -752,17 +812,20 @@ function finishJob(job) {
 }
 
 async function waitWhilePaused(job) {
-  while (job.paused && !job.cancelled) await sleep(120);
+  while (job.paused && !job.cancelled) await sleep(JOB_TICK_MS);
   if (job.cancelled) throw new Error('__cancelled__');
 }
 
+// Only a drive-letter absolute path is local. UNC paths (`\\host\share`) and
+// device paths (`\\?\`, `\\.\`) are deliberately excluded: reaching them would
+// put the loopback-only, fully offline product on the network over SMB.
 function isAbsoluteLocalPath(value) {
   const text = String(value || '').trim();
-  return /^[a-zA-Z]:[\\/]/.test(text) || /^\\\\[^\\]/.test(text);
+  return /^[a-zA-Z]:[\\/]/.test(text);
 }
 
-// Reject anything that is not an absolute local/UNC path so a malformed or
-// hostile request can never be resolved relative to the server's cwd.
+// Reject anything that is not an absolute local path so a malformed or hostile
+// request can never be resolved relative to the server's cwd.
 function assertSafePath(value) {
   if (!isAbsoluteLocalPath(value)) throw new Error(`Unsafe path: ${value}`);
   return path.win32.normalize(String(value).trim());
@@ -817,12 +880,18 @@ async function effectiveCollision(job, src, dest) {
 async function awaitConflictAnswer(job, src, dest) {
   job.conflictDecision = null;
   job.pendingConflict = { source: src, destination: dest };
-  while (!job.cancelled && job.pendingConflict) await sleep(120);
+  const deadline = Date.now() + CONFLICT_ANSWER_MS;
+  // A UI that died, crashed or simply walked away must not park this job for the
+  // life of the process: the wait is bounded and expiry fails the transfer.
+  while (!job.cancelled && job.pendingConflict && Date.now() < deadline) await sleep(JOB_TICK_MS);
   job.pendingConflict = null;
   if (job.cancelled) throw new Error('__cancelled__');
+  if (job.conflictDecision == null) {
+    throw new Error(`No answer for the conflict on ${dest} within ${Math.round(CONFLICT_ANSWER_MS / 1000)}s`);
+  }
   const answer = job.conflictDecision;
   job.conflictDecision = null;
-  return answer || 'overwrite';
+  return answer;
 }
 
 /**
@@ -1000,7 +1069,7 @@ async function sendToRecycleBin(targets) {
   await execFileAsync(
     'powershell',
     ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ensureRecycleScript(), ...targets],
-    { encoding: 'utf8', windowsHide: true, maxBuffer: 8 * 1024 * 1024, timeout: 300000 }
+    { encoding: 'utf8', windowsHide: true, maxBuffer: 8 * 1024 * 1024, timeout: WMI_TIMEOUT_MS }
   );
 }
 
