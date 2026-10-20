@@ -38,7 +38,12 @@ export const AppLockModal: React.FC<AppLockModalProps> = ({
     try {
       const targetUser = expectedUser || 'admin';
       const userOk = usernameInput.trim().toLowerCase() === targetUser.toLowerCase();
-      const passOk = await checkPassword(passwordInput, expectedPassHash || 'admin123', expectedPassSalt);
+      // Fail closed: with no stored hash there is nothing to verify against, so
+      // the modal must never accept a credential. The old `|| 'admin123'`
+      // fallback turned an unset password into a public master key.
+      const passOk = expectedPassHash
+        ? await checkPassword(passwordInput, expectedPassHash, expectedPassSalt)
+        : false;
 
       if (userOk && passOk) {
         soundManager.playSuccess();

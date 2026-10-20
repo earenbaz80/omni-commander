@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { fsEngine } from './fileSystem';
+import { describe, it, expect, vi } from 'vitest';
+import { fsEngine, listingCachePolicy } from './fileSystem';
+import { log } from '../utils/logger';
 import { Drive } from '../types';
-
 describe('FileSystemEngine defaults', () => {
   it('contains no virtual drives by default', () => {
     const letters = fsEngine.getDrives().map(d => d.letter);
@@ -66,5 +66,112 @@ describe('FileSystemEngine defaults', () => {
     const alpha = fsEngine.getFiles('real_T', 'T:').find((i) => i.name === 'alpha')!;
     fsEngine.deleteItem(alpha.id);
     expect(fsEngine.getFiles('real_T', 'T:').map((i) => i.name)).toEqual(['beta']);
+  });
+
+  it('bounds the listing cache with an LRU cap per directory', async () => {
+    fsEngine.resetToDefaults();
+    const previous = { maxCachedDirectories: listingCachePolicy.maxCachedDirectories };
+    listingCachePolicy.maxCachedDirectories = 3;
+    try {
+      vi.stubGlobal('fetch', async (input: any) => {
+        const url = String(input);
+        const path = decodeURIComponent(new URL(url, 'http://x').searchParams.get('path') || '');
+        return {
+          ok: true,
+          status: 200,
+          json: async () => [
+            { name: `f_${path}`, ext: 'TXT', fullName: `f_${path}.txt`, isDirectory: false, size: 1, content: '' },
+          ],
+        } as unknown as Response;
+      });
+
+      for (let i = 0; i < 10; i++) {
+        await fsEngine.loadSystemDriveDirectory('real_T', `T:\\d${i}`);
+      }
+
+      const total = fsEngine.getSearchIndex(true).length;
+      expect(total).toBeLessThanOrEqual(listingCachePolicy.maxCachedDirectories);
+    } finally {
+      listingCachePolicy.maxCachedDirectories = previous.maxCachedDirectories;
+      vi.unstubAllGlobals();
+      fsEngine.resetToDefaults();
+    }
+  });
+
+  it('never evicts trash/virtual buckets from the listing cache', async () => {
+    fsEngine.resetToDefaults();
+    const previous = { maxCachedDirectories: listingCachePolicy.maxCachedDirectories };
+    listingCachePolicy.maxCachedDirectories = 2;
+    try {
+      fsEngine.setDrives([
+        { id: 'real_T', letter: 'T:', name: 'Test', type: 'local', totalBytes: 1, freeBytes: 1, isMounted: true },
+      ]);
+      // A virtual item parked in the app recycle bin (drive id drive_trash).
+      fsEngine.createFile('virtual_V', 'V:\\', 'kept.txt', 'kept');
+      const kept = fsEngine.getFiles('virtual_V', 'V:\\').find(i => i.name === 'kept')!;
+      fsEngine.moveToRecycleBin(kept.id);
+
+      vi.stubGlobal('fetch', async () => ({
+        ok: true,
+        status: 200,
+        json: async () => [{ name: 'x.txt', ext: 'TXT', fullName: 'x.txt', isDirectory: false, size: 1, content: '' }],
+      }) as unknown as Response);
+
+      for (let i = 0; i < 8; i++) {
+        await fsEngine.loadSystemDriveDirectory('real_T', `T:\\d${i}`);
+      }
+
+      // Trash entries survive the LRU even though the cap was exceeded.
+      expect(fsEngine.getFiles('drive_trash', 'TR:').length).toBeGreaterThan(0);
+    } finally {
+      listingCachePolicy.maxCachedDirectories = previous.maxCachedDirectories;
+      vi.unstubAllGlobals();
+      fsEngine.resetToDefaults();
+    }
+  });
+
+  it('strips content from the payload written to localStorage', async () => {
+    fsEngine.resetToDefaults();
+    try {
+      vi.stubGlobal('fetch', async () => ({
+        ok: true,
+        status: 200,
+        json: async () => [
+          { name: 'big', ext: 'TXT', fullName: 'big.txt', isDirectory: false, size: 9, content: 'SENSITIVE_BODY' },
+        ],
+      }) as unknown as Response);
+
+      await fsEngine.loadSystemDriveDirectory('real_T', 'T:\\payload');
+      fsEngine.flushStorage();
+
+      const raw = localStorage.getItem('nc_filesystem_v1') || '';
+      expect(raw).toContain('big');
+      expect(raw).not.toContain('content');
+      expect(raw).not.toContain('SENSITIVE_BODY');
+    } finally {
+      vi.unstubAllGlobals();
+      fsEngine.resetToDefaults();
+    }
+  });
+
+  it('logs a quota-exceeded persist instead of failing silently', () => {
+    fsEngine.resetToDefaults();
+    const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {});
+    const setItemSpy = vi
+      .spyOn(Storage.prototype, 'setItem')
+      .mockImplementation(() => { throw new DOMException('quota', 'QuotaExceededError'); });
+
+    try {
+      fsEngine.createFile('virtual_V', 'V:\\', 'note.txt', 'body');
+      fsEngine.flushStorage();
+
+      expect(errorSpy).toHaveBeenCalled();
+      // The in-memory state is untouched, so the app keeps working.
+      expect(fsEngine.getFiles('virtual_V', 'V:\\').map(i => i.name)).toContain('note');
+    } finally {
+      setItemSpy.mockRestore();
+      errorSpy.mockRestore();
+      fsEngine.resetToDefaults();
+    }
   });
 });

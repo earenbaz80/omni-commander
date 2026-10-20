@@ -57,6 +57,18 @@ export const lostJobRetryPolicy = {
   pollDelayMs: 500
 };
 
+/**
+ * Bound on the in-memory listing cache. Every directory ever listed used to
+ * accumulate forever, and the whole array is JSON-persisted, so a long session
+ * eventually blew the localStorage quota. The cache now keeps at most this many
+ * directory buckets, evicting the least-recently-used ones; a directory the user
+ * returns to simply reloads from the server. Exposed so tests can shrink it.
+ */
+export const listingCachePolicy = {
+  /** Maximum distinct directory buckets retained in memory. */
+  maxCachedDirectories: 200
+};
+
 // Initial Virtual Drives
 export const initialDrives: Drive[] = [];
 
@@ -74,6 +86,11 @@ class FileSystemEngine {
   private filesVersion = 0;
   private filesIndexVersion = -1;
   private filesIndex = new Map<string, FileItem[]>();
+
+  // Least-recently-used order of directory buckets (`driveId|normalizedPath`).
+  // A Map preserves insertion order, so re-inserting a key on access moves it to
+  // the most-recent end; the front is then the eviction candidate.
+  private bucketOrder = new Map<string, true>();
 
   constructor() {
     this.loadFromStorage();
@@ -120,14 +137,43 @@ class FileSystemEngine {
     }
   }
 
+  /**
+   * Serializes only the fields the UI actually needs. `content` (inline text or
+   * base64 payloads) is the heavy, non-visible field that used to blow the
+   * localStorage quota; a directory listing reloads it from the server, and
+   * virtual files rehydrate lazily. Kept explicit so a future field is a
+   * deliberate decision rather than an accidental quota regression.
+   */
+  private filesForStorage(): Array<Omit<FileItem, 'content'>> {
+    return this.files.map(f => ({
+      id: f.id,
+      name: f.name,
+      ext: f.ext,
+      fullName: f.fullName,
+      path: f.path,
+      driveId: f.driveId,
+      isDirectory: f.isDirectory,
+      size: f.size,
+      modifiedAt: f.modifiedAt,
+      createdAt: f.createdAt,
+      attributes: f.attributes,
+      mimeType: f.mimeType,
+      icon: f.icon,
+      isLocked: f.isLocked
+    }));
+  }
+
   private persistToStorageNow() {
     if (typeof window === 'undefined') return;
     try {
       localStorage.setItem(DRIVES_STORAGE_KEY, JSON.stringify(this.drives));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.files));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.filesForStorage()));
       localStorage.setItem(RECYCLE_BIN_STORAGE_KEY, JSON.stringify(this.recycleBin));
     } catch (e) {
-      console.error('Failed to save to localStorage', e);
+      // A quota-exceeded write used to fail silently, so the user lost drives,
+      // files and trash with no trace. Log it and keep the app running on the
+      // in-memory state instead of pretending the save succeeded.
+      log.error('[fileSystem] persist to localStorage failed; continuing in memory', e);
     }
   }
 
@@ -198,6 +244,7 @@ class FileSystemEngine {
       }));
 
       this.files = [...untouched, ...mapped];
+      this.touchBucket(driveId, normPath);
       this.saveToStorage();
     } catch (e) {
       log.warn('Could not list system directory', path, e);
@@ -274,7 +321,40 @@ class FileSystemEngine {
       }
       this.filesIndexVersion = this.filesVersion;
     }
-    return this.filesIndex.get(`${driveId}|${this.normalizePath(currentPath)}`) || [];
+    const key = `${driveId}|${this.normalizePath(currentPath)}`;
+    // Reading a bucket marks it as recently used, so the LRU evicts what the
+    // user has actually stopped looking at.
+    if (this.bucketOrder.has(key)) {
+      this.bucketOrder.delete(key);
+      this.bucketOrder.set(key, true);
+    }
+    return this.filesIndex.get(key) || [];
+  }
+
+  /** Trash and other virtual entries live only in memory, so the LRU never drops them. */
+  private bucketEvictable(key: string): boolean {
+    return key.startsWith('real_');
+  }
+
+  /**
+   * Records a directory bucket as recently used and evicts the least-recently-used
+   * real-drive buckets past the cap. Virtual/trash buckets are exempt: they have no
+   * server-side listing to reload from.
+   */
+  private touchBucket(driveId: string, path: string) {
+    const key = `${driveId}|${this.normalizePath(path)}`;
+    this.bucketOrder.delete(key);
+    this.bucketOrder.set(key, true);
+
+    const evictable = [...this.bucketOrder.keys()].filter(k => this.bucketEvictable(k));
+    if (evictable.length <= listingCachePolicy.maxCachedDirectories) return;
+
+    const overBy = evictable.length - listingCachePolicy.maxCachedDirectories;
+    const doomed = new Set(evictable.slice(0, overBy));
+    if (doomed.size === 0) return;
+
+    this.bucketOrder = new Map([...this.bucketOrder].filter(([k]) => !doomed.has(k)));
+    this.files = this.files.filter(f => !doomed.has(`${f.driveId}|${this.normalizePath(f.path)}`));
   }
 
   public getFileById(id: string): FileItem | undefined {

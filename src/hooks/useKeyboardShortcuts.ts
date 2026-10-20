@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { soundManager } from '../services/soundEffects';
 import { ActiveModal, Drive, FileItem, PanelState, PanelTab } from '../types';
 
-interface KeyboardShortcutDeps {
+export interface KeyboardShortcutDeps {
   activePanel: 'left' | 'right';
   currentActiveTab: PanelTab;
   activeItems: FileItem[];
@@ -108,13 +108,13 @@ export function useKeyboardShortcuts(d: KeyboardShortcutDeps) {
         return;
       }
 
-      if (e.key === 'F1') {
+      if (e.key === 'F1' && !e.altKey) {
         e.preventDefault();
         soundManager.playKeyTick();
         setActiveModal('help');
         return;
       }
-      if (e.key === 'F2') {
+      if (e.key === 'F2' && !e.altKey) {
         e.preventDefault();
         soundManager.playKeyTick();
         setActiveModal('user_menu');
@@ -168,12 +168,16 @@ export function useKeyboardShortcuts(d: KeyboardShortcutDeps) {
 
       if (e.altKey && e.key === 'F1') {
         e.preventDefault();
+        // A fresh install starts with no drives; `% drives.length` would be
+        // `% 0` (NaN) and index into nothing. Cycling drives is a no-op then.
+        if (!drives.length) return;
         const nextDriveIdx = (drives.findIndex(d => d.id === leftTab.driveId) + 1) % drives.length;
         handleSelectDrive('left', drives[nextDriveIdx].id);
         return;
       }
       if (e.altKey && e.key === 'F2') {
         e.preventDefault();
+        if (!drives.length) return;
         const nextDriveIdx = (drives.findIndex(d => d.id === rightTab.driveId) + 1) % drives.length;
         handleSelectDrive('right', drives[nextDriveIdx].id);
         return;

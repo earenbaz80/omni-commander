@@ -32,6 +32,21 @@ describe('AppLockModal', () => {
     expect(container.textContent).not.toContain('TopSecret123');
   });
 
+  it('never unlocks with the old hardcoded default when no password is stored', async () => {
+    const onUnlockSuccess = vi.fn();
+    const { container } = renderLock({ expectedPassHash: '', onUnlockSuccess });
+
+    const form = container.querySelector('form')!;
+    const passInput = screen.getByPlaceholderText(/password/i);
+
+    // The removed bypass let this public default unlock the whole app.
+    fireEvent.change(passInput, { target: { value: 'admin123' } });
+    fireEvent.submit(form);
+
+    await screen.findByText(/incorrect/i, undefined, { timeout: 5000 });
+    expect(onUnlockSuccess).not.toHaveBeenCalled();
+  }, 20000);
+
   it('unlocks only with the correct credentials', async () => {
     const record = await createPasswordRecord('pw123');
     const onUnlockSuccess = vi.fn();

@@ -81,8 +81,12 @@ export default function App() {
   const leftTreePaneRef = useRef<HTMLDivElement | null>(null);
   const leftTreeTabRef = useRef<HTMLButtonElement | null>(null);
 
-  // App Lock state
-  const [isAppLocked, setIsAppLocked] = useState<boolean>(() => settings.appLockEnabled);
+  // App Lock state. The lock only activates when a password hash exists:
+  // engaging it without one would either unlock with the removed public default
+  // or trap the user behind a lock no credential can open.
+  const [isAppLocked, setIsAppLocked] = useState<boolean>(
+    () => settings.appLockEnabled && !!settings.appPasswordHash
+  );
 
   // Password Unlock Flow state
   const [unlockTarget, setUnlockTarget] = useState<{
@@ -90,6 +94,13 @@ export default function App() {
     path: string;
     expectedPass: string;
   } | null>(null);
+
+  // Single activation funnel for the lock: without a stored password there is
+  // nothing to verify against, so the request is refused instead of engaging a
+  // lock that can never be opened.
+  const lockApp = useCallback(() => {
+    setIsAppLocked(!!settings.appPasswordHash);
+  }, [settings.appPasswordHash]);
 
 
 
@@ -230,11 +241,17 @@ export default function App() {
 
 
   // One-time migration: replace any legacy plaintext password with a salted
-  // PBKDF2 hash so it is never persisted in clear.
+  // PBKDF2 hash so it is never persisted in clear. The removed `admin123`
+  // default is dropped outright: it was a public master key, so hashing it
+  // would silently reintroduce the bypass it came from.
   const passwordMigratedRef = useRef(false);
   useEffect(() => {
     if (passwordMigratedRef.current) return;
     passwordMigratedRef.current = true;
+    if (settings.appPasswordHash === 'admin123' && !settings.appPasswordSalt) {
+      setSettings((s) => ({ ...s, appPasswordHash: '', appPasswordSalt: '' }));
+      return;
+    }
     if (settings.appPasswordHash && !settings.appPasswordSalt) {
       createPasswordRecord(settings.appPasswordHash)
         .then((record) =>
@@ -722,30 +739,13 @@ export default function App() {
             selectedIds: t.selectedIds.filter(id => !movedIds.has(id))
           }))
         }));
+        // Move-success feedback belongs to a completed move only; a copy has its
+        // own completion signal and must not play the move sound.
+        soundManager.playSuccess();
       }
-      soundManager.playSuccess();
+      // Both operations refresh the panes once the transfer actually finished.
       setFsTick(t => t + 1);
     })().catch(e => console.error('Drop operation failed', e));
-
-    if (operation === 'move') {
-      setLeftPanel(p => ({
-        ...p,
-        tabs: p.tabs.map(t => ({
-          ...t,
-          selectedIds: t.selectedIds.filter(id => !movedIds.has(id))
-        }))
-      }));
-      setRightPanel(p => ({
-        ...p,
-        tabs: p.tabs.map(t => ({
-          ...t,
-          selectedIds: t.selectedIds.filter(id => !movedIds.has(id))
-        }))
-      }));
-    }
-
-    soundManager.playSuccess();
-    setFsTick(t => t + 1);
   }, []);
 
   const handleDropNativeFiles = useCallback(async (
@@ -814,7 +814,7 @@ export default function App() {
           theme={currentTheme}
           lang={lang}
           expectedUser={settings.appUsername || 'admin'}
-          expectedPassHash={settings.appPasswordHash || 'admin123'}
+          expectedPassHash={settings.appPasswordHash}
           expectedPassSalt={settings.appPasswordSalt}
           onUnlockSuccess={() => setIsAppLocked(false)}
         />
@@ -833,7 +833,7 @@ export default function App() {
             if (activeFocusedItem) setSelectedFileForModal(activeFocusedItem);
           }
           if (m === 'app_lock') {
-            setIsAppLocked(true);
+            lockApp();
             return;
           }
           handleSetActiveModal(m);
@@ -1014,7 +1014,7 @@ export default function App() {
           totalSelectedBytes={activeSelectedBytes}
           isAdminMode={isAdminMode}
           onToggleAdminMode={() => setIsAdminMode(!isAdminMode)}
-          onLockApp={() => setIsAppLocked(true)}
+          onLockApp={lockApp}
           isFolderProtected={!!(settings.protectedFolders && currentActiveTab?.currentPath && settings.protectedFolders[currentActiveTab.currentPath])}
           onProtectFolder={() => setActiveModal('protect_folder')}
           showClock={settings.showClock}
