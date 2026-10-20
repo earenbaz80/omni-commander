@@ -285,9 +285,13 @@ export default function App() {
   // all snapshot the selection before the dialog is opened.
   const openTransferModal = (modal: ActiveModal): boolean => {
     if (modal !== 'copy' && modal !== 'move' && modal !== 'delete') return false;
-    if (transferItems.length === 0) return true;
+    // Snapshot the LIVE selection every time. Reading the previous snapshot made
+    // every later transfer silently repeat the first one: the stale entries were
+    // written back into modalData, so F5/F6 kept re-targeting the original folder.
+    const snapshot = getSelectedOrFocusedItems();
+    if (snapshot.length === 0) return true;
     soundManager.playKeyTick();
-    setModalData({ items: transferItems, type: modal });
+    setModalData({ items: snapshot, type: modal });
     setActiveModal(modal);
     return true;
   };

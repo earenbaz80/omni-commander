@@ -159,7 +159,10 @@ export const AppModals: React.FC<AppModalsProps> = ({
             targetPath={currentInactiveTab.currentPath}
             targetDriveId={currentInactiveTab.driveId}
             onConfirm={handleConfirmCopy}
-            onClose={() => setActiveModal(null)}
+            onClose={() => {
+              setActiveModal(null);
+              setModalData(null);
+            }}
           />
         )}
 
@@ -173,7 +176,10 @@ export const AppModals: React.FC<AppModalsProps> = ({
             targetPath={currentInactiveTab.currentPath}
             targetDriveId={currentInactiveTab.driveId}
             onConfirm={handleConfirmMove}
-            onClose={() => setActiveModal(null)}
+            onClose={() => {
+              setActiveModal(null);
+              setModalData(null);
+            }}
           />
         )}
 
@@ -183,7 +189,10 @@ export const AppModals: React.FC<AppModalsProps> = ({
             lang={lang}
             items={modalData?.items || []}
             onConfirm={handleConfirmDelete}
-            onClose={() => setActiveModal(null)}
+            onClose={() => {
+              setActiveModal(null);
+              setModalData(null);
+            }}
           />
         )}
 
