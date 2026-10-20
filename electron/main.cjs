@@ -70,6 +70,21 @@ function createMainWindow() {
 
   mainWindow.webContents.setVisualZoomLevelLimits(1, 1);
 
+  // The product is offline by design, so the window is only ever allowed to stay
+  // on its two legitimate local origins. Denying navigation and window.open
+  // keeps a compromised renderer from turning the shell into a browser.
+  const isAllowedLocalUrl = (target) => {
+    if (!target) return false;
+    if (isDev && target.startsWith('http://localhost:3000')) return true;
+    return target.startsWith('file://');
+  };
+  mainWindow.webContents.on('will-navigate', (event, target) => {
+    if (!isAllowedLocalUrl(target)) event.preventDefault();
+  });
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    return isAllowedLocalUrl(url) ? { action: 'allow' } : { action: 'deny' };
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
