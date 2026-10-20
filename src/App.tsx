@@ -433,6 +433,11 @@ export default function App() {
     ) => {
       let transferred = 0;
       let promptedJobId = '';
+      // A failure used to be recorded on the task and then swallowed, so the
+      // queue marked the job completed at 100% while nothing had been written.
+      // Keep the first reason and rethrow once the batch is done so the task
+      // really ends up failed and the reason stays on screen.
+      let firstFailure: Error | undefined;
       const askConflict = (conflict: PendingConflict) => {
         promptedJobId = conflict.jobId;
         handleConflictPrompt(conflict, signal);
@@ -486,12 +491,13 @@ export default function App() {
             );
           } catch (e) {
             console.error(`${replay ? 'Queued transfer' : failureLabel} failed for`, entry.name, e);
-            taskQueue.updateTaskMeta(taskId, {
-              error: e instanceof Error ? e.message : `${replay ? 'Transfer' : failureLabel} failed: ${entry.name}`
-            });
+            const reason = e instanceof Error ? e.message : `${replay ? 'Transfer' : failureLabel} failed: ${entry.name}`;
+            taskQueue.updateTaskMeta(taskId, { error: reason });
+            if (!firstFailure) firstFailure = new Error(reason);
           }
           transferred += current || (entry.isDirectory ? 0 : entry.size);
         }
+        if (firstFailure) throw firstFailure;
       } finally {
         // A cancelled or failed transfer must not leave its prompt on screen.
         setConflictPrompt(current => (current && current.jobId === promptedJobId ? null : current));
@@ -565,6 +571,9 @@ export default function App() {
         handleConflictPrompt(conflict, signal);
       };
       const failureLabel = op === 'move' ? 'Move' : 'Copy';
+      // A recorded failure must also become the task's outcome; otherwise the
+      // queue reports a completed 100% transfer that never touched the disk.
+      let firstFailure: Error | undefined;
       try {
         for (const item of items) {
           if (signal.cancelled) return;
@@ -590,10 +599,13 @@ export default function App() {
             }
           } catch (e) {
             console.error(`${failureLabel} failed for`, item.name, e);
-            taskQueue.updateTaskMeta(taskId, { error: e instanceof Error ? e.message : `${failureLabel} failed: ${item.name}` });
+            const reason = e instanceof Error ? e.message : `${failureLabel} failed: ${item.name}`;
+            taskQueue.updateTaskMeta(taskId, { error: reason });
+            if (!firstFailure) firstFailure = new Error(reason);
           }
           transferred += current || (item.isDirectory ? 0 : item.size);
         }
+        if (firstFailure) throw firstFailure;
       } finally {
         // A cancelled or failed transfer must not leave its prompt on screen.
         setConflictPrompt(current => (current && current.jobId === promptedJobId ? null : current));

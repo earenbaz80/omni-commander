@@ -182,7 +182,7 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
           )}
 
           <div className="flex items-center justify-between text-[10px] opacity-70">
-            <span className={topTask.status === 'failed' ? 'text-rose-400 font-bold truncate' : ''}>
+            <span className={topTask.status === 'failed' ? 'text-rose-400 font-bold break-all' : ''}>
               {topTask.status === 'failed' && topTask.error
                 ? topTask.error
                 : topTask.speed || t.inProgress}
