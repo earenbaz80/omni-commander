@@ -138,6 +138,10 @@ export interface BackgroundTask {
   files?: FileProgressEntry[];
   /** What this task transfers, kept so the copy list can be saved and re-run. */
   plan?: TransferPlan;
+  /** Server-side job this task drives, needed to retune it while it runs. */
+  serverJobId?: string;
+  /** Speed limit in bytes per second currently applied to the server job. 0 means unlimited. */
+  throttleBps?: number;
 }
 
 /** One queued source of a transfer plan, addressed by its real absolute path. */

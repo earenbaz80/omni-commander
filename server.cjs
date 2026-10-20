@@ -1157,6 +1157,12 @@ function registerFsRoutes() {
     if (action === 'pause') job.paused = true;
     else if (action === 'resume') job.paused = false;
     else if (action === 'cancel') { job.cancelled = true; job.paused = false; }
+    else if (action === 'throttle') {
+      // The copy loop re-reads job.throttleBps before every chunk, so the new
+      // limit applies from the next write. 0 or below means unlimited.
+      const bps = Number(req.body?.throttleBps);
+      job.throttleBps = Number.isFinite(bps) && bps > 0 ? bps : 0;
+    }
     else return res.status(400).json({ error: 'Unknown action' });
     res.json(jobSnapshot(job));
   });

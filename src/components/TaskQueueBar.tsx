@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Activity, ChevronDown } from 'lucide-react';
 import { BackgroundTask, LanguageCode } from '../types';
 import { getTranslations } from '../i18n/translations';
@@ -6,6 +6,7 @@ import { taskQueue } from '../services/taskQueueManager';
 import { soundManager } from '../services/soundEffects';
 import { ThemeConfig } from '../services/themeManager';
 import { RetroProgressBar } from './RetroProgressBar';
+import { fsEngine } from '../services/fileSystem';
 
 interface TaskQueueBarProps {
   onOpenTasksModal: () => void;
@@ -23,6 +24,18 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
       setTasks(taskQueue.getTasks());
     });
   }, []);
+
+  // A copy must open its window on its own. Minimizing is a choice the user makes
+  // for one transfer, not a permanent preference: every newly started transfer
+  // restores the full card so progress can never run hidden.
+  const runningTaskId = tasks.find(task => task.status === 'running')?.id;
+  const lastRunningTaskIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (runningTaskId && runningTaskId !== lastRunningTaskIdRef.current) {
+      lastRunningTaskIdRef.current = runningTaskId;
+      setIsMinimized(false);
+    }
+  }, [runningTaskId]);
 
   // The corner indicator exists for LIVE work and for FAILURES. Finished and
   // cancelled transfers stay in the background-tasks modal. A failed transfer is
@@ -116,6 +129,46 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
             cells={22}
             className="text-[11px]"
           />
+
+          {(topTask.status === 'running' || topTask.status === 'paused') && (
+            <div className="flex items-center gap-1.5 text-[10px]" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  soundManager.playKeyTick();
+                  if (topTask.status === 'paused') taskQueue.resumeTask(topTask.id);
+                  else taskQueue.pauseTask(topTask.id);
+                }}
+                className="px-1.5 py-0.5 border border-cyan-500/60 rounded text-cyan-300 hover:bg-cyan-950/60 cursor-pointer font-bold"
+              >
+                {topTask.status === 'paused' ? t.bgTasksResume : t.bgTasksPause}
+              </button>
+
+              {topTask.serverJobId && (
+                <label className="flex items-center gap-1 opacity-80">
+                  <span>{t.speedLimit}</span>
+                  <select
+                    value={topTask.throttleBps ?? 0}
+                    onChange={(e) => {
+                      const bps = Number(e.target.value);
+                      soundManager.playKeyTick();
+                      // Remember the choice on the task so the control reflects it,
+                      // then retune the live server job. The copy loop re-reads the
+                      // limit before every chunk, so this lands mid-transfer.
+                      taskQueue.updateTaskMeta(topTask.id, { throttleBps: bps });
+                      void fsEngine.setJobThrottle(topTask.serverJobId as string, bps);
+                    }}
+                    className="bg-black text-cyan-300 border border-cyan-700 rounded px-1 py-0.5 font-mono cursor-pointer"
+                  >
+                    <option value={0}>{t.speedUnlimited}</option>
+                    <option value={1048576}>1 MB/s</option>
+                    <option value={5242880}>5 MB/s</option>
+                    <option value={20971520}>20 MB/s</option>
+                  </select>
+                </label>
+              )}
+            </div>
+          )}
 
           {currentFileEntry && (
             <div className="flex items-center gap-1.5 text-[9px] opacity-70 font-mono">
