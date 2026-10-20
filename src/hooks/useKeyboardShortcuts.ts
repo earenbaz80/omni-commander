@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { soundManager } from '../services/soundEffects';
 import { ActiveModal, Drive, FileItem, PanelState, PanelTab } from '../types';
 
@@ -41,43 +41,49 @@ export interface KeyboardShortcutDeps {
  * Extracted from App to keep the component focused.
  */
 export function useKeyboardShortcuts(d: KeyboardShortcutDeps) {
-  const {
-    activePanel,
-    currentActiveTab,
-    activeItems,
-    activeFocusedItem,
-    activeModal,
-    isAppLocked,
-    drives,
-    leftTab,
-    rightTab,
-    quickSearchQuery,
-    quickSearchTimerRef,
-    setActivePanel,
-    setActiveModal,
-    setSelectedFileForModal,
-    setQuickSearchQuery,
-    setLeftPanel,
-    setRightPanel,
-    setIsLeftFilterOpen,
-    setIsRightFilterOpen,
-    handleTriggerCopy,
-    handleTriggerMove,
-    handleTriggerDelete,
-    handleSelectDrive,
-    handleNewTab,
-    handleCloseTab,
-    handleSelectAll,
-    handleSwapPanels,
-    handleSelectIndex,
-    handleToggleSelect,
-    handleOpenItem,
-    handleGoParent,
-  } = d;
+  // The listener is attached once, but it must always act on the props of the
+  // current render. Reading them through a ref keeps the effect stable without
+  // relisting all 25 dependencies or capturing a stale closure.
+  const dRef = useRef(d);
+  dRef.current = d;
 
   // Keyboard navigation engine
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const {
+        activePanel,
+        currentActiveTab,
+        activeItems,
+        activeFocusedItem,
+        activeModal,
+        isAppLocked,
+        drives,
+        leftTab,
+        rightTab,
+        quickSearchQuery,
+        quickSearchTimerRef,
+        setActivePanel,
+        setActiveModal,
+        setSelectedFileForModal,
+        setQuickSearchQuery,
+        setLeftPanel,
+        setRightPanel,
+        setIsLeftFilterOpen,
+        setIsRightFilterOpen,
+        handleTriggerCopy,
+        handleTriggerMove,
+        handleTriggerDelete,
+        handleSelectDrive,
+        handleNewTab,
+        handleCloseTab,
+        handleSelectAll,
+        handleSwapPanels,
+        handleSelectIndex,
+        handleToggleSelect,
+        handleOpenItem,
+        handleGoParent,
+      } = dRef.current;
+
       const targetTag = (e.target as HTMLElement)?.tagName?.toUpperCase();
       if (targetTag === 'INPUT' || targetTag === 'TEXTAREA' || activeModal || isAppLocked) {
         if (e.key === 'Escape') {
@@ -148,7 +154,7 @@ export function useKeyboardShortcuts(d: KeyboardShortcutDeps) {
         handleTriggerMove();
         return;
       }
-      if (e.key === 'F7') {
+      if (e.key === 'F7' && !e.altKey) {
         e.preventDefault();
         soundManager.playKeyTick();
         setActiveModal('mkdir');
@@ -377,5 +383,5 @@ export function useKeyboardShortcuts(d: KeyboardShortcutDeps) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activePanel, currentActiveTab, activeItems, activeFocusedItem, activeModal, isAppLocked, drives, leftTab, rightTab, quickSearchQuery]);
+  }, []);
 }

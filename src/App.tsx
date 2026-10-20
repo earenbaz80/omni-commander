@@ -128,7 +128,7 @@ export default function App() {
   const [commandHistory, setCommandHistory] = useState<CommandHistoryItem[]>([]);
 
   // Manual Panel Width Resizing State
-  const { isDraggingSplitter, setIsDraggingSplitter } = useSplitter(setSettings);
+  const { isDraggingSplitter, setIsDraggingSplitter, ratio: dualPaneRatio } = useSplitter(setSettings, settings.dualPaneRatio || 50);
 
   // Load real OS drives when a local drive API is available, then keep the
   // list fresh so removable devices can be plugged in and unplugged live.
@@ -901,7 +901,7 @@ export default function App() {
       <div id="dual-panel-container" className="flex-1 flex flex-col md:flex-row min-h-0 relative p-1 gap-1">
         <PanelView
           side="left"
-          widthPercent={settings.dualPaneRatio || 50}
+          widthPercent={dualPaneRatio}
           currentTheme={currentTheme}
           themeForFileList={themeForFileList}
           lang={lang}
@@ -961,7 +961,7 @@ export default function App() {
 
         <PanelView
           side="right"
-          widthPercent={100 - (settings.dualPaneRatio || 50)}
+          widthPercent={100 - dualPaneRatio}
           currentTheme={currentTheme}
           themeForFileList={themeForFileList}
           lang={lang}

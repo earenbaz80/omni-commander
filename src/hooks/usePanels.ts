@@ -196,7 +196,7 @@ export function usePanels(deps: PanelDeps) {
       }
       return 0;
     });
-  }, [settings.showHiddenFiles]);
+  }, [settings.showHiddenFiles, settings.showSystemFiles]);
 
   const leftTab = leftPanel.tabs.find(t => t.id === leftPanel.activeTabId) || leftPanel.tabs[0];
   const rightTab = rightPanel.tabs.find(t => t.id === rightPanel.activeTabId) || rightPanel.tabs[0];

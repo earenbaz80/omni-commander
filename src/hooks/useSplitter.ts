@@ -1,13 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { UserSettings } from '../types';
 
 /**
  * Manual dual-pane width resizing. Tracks the drag state and, while dragging,
  * maps the pointer X position over the #dual-panel-container to a 20-80% ratio.
  * Extracted from App to keep the component focused.
+ *
+ * The ratio is kept in local state while dragging and committed to settings
+ * once, on release. Writing settings on every mousemove re-rendered the whole
+ * app and persisted the full settings object to localStorage once per pixel.
  */
-export function useSplitter(setSettings: React.Dispatch<React.SetStateAction<UserSettings>>) {
+export function useSplitter(
+  setSettings: React.Dispatch<React.SetStateAction<UserSettings>>,
+  committedRatio: number,
+) {
   const [isDraggingSplitter, setIsDraggingSplitter] = useState(false);
+  const [dragRatio, setDragRatio] = useState<number | null>(null);
+  // Read the latest ratio inside the release handler without re-subscribing.
+  const dragRatioRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!isDraggingSplitter) return;
@@ -18,7 +28,8 @@ export function useSplitter(setSettings: React.Dispatch<React.SetStateAction<Use
         const rect = container.getBoundingClientRect();
         const offsetX = clientX - rect.left;
         const newRatio = Math.max(20, Math.min(80, Math.round((offsetX / rect.width) * 100)));
-        setSettings((s) => ({ ...s, dualPaneRatio: newRatio }));
+        dragRatioRef.current = newRatio;
+        setDragRatio(newRatio);
       }
     };
 
@@ -32,6 +43,12 @@ export function useSplitter(setSettings: React.Dispatch<React.SetStateAction<Use
       updateSplitterRatio(e.touches[0].clientX);
     };
     const handleMouseUp = () => {
+      // Commit the final ratio a single time, after the pointer is released.
+      const finalRatio = dragRatioRef.current;
+      if (finalRatio !== null) {
+        setSettings((s) => ({ ...s, dualPaneRatio: finalRatio }));
+      }
+      setDragRatio(null);
       setIsDraggingSplitter(false);
     };
 
@@ -49,5 +66,9 @@ export function useSplitter(setSettings: React.Dispatch<React.SetStateAction<Use
     };
   }, [isDraggingSplitter, setSettings]);
 
-  return { isDraggingSplitter, setIsDraggingSplitter };
+  // While dragging, the panes follow the live pointer; otherwise the committed
+  // settings value is authoritative (it also reflects external resets).
+  const ratio = dragRatio ?? committedRatio;
+
+  return { isDraggingSplitter, setIsDraggingSplitter, ratio };
 }
