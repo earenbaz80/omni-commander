@@ -453,7 +453,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <input
                 type="checkbox"
                 checked={settings.appLockEnabled}
-                onChange={(e) => onUpdateSettings({ appLockEnabled: e.target.checked })}
+                disabled={!settings.appPasswordHash && !settings.appLockEnabled}
+                onChange={(e) => {
+                  // Turning the lock on with no stored password would only be
+                  // refused later by the app with no explanation, so block it
+                  // here and say why.
+                  if (e.target.checked && !settings.appPasswordHash) {
+                    soundManager.playBeep(220, 0.2);
+                    window.alert(t.settingsAppLockNeedsPassword);
+                    return;
+                  }
+                  onUpdateSettings({ appLockEnabled: e.target.checked });
+                }}
               />
               <span>{t.settingsAppLock}</span>
             </label>

@@ -711,6 +711,7 @@
     settingsSoundSection: "Ретро-звуки и эффекты",
     settingsSoundEnable: "Включить звуки PC-динамика (бипы и щелчки)",
     settingsAppLockActive: "Блокировка включена",
+    settingsAppLockNeedsPassword: "Задайте пароль перед включением блокировки",
     settingsAppPassNone: "Без пароля",
     settingsInvalidConfig: "Недопустимый файл конфигурации",
     settingsAppPassSet: "•••••••• (установлен)",

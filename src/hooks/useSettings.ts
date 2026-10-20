@@ -38,7 +38,7 @@ export function useSettings() {
       authorName: 'Edel Arencibia Baez',
       appLockEnabled: false,
       appUsername: 'admin',
-      appPasswordHash: 'admin123',
+      appPasswordHash: '',
       appPasswordSalt: '',
       protectedFolders: {},
       customShortcuts: {},

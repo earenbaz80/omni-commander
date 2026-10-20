@@ -739,6 +739,7 @@
     settingsSoundSection: "Sonidos y Efectos Retro",
     settingsSoundEnable: "Habilitar Sonidos de Altavoz PC (PC Speaker Beeps & Clicks)",
     settingsAppLockActive: "Bloqueo activado",
+    settingsAppLockNeedsPassword: "Configurá una contraseña antes de activar el bloqueo",
     settingsAppPassNone: "Sin contraseña",
     settingsInvalidConfig: "Archivo de configuración inválido",
     settingsAppPassSet: "•••••••• (establecida)",

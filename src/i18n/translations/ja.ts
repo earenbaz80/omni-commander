@@ -711,6 +711,7 @@
     settingsSoundSection: "レトロサウンドと効果",
     settingsSoundEnable: "PCスピーカー音を有効化（ビープとクリック）",
     settingsAppLockActive: "ロック有効",
+    settingsAppLockNeedsPassword: "ロックを有効にする前にパスワードを設定してください",
     settingsAppPassNone: "パスワードなし",
     settingsInvalidConfig: "無効な設定ファイル",
     settingsAppPassSet: "••••••••（設定済み）",

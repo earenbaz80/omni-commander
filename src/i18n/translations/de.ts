@@ -711,6 +711,7 @@
     settingsSoundSection: "Retro-Klänge & -Effekte",
     settingsSoundEnable: "PC-Lautsprechertöne aktivieren (Beeps & Clicks)",
     settingsAppLockActive: "Sperre aktiviert",
+    settingsAppLockNeedsPassword: "Legen Sie ein Passwort fest, bevor Sie die Sperre aktivieren",
     settingsAppPassNone: "Kein Passwort",
     settingsInvalidConfig: "Ungültige Konfigurationsdatei",
     settingsAppPassSet: "•••••••• (festgelegt)",

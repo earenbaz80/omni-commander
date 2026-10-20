@@ -739,6 +739,7 @@
     settingsSoundSection: "Retro Sounds & Effects",
     settingsSoundEnable: "Enable PC speaker sounds (beeps & clicks)",
     settingsAppLockActive: "Lock enabled",
+    settingsAppLockNeedsPassword: "Set a password before enabling the app lock",
     settingsAppPassNone: "No password",
     settingsInvalidConfig: "Invalid configuration file",
     settingsAppPassSet: "•••••••• (set)",

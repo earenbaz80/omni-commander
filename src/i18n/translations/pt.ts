@@ -711,6 +711,7 @@
     settingsSoundSection: "Sons e Efeitos Retrô",
     settingsSoundEnable: "Ativar sons do alto-falante do PC (Beeps & Clicks)",
     settingsAppLockActive: "Bloqueio ativado",
+    settingsAppLockNeedsPassword: "Defina uma senha antes de ativar o bloqueio",
     settingsAppPassNone: "Sem senha",
     settingsInvalidConfig: "Arquivo de configuração inválido",
     settingsAppPassSet: "•••••••• (definida)",
