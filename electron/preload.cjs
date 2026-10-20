@@ -8,10 +8,17 @@ const parsedApiPort = apiPortArgument
   ? Number(apiPortArgument.slice('--omni-api-port='.length))
   : NaN;
 
+// The per-launch session token travels down the same argv channel as the port.
+// The renderer attaches it as the x-omni-token header on every request, which
+// the server requires for any mutation.
+const apiTokenArgument = process.argv.find(argument => argument.startsWith('--omni-api-token='));
+const apiToken = apiTokenArgument ? apiTokenArgument.slice('--omni-api-token='.length) : '';
+
 contextBridge.exposeInMainWorld('electronAPI', {
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   closeWindow: () => ipcRenderer.invoke('window:close'),
   isElectron: true,
   apiPort: Number.isFinite(parsedApiPort) && parsedApiPort > 0 ? parsedApiPort : 3001,
+  apiToken,
 });

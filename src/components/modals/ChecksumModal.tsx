@@ -23,12 +23,22 @@ export const ChecksumModal: React.FC<ChecksumModalProps> = ({
 }) => {
   const t = getTranslations(lang);
   const [hashes, setHashes] = useState<{ md5: string; sha1: string; sha256: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   useEffect(() => {
-    if (file) {
-      fsEngine.calculateFileHashes(file).then(res => setHashes(res));
-    }
+    if (!file) return;
+    let cancelled = false;
+    setHashes(null);
+    setError(null);
+    fsEngine.calculateFileHashes(file)
+      .then(res => { if (!cancelled) setHashes(res); })
+      .catch(err => {
+        if (cancelled) return;
+        // Never render a fake digest: show why the real one is unavailable.
+        setError(err && err.message ? String(err.message) : 'Could not read the file bytes');
+      });
+    return () => { cancelled = true; };
   }, [file]);
 
   if (!file) return null;
@@ -78,6 +88,12 @@ export const ChecksumModal: React.FC<ChecksumModalProps> = ({
             </div>
           </div>
 
+          {error && (
+            <div className="p-2 bg-red-500/15 rounded border border-red-500/40 text-red-300 text-[11px] break-words">
+              {error}
+            </div>
+          )}
+
           <div className="space-y-3 select-text font-mono text-[11px]">
             {/* MD5 */}
             <div className="p-2 bg-black/30 rounded border border-white/10">
@@ -91,7 +107,7 @@ export const ChecksumModal: React.FC<ChecksumModalProps> = ({
                   <span>{copiedKey === 'md5' ? t.copiedLabel : t.copyBtn}</span>
                 </button>
               </div>
-              <div className="text-white break-all">{hashes?.md5 || t.checksumCalculating}</div>
+              <div className="text-white break-all">{hashes?.md5 || (error ? '—' : t.checksumCalculating)}</div>
             </div>
 
             {/* SHA-1 */}
@@ -106,7 +122,7 @@ export const ChecksumModal: React.FC<ChecksumModalProps> = ({
                   <span>{copiedKey === 'sha1' ? t.copiedLabel : t.copyBtn}</span>
                 </button>
               </div>
-              <div className="text-white break-all">{hashes?.sha1 || t.checksumCalculating}</div>
+              <div className="text-white break-all">{hashes?.sha1 || (error ? '—' : t.checksumCalculating)}</div>
             </div>
 
             {/* SHA-256 */}
@@ -121,7 +137,7 @@ export const ChecksumModal: React.FC<ChecksumModalProps> = ({
                   <span>{copiedKey === 'sha256' ? t.copiedLabel : t.copyBtn}</span>
                 </button>
               </div>
-              <div className="text-white break-all">{hashes?.sha256 || t.checksumCalculating}</div>
+              <div className="text-white break-all">{hashes?.sha256 || (error ? '—' : t.checksumCalculating)}</div>
             </div>
           </div>
 

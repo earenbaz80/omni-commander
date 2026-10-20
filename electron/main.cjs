@@ -1,5 +1,18 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('node:path');
+const crypto = require('node:crypto');
+
+// Per-launch session token. It is the shared secret between this process, the
+// embedded API server and the renderer: every mutating request must carry it,
+// so a remote web page (which cannot know it) can never drive the loopback API
+// -- not even with an opaque `Origin: null` sandboxed iframe. It lives only in
+// this process's memory and never touches disk or the network.
+const sessionToken = crypto.randomBytes(32).toString('hex');
+
+// The server reads this from process.env at require time (the same channel it
+// uses to announce its port through OMNI_API_PORT), so it must be set before
+// server.cjs is loaded.
+process.env.OMNI_SESSION_TOKEN = sessionToken;
 
 // Start the local real-drive API inside Electron so the packaged app is standalone.
 // The server never crashes on a busy port: it walks forward to the first free one,
@@ -49,8 +62,9 @@ function createMainWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      // Hands the bound API port to preload.cjs through argv.
-      additionalArguments: [`--omni-api-port=${apiPort ?? ''}`],
+      // Hands the bound API port and the per-launch session token to
+      // preload.cjs through argv, the same channel this process receives them.
+      additionalArguments: [`--omni-api-port=${apiPort ?? ''}`, `--omni-api-token=${sessionToken}`],
     },
   });
 

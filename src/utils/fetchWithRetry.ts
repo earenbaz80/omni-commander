@@ -3,12 +3,31 @@
  * Used for all real network calls (local drive API) so transient failures
  * don't silently leave the UI without data.
  */
+
+/**
+ * The embedded server requires a per-launch session token on every mutating
+ * request. The Electron main process generates it and preload.cjs exposes it on
+ * the bridge, so attaching it here covers every renderer call: no caller has to
+ * remember to send it and none can forget. Outside Electron the bridge is absent
+ * (dev web / tests) and the server runs without a token, so no header is added.
+ */
+function sessionTokenHeader(): Record<string, string> {
+  const bridge = typeof window !== 'undefined' ? (window as any).electronAPI : undefined;
+  const token = bridge?.apiToken;
+  return token ? { 'x-omni-token': String(token) } : {};
+}
+
 export async function fetchWithRetry(
   url: string,
   options?: RequestInit & { timeoutMs?: number; retries?: number }
 ): Promise<Response> {
   const { timeoutMs = 10000, retries = 2, ...fetchOptions } = options || {};
   let lastError: Error | null = null;
+
+  const headers = {
+    ...sessionTokenHeader(),
+    ...(fetchOptions.headers as Record<string, string> | undefined),
+  };
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     const controller = new AbortController();
@@ -17,6 +36,7 @@ export async function fetchWithRetry(
     try {
       const response = await fetch(url, {
         ...fetchOptions,
+        headers,
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
