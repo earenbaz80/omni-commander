@@ -471,7 +471,18 @@ export default function App() {
               signal,
               { collision: plan.collision, throttleBps: plan.throttleBps },
               askConflict,
-              onFiles
+              onFiles,
+              (info) => {
+                // A folder selection sizes to 0 from the plan alone, which left
+                // the task floored at 1 MiB and reporting 100% before a byte
+                // moved. Prefer the real size the server just measured.
+                if (info.totalBytes > 0) {
+                  taskQueue.updateTaskMeta(taskId, { totalBytes: Math.max(totalBytes, info.totalBytes) });
+                }
+                // Keep the server job id so the progress window can retune
+                // the speed limit while the transfer is still running.
+                taskQueue.updateTaskMeta(taskId, { serverJobId: info.jobId });
+              }
             );
           } catch (e) {
             console.error(`${replay ? 'Queued transfer' : failureLabel} failed for`, entry.name, e);

@@ -418,7 +418,16 @@ class FileSystemEngine {
     return `${trimmed}\\${childName}`;
   }
 
+  /**
+   * Last real reason a server call failed. `callServerFs` deliberately returns
+   * null instead of throwing because some callers fire it as `void`, so the
+   * diagnostic has to be carried out of band. Callers that must report the
+   * failure read this instead of inventing a generic message.
+   */
+  private lastCallError = '';
+
   private async callServerFs<T>(route: string, body: unknown): Promise<T | null> {
+    this.lastCallError = '';
     try {
       const response = await fetchWithRetry(`${API_BASE}/api/fs/${route}`, {
         method: 'POST',
@@ -430,11 +439,15 @@ class FileSystemEngine {
       if (!response.ok) {
         const detail = await response.json().catch(() => null);
         log.warn('Real filesystem request rejected', route, detail);
+        this.lastCallError = detail?.error
+          ? String(detail.error)
+          : `Server rejected ${route} (HTTP ${response.status})`;
         return null;
       }
       return (await response.json()) as T;
     } catch (error) {
       log.warn('Real filesystem request failed', route, error);
+      this.lastCallError = error instanceof Error ? error.message : `Request ${route} failed`;
       return null;
     }
   }
@@ -552,6 +565,15 @@ class FileSystemEngine {
     await this.callServerFs(`job/${encodeURIComponent(jobId)}/cancel`, {});
   }
 
+  /**
+   * Changes the speed limit of a job already in flight. The server applies it
+   * from the next chunk, so a large transfer can be slowed down while it runs.
+   * A value of 0 means unlimited.
+   */
+  public async setJobThrottle(jobId: string, throttleBps: number): Promise<void> {
+    await this.callServerFs(`job/${encodeURIComponent(jobId)}/throttle`, { throttleBps });
+  }
+
   // Fire-and-forget mutation helper: start the server job, wait for it and then
   // re-read the directory from disk. Reloading unconditionally is deliberate —
   // it repairs the optimistic in-memory state after a cancel or a failure.
@@ -587,9 +609,10 @@ class FileSystemEngine {
     signal?: { paused: boolean; cancelled: boolean },
     options?: TransferOptions,
     onConflict?: (conflict: PendingConflict) => void,
-    onFiles?: (files: FileProgressEntry[]) => void
+    onFiles?: (files: FileProgressEntry[]) => void,
+    onStart?: (info: { totalBytes: number; itemsTotal: number; jobId: string }) => void
   ): Promise<void> {
-    const started = await this.callServerFs<{ jobId?: string }>(op, {
+    const started = await this.callServerFs<{ jobId?: string; totalBytes?: number; itemsTotal?: number }>(op, {
       sources,
       targetDir,
       overwrite,
@@ -597,7 +620,17 @@ class FileSystemEngine {
       // the server keeps its `overwrite`-derived default.
       ...(options ? { collision: options.collision, throttleBps: options.throttleBps } : {})
     });
-    if (!started?.jobId) throw new Error(op === 'move' ? 'Move could not start' : 'Copy could not start');
+    if (!started?.jobId) {
+      // `callServerFs` keeps the server's own reason out of band; surface it so
+      // the user sees "Unsafe path: ..." instead of an opaque "could not start".
+      const reason = this.lastCallError || 'the local file service did not answer';
+      throw new Error(`${op === 'move' ? 'Move' : 'Copy'} could not start: ${reason}`);
+    }
+
+    // The server already walked the tree to size the job. Report it so a
+    // folder selection does not fall back to the 1 MiB floor, which made an
+    // untouched copy look finished at 100%.
+    onStart?.({ totalBytes: Number(started.totalBytes) || 0, itemsTotal: Number(started.itemsTotal) || 0, jobId: String(started.jobId) });
 
     // The per-file rows come from the same snapshot the progress callback reads,
     // so both surfaces stay in lockstep without a second poll.
