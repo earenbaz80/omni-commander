@@ -1030,7 +1030,10 @@ class FileSystemEngine {
     onFiles?: (files: FileProgressEntry[]) => void
   ): Promise<FileItem | undefined> {
     const file = this.files.find(f => f.id === fileId);
-    if (!file) return undefined;
+    if (!file) {
+      log.warn('Copy skipped: no catalogue entry for', fileId);
+      return undefined;
+    }
 
     // Real drives are written by the local server, never simulated in memory.
     if (this.isSystemDrive(file.driveId) || this.isSystemDrive(targetDriveId)) {
@@ -1127,7 +1130,10 @@ class FileSystemEngine {
 
   public async moveItem(fileId: string, targetDriveId: string, targetPath: string, onProgress?: (transferred: number, total: number) => void, signal?: { paused: boolean; cancelled: boolean }, options?: TransferOptions, onConflict?: (conflict: PendingConflict) => void, onFiles?: (files: FileProgressEntry[]) => void): Promise<boolean> {
     const file = this.files.find(f => f.id === fileId);
-    if (!file) return false;
+    if (!file) {
+      log.warn('Move skipped: no catalogue entry for', fileId);
+      return false;
+    }
 
     // Real drives are written by the local server, never simulated in memory.
     if (this.isSystemDrive(file.driveId) || this.isSystemDrive(targetDriveId)) {

@@ -87,8 +87,8 @@ describe('App handleDropItems', () => {
     expect(capturedOnDropItems).toBeTypeOf('function');
 
     let resolveMove: () => void = () => {};
-    vi.spyOn(fsEngine, 'moveItem').mockImplementationOnce(
-      () => new Promise<boolean>((resolve) => { resolveMove = () => resolve(true); })
+    vi.spyOn(fsEngine, 'transferPaths').mockImplementationOnce(
+      () => new Promise<void>((resolve) => { resolveMove = () => resolve(); })
     );
 
     await act(async () => {
@@ -109,7 +109,7 @@ describe('App handleDropItems', () => {
 
   it('never plays the move-success sound for a copy', async () => {
     render(<App />);
-    vi.spyOn(fsEngine, 'copyItem').mockResolvedValue(undefined);
+    vi.spyOn(fsEngine, 'transferPaths').mockResolvedValue(undefined);
 
     await act(async () => {
       capturedOnDropItems!([item('f2')], 'C:\\dest', 'real_A', 'copy');

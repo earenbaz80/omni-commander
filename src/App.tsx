@@ -453,29 +453,22 @@ export default function App() {
           const onFiles = (files: FileProgressEntry[]) => taskQueue.updateTaskFiles(taskId, files);
           const failureLabel = plan.op === 'move' ? 'Move' : 'Copy';
           try {
-            if (replay) {
-              await fsEngine.transferPaths(
-                plan.op,
-                [entry.path],
-                plan.targetDir,
-                plan.overwrite,
-                onCopied,
-                signal,
-                { collision: plan.collision, throttleBps: plan.throttleBps },
-                askConflict,
-                onFiles
-              );
-            } else if (plan.op === 'move') {
-              await fsEngine.moveItem(entry.path, plan.targetDriveId, plan.targetDir, onCopied, signal, {
-                collision: plan.collision,
-                throttleBps: plan.throttleBps
-              }, askConflict, onFiles);
-            } else {
-              await fsEngine.copyItem(entry.path, plan.targetDriveId, plan.targetDir, plan.overwrite, onCopied, signal, {
-                collision: plan.collision,
-                throttleBps: plan.throttleBps
-              }, askConflict, onFiles);
-            }
+            // Both the live and the replayed path address the disk by absolute
+            // path. A plan is only built for real-drive entries, and
+            // `copyItem`/`moveItem` resolve to this same server call for them,
+            // so going through `transferPaths` directly keeps one entry point
+            // and avoids handing a path to a method that expects a catalogue id.
+            await fsEngine.transferPaths(
+              plan.op,
+              [entry.path],
+              plan.targetDir,
+              plan.overwrite,
+              onCopied,
+              signal,
+              { collision: plan.collision, throttleBps: plan.throttleBps },
+              askConflict,
+              onFiles
+            );
           } catch (e) {
             console.error(`${replay ? 'Queued transfer' : failureLabel} failed for`, entry.name, e);
             taskQueue.updateTaskMeta(taskId, {
@@ -707,7 +700,13 @@ export default function App() {
 
     void (async () => {
       for (const item of draggedItems) {
-        if (operation === 'move') {
+        // Real-drive entries are written by the server and addressed by
+        // absolute path. The catalogue id is only needed for simulated items,
+        // and a listing refresh mid-drag can invalidate it.
+        if (fsEngine.isRealFile(item)) {
+          const isSameDir = item.driveId === targetDriveId && item.path === targetPath;
+          await fsEngine.transferPaths(operation, [fsEngine.absolutePathOf(item)], targetPath, !isSameDir);
+        } else if (operation === 'move') {
           await fsEngine.moveItem(item.id, targetDriveId, targetPath);
         } else {
           const isSameDir = item.driveId === targetDriveId && item.path === targetPath;
@@ -718,16 +717,16 @@ export default function App() {
       if (operation === 'move') {
         setLeftPanel(p => ({
           ...p,
-          tabs: p.tabs.map(t => ({
-            ...t,
-            selectedIds: t.selectedIds.filter(id => !movedIds.has(id))
+          tabs: p.tabs.map(tab => ({
+            ...tab,
+            selectedIds: tab.selectedIds.filter(id => !movedIds.has(id))
           }))
         }));
         setRightPanel(p => ({
           ...p,
-          tabs: p.tabs.map(t => ({
-            ...t,
-            selectedIds: t.selectedIds.filter(id => !movedIds.has(id))
+          tabs: p.tabs.map(tab => ({
+            ...tab,
+            selectedIds: tab.selectedIds.filter(id => !movedIds.has(id))
           }))
         }));
         // Move-success feedback belongs to a completed move only; a copy has its
