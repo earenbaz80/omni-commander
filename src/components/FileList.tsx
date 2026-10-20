@@ -160,8 +160,12 @@ const FileListComponent: React.FC<FileListProps> = ({
   // Generic grid virtualizer for brief/thumbnail/gallery modes
   const thumbCellSize = thumbSize + THUMB_CELL_PADDING;
   const thumbColumns = Math.max(1, Math.floor(containerWidth / thumbCellSize));
+  // Brief stays at 2 columns on narrow panels and 3 otherwise (matches the old
+  // `grid-cols-2 md:grid-cols-3` breakpoint at 768px) so the virtualized row
+  // slicing and the rendered grid share one source of truth.
+  const briefColumns = containerWidth >= 768 ? 3 : 2;
   const getGridColumns = () => {
-    if (viewMode === 'brief') return 3;
+    if (viewMode === 'brief') return briefColumns;
     if (viewMode === 'thumbnails' || viewMode === 'gallery') return thumbColumns;
     return 1;
   };
@@ -730,64 +734,79 @@ const FileListComponent: React.FC<FileListProps> = ({
           </div>
         )}
 
-{/* Brief Multi-Column Mode */}
+{/* Brief Multi-Column Mode (virtualized) */}
         {viewMode === 'brief' && (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-0.5 p-1">
-            {items.map((item, idx) => {
-              const isFocused = idx === focusedIndex && isActive;
-              const isSelected = selectedIdSet.has(item.id);
-              const isHoveredTarget = dragOverFolderId === item.id;
-              const textColor = getItemTextColor(item, isSelected);
-              const isBeingDragged = draggedIds.includes(item.id);
-
+          <div style={{ height: `${gridRowVirtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}>
+            {gridRowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const base = virtualRow.index * gridColumns;
+              const rowItems = items.slice(base, base + gridColumns);
               return (
                 <div
-                  key={item.id}
-                  data-focused={isFocused}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, item, idx)}
-                  onDragEnd={handleDragEnd}
-                  onDragOver={(e) => handleDragOverItem(e, item)}
-                  onDragLeave={(e) => handleDragLeaveItem(e, item)}
-                  onDrop={(e) => handleDropItem(e, item)}
-                  onClick={() => {
-                    soundManager.playKeyTick();
-                    onSelectIndex(idx);
-                  }}
-                  onDoubleClick={() => {
-                    soundManager.playDiskAccess();
-                    onOpenItem(item);
-                  }}
-                  onContextMenu={(e) => {
-                    e.stopPropagation();
-                    onSelectIndex(idx);
-                    onContextMenu(e, item);
-                  }}
-                  className={`flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer truncate transition-all cv-auto ${
-                    isBeingDragged
-                      ? 'opacity-40 ring-1 ring-dashed ring-amber-400'
-                      : isHoveredTarget
-                      ? 'ring-2 ring-amber-400 bg-amber-400/30 font-bold text-amber-200'
-                      : isFocused 
-                      ? 'font-bold shadow ring-1 ring-amber-300' 
-                      : isSelected 
-                      ? 'bg-amber-900/40' 
-                      : 'hover:bg-white/10'
-                  }`}
-                  style={{
-                    backgroundColor: isHoveredTarget ? undefined : isFocused ? theme.cursorBg : undefined,
-                    color: isHoveredTarget ? '#ffff55' : isFocused ? theme.cursorText : textColor
-                  }}
+                  key={virtualRow.key}
+                  data-index={virtualRow.index}
+                  ref={gridRowVirtualizer.measureElement}
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${virtualRow.start}px)`, display: 'grid', gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`, gap: '2px', padding: '4px' }}
+                  className="cv-auto"
                 >
-                  {getFileIcon(item, '', { width: thumbSize * 0.4, height: thumbSize * 0.4 })}
-                  <span className="truncate font-medium flex-1" title={item.name + (item.ext ? '.' + item.ext : '')}>
-                    {item.name}{item.ext ? `.${item.ext}` : ''}
-                  </span>
-                  {isHoveredTarget && item.isDirectory && (
-                    <span className="text-[8px] bg-amber-400 text-black px-1 rounded font-bold shrink-0">
-                      ↵
-                    </span>
-                  )}
+                  {rowItems.map((item, offset) => {
+                    const idx = base + offset;
+                    const isFocused = idx === focusedIndex && isActive;
+                    const isSelected = selectedIdSet.has(item.id);
+                    const isHoveredTarget = dragOverFolderId === item.id;
+                    const textColor = getItemTextColor(item, isSelected);
+                    const isBeingDragged = draggedIds.includes(item.id);
+
+                    return (
+                      <div
+                        key={item.id}
+                        data-focused={isFocused}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, item, idx)}
+                        onDragEnd={handleDragEnd}
+                        onDragOver={(e) => handleDragOverItem(e, item)}
+                        onDragLeave={(e) => handleDragLeaveItem(e, item)}
+                        onDrop={(e) => handleDropItem(e, item)}
+                        onClick={() => {
+                          soundManager.playKeyTick();
+                          onSelectIndex(idx);
+                        }}
+                        onDoubleClick={() => {
+                          soundManager.playDiskAccess();
+                          onOpenItem(item);
+                        }}
+                        onContextMenu={(e) => {
+                          e.stopPropagation();
+                          onSelectIndex(idx);
+                          onContextMenu(e, item);
+                        }}
+                        className={`flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer truncate transition-all cv-auto ${
+                          isBeingDragged
+                            ? 'opacity-40 ring-1 ring-dashed ring-amber-400'
+                            : isHoveredTarget
+                            ? 'ring-2 ring-amber-400 bg-amber-400/30 font-bold text-amber-200'
+                            : isFocused 
+                            ? 'font-bold shadow ring-1 ring-amber-300' 
+                            : isSelected 
+                            ? 'bg-amber-900/40' 
+                            : 'hover:bg-white/10'
+                        }`}
+                        style={{
+                          backgroundColor: isHoveredTarget ? undefined : isFocused ? theme.cursorBg : undefined,
+                          color: isHoveredTarget ? '#ffff55' : isFocused ? theme.cursorText : textColor
+                        }}
+                      >
+                        {getFileIcon(item, '', { width: thumbSize * 0.4, height: thumbSize * 0.4 })}
+                        <span className="truncate font-medium flex-1" title={item.name + (item.ext ? '.' + item.ext : '')}>
+                          {item.name}{item.ext ? `.${item.ext}` : ''}
+                        </span>
+                        {isHoveredTarget && item.isDirectory && (
+                          <span className="text-[8px] bg-amber-400 text-black px-1 rounded font-bold shrink-0">
+                            ↵
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}
