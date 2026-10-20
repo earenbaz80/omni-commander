@@ -416,3 +416,73 @@ describe('FileSystemEngine real-drive bridge', () => {
     }
   });
 });
+
+describe('FileSystemEngine drive hot-plug refresh', () => {
+  const usbDrive: Drive = {
+    id: 'real_E',
+    letter: 'E:',
+    name: 'USB STICK',
+    type: 'usb',
+    driveKind: 'removable',
+    fileSystem: 'FAT32',
+    totalBytes: 2000,
+    freeBytes: 1000,
+    isMounted: true
+  };
+
+  const drivesReply = (drives: unknown) =>
+    ({ ok: true, status: 200, json: async () => drives }) as unknown as Response;
+
+  beforeEach(() => {
+    fsEngine.resetToDefaults();
+    fsEngine.setDrives([realDrive]);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    fsEngine.resetToDefaults();
+  });
+
+  it('picks up a removable drive plugged in after startup', async () => {
+    vi.stubGlobal('fetch', async () => drivesReply([realDrive, usbDrive]));
+
+    const ok = await fsEngine.loadRealDrivesFromApi();
+
+    expect(ok).toBe(true);
+    expect(fsEngine.getDrives().map(d => d.letter)).toEqual(['T:', 'E:']);
+  });
+
+  it('drops a drive that was unplugged', async () => {
+    fsEngine.setDrives([realDrive, usbDrive]);
+
+    vi.stubGlobal('fetch', async () => drivesReply([realDrive]));
+    await fsEngine.loadRealDrivesFromApi();
+
+    expect(fsEngine.getDrives().map(d => d.letter)).toEqual(['T:']);
+  });
+
+  it('does not churn subscribers or storage when the list is unchanged', async () => {
+    vi.stubGlobal('fetch', async () => drivesReply([{ ...realDrive }]));
+
+    let notified = 0;
+    const unsubscribe = fsEngine.subscribe(() => { notified += 1; });
+    try {
+      const ok = await fsEngine.loadRealDrivesFromApi();
+
+      expect(ok).toBe(true);
+      // A poll every few seconds must cost one fetch and nothing else.
+      expect(notified).toBe(0);
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it('reports failure without wiping the known drive list', async () => {
+    vi.stubGlobal('fetch', async () => { throw new TypeError('fetch failed'); });
+
+    const ok = await fsEngine.loadRealDrivesFromApi();
+
+    expect(ok).toBe(false);
+    expect(fsEngine.getDrives().map(d => d.letter)).toEqual(['T:']);
+  });
+});

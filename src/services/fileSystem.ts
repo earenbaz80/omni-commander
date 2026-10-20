@@ -216,16 +216,41 @@ class FileSystemEngine {
     this.saveToStorage();
   }
 
-  public async loadRealDrivesFromApi() {
+  /**
+   * Stable field signature used to detect real drive-list changes across
+   * polls: an unchanged machine must cost one fetch and nothing else.
+   */
+  private driveSignature(drive: Drive): string {
+    return [
+      drive.id, drive.letter, drive.name, drive.type, drive.driveKind || '',
+      drive.fileSystem || '', drive.serialNumber || '', drive.description || '',
+      String(drive.totalBytes), String(drive.freeBytes),
+      drive.isMounted ? 1 : 0, drive.readOnly ? 1 : 0
+    ].join('|');
+  }
+
+  /**
+   * Refresh the real drive list from the local server. The app polls this so a
+   * USB device plugged in after startup shows up without a restart. Subscribers
+   * and storage are only touched when the list actually changed.
+   * Resolves `true` when the server answered, `false` when it did not.
+   */
+  public async loadRealDrivesFromApi(): Promise<boolean> {
     try {
       const response = await fetchWithRetry(`${API_BASE}/api/drives`, { timeoutMs: 10000, retries: 2 });
-      if (!response.ok) return;
+      if (!response.ok) return false;
       const data = await response.json();
-      if (Array.isArray(data)) {
-        this.setDrives(data);
+      if (!Array.isArray(data)) return false;
+      const next = data as Drive[];
+      const changed = next.length !== this.drives.length ||
+        next.some((d, i) => this.driveSignature(d) !== this.driveSignature(this.drives[i]));
+      if (changed) {
+        this.setDrives(next);
       }
+      return true;
     } catch (e) {
       log.warn('Could not load real drives from API', e);
+      return false;
     }
   }
 

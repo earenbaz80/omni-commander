@@ -28,6 +28,12 @@ import { CollapsibleInfoDrawer } from './components/CollapsibleInfoDrawer';
 // Modals
 import { taskQueue } from './services/taskQueueManager';
 
+// Real drives are polled so a USB device plugged in after startup appears
+// without restarting the app. A failed poll backs off, which rides out the
+// embedded server's start-up window and web mode without a running server.
+const DRIVE_POLL_MS = 5000;
+const DRIVE_POLL_RETRY_MS = 15000;
+
 export default function App() {
   // Global System Settings
   const { settings, setSettings } = useSettings();
@@ -113,9 +119,21 @@ export default function App() {
   // Manual Panel Width Resizing State
   const { isDraggingSplitter, setIsDraggingSplitter } = useSplitter(setSettings);
 
-  // Load real OS drives when a local drive API is available
+  // Load real OS drives when a local drive API is available, then keep the
+  // list fresh so removable devices can be plugged in and unplugged live.
   useEffect(() => {
-    void fsEngine.loadRealDrivesFromApi();
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const poll = async () => {
+      const answered = await fsEngine.loadRealDrivesFromApi();
+      if (cancelled) return;
+      timer = setTimeout(poll, answered ? DRIVE_POLL_MS : DRIVE_POLL_RETRY_MS);
+    };
+    void poll();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
   }, []);
 
 

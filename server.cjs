@@ -111,7 +111,9 @@ function makeDrive(info) {
 }
 
 let drivesCache = { at: 0, data: null, inflight: null };
-const DRIVES_CACHE_MS = 30000;
+// Short TTL: the probe itself is only a stat per candidate letter, and the
+// client polls this endpoint so a USB stick plugged in later shows up fast.
+const DRIVES_CACHE_MS = 3000;
 // Optional, richer per-drive metadata (volume label, filesystem, serial, type)
 // discovered asynchronously via WMI. The filesystem probe below always provides
 // the drive list itself, so this is only enrichment.
@@ -236,21 +238,46 @@ async function queryWmiDriveInfo() {
 }
 
 // Runs the slow WMI query off the request path and merges its metadata into the
-// cached drive list once it resolves.
+// cached drive list once it resolves. One query at a time, so hot-plug polling
+// can never stack PowerShell spawns.
+let wmiInflight = false;
+// Letters a WMI refresh was already attempted for. Without this, a machine
+// where WMI permanently fails would spawn a fresh query on every drive probe.
+const wmiAttemptedLetters = new Set();
+
 async function enrichDrivesFromWmi() {
-  if (process.platform !== 'win32') return;
+  if (process.platform !== 'win32' || wmiInflight) return;
+  wmiInflight = true;
   try {
     const meta = await queryWmiDriveInfo();
     if (!meta.size) return;
     drivesMeta = meta;
     drivesCache = { at: 0, data: null, inflight: null };
-  } catch {}
+  } catch {
+    // Keep the fast probe's generic metadata; the next new letter retries.
+  } finally {
+    wmiInflight = false;
+  }
+}
+
+// A probed letter the WMI snapshot has never seen means a device was just
+// plugged in: refresh the metadata in the background so it shows up with its
+// real volume label and drive type instead of the probe's generic defaults.
+function enrichForNewLetters(letters) {
+  if (process.platform !== 'win32') return;
+  const fresh = letters.filter(l => !wmiAttemptedLetters.has(l) && !drivesMeta.has(l));
+  if (!fresh.length) return;
+  for (const letter of letters) wmiAttemptedLetters.add(letter);
+  void enrichDrivesFromWmi();
 }
 
 async function computeRealDrives() {
   if (process.platform === 'win32') {
     const fast = await withTimeout(probeDriveLetters(), 8000, []);
-    if (fast.length) return fast;
+    if (fast.length) {
+      enrichForNewLetters(fast.map(d => d.letter));
+      return fast;
+    }
     // Fall back to WMI only when the filesystem probe found nothing at all.
     try {
       const meta = await queryWmiDriveInfo();
