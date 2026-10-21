@@ -821,14 +821,21 @@ async function waitWhilePaused(job) {
 // put the loopback-only, fully offline product on the network over SMB.
 function isAbsoluteLocalPath(value) {
   const text = String(value || '').trim();
-  return /^[a-zA-Z]:[\\/]/.test(text);
+  // A bare drive letter ("C:") is how the panels address a drive root, and the
+  // listing route already accepts it. Rejecting it here made every copy whose
+  // destination was a drive root fail as an unsafe path while browsing the same
+  // folder worked fine.
+  return /^[a-zA-Z]:([\\/]|$)/.test(text);
 }
 
 // Reject anything that is not an absolute local path so a malformed or hostile
 // request can never be resolved relative to the server's cwd.
 function assertSafePath(value) {
   if (!isAbsoluteLocalPath(value)) throw new Error(`Unsafe path: ${value}`);
-  return path.win32.normalize(String(value).trim());
+  const text = String(value).trim();
+  // Normalize the drive-root form so downstream joins never see a bare "C:".
+  const rooted = /^[a-zA-Z]:$/.test(text) ? `${text}\\` : text;
+  return path.win32.normalize(rooted);
 }
 
 async function measureTree(target) {

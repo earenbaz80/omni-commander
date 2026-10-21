@@ -614,7 +614,10 @@ class FileSystemEngine {
   ): Promise<void> {
     const started = await this.callServerFs<{ jobId?: string; totalBytes?: number; itemsTotal?: number }>(op, {
       sources,
-      targetDir,
+      // Panels address a drive root as a bare letter ("C:"), which the server's
+      // path guard used to reject. Normalizing here keeps the request well formed
+      // whatever the caller passed.
+      targetDir: this.normalizePath(targetDir),
       overwrite,
       // SuperCopier-style knobs. Omitted when the caller has no preference, so
       // the server keeps its `overwrite`-derived default.
