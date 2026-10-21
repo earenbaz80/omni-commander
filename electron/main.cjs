@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('node:path');
+const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
 
 // Per-launch session token. It is the shared secret between this process, the
@@ -117,3 +118,27 @@ ipcMain.handle('window:maximize', () => {
   else mainWindow.maximize();
 });
 ipcMain.handle('window:close', () => mainWindow?.close());
+
+// Explorer carries an elevated token for protected destinations, so a file
+// manager that never elevates looks broken on the very same folder. Relaunching
+// through ShellExecute's RunAs verb is the only way to gain that token from a
+// non-elevated process; Windows shows the consent prompt itself.
+ipcMain.handle('app:relaunch-admin', () => {
+  if (process.platform !== 'win32') return { ok: false, reason: 'unsupported' };
+  // Single quotes inside a PowerShell single-quoted literal are doubled.
+  const exePath = process.execPath.replace(/'/g, "''");
+  try {
+    const child = spawn(
+      'powershell.exe',
+      ['-NoProfile', '-Command', `Start-Process -FilePath '${exePath}' -Verb RunAs`],
+      { detached: true, stdio: 'ignore', windowsHide: true }
+    );
+    child.unref();
+  } catch (error) {
+    return { ok: false, reason: error instanceof Error ? error.message : 'spawn failed' };
+  }
+  // The elevated instance starts its own file server, so this one steps aside
+  // instead of leaving two windows competing over the same jobs.
+  setTimeout(() => app.quit(), 400);
+  return { ok: true };
+});

@@ -1,4 +1,4 @@
-﻿export const ja = {
+export const ja = {
     appName: 'OmniCommander Pro',
     appSub: 'Windows向け高性能2画面ファイルマネージャー',
     leftPanel: '左パネル',
@@ -624,6 +624,7 @@
     conflictApplyToAll: "すべてに適用",
     speedLimit: "速度制限",
     speedUnlimited: "無制限",
+    runAsAdmin: "管理者として再起動",
     etaLabel: "残り",
     copyConfirm: "コピー (Enter)",
     moveConfirm: "移動 (Enter)",

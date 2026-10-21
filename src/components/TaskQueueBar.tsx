@@ -193,6 +193,24 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
             </div>
           )}
 
+          {/* A protected destination can only be written with an elevated
+              token. Explorer asks for it silently; this app has to relaunch
+              itself, so offer that right where the failure is explained. */}
+          {topTask.status === 'failed' &&
+            /denied|permission|EPERM|EACCES/i.test(topTask.error || '') &&
+            (window as any).electronAPI?.relaunchAsAdmin && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  soundManager.playKeyTick();
+                  void (window as any).electronAPI.relaunchAsAdmin();
+                }}
+                className="w-full px-1.5 py-0.5 border border-amber-500/70 rounded text-amber-300 hover:bg-amber-950/60 cursor-pointer font-bold text-[10px]"
+              >
+                {t.runAsAdmin}
+              </button>
+            )}
+
           <div className="flex items-center justify-between text-[10px] opacity-70">
             <span className={topTask.status === 'failed' ? 'text-rose-400 font-bold break-all' : ''}>
               {topTask.status === 'failed' && topTask.error

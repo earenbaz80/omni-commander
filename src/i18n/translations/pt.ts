@@ -1,4 +1,4 @@
-﻿export const pt = {
+export const pt = {
     appName: 'OmniCommander Pro',
     appSub: 'Gerenciador de Arquivos de Painel Duplo para Windows',
     leftPanel: 'Painel Esquerdo',
@@ -624,6 +624,7 @@
     conflictApplyToAll: "Aplicar a todos",
     speedLimit: "Limite de velocidade",
     speedUnlimited: "Ilimitado",
+    runAsAdmin: "Reiniciar como administrador",
     etaLabel: "Restante",
     copyConfirm: "Copiar (Enter)",
     moveConfirm: "Mover (Enter)",

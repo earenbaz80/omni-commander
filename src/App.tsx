@@ -454,9 +454,14 @@ export default function App() {
           // server job streams growing byte counts), so the running total is
           // everything already finished plus the current entry's progress.
           let current = 0;
+          // A selection made of folders sums to zero bytes in the plan, and a
+          // zero total pins the bar at 0% for the whole transfer. The server
+          // measures the real size when the job starts, so the running total
+          // adopts it from then on.
+          let effectiveTotal = totalBytes;
           const onCopied = (copied: number) => {
             current = copied;
-            onProgress(transferred + copied, totalBytes);
+            onProgress(transferred + copied, effectiveTotal);
             reportMeta(transferred + copied, entry.name);
           };
           const onFiles = (files: FileProgressEntry[]) => taskQueue.updateTaskFiles(taskId, files);
@@ -482,7 +487,11 @@ export default function App() {
                 // the task floored at 1 MiB and reporting 100% before a byte
                 // moved. Prefer the real size the server just measured.
                 if (info.totalBytes > 0) {
-                  taskQueue.updateTaskMeta(taskId, { totalBytes: Math.max(totalBytes, info.totalBytes) });
+                  // Entries handled before this one are already counted in
+                  // `transferred`, so the running total is what is done plus
+                  // what the server just measured for the entry in flight.
+                  effectiveTotal = Math.max(effectiveTotal, transferred + info.totalBytes);
+                  taskQueue.updateTaskMeta(taskId, { totalBytes: effectiveTotal });
                 }
                 // Keep the server job id so the progress window can retune
                 // the speed limit while the transfer is still running.
@@ -649,7 +658,11 @@ export default function App() {
         }, signal, files => taskQueue.updateTaskFiles(taskId, files));
       } catch (e) {
         console.error('Delete failed', e);
-        taskQueue.updateTaskMeta(taskId, { error: e instanceof Error ? e.message : 'Delete failed' });
+        const reason = e instanceof Error ? e.message : 'Delete failed';
+        taskQueue.updateTaskMeta(taskId, { error: reason });
+        // A delete that threw must end failed. Resolving here marked it
+        // completed at 100% with the reason stored where nothing rendered it.
+        throw e instanceof Error ? e : new Error(reason);
       }
     };
 

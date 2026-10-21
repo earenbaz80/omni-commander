@@ -1,4 +1,4 @@
-﻿export const de = {
+export const de = {
     appName: 'OmniCommander Pro',
     appSub: 'Erweiterter Zwei-Fenster-Dateimanager für Windows',
     leftPanel: 'Linkes Fenster',
@@ -624,6 +624,7 @@
     conflictApplyToAll: "Auf alle anwenden",
     speedLimit: "Geschwindigkeitslimit",
     speedUnlimited: "Unbegrenzt",
+    runAsAdmin: "Als Administrator neu starten",
     etaLabel: "Restzeit",
     copyConfirm: "Kopieren (Enter)",
     moveConfirm: "Verschieben (Enter)",

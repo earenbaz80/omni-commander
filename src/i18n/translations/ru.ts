@@ -1,4 +1,4 @@
-﻿export const ru = {
+export const ru = {
     appName: 'OmniCommander Pro',
     appSub: 'Двухпанельный файловый менеджер для Windows',
     leftPanel: 'Левая панель',
@@ -624,6 +624,7 @@
     conflictApplyToAll: "Применить ко всем",
     speedLimit: "Ограничение скорости",
     speedUnlimited: "Без ограничений",
+    runAsAdmin: "Перезапустить от имени администратора",
     etaLabel: "Осталось",
     copyConfirm: "Копировать (Enter)",
     moveConfirm: "Переместить (Enter)",

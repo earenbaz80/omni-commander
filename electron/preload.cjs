@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   closeWindow: () => ipcRenderer.invoke('window:close'),
+  relaunchAsAdmin: () => ipcRenderer.invoke('app:relaunch-admin'),
   isElectron: true,
   apiPort: Number.isFinite(parsedApiPort) && parsedApiPort > 0 ? parsedApiPort : 3001,
   apiToken,

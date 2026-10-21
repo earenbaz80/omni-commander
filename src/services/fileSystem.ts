@@ -933,7 +933,10 @@ class FileSystemEngine {
       targets: real.map(item => this.realAbsolutePath(item)),
       useTrash: useRecycleBin
     });
-    if (!started?.jobId) throw new Error('Delete could not start');
+    if (!started?.jobId) {
+      const reason = this.lastCallError || 'the local file service did not answer';
+      throw new Error(`Delete could not start: ${reason}`);
+    }
 
     const job = await this.awaitServerJob(started.jobId, undefined, signal, snapshot => {
       onProgress?.(done + (snapshot.itemsDone || 0), total);

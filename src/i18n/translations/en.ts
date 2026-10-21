@@ -1,4 +1,4 @@
-﻿export const en = {
+export const en = {
     appName: 'OmniCommander Pro',
     appSub: 'Advanced Dual-Pane File Manager for Windows',
     leftPanel: 'Left Panel',
@@ -652,6 +652,7 @@
     conflictApplyToAll: "Apply to all",
     speedLimit: "Speed limit",
     speedUnlimited: "Unlimited",
+    runAsAdmin: "Restart as administrator",
     etaLabel: "ETA",
     copyConfirm: "Copy (Enter)",
     moveConfirm: "Move (Enter)",
