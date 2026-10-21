@@ -30,12 +30,24 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
   // restores the full card so progress can never run hidden.
   const runningTaskId = tasks.find(task => task.status === 'running')?.id;
   const lastRunningTaskIdRef = useRef<string | undefined>(undefined);
+  // A transfer that starts while another one is still running is queued behind
+  // it, so the running id does not change. Watching the task count covers that
+  // case: any newly added transfer reopens the window too.
+  const liveTaskCount = tasks.filter(
+    task => task.type === 'copy' || task.type === 'move'
+  ).length;
+  const lastLiveTaskCountRef = useRef(liveTaskCount);
   useEffect(() => {
-    if (runningTaskId && runningTaskId !== lastRunningTaskIdRef.current) {
-      lastRunningTaskIdRef.current = runningTaskId;
+    const openedForNewTransfer = runningTaskId && runningTaskId !== lastRunningTaskIdRef.current;
+    const openedForQueuedTransfer = liveTaskCount > lastLiveTaskCountRef.current;
+
+    lastRunningTaskIdRef.current = runningTaskId;
+    lastLiveTaskCountRef.current = liveTaskCount;
+
+    if (openedForNewTransfer || openedForQueuedTransfer) {
       setIsMinimized(false);
     }
-  }, [runningTaskId]);
+  }, [runningTaskId, liveTaskCount]);
 
   // The corner indicator exists for LIVE work and for FAILURES. Finished and
   // cancelled transfers stay in the background-tasks modal. A failed transfer is
