@@ -555,6 +555,28 @@ export default function App() {
       return;
     }
 
+    // Falling back to the in-memory catalogue is correct for its own drives, but
+    // it used to swallow a transfer aimed at a real drive too: the task animated
+    // and finished without writing a single byte. Report the block instead of
+    // pretending the copy happened.
+    if (fsEngine.isSystemDrive(currentInactiveTab.driveId)) {
+      const unknown = items.filter(item => !fsEngine.isRealFile(item)).map(item => item.name);
+      const detail = unknown.length > 0 ? unknown.join(', ') : items.length + ' selected item(s)';
+      taskQueue.addTask(
+        op,
+        op === 'move' ? 'Move blocked' : 'Copy blocked',
+        detail,
+        0,
+        async () => {
+          throw new Error(
+            `${detail} was not read from a physical drive, so the real transfer cannot address it.`
+          );
+        }
+      );
+      setActiveModal(null);
+      return;
+    }
+
     const totalBytes = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
     const startedAt = Date.now();
     let taskId = '';

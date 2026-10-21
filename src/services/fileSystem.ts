@@ -394,7 +394,7 @@ class FileSystemEngine {
   // After the server confirms, the affected directory is re-listed from disk
   // so the UI reflects the real state instead of an optimistic guess.
 
-  private isSystemDrive(driveId: string): boolean {
+  isSystemDrive(driveId: string): boolean {
     return !!driveId && driveId.startsWith('real_');
   }
 
