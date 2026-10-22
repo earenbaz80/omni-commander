@@ -37,6 +37,12 @@ const COLLISION_OPTIONS: Array<
 
 const SPEED_OPTIONS_MB = [1, 5, 10, 50];
 
+// Closing a finished transfer on its own is convenient for fire-and-forget
+// copies and hostile for everything else, so it is always an explicit choice.
+type AfterFinish = 'stay' | 'close' | 'ask';
+
+const AFTER_FINISH_KEY = 'omnicommander.afterFinish';
+
 export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
   type,
   theme,
@@ -52,6 +58,17 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
   const [collision, setCollision] = useState<CollisionPolicy>('overwrite');
   // 0 means "no cap"; anything else is a cap in MB/s, converted to bytes on submit.
   const [speedLimitMb, setSpeedLimitMb] = useState(0);
+  // Remembered across sessions: nobody wants to re-pick this on every copy.
+  const [afterFinish, setAfterFinish] = useState<AfterFinish>(() => {
+    try {
+      const stored = localStorage.getItem(AFTER_FINISH_KEY);
+      if (stored === 'close' || stored === 'ask' || stored === 'stay') return stored;
+    } catch {
+      // Storage can be unavailable; the default is still the safe one.
+    }
+    return 'stay';
+  });
+  const [finishedPrompt, setFinishedPrompt] = useState(false);
   // Once a transfer starts this window turns into its progress view instead of
   // closing: every other file manager keeps the operation on screen until the
   // user decides to send it to the background.
@@ -87,6 +104,22 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
       (entry.type === 'copy' || entry.type === 'move' || entry.type === 'delete') &&
       (entry.status === 'queued' || entry.status === 'running' || entry.status === 'paused')
   );
+
+  // Honour the "when finished" choice as soon as the transfer reaches a terminal
+  // state. Staying open is the default because a window that vanishes on its own
+  // reads as a crash, not as success.
+  useEffect(() => {
+    if (!task || !isFinished) {
+      setFinishedPrompt(false);
+      return;
+    }
+    if (afterFinish === 'close') {
+      const id = window.setTimeout(() => onClose(), 1200);
+      return () => window.clearTimeout(id);
+    }
+    if (afterFinish === 'ask' && task.status === 'completed') setFinishedPrompt(true);
+    return;
+  }, [task?.status, afterFinish, isFinished]);
 
   const isCopy = type === 'copy';
   const totalSize = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
@@ -244,6 +277,30 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             </select>
           </div>
 
+          {/* What happens once the transfer is over. Remembered, because nobody
+              wants to re-pick this before every copy. */}
+          <div>
+            <label className="block font-bold text-white mb-1" htmlFor="afterFinishSelect">{t.afterFinishLabel}</label>
+            <select
+              id="afterFinishSelect"
+              value={afterFinish}
+              onChange={(e) => {
+                const next = e.target.value as AfterFinish;
+                setAfterFinish(next);
+                try {
+                  localStorage.setItem(AFTER_FINISH_KEY, next);
+                } catch {
+                  // A full quota costs the reminder, never the transfer.
+                }
+              }}
+              className="w-full bg-black/50 border border-white/30 rounded px-2.5 py-1.5 text-white font-mono text-xs focus:ring-1 focus:ring-amber-400 outline-none cursor-pointer"
+            >
+              <option value="stay">{t.afterFinishStay}</option>
+              <option value="close">{t.afterFinishClose}</option>
+              <option value="ask">{t.afterFinishAsk}</option>
+            </select>
+          </div>
+
           {/* Action buttons */}
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/10">
             <button
@@ -384,6 +441,33 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
 
           {adminNote && (
             <div className="text-[11px] text-amber-300 break-all">{adminNote}</div>
+          )}
+
+          {finishedPrompt && (
+            <div className="border border-amber-400/60 bg-amber-950/40 rounded p-2 flex flex-col gap-2">
+              <span className="text-[11px] font-bold text-amber-300">
+                {isCopy ? t.msgCopiedSuccess : t.msgMovedSuccess}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFinishedPrompt(false);
+                    onClose();
+                  }}
+                  className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-black font-bold rounded cursor-pointer"
+                >
+                  {t.btnClose}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFinishedPrompt(false)}
+                  className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
+                >
+                  {t.afterFinishStay}
+                </button>
+              </div>
+            </div>
           )}
 
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10 mt-auto">
