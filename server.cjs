@@ -1174,19 +1174,38 @@ function registerFsRoutes() {
     res.json(jobSnapshot(job));
   });
 
+  /**
+   * Writes a rejected filesystem request to a log file next to the system temp
+   * directory. A transfer that never starts leaves no other trace: the client
+   * can only surface a short message, so the full request body is recorded here
+   * to make the cause diagnosable after the fact.
+   */
+  const rejectionLogPath = path.join(process.env.TEMP || process.env.TMP || '.', 'omnicommander-fs.log');
+  function logRejected(route, body, err) {
+    const line = JSON.stringify({
+      at: new Date().toISOString(),
+      route,
+      body,
+      error: err && err.message ? err.message : String(err)
+    });
+    fs.promises.appendFile(rejectionLogPath, line + '\n').catch(() => {});
+  }
+
   const transfer = (op) => async (req, res) => {
     try {
       const body = req.body || {};
       const sources = (body.sources || []).map(assertSafePath);
       const targetDir = assertSafePath(body.targetDir);
-      if (!sources.length) return res.status(400).json({ error: 'No sources provided' });
+      if (!sources.length) throw new Error('No sources provided');
       const targetStat = await fs.promises.stat(targetDir).catch(() => null);
       if (!targetStat || !targetStat.isDirectory()) {
-        return res.status(400).json({ error: 'Target is not a directory' });
+        // Name both forms: the normalized path that was checked and the raw
+        // value the client sent, so a stale panel path is obvious at a glance.
+        throw new Error(`Target is not a directory: ${targetDir} (received "${body.targetDir}")`);
       }
       for (const src of sources) {
         if (src.toUpperCase() === targetDir.toUpperCase()) {
-          return res.status(400).json({ error: 'Source and target are the same' });
+          throw new Error(`Source and target are the same: ${src}`);
         }
       }
       const verb = op === 'move' ? 'Mover' : 'Copiar';
@@ -1208,6 +1227,7 @@ function registerFsRoutes() {
       startJob(job, runTransferJob(job, sources, targetDir));
       res.json({ jobId: job.id, totalBytes: bytes, itemsTotal: files });
     } catch (err) {
+      logRejected(`/api/fs/${op}`, req.body, err);
       res.status(400).json({ error: err.message });
     }
   };
