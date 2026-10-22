@@ -124,7 +124,7 @@ ipcMain.handle('window:close', () => mainWindow?.close());
 // manager that never elevates looks broken on the very same folder. Relaunching
 // through ShellExecute's RunAs verb is the only way to gain that token from a
 // non-elevated process; Windows shows the consent prompt itself.
-ipcMain.handle('app:relaunch-admin', () => {
+ipcMain.handle('app:relaunch-admin', async () => {
   if (process.platform !== 'win32') return { ok: false, reason: 'unsupported' };
   // A portable build runs from a temporary extraction that the wrapper deletes
   // as soon as this process exits, so relaunching `process.execPath` would point
@@ -146,6 +146,15 @@ ipcMain.handle('app:relaunch-admin', () => {
       /* logging must never break the relaunch */
     }
   };
+  const file = path.join(process.env.TEMP || '.', 'omnicommander-relaunch.log');
+  // Anything already in the log belongs to a previous attempt, so remember how
+  // much text was there and only read what this attempt appends.
+  let previousLog = '';
+  try {
+    previousLog = fs.readFileSync(file, 'utf8');
+  } catch {
+    previousLog = '';
+  }
   log(
     `request target=${target} portable=${process.env.PORTABLE_EXECUTABLE_FILE || 'unset'} execPath=${process.execPath}`
   );
@@ -153,13 +162,19 @@ ipcMain.handle('app:relaunch-admin', () => {
     // The elevated copy re-extracts and then launches, so let this process exit
     // first: starting both at once leaves two instances competing over the same
     // extraction folder, and the surviving window is the one that gets killed.
+    // The launcher reports its outcome back into the log, and this process now
+    // stays alive until that line arrives. That is what makes the relaunch
+    // reliable: the previous version quit after 900ms while the launcher was
+    // still waiting to start the elevated copy, so the helper was torn down with
+    // us and no window ever appeared. Staying alive also keeps this window on
+    // screen while the consent prompt is open, instead of vanishing behind it.
     const command = [
-      'Start-Sleep -Milliseconds 3000',
+      'Start-Sleep -Milliseconds 500',
       'try {',
       `  Start-Process -FilePath '${exePath}' -Verb RunAs -ErrorAction Stop`,
-      `  'started' | Out-File -Append -Encoding utf8 '${logPath}'`,
+      `  Add-Content -Path '${logPath}' -Value 'launch started'`,
       '} catch {',
-      `  "failed: $($_.Exception.Message)" | Out-File -Append -Encoding utf8 '${logPath}'`,
+      `  Add-Content -Path '${logPath}' -Value ("launch failed: " + $_.Exception.Message)`,
       '}'
     ].join('\n');
     const child = spawn('powershell.exe', ['-NoProfile', '-Command', command], {
@@ -174,8 +189,37 @@ ipcMain.handle('app:relaunch-admin', () => {
     log(`spawn error ${message}`);
     return { ok: false, reason: message };
   }
+
+  // Wait for the launcher to report back. A cancelled consent prompt or a
+  // missing helper has to leave this window standing rather than closing it and
+  // leaving nothing behind.
+  const deadline = Date.now() + 120000;
+  let outcome = 'timeout';
+  while (Date.now() < deadline) {
+    let current = '';
+    try {
+      current = fs.readFileSync(file, 'utf8');
+    } catch {
+      current = '';
+    }
+    const fresh = current.slice(previousLog.length);
+    if (fresh.includes('launch started')) {
+      outcome = 'started';
+      break;
+    }
+    const failure = fresh.match(/launch failed: .*/);
+    if (failure) {
+      outcome = 'failed';
+      log(failure[0]);
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  log(`outcome=${outcome}`);
+  if (outcome !== 'started') return { ok: false, reason: outcome };
+
   // The elevated instance starts its own file server, so this one steps aside
-  // instead of leaving two windows competing over the same jobs.
-  setTimeout(() => app.exit(0), 900);
+  // once the replacement is confirmed running.
+  setTimeout(() => app.exit(0), 400);
   return { ok: true };
 });
