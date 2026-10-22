@@ -522,7 +522,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                   <span className="font-bold text-[12px] truncate" title={active.title}>{active.title}</span>
                   <span className="font-bold text-cyan-400 shrink-0">{active.progress}%</span>
                 </div>
-                <RetroProgressBar percent={active.progress} theme={theme} status={active.status} cells={34} className="text-[16px] leading-none" />
+                <RetroProgressBar percent={active.progress} theme={theme} status={active.status} color="#fbbf24" className="text-[16px] leading-none" />
                 {active.currentFile && (
                   <div className="text-[11px] opacity-80 font-mono truncate" title={active.currentFile}>{active.currentFile}</div>
                 )}
@@ -708,7 +708,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             percent={task.progress}
             theme={theme}
             status={task.status}
-            cells={34}
+            color="#fbbf24"
             className="text-[18px] leading-none"
           />
 

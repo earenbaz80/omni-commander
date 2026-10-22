@@ -19,6 +19,8 @@ interface RetroProgressBarProps {
   status?: RetroProgressStatus;
   /** Width in character cells. Omit it to auto-fill the container width. */
   cells?: number;
+  /** Override the running colour (e.g. amber for a retro bar). */
+  color?: string;
   className?: string;
 }
 
@@ -48,6 +50,7 @@ export const RetroProgressBar: React.FC<RetroProgressBarProps> = ({
   theme,
   status = 'running',
   cells,
+  color,
   className = '',
 }) => {
   const autoFit = typeof cells !== 'number';
@@ -86,7 +89,7 @@ export const RetroProgressBar: React.FC<RetroProgressBarProps> = ({
   const reservedHead = isQueued ? 1 : 0;
   const filledCount = isQueued ? 0 : Math.round((safePercent / 100) * total);
   const emptyCount = Math.max(0, total - filledCount - reservedHead);
-  const fill = fillColorFor(status, theme);
+  const fill = color && status === 'running' ? color : fillColorFor(status, theme);
   const emptyStyle: React.CSSProperties = { color: theme.borderPanel, opacity: 0.28 };
 
   return (
