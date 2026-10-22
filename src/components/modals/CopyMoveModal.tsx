@@ -233,6 +233,15 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             className="text-[18px] leading-none"
           />
 
+          {/* The job sizes the tree before it can report a percentage, and a big
+              folder can take a while. Say what is happening instead of sitting
+              on a bare 0% that reads like a hang. */}
+          {task.status === 'running' && task.progress === 0 && (
+            <div className="text-[11px] text-amber-300 font-bold animate-pulse">
+              {t.searchScanning}
+            </div>
+          )}
+
           {task.currentFile && (
             <div className="text-[11px] opacity-80 font-mono truncate" title={task.currentFile}>
               {task.currentFile}

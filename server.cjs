@@ -838,23 +838,42 @@ function assertSafePath(value) {
   return path.win32.normalize(rooted);
 }
 
+/**
+ * Sizes a tree before a transfer starts. Walks in batches instead of one entry
+ * at a time: a folder like Program Files holds tens of thousands of files, and a
+ * sequential walk left the job sitting at zero for minutes with nothing to show
+ * for it. Reparse points are skipped so a junction cannot walk in circles.
+ */
 async function measureTree(target) {
   let bytes = 0;
   let files = 0;
-  let stat;
-  try { stat = await fs.promises.lstat(target); } catch { return { bytes, files }; }
-  if (stat.isDirectory()) {
-    let entries = [];
-    try { entries = await fs.promises.readdir(target); } catch { return { bytes, files }; }
-    for (const name of entries) {
-      const sub = await measureTree(path.win32.join(target, name));
-      bytes += sub.bytes;
-      files += sub.files;
+  const pending = [target];
+  const MEASURE_BATCH = 32;
+
+  while (pending.length > 0) {
+    const batch = pending.splice(0, MEASURE_BATCH);
+    const children = await Promise.all(batch.map(async (current) => {
+      let stat;
+      try { stat = await fs.promises.lstat(current); } catch { return []; }
+      if (stat.isSymbolicLink()) return [];
+      if (stat.isDirectory()) {
+        try {
+          const entries = await fs.promises.readdir(current);
+          return entries.map((name) => path.win32.join(current, name));
+        } catch {
+          return [];
+        }
+      }
+      bytes += stat.size;
+      files += 1;
+      return [];
+    }));
+
+    for (const list of children) {
+      for (const child of list) pending.push(child);
     }
-  } else {
-    bytes += stat.size;
-    files += 1;
   }
+
   return { bytes, files };
 }
 
@@ -1088,6 +1107,17 @@ async function deleteTarget(target, useTrash) {
   await fs.promises.rm(target, { recursive: true, force: true, maxRetries: 3 });
 }
 
+/**
+ * Records each transfer phase in a log file. A copy that stalls on the user's
+ * side leaves no other trace, so the phases are written down to make the next
+ * report diagnosable instead of guessed at.
+ */
+function jobLog(...parts) {
+  const file = path.join(process.env.TEMP || '.', 'omnicommander-job.log');
+  const line = `${new Date().toISOString()} ${parts.join(' ')}`;
+  fs.promises.appendFile(file, line + '\n').catch(() => {});
+}
+
 function startJob(job, runner) {
   runner
     .then(() => finishJob(job))
@@ -1095,6 +1125,7 @@ function startJob(job, runner) {
       if (err && err.message === '__cancelled__') {
         job.cancelled = true;
       } else {
+        jobLog('job-threw', job.id, err && err.message ? err.message : String(err));
         job.errors.push({ path: '', message: err && err.message ? err.message : String(err) });
       }
       finishJob(job);
@@ -1103,6 +1134,7 @@ function startJob(job, runner) {
 }
 
 async function runTransferJob(job, sources, targetDir) {
+  jobLog('start', job.id, `op=${job.op}`, `sources=${sources.length}`, `target=${targetDir}`);
   // Measure before copying so progress has a denominator. This runs inside the
   // job, not in the start request: a big tree would otherwise hold the HTTP
   // response for as long as the walk takes.
@@ -1116,18 +1148,26 @@ async function runTransferJob(job, sources, targetDir) {
     }
     job.totalBytes = bytes;
     job.itemsTotal = files;
+    jobLog('measured', job.id, `bytes=${bytes}`, `files=${files}`);
   } catch (err) {
+    jobLog('measure-failed', job.id, err.message);
     job.errors.push({ path: sources.join(', '), message: err.message });
   }
   for (const src of sources) {
     await waitWhilePaused(job);
     const dest = await resolveDestination(src, targetDir, job);
-    if (!dest) { job.itemsSkipped += 1; continue; }
+    if (!dest) {
+      jobLog('skipped', job.id, src);
+      job.itemsSkipped += 1;
+      continue;
+    }
     try {
       if (job.op === 'move') await moveTree(src, dest, job, true);
       else await copyTree(src, dest, job, true);
+      jobLog('entry-done', job.id, src);
     } catch (err) {
       if (err.message === '__cancelled__') throw err;
+      jobLog('entry-failed', job.id, src, err.message);
       job.errors.push({ path: src, message: err.message });
     }
   }
