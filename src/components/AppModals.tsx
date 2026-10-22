@@ -65,6 +65,11 @@ interface AppModalsProps {
   setFsTick: React.Dispatch<React.SetStateAction<number>>;
   handleConfirmCopy: (targetPath: string, options: TransferOptions) => string | undefined;
   handleConfirmMove: (targetPath: string, options: TransferOptions) => string | undefined;
+  handleElevateTransfer: (
+    op: 'copy' | 'move',
+    targetPath: string,
+    options: TransferOptions
+  ) => Promise<{ ok: boolean; reason?: string } | undefined>;
   handleConfirmDelete: () => void;
   handleConfirmMkDir: (dirName: string) => void;
   handleConfirmNewFile: (fileName: string) => void;
@@ -111,6 +116,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
   setFsTick,
   handleConfirmCopy,
   handleConfirmMove,
+  handleElevateTransfer,
   handleConfirmDelete,
   handleConfirmMkDir,
   handleConfirmNewFile,
@@ -159,6 +165,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
             targetPath={currentInactiveTab.currentPath}
             targetDriveId={currentInactiveTab.driveId}
             onConfirm={handleConfirmCopy}
+            onElevate={(targetPath, options) => handleElevateTransfer('copy', targetPath, options)}
             onClose={() => {
               setActiveModal(null);
               setModalData(null);
@@ -176,6 +183,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
             targetPath={currentInactiveTab.currentPath}
             targetDriveId={currentInactiveTab.driveId}
             onConfirm={handleConfirmMove}
+            onElevate={(targetPath, options) => handleElevateTransfer('move', targetPath, options)}
             onClose={() => {
               setActiveModal(null);
               setModalData(null);

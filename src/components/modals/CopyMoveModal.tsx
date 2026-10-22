@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Copy, Minus, Scissors, ShieldAlert } from 'lucide-react';
 import { BackgroundTask, CollisionPolicy, FileItem, LanguageCode, TransferOptions } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
@@ -18,6 +18,11 @@ interface CopyMoveModalProps {
   targetPath: string;
   targetDriveId: string;
   onConfirm: (targetPath: string, options: TransferOptions) => string | undefined;
+  /** Elevate and replay this transfer in the new instance. */
+  onElevate?: (
+    targetPath: string,
+    options: TransferOptions
+  ) => Promise<{ ok: boolean; reason?: string } | undefined>;
   onClose: () => void;
 }
 
@@ -39,6 +44,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
   items,
   targetPath,
   onConfirm,
+  onElevate,
   onClose
 }) => {
   const t = getTranslations(lang);
@@ -85,14 +91,28 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
   const isCopy = type === 'copy';
   const totalSize = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
 
+  const formRef = useRef<HTMLFormElement>(null);
+  const destInputRef = useRef<HTMLInputElement>(null);
+
+  // The dialog shell parks focus on its own container after mount, so the field
+  // marked autoFocus lost it again and Enter kept activating the header cross.
+  // Reclaiming focus one tick later is what makes Enter mean "start transfer".
+  useEffect(() => {
+    if (taskId) return;
+    const id = window.setTimeout(() => destInputRef.current?.focus(), 0);
+    return () => window.clearTimeout(id);
+  }, [taskId]);
+
+  const submitOptions = (): TransferOptions => ({
+    collision,
+    throttleBps: speedLimitMb > 0 ? Math.round(speedLimitMb * 1024 * 1024) : 0
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!destPath.trim()) return;
     soundManager.playDiskAccess();
-    const started = onConfirm(destPath.trim(), {
-      collision,
-      throttleBps: speedLimitMb > 0 ? Math.round(speedLimitMb * 1024 * 1024) : 0
-    });
+    const started = onConfirm(destPath.trim(), submitOptions());
     if (started) setTaskId(started);
     else onClose();
   };
@@ -104,6 +124,15 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
       <div
         ref={dialogRef}
         tabIndex={-1}
+        onKeyDownCapture={(event) => {
+          // Enter belongs to the form, never to the window controls. Windows
+          // dialogs treat it as "press the default button"; here that is the
+          // transfer confirm, which used to be replaced by the close cross.
+          if (event.key !== 'Enter' || event.shiftKey || taskId) return;
+          if ((event.target as HTMLElement).tagName === 'TEXTAREA') return;
+          event.preventDefault();
+          formRef.current?.requestSubmit();
+        }}
         className="flex flex-col rounded shadow-2xl border text-xs overflow-hidden"
         style={{
           backgroundColor: theme.modalBg,
@@ -151,7 +180,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
 
         {/* Configuration form, replaced by the live progress view once started */}
         {!task ? (
-        <form onSubmit={handleSubmit} className="p-4 flex flex-col gap-4 min-h-0 flex-1 overflow-y-auto">
+        <form ref={formRef} onSubmit={handleSubmit} className="p-4 flex flex-col gap-4 min-h-0 flex-1 overflow-y-auto">
           <div className="flex flex-col min-h-0 flex-1">
             <span className="opacity-75 block mb-1">
               {isCopy
@@ -171,6 +200,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             <label className="block font-bold text-white mb-1">{t.copyMoveDestLabel}</label>
             <input
               type="text"
+              ref={destInputRef}
               value={destPath}
               onChange={(e) => setDestPath(e.target.value)}
               className="w-full bg-black/50 border border-white/30 rounded px-2.5 py-1.5 text-white font-mono text-xs focus:ring-1 focus:ring-amber-400 outline-none"
@@ -334,7 +364,9 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
               onClick={async () => {
                 soundManager.playKeyTick();
                 setAdminNote(t.inProgress);
-                const result = await (window as any).electronAPI.relaunchAsAdmin();
+                const result = onElevate
+                  ? await onElevate(destPath.trim(), submitOptions())
+                  : await (window as any).electronAPI.relaunchAsAdmin();
                 if (!result?.ok) {
                   setAdminNote(`${t.runAsAdmin}: ${result?.reason || 'failed'}`);
                 }

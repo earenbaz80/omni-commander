@@ -549,6 +549,41 @@ export default function App() {
     for (const plan of plans) enqueueTransferPlan(plan, true);
   };
 
+  // Elevation restarts the process, so a pending transfer has to travel with it.
+  // The plan is parked in local storage and replayed by the fresh instance, which
+  // is why the copy used to disappear right after the restart.
+  const ELEVATED_PLAN_KEY = 'omnicommander.pendingElevatedTransfer';
+
+  const handleElevateTransfer = async (
+    op: 'copy' | 'move',
+    targetPath: string,
+    options: TransferOptions
+  ) => {
+    if (!targetPath.trim()) return { ok: false as const, reason: 'empty destination' };
+    const plan = buildTransferPlan(op, transferItems, targetPath.trim(), options);
+    if (plan) {
+      try {
+        localStorage.setItem(ELEVATED_PLAN_KEY, JSON.stringify(plan));
+      } catch {
+        // A full quota must not block the elevation itself.
+      }
+    }
+    return (window as any).electronAPI?.relaunchAsAdmin?.();
+  };
+
+  useEffect(() => {
+    const parked = localStorage.getItem(ELEVATED_PLAN_KEY);
+    if (!parked) return;
+    localStorage.removeItem(ELEVATED_PLAN_KEY);
+    try {
+      const plan = JSON.parse(parked) as TransferPlan;
+      if (plan?.entries?.length) enqueueTransferPlan(plan, true);
+    } catch {
+      // A corrupt entry is dropped instead of being replayed blindly.
+    }
+    // Consumed once, on the first mount after the elevated restart.
+  }, []);
+
   // A live copy/move of real-drive items becomes a plan and hands the same
   // executor its absolute entry paths. Non-real items and rejected plans fall
   // back to the in-memory catalogue path through `copyItem`/`moveItem`.
@@ -1252,6 +1287,7 @@ export default function App() {
         setFsTick={setFsTick}
         handleConfirmCopy={handleConfirmCopy}
         handleConfirmMove={handleConfirmMove}
+        handleElevateTransfer={handleElevateTransfer}
         handleConfirmDelete={handleConfirmDelete}
         handleConfirmMkDir={handleConfirmMkDir}
         handleConfirmNewFile={handleConfirmNewFile}
