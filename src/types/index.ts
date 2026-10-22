@@ -170,10 +170,10 @@ export interface TransferPlan {
 }
 
 /** What to do when the destination entry already exists. 'ask' prompts per entry. */
-export type CollisionPolicy = 'overwrite' | 'skip' | 'rename' | 'ask';
+export type CollisionPolicy = 'overwrite' | 'skip' | 'rename' | 'ask' | 'cancel' | 'overwrite-if-different' | 'rename-old' | 'resume';
 
 /** Answer given to a single collision prompt raised by the transfer engine. */
-export type ConflictResolution = 'overwrite' | 'skip' | 'rename';
+export type ConflictResolution = 'overwrite' | 'skip' | 'rename' | 'overwrite-if-different' | 'rename-old' | 'resume' | 'cancel';
 
 /** A destination the running transfer cannot resolve without a human answer. */
 export interface PendingConflict {

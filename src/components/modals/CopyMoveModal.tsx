@@ -30,12 +30,15 @@ interface CopyMoveModalProps {
 }
 
 const COLLISION_OPTIONS: Array<
-  [CollisionPolicy, 'collisionOverwrite' | 'collisionSkip' | 'collisionRename' | 'collisionAsk']
+  [CollisionPolicy, 'collisionOverwrite' | 'collisionSkip' | 'collisionRename' | 'collisionAsk' | 'collisionCancel' | 'collisionOverwriteIfDifferent' | 'collisionRenameOld']
 > = [
   ['overwrite', 'collisionOverwrite'],
   ['skip', 'collisionSkip'],
   ['rename', 'collisionRename'],
-  ['ask', 'collisionAsk']
+  ['ask', 'collisionAsk'],
+  ['cancel', 'collisionCancel'],
+  ['overwrite-if-different', 'collisionOverwriteIfDifferent'],
+  ['rename-old', 'collisionRenameOld']
 ];
 
 const SPEED_OPTIONS_MB = [1, 5, 10, 50];

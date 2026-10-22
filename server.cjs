@@ -939,6 +939,35 @@ async function planDestination(src, dest, job) {
     skipped.status = 'skipped';
     return null;
   }
+  if (policy === 'cancel') {
+    // "Cancel the whole copy": one conflict is enough to stop the whole job.
+    job.cancelled = true;
+    throw new Error('Copy cancelled by the user');
+  }
+  if (policy === 'overwrite-if-different') {
+    // Only replace when something actually changed; identical files are skipped
+    // so an incremental re-copy does not rewrite everything.
+    try {
+      const s = await fs.promises.stat(src);
+      const d = await fs.promises.stat(dest);
+      if (s.size === d.size && s.mtimeMs === d.mtimeMs) {
+        if (s.isFile()) job.bytesSkipped += s.size;
+        const skipped = noteFile(job, dest, 0);
+        skipped.status = 'skipped';
+        return null;
+      }
+    } catch { /* fall through to overwrite */ }
+    return dest;
+  }
+  if (policy === 'rename-old') {
+    // Keep the existing file under a backup name, then copy the new one in.
+    const dir = path.win32.dirname(dest);
+    const parsed = path.win32.parse(dest);
+    let backup = path.win32.join(dir, `${parsed.name} (old)${parsed.ext}`);
+    if (await pathExists(backup)) backup = path.win32.join(dir, `${parsed.name} (old) ${Date.now()}${parsed.ext}`);
+    try { await fs.promises.rename(dest, backup); } catch { /* fall through, overwrite anyway */ }
+    return dest;
+  }
   if (policy === 'rename') {
     const dir = path.win32.dirname(dest);
     return path.win32.join(dir, await uniqueName(dir, path.win32.basename(dest)));
@@ -1238,7 +1267,7 @@ function registerFsRoutes() {
       // Answer for one queued collision prompt. `applyToAll` promotes the answer
       // into the job policy so the rest of the transfer stops asking.
       const decision = String((req.body || {}).decision || '').toLowerCase();
-      if (!['overwrite', 'skip', 'rename'].includes(decision)) {
+      if (!['overwrite', 'skip', 'rename', 'overwrite-if-different', 'rename-old', 'resume', 'cancel'].includes(decision)) {
         return res.status(400).json({ error: 'Unknown conflict answer' });
       }
       if (!job.pendingConflict) return res.status(409).json({ error: 'No pending conflict' });

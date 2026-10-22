@@ -32,7 +32,9 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
   const actions: Array<[ConflictResolution, string]> = [
     ['skip', t.collisionSkip],
     ['rename', t.collisionRename],
-    ['overwrite', t.collisionOverwrite]
+    ['overwrite', t.collisionOverwrite],
+    ['overwrite-if-different', t.collisionOverwriteIfDifferent],
+    ['rename-old', t.collisionRenameOld]
   ];
 
   const dialogRef = useModalDialog<HTMLDivElement>(t.conflictTitle);
