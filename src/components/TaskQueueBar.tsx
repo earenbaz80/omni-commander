@@ -128,7 +128,6 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
               className="flex items-center gap-1 px-1.5 py-0.5 border border-cyan-500/60 rounded hover:bg-white/20 cursor-pointer"
             >
               <ChevronDown className="w-3.5 h-3.5" />
-              <span className="text-[11px] font-bold">{t.collapseTaskQueue}</span>
             </button>
           </div>
         </div>
@@ -202,7 +201,7 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
           {/* A protected destination can only be written with an elevated
               token. Explorer asks for it silently; this app has to relaunch
               itself, so keep that door in the window at all times. */}
-          {(window as any).electronAPI?.relaunchAsAdmin && (
+          {(needsAdmin && (window as any).electronAPI?.relaunchAsAdmin) && (
             <button
               onClick={(e) => {
                 e.stopPropagation();

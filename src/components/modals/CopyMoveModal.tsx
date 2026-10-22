@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Copy, Scissors, ShieldAlert } from 'lucide-react';
+import { Copy, Minus, Scissors, ShieldAlert } from 'lucide-react';
 import { BackgroundTask, CollisionPolicy, FileItem, LanguageCode, TransferOptions } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
@@ -61,6 +61,14 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
   const isFinished =
     !!task && (task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled');
   const needsAdmin = /denied|permission|EPERM|EACCES/i.test(task?.error || '');
+  // Elevation is only worth offering when it can actually change the outcome:
+  // either the job already failed for lack of rights, or the destination is one
+  // of the system locations Windows protects. Offering it for every copy made
+  // it look mandatory when it was not.
+  const protectedDest = /^[a-z]:\\(program files|program files \(x86\)|windows|programdata)(\\|$)/i.test(
+    destPath.trim()
+  );
+  const showAdmin = needsAdmin || protectedDest;
 
   const isCopy = type === 'copy';
   const totalSize = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
@@ -113,7 +121,19 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             {isCopy ? <Copy className="w-4 h-4" /> : <Scissors className="w-4 h-4" />}
             <span>{isCopy ? t.copyTitle : t.moveTitle} ({isCopy ? 'F5' : 'F6'})</span>
           </div>
-          <button onClick={onClose} className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer">✕</button>
+          <div className="flex items-center gap-1">
+            {task && !isFinished && (
+              <button
+                onClick={onClose}
+                aria-label={t.minimize}
+                title={`${t.minimize} (Esc)`}
+                className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded cursor-pointer"
+              >
+                <Minus className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button onClick={onClose} className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer">✕</button>
+          </div>
         </div>
 
         {/* Configuration form, replaced by the live progress view once started */}
@@ -209,8 +229,8 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             percent={task.progress}
             theme={theme}
             status={task.status}
-            cells={26}
-            className="text-[15px]"
+            cells={34}
+            className="text-[18px] leading-none"
           />
 
           {task.currentFile && (
@@ -258,7 +278,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
 
           {/* Elevation is offered here too: the copy window is where the user is
               watching the job, so waiting for the task card is a detour. */}
-          {(window as any).electronAPI?.relaunchAsAdmin && (
+          {(showAdmin && (window as any).electronAPI?.relaunchAsAdmin) && (
             <button
               type="button"
               onClick={() => {
@@ -277,15 +297,6 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
           )}
 
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10 mt-auto">
-            {!isFinished && (
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
-              >
-                {t.minimize}
-              </button>
-            )}
             {isFinished && (
               <button
                 type="button"

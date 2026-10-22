@@ -481,7 +481,9 @@ export const AppModals: React.FC<AppModalsProps> = ({
         )}
 
         {/* Floating Background Task Queue Bar */}
-        <TaskQueueBar onOpenTasksModal={() => setActiveModal('background_tasks')} lang={lang} theme={currentTheme} />
+        {activeModal !== 'copy' && activeModal !== 'move' && (
+          <TaskQueueBar onOpenTasksModal={() => setActiveModal('background_tasks')} lang={lang} theme={currentTheme} />
+        )}
 
         {/* Offline Status Indicator */}
         <OfflineIndicator lang={lang} />
