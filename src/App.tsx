@@ -459,7 +459,13 @@ export default function App() {
           // measures the real size when the job starts, so the running total
           // adopts it from then on.
           let effectiveTotal = totalBytes;
-          const onCopied = (copied: number) => {
+          const onCopied = (copied: number, serverTotal?: number) => {
+            // The job measures itself after it starts, so the total can arrive
+            // after the first poll. Adopt it as soon as it is known, otherwise
+            // the bar would divide by a zero total until the transfer ends.
+            if (typeof serverTotal === 'number' && serverTotal > 0) {
+              effectiveTotal = Math.max(effectiveTotal, transferred + serverTotal);
+            }
             current = copied;
             onProgress(transferred + copied, effectiveTotal);
             reportMeta(transferred + copied, entry.name);

@@ -1103,6 +1103,22 @@ function startJob(job, runner) {
 }
 
 async function runTransferJob(job, sources, targetDir) {
+  // Measure before copying so progress has a denominator. This runs inside the
+  // job, not in the start request: a big tree would otherwise hold the HTTP
+  // response for as long as the walk takes.
+  try {
+    let bytes = 0;
+    let files = 0;
+    for (const src of sources) {
+      const measured = await measureTree(src);
+      bytes += measured.bytes;
+      files += measured.files;
+    }
+    job.totalBytes = bytes;
+    job.itemsTotal = files;
+  } catch (err) {
+    job.errors.push({ path: sources.join(', '), message: err.message });
+  }
   for (const src of sources) {
     await waitWhilePaused(job);
     const dest = await resolveDestination(src, targetDir, job);
@@ -1215,17 +1231,12 @@ function registerFsRoutes() {
         ? requestedPolicy
         : (body.overwrite === false ? 'rename' : 'overwrite');
       job.throttleBps = Number(body.throttleBps) > 0 ? Number(body.throttleBps) : 0;
-      let bytes = 0;
-      let files = 0;
-      for (const src of sources) {
-        const measured = await measureTree(src);
-        bytes += measured.bytes;
-        files += measured.files;
-      }
-      job.totalBytes = bytes;
-      job.itemsTotal = files;
+      // The client only needs the job id to start polling. Sizing the tree here
+      // meant a large folder blocked the response until the walk finished, and
+      // any client timeout turned a working transfer into "could not start".
+      // The job measures itself once it is running; polling picks the total up.
       startJob(job, runTransferJob(job, sources, targetDir));
-      res.json({ jobId: job.id, totalBytes: bytes, itemsTotal: files });
+      res.json({ jobId: job.id, totalBytes: 0, itemsTotal: 0 });
     } catch (err) {
       logRejected(`/api/fs/${op}`, req.body, err);
       res.status(400).json({ error: err.message });
