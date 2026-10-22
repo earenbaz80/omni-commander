@@ -18,9 +18,17 @@
     },
     "win": {
       "target": [
-        "portable"
+        "nsis"
       ],
       "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "OmniCommander Pro"
     }
   },
   "private": true,
