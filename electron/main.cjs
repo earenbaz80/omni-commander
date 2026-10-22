@@ -125,12 +125,20 @@ ipcMain.handle('window:close', () => mainWindow?.close());
 // non-elevated process; Windows shows the consent prompt itself.
 ipcMain.handle('app:relaunch-admin', () => {
   if (process.platform !== 'win32') return { ok: false, reason: 'unsupported' };
+  // A portable build runs from a temporary extraction that the wrapper deletes
+  // as soon as this process exits, so relaunching `process.execPath` would point
+  // at a folder that is gone moments later and the new window never appears.
+  // electron-builder exports the original portable file for exactly this case.
+  const target = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
   // Single quotes inside a PowerShell single-quoted literal are doubled.
-  const exePath = process.execPath.replace(/'/g, "''");
+  const exePath = target.replace(/'/g, "''");
   try {
+    // The elevated copy re-extracts and then launches, so let this process exit
+    // first: starting both at once leaves two instances competing over the same
+    // extraction folder, and the surviving window is the one that gets killed.
     const child = spawn(
       'powershell.exe',
-      ['-NoProfile', '-Command', `Start-Process -FilePath '${exePath}' -Verb RunAs`],
+      ['-NoProfile', '-Command', `Start-Sleep -Milliseconds 1200; Start-Process -FilePath '${exePath}' -Verb RunAs`],
       { detached: true, stdio: 'ignore', windowsHide: true }
     );
     child.unref();
@@ -139,6 +147,6 @@ ipcMain.handle('app:relaunch-admin', () => {
   }
   // The elevated instance starts its own file server, so this one steps aside
   // instead of leaving two windows competing over the same jobs.
-  setTimeout(() => app.quit(), 400);
+  setTimeout(() => app.quit(), 600);
   return { ok: true };
 });
