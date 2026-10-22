@@ -167,6 +167,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
             targetDriveId={currentInactiveTab.driveId}
             onConfirm={handleConfirmCopy}
             onElevate={(targetPath, options) => handleElevateTransfer('copy', targetPath, options)}
+            onLoadCopyList={onRunCopyList}
             onClose={() => {
               setActiveModal(null);
               setModalData(null);
@@ -185,6 +186,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
             targetDriveId={currentInactiveTab.driveId}
             onConfirm={handleConfirmMove}
             onElevate={(targetPath, options) => handleElevateTransfer('move', targetPath, options)}
+            onLoadCopyList={onRunCopyList}
             onClose={() => {
               setActiveModal(null);
               setModalData(null);

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Copy, Minus, Scissors, ShieldAlert } from 'lucide-react';
-import { BackgroundTask, CollisionPolicy, FileItem, LanguageCode, TransferOptions } from '../../types';
+import { BackgroundTask, CollisionPolicy, FileItem, LanguageCode, TransferOptions, TransferPlan } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
@@ -24,6 +24,8 @@ interface CopyMoveModalProps {
     targetPath: string,
     options: TransferOptions
   ) => Promise<{ ok: boolean; reason?: string } | undefined>;
+  /** Replay a batch of plans loaded from disk. */
+  onLoadCopyList?: (plans: TransferPlan[]) => void;
   onClose: () => void;
 }
 
@@ -78,6 +80,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
   targetPath = '',
   onConfirm,
   onElevate,
+  onLoadCopyList,
   onClose
 }) => {
   const t = getTranslations(lang);
@@ -88,6 +91,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
   // Remembered across sessions: nobody wants to re-pick this on every copy.
   const [afterFinish, setAfterFinish] = useState<AfterFinish>(readAfterFinish);
   const [finishedPrompt, setFinishedPrompt] = useState(false);
+  const [listNote, setListNote] = useState('');
   // Once a transfer starts this window turns into its progress view instead of
   // closing: every other file manager keeps the operation on screen until the
   // user decides to send it to the background.
@@ -174,6 +178,49 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
     setLog([]);
   };
 
+  const moveEntry = (index: number, delta: number) => {
+    if (!active?.plan?.entries) return;
+    const next = [...active.plan.entries];
+    const target = index + delta;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    taskQueue.updateTaskMeta(active.id, { plan: { ...active.plan, entries: next } });
+  };
+
+  const removeEntry = (index: number) => {
+    if (!active?.plan?.entries) return;
+    const next = active.plan.entries.filter((_, i) => i !== index);
+    taskQueue.updateTaskMeta(active.id, {
+      plan: { ...active.plan, entries: next },
+      totalBytes: next.reduce((acc, e) => acc + (e.isDirectory ? 0 : e.size), 0)
+    });
+  };
+
+  const handleSaveList = async () => {
+    if (!active?.plan) return;
+    setListNote(t.transferSaveList + '…');
+    try {
+      const result = await fsEngine.saveCopyList([active.plan]);
+      setListNote(result ? `${t.transferSaveList}: ${result.path}` : t.transferSaveList);
+    } catch {
+      setListNote(t.transferSaveList);
+    }
+  };
+
+  const handleLoadList = async () => {
+    try {
+      const result = await fsEngine.loadCopyList();
+      if (result?.found && result.list?.length) {
+        onLoadCopyList?.(result.list);
+        setListNote(`${t.transferLoadList}: ${result.list.length}`);
+      } else {
+        setListNote(t.transferLoadList);
+      }
+    } catch {
+      setListNote(t.transferLoadList);
+    }
+  };
+
   // Honour the "when finished" choice as soon as the transfer reaches a terminal
   // state. Staying open is the default because a window that vanishes on its own
   // reads as a crash, not as success.
@@ -257,35 +304,76 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
 
       <div className="flex-1 min-h-0 overflow-y-auto p-3 text-[11px]">
         {tab === 'list' && (
-          <div className="grid gap-1" style={{ gridTemplateColumns: '1fr 4.5rem 5rem 3rem 1.25rem' }}>
-            <div className="font-bold opacity-60">{t.transferColTask}</div>
-            <div className="font-bold opacity-60">{t.transferColSize}</div>
-            <div className="font-bold opacity-60">{t.transferColStatus}</div>
-            <div className="font-bold opacity-60 text-right">{t.bgTasksProgress.replace('{n}', '').trim() || '%'}</div>
-            <div />
-            {transfers.length === 0 && (
-              <div className="col-span-5 opacity-60 py-2">{t.bgTasksEmpty}</div>
-            )}
-            {transfers.map((entry, index) => (
-              <React.Fragment key={entry.id}>
-                <div className="flex items-center gap-1.5 truncate" title={entry.title}>
-                  <span className="opacity-50 shrink-0">{index + 1}.</span>
-                  {entry.type === 'move' ? <Scissors className="w-3 h-3 shrink-0" /> : entry.type === 'delete' ? <span className="shrink-0">✕</span> : <Copy className="w-3 h-3 shrink-0" />}
-                  <span className="truncate">{entry.title}</span>
+          <div className="flex flex-col gap-3">
+            {active?.plan?.entries?.length ? (
+              <div className="flex flex-col gap-1">
+                <div className="grid gap-1 text-[10px] font-bold opacity-60" style={{ gridTemplateColumns: '1.5rem 1fr 4.5rem 1fr 1.25rem' }}>
+                  <div />
+                  <div>{t.transferColSource}</div>
+                  <div>{t.transferColSize}</div>
+                  <div>{t.transferColDest}</div>
+                  <div />
                 </div>
-                <div className="opacity-80">{formatBytes(entry.totalBytes)}</div>
-                <div className="uppercase opacity-70">{entry.status}</div>
-                <div className="text-right tabular-nums">{entry.progress}%</div>
-                <button
-                  type="button"
-                  onClick={() => taskQueue.cancelTask(entry.id)}
-                  className="text-rose-300 hover:text-rose-100 cursor-pointer"
-                  aria-label={t.btnCancel}
-                >
-                  ✕
-                </button>
-              </React.Fragment>
-            ))}
+                {active.plan.entries.map((entry, index) => (
+                  <div
+                    key={`${entry.path}-${index}`}
+                    className="grid gap-1 items-center text-[11px]"
+                    style={{ gridTemplateColumns: '1.5rem 1fr 4.5rem 1fr 1.25rem' }}
+                  >
+                    <span className="opacity-50">{index + 1}.</span>
+                    <span className="truncate font-mono" title={entry.path}>{entry.path}</span>
+                    <span className="opacity-80">{formatBytes(entry.size)}</span>
+                    <span className="truncate font-mono opacity-80" title={active.plan!.targetDir}>{active.plan!.targetDir}</span>
+                    <span className="flex items-center gap-0.5">
+                      {active.status === 'queued' && (
+                        <>
+                          <button type="button" onClick={() => moveEntry(index, -1)} disabled={index === 0} className="cursor-pointer disabled:opacity-30" aria-label={t.moveUp}>↑</button>
+                          <button type="button" onClick={() => moveEntry(index, 1)} disabled={index === active.plan!.entries.length - 1} className="cursor-pointer disabled:opacity-30" aria-label={t.moveDown}>↓</button>
+                          <button type="button" onClick={() => removeEntry(index)} className="text-rose-300 hover:text-rose-100 cursor-pointer" aria-label={t.btnCancel}>✕</button>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="opacity-60">{t.bgTasksEmpty}</div>
+            )}
+
+            {transfers.length > 1 && (
+              <div className="border-t border-white/10 pt-2 flex flex-col gap-1">
+                <div className="text-[10px] font-bold uppercase opacity-60">{t.taskQueueShort}</div>
+                {transfers.map((entry, index) => (
+                  <div key={entry.id} className="flex items-center gap-2 text-[11px]">
+                    <span className="w-4 shrink-0 opacity-50">{index + 1}.</span>
+                    {entry.type === 'move' ? <Scissors className="w-3 h-3 shrink-0" /> : entry.type === 'delete' ? <span className="shrink-0">✕</span> : <Copy className="w-3 h-3 shrink-0" />}
+                    <span className="flex-1 truncate" title={entry.title}>{entry.title}</span>
+                    <span className="uppercase opacity-70">{entry.status}</span>
+                    <span className="tabular-nums shrink-0">{entry.progress}%</span>
+                    <button type="button" onClick={() => taskQueue.cancelTask(entry.id)} className="text-rose-300 hover:text-rose-100 cursor-pointer shrink-0" aria-label={t.btnCancel}>✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={handleSaveList}
+                disabled={!active?.plan}
+                className="px-2.5 py-1 border border-white/20 rounded cursor-pointer disabled:opacity-40"
+              >
+                {t.transferSaveList}
+              </button>
+              <button
+                type="button"
+                onClick={handleLoadList}
+                className="px-2.5 py-1 border border-white/20 rounded cursor-pointer"
+              >
+                {t.transferLoadList}
+              </button>
+              {listNote && <span className="text-[10px] opacity-70 truncate" title={listNote}>{listNote}</span>}
+            </div>
           </div>
         )}
 

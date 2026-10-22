@@ -228,6 +228,7 @@ class TaskQueueManager {
       error?: string;
       serverJobId?: string;
       throttleBps?: number;
+      plan?: TransferPlan;
     }
   ): void {
     const task = this.tasks.find(t => t.id === id);
@@ -240,6 +241,7 @@ class TaskQueueManager {
     if (meta.error !== undefined) task.error = meta.error;
     if (meta.serverJobId !== undefined) task.serverJobId = meta.serverJobId;
     if (meta.throttleBps !== undefined) task.throttleBps = meta.throttleBps;
+    if (meta.plan !== undefined) task.plan = meta.plan;
     this.notify();
   }
 
