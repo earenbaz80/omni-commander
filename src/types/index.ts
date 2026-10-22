@@ -297,7 +297,8 @@ export type ActiveModal =
   | 'hotlist_bookmarks'
   | 'hotlistBookmarks'
   | 'background_tasks'
-  | 'backgroundTasks';
+  | 'backgroundTasks'
+  | 'transfer_monitor';
 
 export interface CommandHistoryItem {
   id: string;

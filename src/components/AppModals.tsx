@@ -31,6 +31,7 @@ const CmdWingetLibraryModal = React.lazy(() => import('./modals/CmdWingetLibrary
 const BookmarksHotlistModal = React.lazy(() => import('./modals/BookmarksHotlistModal').then(m => ({ default: m.BookmarksHotlistModal })));
 const RecycleBinModal = React.lazy(() => import('./modals/RecycleBinModal').then(m => ({ default: m.RecycleBinModal })));
 const BackgroundTasksModal = React.lazy(() => import('./modals/BackgroundTasksModal').then(m => ({ default: m.BackgroundTasksModal })));
+const TransferMonitorModal = React.lazy(() => import('./modals/TransferMonitorModal').then(m => ({ default: m.TransferMonitorModal })));
 
 type UnlockTarget = {
   side: 'left' | 'right';
@@ -477,6 +478,15 @@ export const AppModals: React.FC<AppModalsProps> = ({
           />
         )}
 
+        {activeModal === 'transfer_monitor' && (
+          <TransferMonitorModal
+            theme={currentTheme}
+            lang={lang}
+            onNewTransfer={() => setActiveModal('copy')}
+            onClose={() => setActiveModal(null)}
+          />
+        )}
+
         {activeModal === 'quit' && (
           <QuitModal
             theme={currentTheme}
@@ -489,8 +499,8 @@ export const AppModals: React.FC<AppModalsProps> = ({
         )}
 
         {/* Floating Background Task Queue Bar */}
-        {activeModal !== 'copy' && activeModal !== 'move' && (
-          <TaskQueueBar onOpenTasksModal={() => setActiveModal('background_tasks')} lang={lang} theme={currentTheme} />
+        {activeModal !== 'copy' && activeModal !== 'move' && activeModal !== 'transfer_monitor' && (
+          <TaskQueueBar onOpenTasksModal={() => setActiveModal('transfer_monitor')} lang={lang} theme={currentTheme} />
         )}
 
         {/* Offline Status Indicator */}
