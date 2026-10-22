@@ -516,19 +516,19 @@ export default function App() {
       } finally {
         // A cancelled or failed transfer must not leave its prompt on screen.
         setConflictPrompt(current => (current && current.jobId === promptedJobId ? null : current));
-        // A replayed batch writes to disk behind the panels' back, so refresh
-        // the target folder (and the source folder for moves) once it ends.
-        if (replay) {
-          try {
-            await fsEngine.loadSystemDriveDirectory(plan.targetDriveId, plan.targetDir);
-            const first = plan.entries[0];
-            if (plan.op === 'move' && first) {
-              await fsEngine.loadSystemDriveDirectory(plan.sourceDriveId, fsEngine.getParentPath(first.path));
-            }
-          } catch (error) {
-            console.error('[transfer] directory reload failed', error);
+        // Every transfer writes to disk behind the panels' back. Refreshing only
+        // replayed batches meant a normal copy stayed invisible until the user
+        // hit refresh, so the destination looked empty right after it finished.
+        try {
+          await fsEngine.loadSystemDriveDirectory(plan.targetDriveId, plan.targetDir);
+          const first = plan.entries[0];
+          if (plan.op === 'move' && first) {
+            await fsEngine.loadSystemDriveDirectory(plan.sourceDriveId, fsEngine.getParentPath(first.path));
           }
+        } catch (error) {
+          console.error('[transfer] directory reload failed', error);
         }
+        setFsTick(t => t + 1);
       }
     };
 
