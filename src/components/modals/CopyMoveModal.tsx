@@ -73,6 +73,15 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
   );
   const showAdmin = needsAdmin || protectedDest;
 
+  // Everything else still waiting its turn. The queue is sequential, so these
+  // are real pending operations rather than a log of past ones.
+  const otherTasks = tasks.filter(
+    entry =>
+      entry.id !== taskId &&
+      (entry.type === 'copy' || entry.type === 'move' || entry.type === 'delete') &&
+      (entry.status === 'queued' || entry.status === 'running' || entry.status === 'paused')
+  );
+
   const isCopy = type === 'copy';
   const totalSize = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
 
@@ -285,6 +294,33 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
               >
                 {t.btnCancel}
               </button>
+            </div>
+          )}
+
+          {/* The queue runs one transfer at a time, so a new copy, move or delete
+              waits its turn here instead of interrupting the running one. */}
+          {otherTasks.length > 0 && (
+            <div className="border-t border-current/20 pt-2 flex flex-col gap-1.5">
+              <div className="text-[10px] font-bold uppercase opacity-60">{t.taskQueueShort}</div>
+              {otherTasks.map((entry) => (
+                <div key={entry.id} className="flex items-center gap-2 text-[11px]">
+                  <span className="w-14 shrink-0 uppercase opacity-60">{entry.status}</span>
+                  <span className="flex-1 truncate font-mono" title={entry.title}>{entry.title}</span>
+                  <span className="tabular-nums shrink-0 opacity-80">{entry.progress}%</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      soundManager.playKeyTick();
+                      taskQueue.cancelTask(entry.id);
+                    }}
+                    aria-label={t.btnCancel}
+                    title={t.btnCancel}
+                    className="px-1.5 py-0.5 border border-rose-500/50 rounded text-rose-300 hover:bg-rose-950/60 cursor-pointer shrink-0"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
             </div>
           )}
 
