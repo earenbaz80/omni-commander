@@ -97,16 +97,21 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
     );
   }
 
+  // A refused write is the only signal that the token was too weak, but the
+  // button stays in the window regardless so it is already there the moment it
+  // is needed, instead of appearing after the user gave up looking for it.
+  const needsAdmin = /denied|permission|EPERM|EACCES/i.test(topTask?.error || '');
+
   return (
-    <div className="fixed bottom-7 right-4 z-40 animate-fadeIn select-none font-mono text-xs">
-      <div className="bg-neutral-900 border-2 border-cyan-400 rounded-md shadow-2xl overflow-hidden min-w-[260px] max-w-[340px] text-white">
+    <div className="fixed bottom-7 right-4 z-40 animate-fadeIn select-none font-mono text-sm">
+      <div className="bg-neutral-900 border-2 border-cyan-400 rounded-md shadow-2xl overflow-hidden min-w-[300px] max-w-[420px] text-white">
         {/* Header */}
         <div 
           onClick={onOpenTasksModal}
           className="bg-cyan-950/90 px-3 py-1.5 flex items-center justify-between cursor-pointer border-b border-cyan-500/40 hover:bg-cyan-900/90 transition"
         >
           <div className="flex items-center gap-2 font-bold text-cyan-300">
-            <Activity className="w-3.5 h-3.5 animate-pulse text-cyan-400" />
+            <Activity className="w-4 h-4 animate-pulse text-cyan-400" />
             <span>{t.taskQueueShort} ({activeTasks.length} {t.activeLabel})</span>
           </div>
 
@@ -120,16 +125,17 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
               aria-label={t.collapseTaskQueue}
               aria-expanded={true}
               title={t.collapseTaskQueue}
-              className="p-0.5 hover:bg-white/20 rounded cursor-pointer"
+              className="flex items-center gap-1 px-1.5 py-0.5 border border-cyan-500/60 rounded hover:bg-white/20 cursor-pointer"
             >
-              <ChevronDown className="w-3 h-3" />
+              <ChevronDown className="w-3.5 h-3.5" />
+              <span className="text-[11px] font-bold">{t.collapseTaskQueue}</span>
             </button>
           </div>
         </div>
 
         {/* Body */}
         <div className="p-2.5 space-y-1.5 bg-black/80">
-          <div className="flex items-center justify-between text-[11px]">
+          <div className="flex items-center justify-between text-[13px]">
             <span className="font-bold truncate text-neutral-200">{topTask.title}</span>
             <span className="font-bold text-cyan-400 shrink-0 ml-2">{topTask.progress}%</span>
           </div>
@@ -138,12 +144,12 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
             percent={topTask.progress}
             theme={theme}
             status={topTask.status}
-            cells={22}
-            className="text-[11px]"
+            cells={20}
+            className="text-[14px]"
           />
 
           {(topTask.status === 'running' || topTask.status === 'paused') && (
-            <div className="flex items-center gap-1.5 text-[10px]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-1.5 text-[12px]" onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -183,7 +189,7 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
           )}
 
           {currentFileEntry && (
-            <div className="flex items-center gap-1.5 text-[9px] opacity-70 font-mono">
+            <div className="flex items-center gap-1.5 text-[11px] opacity-70 font-mono">
               <span className="truncate flex-1" title={currentFileEntry.path}>
                 {currentFileEntry.name}
               </span>
@@ -195,23 +201,25 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
 
           {/* A protected destination can only be written with an elevated
               token. Explorer asks for it silently; this app has to relaunch
-              itself, so offer that right where the failure is explained. */}
-          {topTask.status === 'failed' &&
-            /denied|permission|EPERM|EACCES/i.test(topTask.error || '') &&
-            (window as any).electronAPI?.relaunchAsAdmin && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  soundManager.playKeyTick();
-                  void (window as any).electronAPI.relaunchAsAdmin();
-                }}
-                className="w-full px-1.5 py-0.5 border border-amber-500/70 rounded text-amber-300 hover:bg-amber-950/60 cursor-pointer font-bold text-[10px]"
-              >
-                {t.runAsAdmin}
-              </button>
-            )}
+              itself, so keep that door in the window at all times. */}
+          {(window as any).electronAPI?.relaunchAsAdmin && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                soundManager.playKeyTick();
+                void (window as any).electronAPI.relaunchAsAdmin();
+              }}
+              className={`w-full px-1.5 py-1 border rounded cursor-pointer font-bold text-[12px] ${
+                needsAdmin
+                  ? 'border-amber-400 text-amber-300 bg-amber-950/50 hover:bg-amber-900/70'
+                  : 'border-amber-700/50 text-amber-500/80 hover:bg-amber-950/40'
+              }`}
+            >
+              {t.runAsAdmin}
+            </button>
+          )}
 
-          <div className="flex items-center justify-between text-[10px] opacity-70">
+          <div className="flex items-center justify-between text-[12px] opacity-70">
             <span className={topTask.status === 'failed' ? 'text-rose-400 font-bold break-all' : ''}>
               {topTask.status === 'failed' && topTask.error
                 ? topTask.error
