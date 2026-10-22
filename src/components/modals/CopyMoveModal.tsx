@@ -136,6 +136,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
           <div className="flex items-center gap-1">
             {task && !isFinished && (
               <button
+                type="button"
                 onClick={onClose}
                 aria-label={t.minimize}
                 title={`${t.minimize} (Esc)`}
@@ -144,7 +145,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                 <Minus className="w-3.5 h-3.5" />
               </button>
             )}
-            <button onClick={onClose} className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer">✕</button>
+            <button type="button" onClick={onClose} className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer">✕</button>
           </div>
         </div>
 
@@ -224,6 +225,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             </button>
             <button
               type="submit"
+              autoFocus
               className="px-5 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow"
             >
               {isCopy ? t.copyConfirm : t.moveConfirm}

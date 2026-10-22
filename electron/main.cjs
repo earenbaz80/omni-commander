@@ -172,66 +172,46 @@ ipcMain.handle('app:relaunch-admin', async () => {
     // multi-line `-Command` string is fragile, and resolving `powershell.exe`
     // through PATH can fail inside a packaged app: both cases left nothing in
     // the log, which is exactly what a dead button looks like.
-    const scriptPath = path.join(process.env.TEMP || '.', 'omnicommander-relaunch.ps1');
-    const script = [
-      'Start-Sleep -Milliseconds 600',
-      'try {',
-      `  Start-Process -FilePath '${exePath}' -Verb RunAs -ErrorAction Stop`,
-      `  Add-Content -LiteralPath '${logPath}' -Value 'launch started'`,
-      '} catch {',
-      `  Add-Content -LiteralPath '${logPath}' -Value ("launch failed: " + $_.Exception.Message)`,
-      '}'
-    ].join('\r\n');
-    fs.writeFileSync(scriptPath, script, 'utf8');
-    const powershell = path.join(
-      process.env.SystemRoot || 'C:\\Windows',
-      'System32',
-      'WindowsPowerShell',
-      'v1.0',
-      'powershell.exe'
-    );
-    const child = spawn(powershell, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath], {
-      detached: true,
-      stdio: 'ignore',
-      windowsHide: true
+    // electron-builder ships its own elevation helper next to the app resources.
+    // It opens the consent prompt and starts the target as administrator, which
+    // is the same thing ShellExecute's RunAs verb does, without depending on
+    // PowerShell being reachable or on a script surviving the trip through
+    // `-Command`/`-File`. The PowerShell route left nothing in the log, which is
+    // exactly what a dead button looks like.
+    const elevatePath = path.join(process.resourcesPath || '', 'elevate.exe');
+    if (!fs.existsSync(elevatePath)) {
+      log(`elevate missing at ${elevatePath}`);
+      return { ok: false, reason: 'elevate missing' };
+    }
+
+    // The helper may exit right after shelling out, or stay alive alongside the
+    // app it started. Either way a non-zero exit means the launch was refused.
+    const result = await new Promise((resolve) => {
+      let settled = false;
+      const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      };
+      const child = spawn(elevatePath, [target], { stdio: 'ignore' });
+      child.on('error', (error) => {
+        log(`elevate spawn error ${error.message}`);
+        finish('error');
+      });
+      child.on('exit', (code) => {
+        log(`elevate exit ${code}`);
+        finish(code === 0 ? 'ok' : 'error');
+      });
+      setTimeout(() => finish('ok'), 4000);
     });
-    child.on('error', (error) => log(`helper spawn error ${error.message}`));
-    child.on('exit', (code) => log(`helper exit ${code}`));
-    child.unref();
-    log('spawned relauncher');
+
+    log(`outcome=${result}`);
+    if (result !== 'ok') return { ok: false, reason: result };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'spawn failed';
-    log(`spawn error ${message}`);
+    const message = error instanceof Error ? error.message : 'launch failed';
+    log(`launch error ${message}`);
     return { ok: false, reason: message };
   }
-
-  // Wait for the launcher to report back. A cancelled consent prompt or a
-  // missing helper has to leave this window standing rather than closing it and
-  // leaving nothing behind.
-  const deadline = Date.now() + 120000;
-  let outcome = 'timeout';
-  while (Date.now() < deadline) {
-    let current = '';
-    try {
-      current = fs.readFileSync(file, 'utf8');
-    } catch {
-      current = '';
-    }
-    const fresh = current.slice(previousLog.length);
-    if (fresh.includes('launch started')) {
-      outcome = 'started';
-      break;
-    }
-    const failure = fresh.match(/launch failed: .*/);
-    if (failure) {
-      outcome = 'failed';
-      log(failure[0]);
-      break;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  log(`outcome=${outcome}`);
-  if (outcome !== 'started') return { ok: false, reason: outcome };
 
   // The elevated instance starts its own file server, so this one steps aside
   // once the replacement is confirmed running.
