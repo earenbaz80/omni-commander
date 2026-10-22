@@ -1024,7 +1024,13 @@ async function copyOneFile(src, dest, job) {
   }
   entry.copied = stat.size;
   entry.status = 'done';
+  // Timestamps and the write bit are part of the file, not decoration: an
+  // incremental backup compares by date, and losing it would make every copied
+  // file look newer than the original. chmod is how Windows expresses read-only.
   try { await fs.promises.utimes(dest, stat.atime, stat.mtime); } catch {}
+  if (!(stat.mode & 0o200)) {
+    try { await fs.promises.chmod(dest, 0o444); } catch {}
+  }
 }
 
 // `alreadyPlanned` marks an entry whose destination the caller has already
@@ -1153,6 +1159,30 @@ async function runTransferJob(job, sources, targetDir) {
     jobLog('measure-failed', job.id, err.message);
     job.errors.push({ path: sources.join(', '), message: err.message });
   }
+
+  // Running out of room leaves a half-copied tree that looks corrupted, and the
+  // real failure only shows up somewhere in the middle. Ask the filesystem
+  // before the first byte instead. Moves free space as they go, so they skip it.
+  if (job.op === 'copy' && job.totalBytes > 0) {
+    let free = 0;
+    try {
+      const root = path.win32.parse(targetDir).root || targetDir;
+      const space = await fs.promises.statfs(root);
+      free = Number(space.bavail) * Number(space.bsize);
+    } catch {
+      // An exotic mount may not answer statfs; a missing check is better than a
+      // refused copy.
+      free = 0;
+    }
+    if (free > 0 && job.totalBytes > free) {
+      const gb = (n) => `${(n / 1024 / 1024 / 1024).toFixed(1)} GB`;
+      const message = `Not enough space on the target: ${gb(job.totalBytes)} needed, ${gb(free)} free`;
+      jobLog('no-space', job.id, message);
+      job.errors.push({ path: targetDir, message });
+      throw new Error(message);
+    }
+  }
+
   for (const src of sources) {
     await waitWhilePaused(job);
     const dest = await resolveDestination(src, targetDir, job);
