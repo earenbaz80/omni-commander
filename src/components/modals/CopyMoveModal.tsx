@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Copy, Minus, Scissors, ShieldAlert } from 'lucide-react';
+import { ChevronDown, ChevronUp, Copy, Minus, Scissors, ShieldAlert } from 'lucide-react';
 import { BackgroundTask, CollisionPolicy, FileItem, LanguageCode, TransferOptions } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 import { taskQueue } from '../../services/taskQueueManager';
+import { fsEngine } from '../../services/fileSystem';
 import { RetroProgressBar } from '../RetroProgressBar';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
@@ -13,10 +14,10 @@ interface CopyMoveModalProps {
   type: 'copy' | 'move';
   theme: ThemeConfig;
   lang: LanguageCode;
-  items: FileItem[];
-  sourcePath: string;
-  targetPath: string;
-  targetDriveId: string;
+  items?: FileItem[];
+  sourcePath?: string;
+  targetPath?: string;
+  targetDriveId?: string;
   onConfirm: (targetPath: string, options: TransferOptions) => string | undefined;
   /** Elevate and replay this transfer in the new instance. */
   onElevate?: (
@@ -36,6 +37,7 @@ const COLLISION_OPTIONS: Array<
 ];
 
 const SPEED_OPTIONS_MB = [1, 5, 10, 50];
+const MONITOR_SPEED_OPTIONS = [0, 1, 5, 10, 50];
 
 // Closing a finished transfer on its own is convenient for fire-and-forget
 // copies and hostile for everything else, so it is always an explicit choice.
@@ -43,12 +45,37 @@ type AfterFinish = 'stay' | 'close' | 'ask';
 
 const AFTER_FINISH_KEY = 'omnicommander.afterFinish';
 
+type Tab = 'list' | 'errors' | 'options';
+interface LogEntry { key: string; time: string; title: string; message: string; }
+
+function readAfterFinish(): AfterFinish {
+  try {
+    const stored = localStorage.getItem(AFTER_FINISH_KEY);
+    if (stored === 'close' || stored === 'ask' || stored === 'stay') return stored;
+  } catch {
+    // Storage can be unavailable; the default is still the safe one.
+  }
+  return 'stay';
+}
+
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes < 0) return '—';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let i = 0;
+  let n = bytes;
+  while (n >= 1024 && i < units.length - 1) {
+    n /= 1024;
+    i++;
+  }
+  return `${n < 10 ? n.toFixed(1) : Math.round(n)} ${units[i]}`;
+}
+
 export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
   type,
   theme,
   lang,
-  items,
-  targetPath,
+  items = [],
+  targetPath = '',
   onConfirm,
   onElevate,
   onClose
@@ -59,15 +86,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
   // 0 means "no cap"; anything else is a cap in MB/s, converted to bytes on submit.
   const [speedLimitMb, setSpeedLimitMb] = useState(0);
   // Remembered across sessions: nobody wants to re-pick this on every copy.
-  const [afterFinish, setAfterFinish] = useState<AfterFinish>(() => {
-    try {
-      const stored = localStorage.getItem(AFTER_FINISH_KEY);
-      if (stored === 'close' || stored === 'ask' || stored === 'stay') return stored;
-    } catch {
-      // Storage can be unavailable; the default is still the safe one.
-    }
-    return 'stay';
-  });
+  const [afterFinish, setAfterFinish] = useState<AfterFinish>(readAfterFinish);
   const [finishedPrompt, setFinishedPrompt] = useState(false);
   // Once a transfer starts this window turns into its progress view instead of
   // closing: every other file manager keeps the operation on screen until the
@@ -78,19 +97,38 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
   const [adminNote, setAdminNote] = useState('');
   const [tasks, setTasks] = useState<BackgroundTask[]>(() => taskQueue.getTasks());
 
+  // Tabbed monitor state (SuperCopier shape): list / errors / options, plus fold.
+  const [tab, setTab] = useState<Tab>('list');
+  const [folded, setFolded] = useState(false);
+  const [log, setLog] = useState<LogEntry[]>([]);
+  const dismissed = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     const unsubscribe = taskQueue.subscribe(() => setTasks(taskQueue.getTasks()));
     return unsubscribe;
   }, []);
 
+  // Accumulate an error log entry whenever a task reports a failure.
+  useEffect(() => {
+    setLog(prev => {
+      let changed = false;
+      const next = [...prev];
+      for (const task of tasks) {
+        if (!task.error) continue;
+        const key = `${task.id}:${task.error}`;
+        if (dismissed.current.has(key)) continue;
+        if (next.some(e => e.key === key)) continue;
+        next.push({ key, time: new Date().toLocaleTimeString(), title: task.title, message: task.error });
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [tasks]);
+
   const task = taskId ? tasks.find(entry => entry.id === taskId) : undefined;
   const isFinished =
     !!task && (task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled');
   const needsAdmin = /denied|permission|EPERM|EACCES/i.test(task?.error || '');
-  // Elevation is only worth offering when it can actually change the outcome:
-  // either the job already failed for lack of rights, or the destination is one
-  // of the system locations Windows protects. Offering it for every copy made
-  // it look mandatory when it was not.
   const protectedDest = /^[a-z]:\\(program files|program files \(x86\)|windows|programdata)(\\|$)/i.test(
     destPath.trim()
   );
@@ -104,6 +142,37 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
       (entry.type === 'copy' || entry.type === 'move' || entry.type === 'delete') &&
       (entry.status === 'queued' || entry.status === 'running' || entry.status === 'paused')
   );
+
+  // Monitor derived state.
+  const transfers = tasks.filter(
+    entry => entry.type === 'copy' || entry.type === 'move' || entry.type === 'delete'
+  );
+  const active = transfers.find(t => t.status === 'running')
+    ?? transfers.find(t => t.status === 'paused')
+    ?? transfers.find(t => t.status === 'queued');
+  const currentSpeedMb = active ? Math.round(active.throttleBps / 1048576) : 0;
+  const canControl = !!active && (active.status === 'running' || active.status === 'paused');
+
+  const applySpeed = (mb: number) => {
+    if (!active) return;
+    const bps = mb === 0 ? 0 : mb * 1024 * 1024;
+    taskQueue.updateTaskMeta(active.id, { throttleBps: bps });
+    if (active.serverJobId) void fsEngine.setJobThrottle(active.serverJobId, bps);
+  };
+
+  const chooseAfterFinish = (next: AfterFinish) => {
+    setAfterFinish(next);
+    try {
+      localStorage.setItem(AFTER_FINISH_KEY, next);
+    } catch {
+      // A full quota costs the reminder, never the transfer.
+    }
+  };
+
+  const clearLog = () => {
+    for (const e of log) dismissed.current.add(e.key);
+    setLog([]);
+  };
 
   // Honour the "when finished" choice as soon as the transfer reaches a terminal
   // state. Staying open is the default because a window that vanishes on its own
@@ -152,15 +221,146 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
 
   const dialogRef = useModalDialog<HTMLDivElement>(t.copyMoveModalTitle);
 
+  // Idle = opened from the pill, no items in hand. Show the monitor instead of
+  // the form, so this single window is both the transfer list and the form.
+  const idle = !task && items.length === 0;
+
+  // Shared tabbed monitor block (list / errors / options).
+  const renderTabs = () => (
+    <>
+      <div className="flex items-end gap-0 px-3 pt-2 shrink-0 border-b" style={{ borderColor: theme.modalBorder }}>
+        {(['list', 'errors', 'options'] as Tab[]).map(tabKey => {
+          const label =
+            tabKey === 'list' ? t.transferTabList
+            : tabKey === 'errors' ? t.transferTabErrors
+            : t.transferTabOptions;
+          const activeTab = tab === tabKey;
+          return (
+            <button
+              key={tabKey}
+              type="button"
+              onClick={() => setTab(tabKey)}
+              className="px-3 py-1 text-[11px] font-bold rounded-t cursor-pointer border-t border-x"
+              style={{
+                backgroundColor: activeTab ? theme.modalBg : theme.modalHeaderBg,
+                borderColor: theme.modalBorder,
+                color: theme.itemText,
+                opacity: activeTab ? 1 : 0.65,
+                marginBottom: activeTab ? '-1px' : '0'
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 text-[11px]">
+        {tab === 'list' && (
+          <div className="grid gap-1" style={{ gridTemplateColumns: '1fr 4.5rem 5rem 3rem 1.25rem' }}>
+            <div className="font-bold opacity-60">{t.transferColTask}</div>
+            <div className="font-bold opacity-60">{t.transferColSize}</div>
+            <div className="font-bold opacity-60">{t.transferColStatus}</div>
+            <div className="font-bold opacity-60 text-right">{t.bgTasksProgress.replace('{n}', '').trim() || '%'}</div>
+            <div />
+            {transfers.length === 0 && (
+              <div className="col-span-5 opacity-60 py-2">{t.bgTasksEmpty}</div>
+            )}
+            {transfers.map((entry, index) => (
+              <React.Fragment key={entry.id}>
+                <div className="flex items-center gap-1.5 truncate" title={entry.title}>
+                  <span className="opacity-50 shrink-0">{index + 1}.</span>
+                  {entry.type === 'move' ? <Scissors className="w-3 h-3 shrink-0" /> : entry.type === 'delete' ? <span className="shrink-0">✕</span> : <Copy className="w-3 h-3 shrink-0" />}
+                  <span className="truncate">{entry.title}</span>
+                </div>
+                <div className="opacity-80">{formatBytes(entry.totalBytes)}</div>
+                <div className="uppercase opacity-70">{entry.status}</div>
+                <div className="text-right tabular-nums">{entry.progress}%</div>
+                <button
+                  type="button"
+                  onClick={() => taskQueue.cancelTask(entry.id)}
+                  className="text-rose-300 hover:text-rose-100 cursor-pointer"
+                  aria-label={t.btnCancel}
+                >
+                  ✕
+                </button>
+              </React.Fragment>
+            ))}
+          </div>
+        )}
+
+        {tab === 'errors' && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="font-bold opacity-60">{t.transferTabErrors}</span>
+              <button
+                type="button"
+                onClick={clearLog}
+                disabled={log.length === 0}
+                className="px-2 py-0.5 border border-white/20 rounded cursor-pointer disabled:opacity-40"
+              >
+                {t.transferLogClear}
+              </button>
+            </div>
+            {log.length === 0 ? (
+              <div className="opacity-60">{t.transferLogEmpty}</div>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                {log.map(entry => (
+                  <div key={entry.key} className="border border-rose-500/30 rounded p-1.5" title={entry.title}>
+                    <div className="flex items-center gap-2 text-[10px] opacity-70">
+                      <span>{entry.time}</span>
+                      <span className="truncate">{entry.title}</span>
+                    </div>
+                    <div className="text-rose-300 break-all">{entry.message}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === 'options' && (
+          <div className="flex flex-col gap-3">
+            <div>
+              <label className="block font-bold text-white mb-1" htmlFor="monitorSpeedSelect">{t.speedLimit}</label>
+              <select
+                id="monitorSpeedSelect"
+                value={currentSpeedMb}
+                disabled={!canControl}
+                onChange={(e) => applySpeed(Number(e.target.value))}
+                className="w-full bg-black/50 border border-white/30 rounded px-2.5 py-1.5 text-white font-mono text-xs focus:ring-1 focus:ring-amber-400 outline-none cursor-pointer disabled:opacity-40"
+              >
+                {MONITOR_SPEED_OPTIONS.map(mb => (
+                  <option key={mb} value={mb}>{mb === 0 ? t.speedUnlimited : `${mb} MB/s`}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block font-bold text-white mb-1" htmlFor="monitorAfterFinishSelect">{t.afterFinishLabel}</label>
+              <select
+                id="monitorAfterFinishSelect"
+                value={afterFinish}
+                onChange={(e) => chooseAfterFinish(e.target.value as AfterFinish)}
+                className="w-full bg-black/50 border border-white/30 rounded px-2.5 py-1.5 text-white font-mono text-xs focus:ring-1 focus:ring-amber-400 outline-none cursor-pointer"
+              >
+                <option value="stay">{t.afterFinishStay}</option>
+                <option value="close">{t.afterFinishClose}</option>
+                <option value="ask">{t.afterFinishAsk}</option>
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 font-mono select-none">
       <div
         ref={dialogRef}
         tabIndex={-1}
         onKeyDownCapture={(event) => {
-          // Enter belongs to the form, never to the window controls. Windows
-          // dialogs treat it as "press the default button"; here that is the
-          // transfer confirm, which used to be replaced by the close cross.
           if (event.key !== 'Enter' || event.shiftKey || taskId) return;
           if ((event.target as HTMLElement).tagName === 'TEXTAREA') return;
           event.preventDefault();
@@ -171,19 +371,16 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
           backgroundColor: theme.modalBg,
           borderColor: theme.modalBorder,
           color: theme.itemText,
-          // User-resizable: drag any edge or the bottom-right corner. The dialog
-          // starts at 32rem wide, can grow up to the overlay (never past the
-          // viewport) and cannot collapse below a usable minimum.
-          resize: 'both',
-          width: '32rem',
-          minWidth: '18rem',
-          minHeight: '12rem',
+          resize: folded ? 'none' : 'both',
+          width: folded ? '34rem' : '34rem',
+          minWidth: '22rem',
+          minHeight: folded ? 0 : '16rem',
           maxWidth: '100%',
           maxHeight: '100%'
         }}
       >
         {/* Header */}
-        <div 
+        <div
           className="flex items-center justify-between px-3 py-2 border-b font-bold shrink-0"
           style={{
             backgroundColor: theme.modalHeaderBg,
@@ -193,26 +390,116 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
         >
           <div className="flex items-center gap-2">
             {isCopy ? <Copy className="w-4 h-4" /> : <Scissors className="w-4 h-4" />}
-            <span>{isCopy ? t.copyTitle : t.moveTitle} ({isCopy ? 'F5' : 'F6'})</span>
+            <span>{idle ? t.taskQueueShort : (isCopy ? t.copyTitle : t.moveTitle)} ({idle ? '' : (isCopy ? 'F5' : 'F6')})</span>
+            {transfers.length > 0 && (
+              <span className="text-[10px] opacity-60">({transfers.length})</span>
+            )}
           </div>
           <div className="flex items-center gap-1">
-            {task && !isFinished && (
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label={t.minimize}
-                title={`${t.minimize} (Esc)`}
-                className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded cursor-pointer"
-              >
-                <Minus className="w-3.5 h-3.5" />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setFolded(f => !f)}
+              aria-label={folded ? t.transferUnfold : t.transferFold}
+              title={folded ? t.transferUnfold : t.transferFold}
+              className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded cursor-pointer"
+            >
+              {folded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={t.minimize}
+              title={`${t.minimize} (Esc)`}
+              className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded cursor-pointer"
+            >
+              <Minus className="w-3.5 h-3.5" />
+            </button>
             <button type="button" onClick={onClose} className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer">✕</button>
           </div>
         </div>
 
+        {/* Folded strip */}
+        {folded && (
+          <div className="px-3 py-1.5 text-[11px] opacity-80 border-b shrink-0" style={{ borderColor: theme.modalBorder }}>
+            {active ? (active.speed || t.inProgress) : t.bgTasksEmpty}
+          </div>
+        )}
+
+        {/* Idle monitor view: no items in hand. */}
+        {idle && !folded && (
+          <>
+            {active && (
+              <div className="p-3 flex flex-col gap-2 border-b shrink-0" style={{ borderColor: theme.modalBorder }}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-[12px] truncate" title={active.title}>{active.title}</span>
+                  <span className="font-bold text-cyan-400 shrink-0">{active.progress}%</span>
+                </div>
+                <RetroProgressBar percent={active.progress} theme={theme} status={active.status} cells={34} className="text-[16px] leading-none" />
+                {active.currentFile && (
+                  <div className="text-[11px] opacity-80 font-mono truncate" title={active.currentFile}>{active.currentFile}</div>
+                )}
+                <div className="text-[11px] opacity-80 break-all">
+                  {active.status === 'failed' && active.error ? (
+                    <span className="text-rose-400 font-bold">{active.error}</span>
+                  ) : (
+                    <>
+                      {active.speed || t.inProgress}
+                      {active.etaSeconds != null && active.etaSeconds > 0 ? ` · ${t.etaLabel} ${active.etaSeconds}s` : ''}
+                    </>
+                  )}
+                </div>
+                {(active.status === 'running' || active.status === 'paused') && (
+                  <div className="flex items-center gap-2 text-[12px]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        soundManager.playKeyTick();
+                        if (active.status === 'paused') taskQueue.resumeTask(active.id);
+                        else taskQueue.pauseTask(active.id);
+                      }}
+                      className="px-2.5 py-1 border border-cyan-500/60 rounded text-cyan-300 hover:bg-cyan-950/60 cursor-pointer font-bold"
+                    >
+                      {active.status === 'paused' ? t.bgTasksResume : t.bgTasksPause}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        soundManager.playKeyTick();
+                        taskQueue.cancelTask(active.id);
+                      }}
+                      className="px-2.5 py-1 border border-rose-500/60 rounded text-rose-300 hover:bg-rose-950/60 cursor-pointer font-bold"
+                    >
+                      {t.btnCancel}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            {renderTabs()}
+            <div className="flex items-center justify-between gap-2 p-3 border-t shrink-0" style={{ borderColor: theme.modalBorder }}>
+              <button
+                type="button"
+                onClick={() => {
+                  soundManager.playKeyTick();
+                  onClose();
+                }}
+                className="px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow"
+              >
+                {t.copyTitle}
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
+              >
+                {t.btnCancel} (Esc)
+              </button>
+            </div>
+          </>
+        )}
+
         {/* Configuration form, replaced by the live progress view once started */}
-        {!task ? (
+        {!idle && !task && (
         <form ref={formRef} onSubmit={handleSubmit} className="p-4 flex flex-col gap-4 min-h-0 flex-1 overflow-y-auto">
           <div className="flex flex-col min-h-0 flex-1">
             <span className="opacity-75 block mb-1">
@@ -319,7 +606,10 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             </button>
           </div>
         </form>
-        ) : (
+        )}
+
+        {/* Live progress view */}
+        {!idle && task && (
         <div className="p-4 flex flex-col gap-3 min-h-0 flex-1 overflow-y-auto">
           <div className="flex items-center justify-between gap-2">
             <span className="font-bold text-[13px] truncate" title={task.title}>{task.title}</span>
@@ -334,9 +624,6 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             className="text-[18px] leading-none"
           />
 
-          {/* The job sizes the tree before it can report a percentage, and a big
-              folder can take a while. Say what is happening instead of sitting
-              on a bare 0% that reads like a hang. */}
           {task.status === 'running' && task.progress === 0 && (
             <div className="text-[11px] text-amber-300 font-bold animate-pulse">
               {t.searchScanning}
@@ -386,8 +673,6 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             </div>
           )}
 
-          {/* The queue runs one transfer at a time, so a new copy, move or delete
-              waits its turn here instead of interrupting the running one. */}
           {otherTasks.length > 0 && (
             <div className="border-t border-current/20 pt-2 flex flex-col gap-1.5">
               <div className="text-[10px] font-bold uppercase opacity-60">{t.taskQueueShort}</div>
@@ -413,8 +698,6 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             </div>
           )}
 
-          {/* Elevation is offered here too: the copy window is where the user is
-              watching the job, so waiting for the task card is a detour. */}
           {(showAdmin && (window as any).electronAPI?.relaunchAsAdmin) && (
             <button
               type="button"
@@ -469,6 +752,8 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
               </div>
             </div>
           )}
+
+          {!folded && renderTabs()}
 
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10 mt-auto">
             {isFinished && (
