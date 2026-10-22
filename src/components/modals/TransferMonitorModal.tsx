@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { Copy, Minus, Scissors, Trash2 } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ChevronDown, ChevronUp, Copy, Minus, Scissors, Trash2 } from 'lucide-react';
 import { BackgroundTask, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 import { taskQueue } from '../../services/taskQueueManager';
+import { fsEngine } from '../../services/fileSystem';
 import { RetroProgressBar } from '../RetroProgressBar';
 import { useModalDialog } from '../../hooks/useModalDialog';
 
@@ -17,6 +18,45 @@ interface TransferMonitorModalProps {
 
 const TRANSFER_TYPES: Array<BackgroundTask['type']> = ['copy', 'move', 'delete'];
 
+// The copy form writes this same key, so a choice made in either window stays
+// the same choice. Duplicating the literal is the price of not importing the
+// component just for a constant.
+const AFTER_FINISH_KEY = 'omnicommander.afterFinish';
+type AfterFinish = 'stay' | 'close' | 'ask';
+
+const SPEED_OPTIONS_MB = [0, 1, 5, 10, 50];
+
+type Tab = 'list' | 'errors' | 'options';
+
+interface LogEntry {
+  key: string;
+  time: string;
+  title: string;
+  message: string;
+}
+
+function readAfterFinish(): AfterFinish {
+  try {
+    const stored = localStorage.getItem(AFTER_FINISH_KEY);
+    if (stored === 'close' || stored === 'ask' || stored === 'stay') return stored;
+  } catch {
+    // Storage can be unavailable; the default is still the safe one.
+  }
+  return 'stay';
+}
+
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes < 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value < 10 && unit > 0 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
+}
+
 function TaskIcon({ type }: { type: BackgroundTask['type'] }) {
   if (type === 'move') return <Scissors className="w-3.5 h-3.5" />;
   if (type === 'delete') return <Trash2 className="w-3.5 h-3.5" />;
@@ -24,9 +64,11 @@ function TaskIcon({ type }: { type: BackgroundTask['type'] }) {
 }
 
 /**
- * Everything the user needs while transfers are in flight, in a single window:
- * the operation that is running right now plus the ones waiting their turn.
- * The queue is sequential, so this is a live queue and not a history log.
+ * Everything about transfers in a single window, shaped like the one SuperCopier
+ * shows: the running operation on top with its progress, and three pages below
+ * for the list, the error log and the options. Folding it down to a bar keeps it
+ * out of the way without losing the transfer, which is what minimizing means
+ * everywhere else in this app.
  */
 export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({
   theme,
@@ -36,11 +78,39 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({
 }) => {
   const t = getTranslations(lang);
   const [tasks, setTasks] = useState<BackgroundTask[]>(() => taskQueue.getTasks());
+  const [tab, setTab] = useState<Tab>('list');
+  const [folded, setFolded] = useState(false);
+  const [log, setLog] = useState<LogEntry[]>([]);
+  const [afterFinish, setAfterFinish] = useState<AfterFinish>(readAfterFinish);
+  const dismissed = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const unsubscribe = taskQueue.subscribe(() => setTasks(taskQueue.getTasks()));
     return unsubscribe;
   }, []);
+
+  // A task only keeps its latest error, so the log accumulates failures as they
+  // happen. The dismissed set keeps a cleared entry from coming straight back.
+  useEffect(() => {
+    setLog(prev => {
+      const next = [...prev];
+      let changed = false;
+      for (const task of tasks) {
+        if (!task.error) continue;
+        const key = `${task.id}:${task.error}`;
+        if (dismissed.current.has(key)) continue;
+        if (next.some(entry => entry.key === key)) continue;
+        next.push({
+          key,
+          time: new Date().toLocaleTimeString(),
+          title: task.title,
+          message: task.error
+        });
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [tasks]);
 
   const dialogRef = useModalDialog<HTMLDivElement>(t.taskQueueShort);
 
@@ -49,9 +119,30 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({
     transfers.find(entry => entry.status === 'running') ||
     transfers.find(entry => entry.status === 'paused') ||
     transfers.find(entry => entry.status === 'queued');
-  const waiting = transfers.filter(
-    entry => entry.id !== active?.id && (entry.status === 'queued' || entry.status === 'running' || entry.status === 'paused')
-  );
+  const currentSpeedMb = active?.throttleBps ? Math.round(active.throttleBps / (1024 * 1024)) : 0;
+
+  const applySpeed = (mb: number) => {
+    if (!active) return;
+    const bps = mb * (1024 * 1024);
+    taskQueue.updateTaskMeta(active.id, { throttleBps: bps });
+    if (active.serverJobId) void fsEngine.setJobThrottle(active.serverJobId, bps);
+  };
+
+  const chooseAfterFinish = (next: AfterFinish) => {
+    setAfterFinish(next);
+    try {
+      localStorage.setItem(AFTER_FINISH_KEY, next);
+    } catch {
+      // A full quota costs the reminder, never the transfer.
+    }
+  };
+
+  const clearLog = () => {
+    for (const entry of log) dismissed.current.add(entry.key);
+    setLog([]);
+  };
+
+  const canControl = active?.status === 'running' || active?.status === 'paused';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 font-mono select-none">
@@ -63,10 +154,10 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({
           backgroundColor: theme.modalBg,
           borderColor: theme.modalBorder,
           color: theme.itemText,
-          resize: 'both',
-          width: '34rem',
-          minWidth: '20rem',
-          minHeight: '14rem',
+          resize: folded ? 'none' : 'both',
+          width: '38rem',
+          minWidth: '22rem',
+          minHeight: folded ? 0 : '16rem',
           maxWidth: '100%',
           maxHeight: '100%'
         }}
@@ -82,6 +173,18 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({
             <span className="opacity-60 font-normal">({transfers.length})</span>
           </div>
           <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                soundManager.playKeyTick();
+                setFolded(value => !value);
+              }}
+              aria-label={folded ? t.transferUnfold : t.transferFold}
+              title={folded ? t.transferUnfold : t.transferFold}
+              className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded cursor-pointer"
+            >
+              {folded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+            </button>
             <button
               type="button"
               onClick={onClose}
@@ -103,95 +206,169 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 p-3 overflow-y-auto">
-          {!active && (
-            <div className="text-[11px] opacity-70 py-6 text-center">{t.bgTasksEmpty}</div>
-          )}
-
-          {active && (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2 font-bold text-[13px]">
-                <TaskIcon type={active.type} />
-                <span className="flex-1 truncate" title={active.title}>{active.title}</span>
-                <span className="uppercase text-[10px] opacity-70">{active.status}</span>
-              </div>
-
-              <RetroProgressBar percent={active.progress} theme={theme} status={active.status} />
-
-              <div className="flex items-center justify-between text-[12px] tabular-nums">
-                <span className="font-bold">{active.progress}%</span>
-                <span className="opacity-80">
-                  {active.speed || t.inProgress}
-                  {active.etaSeconds != null && active.etaSeconds > 0 ? ` · ${t.etaLabel} ${active.etaSeconds}s` : ''}
-                </span>
-              </div>
-
-              {active.currentFile && (
-                <div className="text-[11px] opacity-80 font-mono truncate" title={active.currentFile}>
-                  {active.currentFile}
-                </div>
-              )}
-
-              {active.error && (
-                <div className="text-[11px] text-rose-400 font-bold break-all">{active.error}</div>
-              )}
-
-              {(active.status === 'running' || active.status === 'paused' || active.status === 'queued') && (
-                <div className="flex items-center gap-2 text-[12px]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      soundManager.playKeyTick();
-                      if (active.status === 'paused') taskQueue.resumeTask(active.id);
-                      else taskQueue.pauseTask(active.id);
-                    }}
-                    className="px-2.5 py-1 border border-cyan-500/60 rounded text-cyan-300 hover:bg-cyan-950/60 cursor-pointer font-bold"
-                  >
-                    {active.status === 'paused' ? t.bgTasksResume : t.bgTasksPause}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      soundManager.playKeyTick();
-                      taskQueue.cancelTask(active.id);
-                    }}
-                    className="px-2.5 py-1 border border-rose-500/60 rounded text-rose-300 hover:bg-rose-950/60 cursor-pointer font-bold"
-                  >
-                    {t.btnCancel}
-                  </button>
-                </div>
-              )}
+        {/* Progress of whatever is running right now, always visible. */}
+        {active && (
+          <div className="px-3 pt-2 flex flex-col gap-1 shrink-0">
+            <RetroProgressBar percent={active.progress} theme={theme} status={active.status} />
+            <div className="flex items-center justify-between gap-2 text-[11px] tabular-nums">
+              <span className="truncate" title={active.currentFile || active.title}>
+                {active.currentFile || active.title}
+              </span>
+              <span className="shrink-0 font-bold">{active.progress}%</span>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Waiting transfers, in the order the queue will run them. */}
-          {waiting.length > 0 && (
-            <div className="border-t border-current/20 pt-2 flex flex-col gap-1.5">
-              <div className="text-[10px] font-bold uppercase opacity-60">{t.taskQueueShort}</div>
-              {waiting.map((entry, index) => (
-                <div key={entry.id} className="flex items-center gap-2 text-[11px]">
-                  <span className="w-4 shrink-0 opacity-60 tabular-nums">{index + 1}.</span>
-                  <TaskIcon type={entry.type} />
-                  <span className="w-14 shrink-0 uppercase opacity-60">{entry.status}</span>
-                  <span className="flex-1 truncate font-mono" title={entry.title}>{entry.title}</span>
-                  <span className="tabular-nums shrink-0 opacity-80">{entry.progress}%</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      soundManager.playKeyTick();
-                      taskQueue.cancelTask(entry.id);
-                    }}
-                    aria-label={t.btnCancel}
-                    title={t.btnCancel}
-                    className="px-1.5 py-0.5 border border-rose-500/50 rounded text-rose-300 hover:bg-rose-950/60 cursor-pointer shrink-0"
-                  >
-                    ✕
-                  </button>
-                </div>
+        {folded ? (
+          <div className="px-3 py-2 text-[11px] opacity-70">
+            {active ? `${active.speed || t.inProgress}` : t.bgTasksEmpty}
+          </div>
+        ) : (
+          <>
+            {/* Pages */}
+            <div className="flex items-end gap-1 px-2 pt-2 shrink-0">
+              {(
+                [
+                  ['list', t.transferTabList],
+                  ['errors', `${t.transferTabErrors}${log.length > 0 ? ` (${log.length})` : ''}`],
+                  ['options', t.transferTabOptions]
+                ] as Array<[Tab, string]>
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => {
+                    soundManager.playKeyTick();
+                    setTab(value);
+                  }}
+                  className="px-2.5 py-1 border-t border-x rounded-t cursor-pointer text-[11px] font-bold"
+                  style={{
+                    backgroundColor: tab === value ? theme.modalBg : theme.modalHeaderBg,
+                    borderColor: theme.modalBorder,
+                    opacity: tab === value ? 1 : 0.65
+                  }}
+                >
+                  {label}
+                </button>
               ))}
             </div>
-          )}
-        </div>
+
+            <div
+              className="flex-1 min-h-0 overflow-y-auto px-3 py-2 border-t flex flex-col gap-1"
+              style={{ borderColor: theme.modalBorder }}
+            >
+              {!active && tab === 'list' && transfers.length === 0 && (
+                <div className="text-[11px] opacity-70 py-6 text-center">{t.bgTasksEmpty}</div>
+              )}
+
+              {tab === 'list' && transfers.length > 0 && (
+                <>
+                  <div className="grid grid-cols-[1fr_4.5rem_5rem_3rem_1.25rem] gap-2 text-[10px] uppercase opacity-60 font-bold">
+                    <span>{t.transferColTask}</span>
+                    <span className="text-right">{t.transferColSize}</span>
+                    <span className="text-right">{t.transferColStatus}</span>
+                    <span className="text-right">%</span>
+                    <span />
+                  </div>
+                  {transfers.map((entry, index) => (
+                    <div
+                      key={entry.id}
+                      className="grid grid-cols-[1fr_4.5rem_5rem_3rem_1.25rem] gap-2 items-center text-[11px]"
+                    >
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <span className="opacity-50 tabular-nums shrink-0">{index + 1}.</span>
+                        <TaskIcon type={entry.type} />
+                        <span className="truncate font-mono" title={entry.title}>
+                          {entry.title}
+                        </span>
+                      </span>
+                      <span className="text-right tabular-nums opacity-80">
+                        {entry.totalBytes ? formatBytes(entry.totalBytes) : '—'}
+                      </span>
+                      <span className="text-right uppercase opacity-70 text-[10px]">{entry.status}</span>
+                      <span className="text-right tabular-nums font-bold">{entry.progress}%</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          soundManager.playKeyTick();
+                          taskQueue.cancelTask(entry.id);
+                        }}
+                        aria-label={t.btnCancel}
+                        title={t.btnCancel}
+                        className="px-1 border border-rose-500/50 rounded text-rose-300 hover:bg-rose-950/60 cursor-pointer text-[10px] leading-4"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {tab === 'errors' && (
+                <>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] uppercase opacity-60 font-bold">{t.transferColTime}</span>
+                    <button
+                      type="button"
+                      onClick={clearLog}
+                      disabled={log.length === 0}
+                      className="px-2 py-0.5 border border-current/30 rounded cursor-pointer disabled:opacity-40 disabled:cursor-default"
+                    >
+                      {t.transferLogClear}
+                    </button>
+                  </div>
+                  {log.length === 0 && (
+                    <div className="text-[11px] opacity-70 py-6 text-center">{t.transferLogEmpty}</div>
+                  )}
+                  {log.map(entry => (
+                    <div key={entry.key} className="flex items-start gap-2 text-[11px]" title={entry.title}>
+                      <span className="opacity-60 shrink-0 tabular-nums">{entry.time}</span>
+                      <span className="flex-1 break-all text-rose-300">{entry.message}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {tab === 'options' && (
+                <>
+                  <div>
+                    <label className="block font-bold mb-1" htmlFor="monitorSpeed">
+                      {t.speedLimit}
+                    </label>
+                    <select
+                      id="monitorSpeed"
+                      value={currentSpeedMb}
+                      disabled={!canControl}
+                      onChange={e => applySpeed(Number(e.target.value))}
+                      className="w-full bg-black/50 border border-white/30 rounded px-2.5 py-1.5 font-mono text-xs cursor-pointer disabled:opacity-50 disabled:cursor-default outline-none"
+                    >
+                      {SPEED_OPTIONS_MB.map(mb => (
+                        <option key={mb} value={mb}>
+                          {mb === 0 ? t.speedUnlimited : `${mb} MB/s`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-bold mb-1" htmlFor="monitorAfter">
+                      {t.afterFinishLabel}
+                    </label>
+                    <select
+                      id="monitorAfter"
+                      value={afterFinish}
+                      onChange={e => chooseAfterFinish(e.target.value as AfterFinish)}
+                      className="w-full bg-black/50 border border-white/30 rounded px-2.5 py-1.5 font-mono text-xs cursor-pointer outline-none"
+                    >
+                      <option value="stay">{t.afterFinishStay}</option>
+                      <option value="close">{t.afterFinishClose}</option>
+                      <option value="ask">{t.afterFinishAsk}</option>
+                    </select>
+                  </div>
+                </>
+              )}
+            </div>
+          </>
+        )}
 
         {/* Footer */}
         <div
@@ -209,13 +386,40 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({
           >
             {t.copyTitle}
           </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
-          >
-            {t.btnCancel} (Esc)
-          </button>
+          <div className="flex items-center gap-1.5">
+            {canControl && active && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    soundManager.playKeyTick();
+                    if (active.status === 'paused') taskQueue.resumeTask(active.id);
+                    else taskQueue.pauseTask(active.id);
+                  }}
+                  className="px-2.5 py-1 border border-cyan-500/60 rounded text-cyan-300 hover:bg-cyan-950/60 cursor-pointer font-bold"
+                >
+                  {active.status === 'paused' ? t.bgTasksResume : t.bgTasksPause}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    soundManager.playKeyTick();
+                    taskQueue.cancelTask(active.id);
+                  }}
+                  className="px-2.5 py-1 border border-rose-500/60 rounded text-rose-300 hover:bg-rose-950/60 cursor-pointer font-bold"
+                >
+                  {t.btnCancel}
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
+            >
+              {t.btnCancel} (Esc)
+            </button>
+          </div>
         </div>
       </div>
     </div>
