@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('node:path');
+const fs = require('node:fs');
 const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
 
@@ -132,21 +133,49 @@ ipcMain.handle('app:relaunch-admin', () => {
   const target = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
   // Single quotes inside a PowerShell single-quoted literal are doubled.
   const exePath = target.replace(/'/g, "''");
+  // The relaunch happens in a separate process after this one exits, so any
+  // failure there is invisible. Record what was attempted and how it ended.
+  const logPath = path.join(process.env.TEMP || '.', 'omnicommander-relaunch.log').replace(/'/g, "''");
+  const log = (message) => {
+    try {
+      fs.appendFileSync(
+        path.join(process.env.TEMP || '.', 'omnicommander-relaunch.log'),
+        `${new Date().toISOString()} ${message}\n`
+      );
+    } catch {
+      /* logging must never break the relaunch */
+    }
+  };
+  log(
+    `request target=${target} portable=${process.env.PORTABLE_EXECUTABLE_FILE || 'unset'} execPath=${process.execPath}`
+  );
   try {
     // The elevated copy re-extracts and then launches, so let this process exit
     // first: starting both at once leaves two instances competing over the same
     // extraction folder, and the surviving window is the one that gets killed.
-    const child = spawn(
-      'powershell.exe',
-      ['-NoProfile', '-Command', `Start-Sleep -Milliseconds 1200; Start-Process -FilePath '${exePath}' -Verb RunAs`],
-      { detached: true, stdio: 'ignore', windowsHide: true }
-    );
+    const command = [
+      'Start-Sleep -Milliseconds 3000',
+      'try {',
+      `  Start-Process -FilePath '${exePath}' -Verb RunAs -ErrorAction Stop`,
+      `  'started' | Out-File -Append -Encoding utf8 '${logPath}'`,
+      '} catch {',
+      `  "failed: $($_.Exception.Message)" | Out-File -Append -Encoding utf8 '${logPath}'`,
+      '}'
+    ].join('\n');
+    const child = spawn('powershell.exe', ['-NoProfile', '-Command', command], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true
+    });
     child.unref();
+    log('spawned relauncher');
   } catch (error) {
-    return { ok: false, reason: error instanceof Error ? error.message : 'spawn failed' };
+    const message = error instanceof Error ? error.message : 'spawn failed';
+    log(`spawn error ${message}`);
+    return { ok: false, reason: message };
   }
   // The elevated instance starts its own file server, so this one steps aside
   // instead of leaving two windows competing over the same jobs.
-  setTimeout(() => app.quit(), 600);
+  setTimeout(() => app.exit(0), 900);
   return { ok: true };
 });
