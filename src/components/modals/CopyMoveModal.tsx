@@ -50,6 +50,9 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
   // closing: every other file manager keeps the operation on screen until the
   // user decides to send it to the background.
   const [taskId, setTaskId] = useState<string | null>(null);
+  // Elevation happens in another process, so a silent failure used to look like
+  // a dead button. Whatever the relaunch reports is shown right here.
+  const [adminNote, setAdminNote] = useState('');
   const [tasks, setTasks] = useState<BackgroundTask[]>(() => taskQueue.getTasks());
 
   useEffect(() => {
@@ -290,9 +293,13 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
           {(showAdmin && (window as any).electronAPI?.relaunchAsAdmin) && (
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
                 soundManager.playKeyTick();
-                (window as any).electronAPI.relaunchAsAdmin();
+                setAdminNote(t.inProgress);
+                const result = await (window as any).electronAPI.relaunchAsAdmin();
+                if (!result?.ok) {
+                  setAdminNote(`${t.runAsAdmin}: ${result?.reason || 'failed'}`);
+                }
               }}
               className={`flex items-center justify-center gap-1.5 w-full px-2 py-1 rounded border font-bold text-[12px] cursor-pointer ${
                 needsAdmin
@@ -303,6 +310,10 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
               <ShieldAlert className="w-3.5 h-3.5" />
               {t.runAsAdmin}
             </button>
+          )}
+
+          {adminNote && (
+            <div className="text-[11px] text-amber-300 break-all">{adminNote}</div>
           )}
 
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10 mt-auto">

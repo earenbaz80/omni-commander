@@ -168,20 +168,35 @@ ipcMain.handle('app:relaunch-admin', async () => {
     // still waiting to start the elevated copy, so the helper was torn down with
     // us and no window ever appeared. Staying alive also keeps this window on
     // screen while the consent prompt is open, instead of vanishing behind it.
-    const command = [
-      'Start-Sleep -Milliseconds 500',
+    // The launcher runs from a script file called by absolute path. Passing a
+    // multi-line `-Command` string is fragile, and resolving `powershell.exe`
+    // through PATH can fail inside a packaged app: both cases left nothing in
+    // the log, which is exactly what a dead button looks like.
+    const scriptPath = path.join(process.env.TEMP || '.', 'omnicommander-relaunch.ps1');
+    const script = [
+      'Start-Sleep -Milliseconds 600',
       'try {',
       `  Start-Process -FilePath '${exePath}' -Verb RunAs -ErrorAction Stop`,
-      `  Add-Content -Path '${logPath}' -Value 'launch started'`,
+      `  Add-Content -LiteralPath '${logPath}' -Value 'launch started'`,
       '} catch {',
-      `  Add-Content -Path '${logPath}' -Value ("launch failed: " + $_.Exception.Message)`,
+      `  Add-Content -LiteralPath '${logPath}' -Value ("launch failed: " + $_.Exception.Message)`,
       '}'
-    ].join('\n');
-    const child = spawn('powershell.exe', ['-NoProfile', '-Command', command], {
+    ].join('\r\n');
+    fs.writeFileSync(scriptPath, script, 'utf8');
+    const powershell = path.join(
+      process.env.SystemRoot || 'C:\\Windows',
+      'System32',
+      'WindowsPowerShell',
+      'v1.0',
+      'powershell.exe'
+    );
+    const child = spawn(powershell, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath], {
       detached: true,
       stdio: 'ignore',
       windowsHide: true
     });
+    child.on('error', (error) => log(`helper spawn error ${error.message}`));
+    child.on('exit', (code) => log(`helper exit ${code}`));
     child.unref();
     log('spawned relauncher');
   } catch (error) {
