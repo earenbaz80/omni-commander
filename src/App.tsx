@@ -552,13 +552,17 @@ export default function App() {
   // A live copy/move of real-drive items becomes a plan and hands the same
   // executor its absolute entry paths. Non-real items and rejected plans fall
   // back to the in-memory catalogue path through `copyItem`/`moveItem`.
-  const runConfirmedTransfer = (op: 'copy' | 'move', targetPath: string, options: TransferOptions) => {
+  const runConfirmedTransfer = (
+    op: 'copy' | 'move',
+    targetPath: string,
+    options: TransferOptions
+  ): string | undefined => {
     const items: FileItem[] = transferItems;
     const plan = buildTransferPlan(op, items, targetPath, options);
     if (plan) {
-      enqueueTransferPlan(plan);
-      setActiveModal(null);
-      return;
+      // The copy window stays open and follows the transfer it started: closing
+      // it here left the user with only a small card and no way back into the job.
+      return enqueueTransferPlan(plan);
     }
 
     // Falling back to the in-memory catalogue is correct for its own drives, but
@@ -568,7 +572,7 @@ export default function App() {
     if (fsEngine.isSystemDrive(currentInactiveTab.driveId)) {
       const unknown = items.filter(item => !fsEngine.isRealFile(item)).map(item => item.name);
       const detail = unknown.length > 0 ? unknown.join(', ') : items.length + ' selected item(s)';
-      taskQueue.addTask(
+      return taskQueue.addTask(
         op,
         op === 'move' ? 'Move blocked' : 'Copy blocked',
         detail,
@@ -579,8 +583,6 @@ export default function App() {
           );
         }
       );
-      setActiveModal(null);
-      return;
     }
 
     const totalBytes = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
@@ -651,15 +653,15 @@ export default function App() {
 
     const verb = op === 'move' ? t.appMoving : t.appCopying;
     taskId = taskQueue.addTask(op, verb.replace('{n}', String(items.length)), t.appDest.replace('{path}', targetPath), totalBytes, executor, plan);
-    setActiveModal(null);
+    return taskId;
   };
 
   const handleConfirmCopy = (targetPath: string, options: TransferOptions) => {
-    runConfirmedTransfer('copy', targetPath, options);
+    return runConfirmedTransfer('copy', targetPath, options);
   };
 
   const handleConfirmMove = (targetPath: string, options: TransferOptions) => {
-    runConfirmedTransfer('move', targetPath, options);
+    return runConfirmedTransfer('move', targetPath, options);
   };
 
   const handleConfirmDelete = () => {

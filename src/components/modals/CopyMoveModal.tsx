@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { Copy, Scissors } from 'lucide-react';
-import { CollisionPolicy, FileItem, LanguageCode, TransferOptions } from '../../types';
+import React, { useEffect, useState } from 'react';
+import { Copy, Scissors, ShieldAlert } from 'lucide-react';
+import { BackgroundTask, CollisionPolicy, FileItem, LanguageCode, TransferOptions } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
+import { taskQueue } from '../../services/taskQueueManager';
+import { RetroProgressBar } from '../RetroProgressBar';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
 
@@ -15,7 +17,7 @@ interface CopyMoveModalProps {
   sourcePath: string;
   targetPath: string;
   targetDriveId: string;
-  onConfirm: (targetPath: string, options: TransferOptions) => void;
+  onConfirm: (targetPath: string, options: TransferOptions) => string | undefined;
   onClose: () => void;
 }
 
@@ -44,6 +46,21 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
   const [collision, setCollision] = useState<CollisionPolicy>('overwrite');
   // 0 means "no cap"; anything else is a cap in MB/s, converted to bytes on submit.
   const [speedLimitMb, setSpeedLimitMb] = useState(0);
+  // Once a transfer starts this window turns into its progress view instead of
+  // closing: every other file manager keeps the operation on screen until the
+  // user decides to send it to the background.
+  const [taskId, setTaskId] = useState<string | null>(null);
+  const [tasks, setTasks] = useState<BackgroundTask[]>(() => taskQueue.getTasks());
+
+  useEffect(() => {
+    const unsubscribe = taskQueue.subscribe(() => setTasks(taskQueue.getTasks()));
+    return unsubscribe;
+  }, []);
+
+  const task = taskId ? tasks.find(entry => entry.id === taskId) : undefined;
+  const isFinished =
+    !!task && (task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled');
+  const needsAdmin = /denied|permission|EPERM|EACCES/i.test(task?.error || '');
 
   const isCopy = type === 'copy';
   const totalSize = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
@@ -52,10 +69,12 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
     e.preventDefault();
     if (!destPath.trim()) return;
     soundManager.playDiskAccess();
-    onConfirm(destPath.trim(), {
+    const started = onConfirm(destPath.trim(), {
       collision,
       throttleBps: speedLimitMb > 0 ? Math.round(speedLimitMb * 1024 * 1024) : 0
     });
+    if (started) setTaskId(started);
+    else onClose();
   };
 
   const dialogRef = useModalDialog<HTMLDivElement>(t.copyMoveModalTitle);
@@ -97,7 +116,8 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
           <button onClick={onClose} className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer">✕</button>
         </div>
 
-        {/* Body Form */}
+        {/* Configuration form, replaced by the live progress view once started */}
+        {!task ? (
         <form onSubmit={handleSubmit} className="p-4 flex flex-col gap-4 min-h-0 flex-1 overflow-y-auto">
           <div className="flex flex-col min-h-0 flex-1">
             <span className="opacity-75 block mb-1">
@@ -178,6 +198,106 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             </button>
           </div>
         </form>
+        ) : (
+        <div className="p-4 flex flex-col gap-3 min-h-0 flex-1 overflow-y-auto">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-bold text-[13px] truncate" title={task.title}>{task.title}</span>
+            <span className="font-bold text-cyan-400 shrink-0">{task.progress}%</span>
+          </div>
+
+          <RetroProgressBar
+            percent={task.progress}
+            theme={theme}
+            status={task.status}
+            cells={26}
+            className="text-[15px]"
+          />
+
+          {task.currentFile && (
+            <div className="text-[11px] opacity-80 font-mono truncate" title={task.currentFile}>
+              {task.currentFile}
+            </div>
+          )}
+
+          <div className="text-[11px] opacity-80 break-all">
+            {task.status === 'failed' && task.error ? (
+              <span className="text-rose-400 font-bold">{task.error}</span>
+            ) : (
+              <>
+                {task.speed || t.inProgress}
+                {task.etaSeconds != null && task.etaSeconds > 0 ? ` · ${t.etaLabel} ${task.etaSeconds}s` : ''}
+              </>
+            )}
+          </div>
+
+          {(task.status === 'running' || task.status === 'paused') && (
+            <div className="flex items-center gap-2 text-[12px]">
+              <button
+                type="button"
+                onClick={() => {
+                  soundManager.playKeyTick();
+                  if (task.status === 'paused') taskQueue.resumeTask(task.id);
+                  else taskQueue.pauseTask(task.id);
+                }}
+                className="px-2.5 py-1 border border-cyan-500/60 rounded text-cyan-300 hover:bg-cyan-950/60 cursor-pointer font-bold"
+              >
+                {task.status === 'paused' ? t.bgTasksResume : t.bgTasksPause}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  soundManager.playKeyTick();
+                  taskQueue.cancelTask(task.id);
+                }}
+                className="px-2.5 py-1 border border-rose-500/60 rounded text-rose-300 hover:bg-rose-950/60 cursor-pointer font-bold"
+              >
+                {t.btnCancel}
+              </button>
+            </div>
+          )}
+
+          {/* Elevation is offered here too: the copy window is where the user is
+              watching the job, so waiting for the task card is a detour. */}
+          {(window as any).electronAPI?.relaunchAsAdmin && (
+            <button
+              type="button"
+              onClick={() => {
+                soundManager.playKeyTick();
+                (window as any).electronAPI.relaunchAsAdmin();
+              }}
+              className={`flex items-center justify-center gap-1.5 w-full px-2 py-1 rounded border font-bold text-[12px] cursor-pointer ${
+                needsAdmin
+                  ? 'border-amber-400 text-amber-300 bg-amber-950/50 hover:bg-amber-900/70'
+                  : 'border-amber-700/50 text-amber-500/80 hover:bg-amber-950/40'
+              }`}
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              {t.runAsAdmin}
+            </button>
+          )}
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10 mt-auto">
+            {!isFinished && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
+              >
+                {t.minimize}
+              </button>
+            )}
+            {isFinished && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow"
+              >
+                {t.btnClose}
+              </button>
+            )}
+          </div>
+        </div>
+        )}
       </div>
     </div>
   );

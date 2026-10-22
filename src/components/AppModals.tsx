@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { ThemeConfig } from '../services/themeManager';
 import { ActiveModal, Drive, FileItem, LanguageCode, PanelState, PanelTab, TransferOptions, TransferPlan, UserSettings } from '../types';
 import { fsEngine } from '../services/fileSystem';
@@ -63,8 +63,8 @@ interface AppModalsProps {
   setLeftPanel: React.Dispatch<React.SetStateAction<PanelState>>;
   setRightPanel: React.Dispatch<React.SetStateAction<PanelState>>;
   setFsTick: React.Dispatch<React.SetStateAction<number>>;
-  handleConfirmCopy: (targetPath: string, options: TransferOptions) => void;
-  handleConfirmMove: (targetPath: string, options: TransferOptions) => void;
+  handleConfirmCopy: (targetPath: string, options: TransferOptions) => string | undefined;
+  handleConfirmMove: (targetPath: string, options: TransferOptions) => string | undefined;
   handleConfirmDelete: () => void;
   handleConfirmMkDir: (dirName: string) => void;
   handleConfirmNewFile: (fileName: string) => void;
