@@ -203,6 +203,32 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
     taskQueue.updateTaskMeta(active.id, { plan: { ...active.plan, entries: next } });
   };
 
+  const moveEntryTop = (index: number) => {
+    if (!active?.plan?.entries || index <= 0) return;
+    const next = [...active.plan.entries];
+    const [item] = next.splice(index, 1);
+    next.unshift(item);
+    taskQueue.updateTaskMeta(active.id, { plan: { ...active.plan, entries: next } });
+  };
+
+  const moveEntryBottom = (index: number) => {
+    if (!active?.plan?.entries) return;
+    const next = [...active.plan.entries];
+    const [item] = next.splice(index, 1);
+    next.push(item);
+    taskQueue.updateTaskMeta(active.id, { plan: { ...active.plan, entries: next } });
+  };
+
+  const sortEntries = (key: 'path' | 'name' | 'size') => {
+    if (!active?.plan?.entries) return;
+    const next = [...active.plan.entries].sort((a, b) => {
+      if (key === 'size') return a.size - b.size;
+      if (key === 'name') return a.name.localeCompare(b.name);
+      return a.path.localeCompare(b.path);
+    });
+    taskQueue.updateTaskMeta(active.id, { plan: { ...active.plan, entries: next } });
+  };
+
   const removeEntry = (index: number) => {
     if (!active?.plan?.entries) return;
     const next = active.plan.entries.filter((_, i) => i !== index);
@@ -323,6 +349,20 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
           <div className="flex flex-col gap-3">
             {active?.plan?.entries?.length ? (
               <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2 text-[10px]">
+                  <span className="opacity-60">{t.sortBy}</span>
+                  <select
+                    value=""
+                    onChange={(e) => { if (e.target.value) sortEntries(e.target.value as 'path' | 'name' | 'size'); e.target.value = ''; }}
+                    disabled={active.status !== 'queued'}
+                    className="bg-black/50 border border-white/30 rounded px-1.5 py-0.5 text-white font-mono text-[10px] cursor-pointer disabled:opacity-40"
+                  >
+                    <option value="">{t.sortBy}</option>
+                    <option value="path">{t.transferColSource}</option>
+                    <option value="name">{t.transferColTask}</option>
+                    <option value="size">{t.transferColSize}</option>
+                  </select>
+                </div>
                 <div className="grid gap-1 text-[10px] font-bold opacity-60" style={{ gridTemplateColumns: '1.5rem 1fr 4.5rem 1fr 1.25rem' }}>
                   <div />
                   <div>{t.transferColSource}</div>
@@ -341,13 +381,15 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                     <span className="opacity-80">{formatBytes(entry.size)}</span>
                     <span className="truncate font-mono opacity-80" title={active.plan!.targetDir}>{active.plan!.targetDir}</span>
                     <span className="flex items-center gap-0.5">
-                      {active.status === 'queued' && (
+                      {active.status === 'queued' ? (
                         <>
-                          <button type="button" onClick={() => moveEntry(index, -1)} disabled={index === 0} className="cursor-pointer disabled:opacity-30" aria-label={t.moveUp}>â†‘</button>
-                          <button type="button" onClick={() => moveEntry(index, 1)} disabled={index === active.plan!.entries.length - 1} className="cursor-pointer disabled:opacity-30" aria-label={t.moveDown}>â†“</button>
-                          <button type="button" onClick={() => removeEntry(index)} className="text-rose-300 hover:text-rose-100 cursor-pointer" aria-label={t.btnCancel}>âœ•</button>
+                          <button type="button" onClick={() => moveEntryTop(index)} disabled={index === 0} className="cursor-pointer disabled:opacity-30" aria-label={t.moveTop}>T</button>
+                          <button type="button" onClick={() => moveEntry(index, -1)} disabled={index === 0} className="cursor-pointer disabled:opacity-30" aria-label={t.moveUp}>U</button>
+                          <button type="button" onClick={() => moveEntry(index, 1)} disabled={index === active.plan!.entries.length - 1} className="cursor-pointer disabled:opacity-30" aria-label={t.moveDown}>D</button>
+                          <button type="button" onClick={() => moveEntryBottom(index)} disabled={index === active.plan!.entries.length - 1} className="cursor-pointer disabled:opacity-30" aria-label={t.moveBottom}>B</button>
+                          <button type="button" onClick={() => removeEntry(index)} className="text-rose-300 hover:text-rose-100 cursor-pointer" aria-label={t.btnCancel}>X</button>
                         </>
-                      )}
+                      ) : null}
                     </span>
                   </div>
                 ))}
