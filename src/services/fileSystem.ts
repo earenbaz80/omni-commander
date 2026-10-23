@@ -636,7 +636,13 @@ class FileSystemEngine {
       overwrite,
       // SuperCopier-style knobs. Omitted when the caller has no preference, so
       // the server keeps its `overwrite`-derived default.
-      ...(options ? { collision: options.collision, throttleBps: options.throttleBps } : {})
+      ...(options
+        ? {
+            collision: options.collision,
+            throttleBps: options.throttleBps,
+            ...(options.force ? { force: true } : {})
+          }
+        : {})
     });
     if (!started?.jobId) {
       // `callServerFs` keeps the server's own reason out of band; surface it so
@@ -757,6 +763,9 @@ class FileSystemEngine {
     return this.callServerFs<FreeSpaceReport>('freespace', {
       plans: usable.map(plan => ({
         targetDir: plan.targetDir,
+        // The operation matters: a move inside one volume is a rename and needs
+        // no room, so reporting it as a copy would block a safe transfer.
+        op: plan.op,
         sources: plan.entries.map(entry => entry.path)
       }))
     });

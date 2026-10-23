@@ -202,6 +202,11 @@ export interface TransferOptions {
   collision: CollisionPolicy;
   /** Transfer cap in bytes per second; 0 means unlimited. */
   throttleBps: number;
+  /**
+   * Set only when the user accepted a shortfall in the free-space prompt. It
+   * relaxes the server's own space guard; the disk still has the final word.
+   */
+  force?: boolean;
 }
 
 /** Free space on one volume for the bytes a pending transfer needs there. */

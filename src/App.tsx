@@ -427,7 +427,7 @@ export default function App() {
   // through `transferPaths`. Both share the same pause, cancel, collision-prompt
   // and per-file reporting behaviour; the plan's `replay` flag is the only
   // difference that survives into the executor.
-  const enqueueTransferPlan = (plan: TransferPlan, replay = false): string => {
+  const enqueueTransferPlan = (plan: TransferPlan, replay = false, force = false): string => {
     let totalBytes = plan.entries.reduce((acc, entry) => acc + (entry.isDirectory ? 0 : entry.size), 0);
     const startedAt = Date.now();
     let taskId = '';
@@ -515,7 +515,7 @@ export default function App() {
               plan.overwrite,
               onCopied,
               signal,
-              { collision: plan.collision, throttleBps: plan.throttleBps },
+              { collision: plan.collision, throttleBps: plan.throttleBps, force },
               askConflict,
               onFiles,
               (info) => {
@@ -587,10 +587,12 @@ export default function App() {
 
   // Forcing does not skip the warning for the next batch: the plans go straight
   // to the queue because the user already saw the numbers and accepted them.
+  // `force` also travels into each job, otherwise the server's own guard would
+  // refuse the very copy the user just approved.
   const handleForceTransfer = () => {
     const prompt = freeSpacePrompt;
     setFreeSpacePrompt(null);
-    if (prompt) for (const plan of prompt.plans) enqueueTransferPlan(plan, prompt.replay);
+    if (prompt) for (const plan of prompt.plans) enqueueTransferPlan(plan, prompt.replay, true);
   };
 
   // Replays every transfer in a loaded copy list, one queued task per batch.

@@ -778,6 +778,9 @@ function makeJob(op, label) {
     conflictDecision: null,
     // "Apply to all" promotes one answer into the policy for the whole job.
     conflictOverride: null,
+    // Set by the renderer when the user accepted a shortfall in the free-space
+    // prompt; only relaxes the guard, never the filesystem itself.
+    force: false,
     // Tail of the files this job touched, newest last. Bounded by
     // RECENT_FILES_LIMIT so a huge tree cannot blow up the snapshot.
     recentFiles: []
@@ -1230,9 +1233,16 @@ async function runTransferJob(job, sources, targetDir) {
     if (free > 0 && job.totalBytes > free) {
       const gb = (n) => `${(n / 1024 / 1024 / 1024).toFixed(1)} GB`;
       const message = `Not enough space on the target: ${gb(job.totalBytes)} needed, ${gb(free)} free`;
-      jobLog('no-space', job.id, message);
-      job.errors.push({ path: targetDir, message });
-      throw new Error(message);
+      if (job.force) {
+        // The user saw these same numbers and chose to proceed. The disk stays
+        // the final authority: an ENOSPC still fails the job, but this guard
+        // does not get to overrule an explicit decision.
+        jobLog('no-space-forced', job.id, message);
+      } else {
+        jobLog('no-space', job.id, message);
+        job.errors.push({ path: targetDir, message });
+        throw new Error(message);
+      }
     }
   }
 
@@ -1354,6 +1364,10 @@ function registerFsRoutes() {
         ? requestedPolicy
         : (body.overwrite === false ? 'rename' : 'overwrite');
       job.throttleBps = Number(body.throttleBps) > 0 ? Number(body.throttleBps) : 0;
+      // A forced copy is the user's explicit answer to the numbers the
+      // free-space prompt already showed. Carry it into the job so the guard
+      // below records the overflow instead of refusing an approved transfer.
+      job.force = body.force === true;
       // The client only needs the job id to start polling. Sizing the tree here
       // meant a large folder blocked the response until the walk finished, and
       // any client timeout turned a working transfer into "could not start".
@@ -1500,8 +1514,14 @@ function registerFsRoutes() {
         const root = path.win32.parse(targetDir).root.toUpperCase();
         const group = volumes.get(root) || { volume: root, size: 0, free: null, lacking: 0 };
         const sources = Array.isArray(plan.sources) ? plan.sources.slice(0, 5000) : [];
+        const op = String(plan.op || 'copy').toLowerCase() === 'move' ? 'move' : 'copy';
         for (const value of sources) {
-          const measured = await measureTree(assertSafePath(value));
+          const source = assertSafePath(value);
+          // A move inside one volume is a rename: no byte is written, so it needs
+          // no room at all. Counting those bytes would refuse a transfer that
+          // cannot possibly fill the disk.
+          if (op === 'move' && path.win32.parse(source).root.toUpperCase() === root) continue;
+          const measured = await measureTree(source);
           group.size += measured.bytes;
         }
         volumes.set(root, group);

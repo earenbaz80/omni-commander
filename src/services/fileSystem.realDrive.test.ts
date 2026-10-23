@@ -283,7 +283,9 @@ describe('FileSystemEngine real-drive bridge', () => {
     expect(call).toBeDefined();
     expect(call!.method).toBe('POST');
     expect(call!.body).toEqual({
-      plans: [{ targetDir: 'T:\\dest', sources: ['T:\\a.txt', 'T:\\folder'] }]
+      plans: [
+        { targetDir: 'T:\\dest', op: 'copy', sources: ['T:\\a.txt', 'T:\\folder'] }
+      ]
     });
     expect(report?.volumes).toEqual([{ volume: 'T:\\', size: 200, free: 50, lacking: 150 }]);
   });
@@ -304,6 +306,48 @@ describe('FileSystemEngine real-drive bridge', () => {
 
     expect(report).toEqual({ volumes: [] });
     expect(calls.some(c => c.url.includes('/api/fs/freespace'))).toBe(false);
+  });
+
+  it('reports the operation so a same-volume move is not read as a copy', async () => {
+    await fsEngine.checkFreeSpace([
+      {
+        op: 'move',
+        sourceDriveId: 'real_T',
+        targetDriveId: 'real_T',
+        targetDir: 'T:\\dest',
+        overwrite: false,
+        collision: 'ask',
+        throttleBps: 0,
+        entries: [{ path: 'T:\\a.txt', name: 'a', isDirectory: false, size: 10 }]
+      }
+    ]);
+
+    const call = calls.find(c => c.url.includes('/api/fs/freespace'));
+    // The server needs the op to know that a rename needs no room at all.
+    expect(call!.body.plans[0].op).toBe('move');
+  });
+
+  it('carries a forced decision into the transfer request', async () => {
+    await fsEngine.transferPaths('copy', ['T:\\a.txt'], 'T:\\dest', true, undefined, undefined, {
+      collision: 'skip',
+      throttleBps: 0,
+      force: true
+    });
+
+    const call = calls.find(c => c.url.includes('/api/fs/copy'));
+    // Without this the server's own space guard would refuse the copy the user
+    // already approved in the free-space prompt.
+    expect(call!.body.force).toBe(true);
+  });
+
+  it('leaves force out of a normal transfer request', async () => {
+    await fsEngine.transferPaths('copy', ['T:\\a.txt'], 'T:\\dest', true, undefined, undefined, {
+      collision: 'skip',
+      throttleBps: 0
+    });
+
+    const call = calls.find(c => c.url.includes('/api/fs/copy'));
+    expect('force' in call!.body).toBe(false);
   });
 
   it('sizes paths picked outside the panels and reports the missing ones', async () => {
