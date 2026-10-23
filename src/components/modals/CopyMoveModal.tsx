@@ -94,6 +94,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
   const [afterFinish, setAfterFinish] = useState<AfterFinish>(readAfterFinish);
   const [finishedPrompt, setFinishedPrompt] = useState(false);
   const [listNote, setListNote] = useState('');
+  const [selected, setSelected] = useState<Set<number>>(new Set());
   // Once a transfer starts this window turns into its progress view instead of
   // closing: every other file manager keeps the operation on screen until the
   // user decides to send it to the background.
@@ -350,6 +351,12 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             {active?.plan?.entries?.length ? (
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2 text-[10px]">
+                  <button type="button" onClick={() => setSelected(new Set((active?.plan?.entries || []).map((_, i) => i)))} disabled={!active?.plan?.entries?.length} className="px-2 py-0.5 border border-white/20 rounded cursor-pointer disabled:opacity-40">All</button>
+                  <button type="button" onClick={() => setSelected(new Set((active?.plan?.entries || []).map((_, i) => i).filter(i => !selected.has(i))))} disabled={!active?.plan?.entries?.length} className="px-2 py-0.5 border border-white/20 rounded cursor-pointer disabled:opacity-40">Invert</button>
+                  <button type="button" onClick={() => { if (!active?.plan?.entries) return; const next = active.plan.entries.filter((_, i) => !selected.has(i)); taskQueue.updateTaskMeta(active.id, { plan: { ...active.plan, entries: next }, totalBytes: next.reduce((a, e) => a + (e.isDirectory ? 0 : e.size), 0) }); setSelected(new Set()); }} disabled={selected.size === 0} className="px-2 py-0.5 border border-rose-500/50 rounded text-rose-300 cursor-pointer disabled:opacity-40">Remove selected</button>
+                  <span className="opacity-60 ml-auto">{selected.size > 0 ? `${selected.size} selected` : ''}</span>
+                </div>
+                <div className="flex items-center gap-2 text-[10px]">
                   <span className="opacity-60">{t.sortBy}</span>
                   <select
                     value=""
@@ -363,7 +370,8 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                     <option value="size">{t.transferColSize}</option>
                   </select>
                 </div>
-                <div className="grid gap-1 text-[10px] font-bold opacity-60" style={{ gridTemplateColumns: '1.5rem 1fr 4.5rem 1fr 1.25rem' }}>
+                <div className="grid gap-1 text-[10px] font-bold opacity-60" style={{ gridTemplateColumns: '1.5rem 1.25rem 1fr 4.5rem 1fr 1.25rem' }}>
+                  <div />
                   <div />
                   <div>{t.transferColSource}</div>
                   <div>{t.transferColSize}</div>
@@ -374,9 +382,19 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                   <div
                     key={`${entry.path}-${index}`}
                     className="grid gap-1 items-center text-[11px]"
-                    style={{ gridTemplateColumns: '1.5rem 1fr 4.5rem 1fr 1.25rem' }}
+                    style={{ gridTemplateColumns: '1.5rem 1.25rem 1fr 4.5rem 1fr 1.25rem' }}
                   >
                     <span className="opacity-50">{index + 1}.</span>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(index)}
+                      onChange={(e) => {
+                        const next = new Set(selected);
+                        if (e.target.checked) next.add(index); else next.delete(index);
+                        setSelected(next);
+                      }}
+                      className="cursor-pointer"
+                    />
                     <span className="truncate font-mono" title={entry.path}>{entry.path}</span>
                     <span className="opacity-80">{formatBytes(entry.size)}</span>
                     <span className="truncate font-mono opacity-80" title={active.plan!.targetDir}>{active.plan!.targetDir}</span>
