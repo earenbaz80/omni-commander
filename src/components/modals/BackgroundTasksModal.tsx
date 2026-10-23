@@ -9,6 +9,7 @@ import { soundManager } from '../../services/soundEffects';
 import { useModalDialog } from '../../hooks/useModalDialog';
 import { getTranslations } from '../../i18n/translations';
 import { RetroProgressBar } from '../RetroProgressBar';
+import ModalShell from '../ModalShell';
 
 interface BackgroundTasksModalProps {
   theme: ThemeConfig;
@@ -90,37 +91,8 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.bgTasksModalTitle);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fadeIn select-none font-mono">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="w-full max-w-2xl rounded shadow-2xl border flex flex-col overflow-hidden text-xs max-h-[85vh]"
-        style={{
-          backgroundColor: theme.bgPanel,
-          borderColor: theme.borderPanel,
-          color: theme.itemText
-        }}
-      >
-        {/* Header */}
-        <div 
-          className="flex items-center justify-between px-3 py-2 font-bold uppercase tracking-wider select-none border-b"
-          style={{
-            backgroundColor: theme.headerBg,
-            color: theme.headerText,
-            borderColor: theme.borderPanel
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <Activity className="w-4 h-4 text-cyan-400 animate-pulse" />
-            <span>{t.bgTasksTitle}</span>
-          </div>
-          <button 
-            onClick={onClose}
-            className="px-2 py-0.5 bg-black/30 hover:bg-black/60 rounded text-xs cursor-pointer font-bold"
-          >
-            ✕
-          </button>
-        </div>
+    <ModalShell title={t.bgTasksTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
+      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
 
         {/* Action Controls */}
         <div className="p-3 bg-black/40 border-b border-white/10 flex items-center justify-between gap-2">
@@ -157,7 +129,7 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
         </div>
 
         {listStatus && (
-          <div className="px-3 py-1.5 bg-black/60 border-b border-white/10 text-[10px] text-cyan-300 break-all">
+          <div className="px-3 py-1.5 bg-black/60 border-b border-white/10 text-[var(--fs-8)] text-cyan-300 break-all">
             {listStatus}
           </div>
         )}
@@ -174,15 +146,15 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
                 key={task.id}
                 className="p-2.5 bg-black/50 border border-white/10 rounded flex flex-col gap-1.5"
               >
-                <div className="flex items-center justify-between text-[11px]">
+                <div className="flex items-center justify-between text-[var(--fs-sm)]">
                   <div className="flex items-center gap-2 font-bold text-white">
-                    <span className="px-1.5 py-0.2 text-[9px] uppercase bg-cyan-950 text-cyan-300 border border-cyan-500/30 rounded">
+                    <span className="px-1.5 py-0.2 text-[var(--fs-8)] uppercase bg-cyan-950 text-cyan-300 border border-cyan-500/30 rounded">
                       {task.type}
                     </span>
                     <span>{task.title}</span>
                   </div>
 
-                  <div className="flex items-center gap-2 text-[10px]">
+                  <div className="flex items-center gap-2 text-[var(--fs-8)]">
                     {task.speed && isRunning && (
                       <span className="text-amber-300 font-bold">{task.speed}</span>
                     )}
@@ -198,13 +170,13 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
                 </div>
 
                 {task.details && (
-                  <div className="text-[10px] opacity-60 truncate">
+                  <div className="text-[var(--fs-8)] opacity-60 truncate">
                     {task.details}
                   </div>
                 )}
 
                 {task.currentFile && (isRunning || isPaused) && (
-                  <div className="text-[10px] opacity-50 truncate font-mono">
+                  <div className="text-[var(--fs-8)] opacity-50 truncate font-mono">
                     {task.currentFile}
                   </div>
                 )}
@@ -213,7 +185,7 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
                     with its own progress readout. */}
                 {task.files && task.files.length > 0 && (
                   <div className="bg-black/40 border border-white/10 rounded-sm px-2 py-1 max-h-32 overflow-y-auto">
-                    <div className="flex items-center justify-between text-[9px] uppercase opacity-50">
+                    <div className="flex items-center justify-between text-[var(--fs-8)] uppercase opacity-50">
                       <span>{t.bgTasksFiles}</span>
                       <span className="tabular-nums">{task.files.length}</span>
                     </div>
@@ -232,7 +204,7 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
                       return (
                         <div
                           key={file.path}
-                          className="flex items-center gap-2 text-[10px] font-mono py-0.5"
+                          className="flex items-center gap-2 text-[var(--fs-8)] font-mono py-0.5"
                           title={file.path}
                         >
                           <span className={`shrink-0 ${tone}`}>{mark}</span>
@@ -247,7 +219,7 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
                 )}
 
                 {task.error && (
-                  <div className="text-[10px] text-rose-300 bg-rose-950/40 border-l-2 border-rose-500 px-2 py-1 rounded-sm break-words">
+                  <div className="text-[var(--fs-8)] text-rose-300 bg-rose-950/40 border-l-2 border-rose-500 px-2 py-1 rounded-sm break-words">
                     {task.error}
                   </div>
                 )}
@@ -260,7 +232,7 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
                   className="text-xs w-full"
                 />
 
-                <div className="flex items-center justify-between text-[10px] opacity-75 tabular-nums">
+                <div className="flex items-center justify-between text-[var(--fs-8)] opacity-75 tabular-nums">
                   <span>{t.bgTasksProgress.replace('{n}', String(task.progress))}</span>
                   <div className="flex items-center gap-2">
                     {isRunning && (
@@ -304,11 +276,11 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-2.5 bg-black/60 border-t border-white/10 flex items-center justify-between text-[10px] opacity-75">
+        <div className="p-2.5 bg-black/60 border-t border-white/10 flex items-center justify-between text-[var(--fs-8)] opacity-75">
           <span>{t.bgTasksNote}</span>
           <span>{t.escToExit}</span>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 };

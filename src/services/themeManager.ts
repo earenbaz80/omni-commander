@@ -33,6 +33,12 @@ export interface ThemeConfig {
   modalHeaderBg: string;
   modalHeaderText: string;
   accent: string;
+  accentWarn: string;
+  accentDanger: string;
+  accentOk: string;
+  overlay: string;
+  radius: string;
+  shadow: string;
   isRetro: boolean;
 }
 
@@ -69,6 +75,12 @@ const classicBlueConfig: ThemeConfig = {
   modalHeaderBg: '#00aaaa',
   modalHeaderText: '#000000',
   accent: '#55ffff',
+  accentWarn: '#ffb000',
+  accentDanger: '#ff5555',
+  accentOk: '#55ff55',
+  overlay: '#00000099',
+  radius: '0',
+  shadow: 'none',
   isRetro: true,
 };
 
@@ -105,6 +117,12 @@ const retroGrayConfig: ThemeConfig = {
   modalHeaderBg: '#334155',
   modalHeaderText: '#f8fafc',
   accent: '#38bdf8',
+  accentWarn: '#f6e05e',
+  accentDanger: '#f87171',
+  accentOk: '#34d399',
+  overlay: '#00000088',
+  radius: '0',
+  shadow: 'none',
   isRetro: false,
 };
 
@@ -146,6 +164,12 @@ export const themes: Record<ThemeId, ThemeConfig> = {
     modalHeaderBg: '#ffb000',
     modalHeaderText: '#000000',
     accent: '#ffb000',
+    accentWarn: '#ffd266',
+    accentDanger: '#ff8c42',
+    accentOk: '#a3e4d7',
+    overlay: '#00000099',
+    radius: '0',
+    shadow: 'none',
     isRetro: true,
   },
   matrix_green: {
@@ -181,6 +205,12 @@ export const themes: Record<ThemeId, ThemeConfig> = {
     modalHeaderBg: '#00ff66',
     modalHeaderText: '#040d06',
     accent: '#00ff66',
+    accentWarn: '#38ef7d',
+    accentDanger: '#f87171',
+    accentOk: '#a3e4d7',
+    overlay: '#00000088',
+    radius: '0',
+    shadow: 'none',
     isRetro: true,
   },
   windows11_dark: {
@@ -216,6 +246,12 @@ export const themes: Record<ThemeId, ThemeConfig> = {
     modalHeaderBg: '#18181b',
     modalHeaderText: '#f4f4f5',
     accent: '#3b82f6',
+    accentWarn: '#a5f3fc',
+    accentDanger: '#f87171',
+    accentOk: '#a3e4d7',
+    overlay: '#00000088',
+    radius: '0',
+    shadow: 'none',
     isRetro: false,
   },
   windows11_light: {
@@ -251,6 +287,12 @@ export const themes: Record<ThemeId, ThemeConfig> = {
     modalHeaderBg: '#f1f5f9',
     modalHeaderText: '#0f172a',
     accent: '#2563eb',
+    accentWarn: '#c6f1ff',
+    accentDanger: '#f87171',
+    accentOk: '#a3e4d7',
+    overlay: '#00000088',
+    radius: '0',
+    shadow: 'none',
     isRetro: false,
   },
   dracula_retro: {
@@ -286,6 +328,12 @@ export const themes: Record<ThemeId, ThemeConfig> = {
     modalHeaderBg: '#44475a',
     modalHeaderText: '#f8f8f2',
     accent: '#bd93f9',
+    accentWarn: '#c6f1ff',
+    accentDanger: '#f87171',
+    accentOk: '#a3e4d7',
+    overlay: '#00000088',
+    radius: '0',
+    shadow: 'none',
     isRetro: false,
   },
   solarized_dark: {
@@ -321,6 +369,12 @@ export const themes: Record<ThemeId, ThemeConfig> = {
     modalHeaderBg: '#073642',
     modalHeaderText: '#93a1a1',
     accent: '#268bd2',
+    accentWarn: '#b58900',
+    accentDanger: '#dc322f',
+    accentOk: '#859900',
+    overlay: '#00000077',
+    radius: '0',
+    shadow: 'none',
     isRetro: false,
   },
 };

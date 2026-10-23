@@ -6,6 +6,7 @@ import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
+import ModalShell from '../ModalShell';
 
 interface HelpModalProps {
   theme: ThemeConfig;
@@ -70,32 +71,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.helpDialogLabel);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 font-mono select-none">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="w-full max-w-4xl h-[88vh] flex flex-col rounded shadow-2xl border text-xs overflow-hidden"
-        style={{
-          backgroundColor: theme.modalBg,
-          borderColor: theme.modalBorder,
-          color: theme.itemText
-        }}
-      >
-        {/* Header */}
-        <div 
-          className="flex items-center justify-between px-3 py-2 border-b font-bold shrink-0"
-          style={{
-            backgroundColor: theme.modalHeaderBg,
-            color: theme.modalHeaderText,
-            borderColor: theme.modalBorder
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <BookOpen className="w-4 h-4" />
-            <span>{t.helpManualTitle}</span>
-          </div>
-          <button onClick={onClose} className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer font-bold">✕</button>
-        </div>
+    <ModalShell title={t.helpManualTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
+      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
 
         {/* Tab Navigation */}
         <div className="flex items-center gap-1 px-3 py-1.5 bg-black/40 border-b border-white/10 shrink-0 overflow-x-auto no-scrollbar">
@@ -161,10 +138,10 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {group.shortcuts.map((sc, sIdx) => (
                       <div key={sIdx} className="p-2 bg-black/30 rounded border border-white/10 flex items-start gap-2">
-                        <span className="px-1.5 py-0.5 bg-black/60 border border-amber-400/40 text-amber-300 font-bold rounded text-[10px] shrink-0">
+                        <span className="px-1.5 py-0.5 bg-black/60 border border-amber-400/40 text-amber-300 font-bold rounded text-[var(--fs-8)] shrink-0">
                           {sc.key}
                         </span>
-                        <span className="opacity-90 text-[11px]">{sc.desc}</span>
+                        <span className="opacity-90 text-[var(--fs-sm)]">{sc.desc}</span>
                       </div>
                     ))}
                   </div>
@@ -175,7 +152,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
 
           {/* 2. Dual Panel Tab */}
           {activeTab === 'dual_panel' && (
-            <div className="space-y-3 leading-relaxed text-[11px]">
+            <div className="space-y-3 leading-relaxed text-[var(--fs-sm)]">
               <div className="p-3 bg-black/40 rounded border border-white/10 space-y-2">
                 <h4 className="text-amber-300 font-bold text-xs uppercase">{t.helpDualPane}</h4>
                 <p>
@@ -201,7 +178,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
 
           {/* 3. Commands Tab */}
           {activeTab === 'commands' && (
-            <div className="space-y-3 leading-relaxed text-[11px]">
+            <div className="space-y-3 leading-relaxed text-[var(--fs-sm)]">
               <p className="opacity-90">
                 {t.helpCommandsIntro}
               </p>
@@ -223,7 +200,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                 ].map((c, idx) => (
                   <div key={idx} className="p-2 bg-black/40 rounded border border-white/10">
                     <span className="font-bold text-amber-300 block text-xs">{c.cmd}</span>
-                    <span className="opacity-80 text-[11px]">{c.desc}</span>
+                    <span className="opacity-80 text-[var(--fs-sm)]">{c.desc}</span>
                   </div>
                 ))}
               </div>
@@ -232,13 +209,13 @@ export const HelpModal: React.FC<HelpModalProps> = ({
 
           {/* 4. Tools Tab */}
           {activeTab === 'tools' && (
-            <div className="space-y-3 leading-relaxed text-[11px]">
+            <div className="space-y-3 leading-relaxed text-[var(--fs-sm)]">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="p-3 bg-black/40 rounded border border-white/10 space-y-1">
                   <h4 className="font-bold text-amber-300 flex items-center gap-1.5">
                     <FileText className="w-3.5 h-3.5" /> {t.helpToolRenameTitle}
                   </h4>
-                  <p className="opacity-80">
+                  <p className="opacity-80 text-[var(--fs-sm)]">
                     {t.helpToolRenameDesc}
                   </p>
                 </div>
@@ -247,7 +224,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                   <h4 className="font-bold text-cyan-300 flex items-center gap-1.5">
                     <GitCompare className="w-3.5 h-3.5" /> {t.helpToolDiffTitle}
                   </h4>
-                  <p className="opacity-80">
+                  <p className="opacity-80 text-[var(--fs-sm)]">
                     {t.helpToolDiffDesc}
                   </p>
                 </div>
@@ -256,7 +233,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                   <h4 className="font-bold text-emerald-300 flex items-center gap-1.5">
                     <Search className="w-3.5 h-3.5" /> {t.helpToolSearchTitle}
                   </h4>
-                  <p className="opacity-80">
+                  <p className="opacity-80 text-[var(--fs-sm)]">
                     {t.helpToolSearchDesc}
                   </p>
                 </div>
@@ -265,7 +242,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                   <h4 className="font-bold text-fuchsia-300 flex items-center gap-1.5">
                     <Hash className="w-3.5 h-3.5" /> {t.helpToolChecksumTitle}
                   </h4>
-                  <p className="opacity-80">
+                  <p className="opacity-80 text-[var(--fs-sm)]">
                     {t.helpToolChecksumDesc}
                   </p>
                 </div>
@@ -282,7 +259,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
             borderColor: theme.modalBorder
           }}
         >
-          <span className="opacity-70 text-[11px]">{t.helpFooter}</span>
+          <span className="opacity-70 text-[var(--fs-sm)]">{t.helpFooter}</span>
           <button
             onClick={onClose}
             className="px-5 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow"
@@ -291,6 +268,6 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 };

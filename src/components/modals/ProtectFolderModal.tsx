@@ -6,6 +6,7 @@ import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
+import ModalShell from '../ModalShell';
 
 interface ProtectFolderModalProps {
   theme: ThemeConfig;
@@ -52,37 +53,11 @@ export const ProtectFolderModal: React.FC<ProtectFolderModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.protectDialogTitle);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 font-mono select-none">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="w-full max-w-md rounded shadow-2xl border text-xs overflow-hidden"
-        style={{
-          backgroundColor: theme.modalBg,
-          borderColor: theme.modalBorder,
-          color: theme.itemText
-        }}
-      >
-        {/* Header */}
-        <div 
-          className="flex items-center justify-between px-3 py-2 border-b font-bold shrink-0"
-          style={{
-            backgroundColor: theme.modalHeaderBg,
-            color: theme.modalHeaderText,
-            borderColor: theme.modalBorder
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <Lock className="w-4 h-4" />
-            <span>{t.protectTitle}</span>
-          </div>
-          <button onClick={onClose} className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer font-bold">✕</button>
-        </div>
-
-        {/* Content */}
+    <ModalShell title={t.protectTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
+      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
         <div className="p-4 space-y-4">
           <div className="p-2.5 bg-black/40 rounded border border-white/10 space-y-1">
-            <span className="text-[10px] opacity-70 uppercase font-bold block">{t.protectTarget}</span>
+            <span className="text-[var(--fs-8)] opacity-70 uppercase font-bold block">{t.protectTarget}</span>
             <span className="font-bold text-amber-300 text-xs break-all">{folderPath}</span>
           </div>
 
@@ -92,7 +67,7 @@ export const ProtectFolderModal: React.FC<ProtectFolderModalProps> = ({
                 <ShieldCheck className="w-5 h-5 text-red-400" />
                 <span>{t.protectAlready}</span>
               </div>
-              <p className="text-[11px] opacity-80">
+              <p className="text-[var(--fs-sm)] opacity-80">
                 {t.protectWarning}
               </p>
               <button
@@ -105,14 +80,14 @@ export const ProtectFolderModal: React.FC<ProtectFolderModalProps> = ({
           ) : (
             <div className="space-y-3">
               {errorMsg && (
-                <div className="p-2 bg-red-950 border border-red-500 text-red-300 font-bold rounded text-[11px] flex items-center gap-1.5">
+                <div className="p-2 bg-red-950 border border-red-500 text-red-300 font-bold rounded text-[var(--fs-sm)] flex items-center gap-1.5">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
                   <span>{errorMsg}</span>
                 </div>
               )}
 
               <div>
-                <label className="block text-[11px] font-bold mb-1 opacity-80">{t.protectNewPass}</label>
+                <label className="block text-[var(--fs-sm)] font-bold mb-1 opacity-80">{t.protectNewPass}</label>
                 <input
                   type="password"
                   value={password}
@@ -127,7 +102,7 @@ export const ProtectFolderModal: React.FC<ProtectFolderModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold mb-1 opacity-80">{t.protectConfirm}</label>
+                <label className="block text-[var(--fs-sm)] font-bold mb-1 opacity-80">{t.protectConfirm}</label>
                 <input
                   type="password"
                   value={confirmPassword}
@@ -159,6 +134,6 @@ export const ProtectFolderModal: React.FC<ProtectFolderModalProps> = ({
           )}
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 };

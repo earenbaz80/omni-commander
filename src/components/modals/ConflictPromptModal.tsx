@@ -5,6 +5,7 @@ import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
+import ModalShell from '../ModalShell';
 
 interface ConflictPromptModalProps {
   conflict: PendingConflict;
@@ -70,52 +71,25 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 font-mono select-none">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="flex flex-col rounded shadow-2xl border text-xs overflow-hidden"
-        style={{
-          backgroundColor: theme.modalBg,
-          borderColor: theme.modalBorder,
-          color: theme.itemText,
-          width: '36rem',
-          maxWidth: '100%'
-        }}
-      >
-        <div
-          className="flex items-center justify-between px-3 py-2 border-b font-bold shrink-0"
-          style={{
-            backgroundColor: theme.modalHeaderBg,
-            color: theme.modalHeaderText,
-            borderColor: theme.modalBorder
-          }}
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <TriangleAlert className="w-4 h-4 shrink-0" />
-            <span className="truncate" title={conflict.destination}>{t.conflictTitle}: {conflict.name}</span>
-          </div>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer"
-            aria-label={t.btnCancel}
-          >
-            ✕
-          </button>
+    <ModalShell title={t.conflictTitle} theme={theme} onClose={onCancel} closeButtonLabel={t.btnCancel}>
+      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+        {/* Header with icon and full destination path */}
+        <div className="flex items-center gap-2 min-w-0 pb-2 border-b font-bold shrink-0" style={{ borderBottomColor: theme.modalBorder }}>
+          <TriangleAlert className="w-4 h-4 shrink-0" />
+          <span className="truncate" title={conflict.destination}>{t.conflictTitle}: {conflict.name}</span>
         </div>
 
         <div className="p-4 flex flex-col gap-3">
           <span className="opacity-75">{t.conflictBody}</span>
 
-          <div className="grid gap-x-3 gap-y-1 text-[11px] border border-white/10 rounded bg-black/30 p-2 break-all">
-            <span className="font-bold text-amber-300">{t.transferColSource}</span>
+          <div className="grid gap-x-3 gap-y-1 text-[var(--fs-sm)] border border-white/10 rounded bg-black/30 p-2 break-all">
+            <span className="font-bold" style={{ color: theme.accentWarn }}>{t.transferColSource}</span>
             <span className="opacity-90">{conflict.source}</span>
-            <span className="font-bold text-amber-300">{t.transferColDest}</span>
+            <span className="font-bold" style={{ color: theme.accentWarn }}>{t.transferColDest}</span>
             <span className="opacity-90">{conflict.destination}</span>
           </div>
 
-          <table className="w-full text-[11px] border border-white/10 rounded">
+          <table className="w-full text-[var(--fs-sm)] border border-white/10 rounded">
             <thead>
               <tr className="opacity-60">
                 <th className="text-left font-bold px-2 py-1 w-24" />
@@ -135,10 +109,10 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
           </table>
 
           {conflict.identical && (
-            <span className="text-[11px] text-emerald-300">{t.conflictIdentical}</span>
+            <span className="text-[var(--fs-sm)] text-emerald-300">{t.conflictIdentical}</span>
           )}
 
-          <fieldset className="flex items-center gap-4 text-[11px]">
+          <fieldset className="flex items-center gap-4 text-[var(--fs-sm)]">
             <label className="flex items-center gap-1.5 cursor-pointer">
               <input
                 type="radio"
@@ -160,7 +134,7 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
                 onChange={() => setScope('always')}
                 className="cursor-pointer"
               />
-              <span className={scope === 'always' ? 'text-amber-300 font-bold' : ''}>{t.conflictAlwaysMode}</span>
+              <span className={scope === 'always' ? 'font-bold' : ''} style={{ color: scope === 'always' ? theme.accentWarn : 'inherit' }}>{t.conflictAlwaysMode}</span>
             </label>
           </fieldset>
         </div>
@@ -190,7 +164,7 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
           ))}
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 };
 

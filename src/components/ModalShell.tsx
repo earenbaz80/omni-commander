@@ -1,44 +1,92 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
+import { X } from 'lucide-react';
+import { ThemeConfig } from '../services/themeManager';
 import { useModalDialog } from '../hooks/useModalDialog';
 
 interface ModalShellProps {
+  title?: string;
+  label?: string;
+  theme: ThemeConfig;
   children: React.ReactNode;
-  /** Accessible name of the dialog (announced by screen readers). */
-  label: string;
-  /** Classes applied to the dialog panel. */
-  panelClassName?: string;
-  /** Inline styles applied to the dialog panel. */
-  panelStyle?: React.CSSProperties;
+  onClose?: () => void;
+  overlay?: boolean;
+  autoFocusOnOpen?: boolean;
+  closeButtonLabel?: string;
 }
 
 /**
- * Shared modal frame. The accessibility behaviour (dialog role, accessible
- * name, Tab focus trap, focus restoration) lives in useModalDialog so every
- * modal can opt in the same way.
- *
- * Escape is already handled globally by App (keyboard engine), so it is
- * deliberately not duplicated here.
+ * Consolidated modal shell component that provides consistent:
+ * - Backdrop with z-index and overlay handling
+ * - Header with title/label and close button
+ * - Focus trap via useModalDialog hook
+ * - Keyboard escape key handling
+ * - Consistent stacking order
  */
-export const ModalShell: React.FC<ModalShellProps> = ({
-  children,
+function ModalShell({
+  title,
   label,
-  panelClassName = '',
-  panelStyle,
-}) => {
-  const dialogRef = useModalDialog<HTMLDivElement>(label);
+  theme,
+  children,
+  onClose,
+  overlay = true,
+  autoFocusOnOpen = false,
+  closeButtonLabel = 'Cerrar modal',
+}: ModalShellProps): React.JSX.Element {
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  // Use the shared modal dialog hook for consistent behavior
+  // Prefer explicit `label` for accessibility (aria-label), fallback to `title`
+  const titleText = label || title || 'Modal';
+  useModalDialog(titleText, modalRef);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 font-mono select-none">
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      style={{
+        backgroundColor: overlay ? theme.overlay : 'transparent',
+      }}
+    >
       <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className={panelClassName}
-        style={panelStyle}
+        ref={modalRef}
+        className="relative w-full max-w-3xl overflow-hidden rounded border bg-app shadow-lg"
+        style={{
+          borderColor: theme.modalBorder,
+          backgroundColor: theme.modalBg,
+        }}
       >
-        {children}
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-4 py-2.5 border-b"
+          style={{
+            backgroundColor: theme.modalHeaderBg,
+            borderColor: theme.modalBorder,
+          }}
+        >
+          <h3
+            className="text-sm font-bold text-left"
+            style={{ color: theme.modalHeaderText }}
+          >
+            {title || label}
+          </h3>
+          {onClose && (
+            <button
+              onClick={onClose}
+              aria-label={closeButtonLabel}
+              className="p-1 rounded hover:bg-black/20 cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+              style={{ color: theme.modalHeaderText }}
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="p-4">{children}</div>
+
+        {/* Footer - optional, can be conditionally rendered in child components */}
       </div>
     </div>
   );
-};
+}
 
 export default ModalShell;

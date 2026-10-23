@@ -1,10 +1,53 @@
-import { describe, it, expect } from 'vitest';
+import { ThemeConfig } from '../services/themeManager';
+import ModalShell from './ModalShell';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { ModalShell } from './ModalShell';
+
+// Mock theme object for tests
+const mockTheme: ThemeConfig = {
+  id: 'classic_blue',
+  nameKey: 'themeNorton',
+  bgApp: '#000084',
+  bgPanel: '#0000a8',
+  bgPanelInactive: '#000084',
+  borderPanel: '#55ffff',
+  borderFocus: '#ffffff',
+  headerBg: '#1e90ff',
+  headerText: '#000000',
+  itemText: '#000000',
+  dirText: '#0f4c81',
+  exeText: '#ffe082',
+  zipText: '#ffcdd2',
+  docText: '#e1f5fe',
+  mediaText: '#fce4ec',
+  selectedText: '#ffffff',
+  selectedBg: '#6090ff',
+  cursorBg: '#7faaff',
+  cursorText: '#000084',
+  statusBg: '#0f264d',
+  statusText: '#55ffff',
+  fkeyNumBg: '#000000',
+  fkeyNumText: '#ff9100',
+  fkeyLabelBg: '#3e2400',
+  fkeyLabelText: '#ffb000',
+  promptBg: '#000000',
+  promptText: '#ffb000',
+  modalBg: '#f5f5f5',
+  modalBorder: '#cccccc',
+  modalHeaderBg: '#ffffff',
+  modalHeaderText: '#000000',
+  accent: '#3b82f6',
+  accentWarn: '#a5f3fc',
+  accentDanger: '#f87171',
+  accentOk: '#a3e4d7',
+  overlay: '#00000088',
+  radius: '0',
+  shadow: 'none',
+  isRetro: false,
+};
 
 function TwoButtons() {
   return (
-    <ModalShell label="Ajustes">
+    <ModalShell label="Ajustes" theme={mockTheme}>
       <button type="button">primero</button>
       <button type="button">segundo</button>
     </ModalShell>
@@ -14,7 +57,7 @@ function TwoButtons() {
 describe('ModalShell', () => {
   it('exposes an accessible dialog with the given label', () => {
     render(
-      <ModalShell label="Ajustes">
+      <ModalShell label="Ajustes" theme={mockTheme}>
         <p>contenido</p>
       </ModalShell>
     );

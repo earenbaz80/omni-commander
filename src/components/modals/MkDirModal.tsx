@@ -6,6 +6,7 @@ import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
+import ModalShell from '../ModalShell';
 
 interface MkDirModalProps {
   theme: ThemeConfig;
@@ -37,32 +38,8 @@ export const MkDirModal: React.FC<MkDirModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.toolbarNewFolder);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 font-mono select-none">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="w-full max-w-md rounded shadow-2xl border text-xs overflow-hidden"
-        style={{
-          backgroundColor: theme.modalBg,
-          borderColor: theme.modalBorder,
-          color: theme.itemText
-        }}
-      >
-        <div 
-          className="flex items-center justify-between px-3 py-2 border-b font-bold"
-          style={{
-            backgroundColor: theme.modalHeaderBg,
-            color: theme.modalHeaderText,
-            borderColor: theme.modalBorder
-          }}
-        >
-          <div className="flex items-center gap-2">
-            {isNewFile ? <FilePlus className="w-4 h-4" /> : <FolderPlus className="w-4 h-4" />}
-            <span>{isNewFile ? t.newFileTitle : `${t.mkdirTitle} (F7)`}</span>
-          </div>
-          <button onClick={onClose} className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer">✕</button>
-        </div>
-
+    <ModalShell title={isNewFile ? t.newFileTitle : `${t.mkdirTitle} (F7)`} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
+      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           <div>
             <span className="opacity-75 block mb-1">
@@ -97,6 +74,6 @@ export const MkDirModal: React.FC<MkDirModalProps> = ({
           </div>
         </form>
       </div>
-    </div>
+    </ModalShell>
   );
 };

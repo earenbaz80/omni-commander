@@ -4,8 +4,8 @@ import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { soundManager } from '../../services/soundEffects';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import { getTranslations } from '../../i18n/translations';
+import ModalShell from '../ModalShell';
 
 interface QuitModalProps {
   theme: ThemeConfig;
@@ -21,37 +21,16 @@ export const QuitModal: React.FC<QuitModalProps> = ({
   onClose
 }) => {
   const t = getTranslations(lang);
-
-  const dialogRef = useModalDialog<HTMLDivElement>(t.quitDialogLabel);
+  const dialogRef = React.useRef<HTMLDivElement>(null);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 font-mono select-none">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="w-full max-w-sm rounded shadow-2xl border text-xs overflow-hidden"
-        style={{
-          backgroundColor: theme.modalBg,
-          borderColor: theme.modalBorder,
-          color: theme.itemText
-        }}
-      >
-        <div 
-          className="flex items-center justify-between px-3 py-2 border-b font-bold shrink-0 bg-red-950/80 text-white"
-          style={{ borderColor: theme.modalBorder }}
-        >
-          <div className="flex items-center gap-2">
-            <Power className="w-4 h-4 text-red-400" />
-            <span>{t.quitTitle}</span>
-          </div>
-          <button onClick={onClose} className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer font-bold">✕</button>
-        </div>
-
+    <ModalShell title={t.quitTitle} label={t.btnCancel} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
+      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
         <div className="p-4 space-y-4 text-center">
           <p className="text-white text-sm font-bold">
             {t.quitConfirmQuestion}
           </p>
-          <p className="opacity-75 text-[11px]">
+          <p className="opacity-75 text-[var(--fs-sm)]">
             {t.quitSavedNote}
           </p>
 
@@ -74,6 +53,6 @@ export const QuitModal: React.FC<QuitModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 };

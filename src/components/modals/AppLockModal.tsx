@@ -7,6 +7,7 @@ import { checkPassword } from '../../services/appLock';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
 import { getTranslations } from '../../i18n/translations';
+import ModalShell from '../ModalShell';
 
 interface AppLockModalProps {
   theme: ThemeConfig;
@@ -64,27 +65,15 @@ export const AppLockModal: React.FC<AppLockModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.lockAriaLabel);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 font-mono select-none backdrop-blur-md">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="w-full max-w-md rounded-lg shadow-2xl border-2 text-xs overflow-hidden animate-in zoom-in-95 duration-200"
-        style={{
-          backgroundColor: theme.modalBg,
-          borderColor: theme.borderFocus,
-          color: theme.itemText
-        }}
-      >
+    <ModalShell title={t.appLockTitle} theme={theme} onClose={() => {}} closeButtonLabel={t.btnCancel}>
+      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
         {/* Lock Header */}
-        <div 
-          className="px-4 py-3 border-b font-bold shrink-0 flex items-center justify-between text-white"
-          style={{ backgroundColor: theme.modalHeaderBg }}
-        >
+        <div className="px-4 py-3 border-b font-bold shrink-0 flex items-center justify-between text-white" style={{ backgroundColor: theme.modalHeaderBg, borderBottomColor: theme.modalBorder }}>
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-amber-300" />
             <span className="text-sm font-bold tracking-wide">{t.appLockTitle}</span>
           </div>
-          <span className="text-[10px] bg-black/30 px-2 py-0.5 rounded font-mono font-extrabold text-amber-300">
+          <span className="text-[var(--fs-8)] bg-black/30 px-2 py-0.5 rounded font-mono font-extrabold text-amber-300">
             PROTECTED
           </span>
         </div>
@@ -96,13 +85,13 @@ export const AppLockModal: React.FC<AppLockModalProps> = ({
               <Lock className="w-8 h-8" />
             </div>
             <h3 className="font-bold text-white text-base">{t.appLockSignIn}</h3>
-            <p className="text-[11px] opacity-75">
+            <p className="text-[var(--fs-sm)] opacity-75">
               {t.lockDescription}
             </p>
           </div>
 
           {hasError && (
-            <div className="p-2.5 bg-red-950 border border-red-500 text-red-200 font-bold rounded text-[11px] text-center flex items-center justify-center gap-2">
+            <div className="p-2.5 bg-red-950 border border-red-500 text-red-200 font-bold rounded text-[var(--fs-sm)] text-center flex items-center justify-center gap-2">
               <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
               <span>{t.appLockBadCreds}</span>
             </div>
@@ -110,7 +99,7 @@ export const AppLockModal: React.FC<AppLockModalProps> = ({
 
           <div className="space-y-3">
             <div>
-              <label className="block text-[11px] font-bold mb-1 opacity-80 flex items-center gap-1">
+              <label className="block text-[var(--fs-sm)] font-bold mb-1 opacity-80 flex items-center gap-1">
                 <User className="w-3.5 h-3.5 text-amber-400" /> {t.lockUserLabel}
               </label>
               <input
@@ -126,7 +115,7 @@ export const AppLockModal: React.FC<AppLockModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold mb-1 opacity-80 flex items-center gap-1">
+              <label className="block text-[var(--fs-sm)] font-bold mb-1 opacity-80 flex items-center gap-1">
                 <Key className="w-3.5 h-3.5 text-cyan-400" /> {t.lockPassLabel}
               </label>
               <input
@@ -153,11 +142,11 @@ export const AppLockModal: React.FC<AppLockModalProps> = ({
             </button>
           </div>
 
-          <p className="text-[10px] opacity-50 text-center pt-2 italic">
+          <p className="text-[var(--fs-8)] opacity-50 text-center pt-2 italic">
             {t.lockDefaultUser} <code className="text-amber-300 font-bold">{expectedUser || 'admin'}</code>.
           </p>
         </form>
       </div>
-    </div>
+    </ModalShell>
   );
 };

@@ -16,7 +16,7 @@ describe('QuitModal accessibility', () => {
 
     const dialog = screen.getByRole('dialog');
     expect(dialog.getAttribute('aria-modal')).toBe('true');
-    expect(dialog.getAttribute('aria-label')).toBe('Salir');
+    expect(dialog.getAttribute('aria-label')).toBe('Cancelar');
 
     const buttons = Array.from(dialog.querySelectorAll('button'));
     const first = buttons[0];

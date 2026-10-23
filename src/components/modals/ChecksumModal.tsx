@@ -7,6 +7,7 @@ import { fsEngine } from '../../services/fileSystem';
 import { soundManager } from '../../services/soundEffects';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
+import ModalShell from '../ModalShell';
 
 interface ChecksumModalProps {
   theme: ThemeConfig;
@@ -53,48 +54,24 @@ export const ChecksumModal: React.FC<ChecksumModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.checksumModalTitle);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 font-mono select-none">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="w-full max-w-lg rounded shadow-2xl border text-xs overflow-hidden"
-        style={{
-          backgroundColor: theme.modalBg,
-          borderColor: theme.modalBorder,
-          color: theme.itemText
-        }}
-      >
-        <div 
-          className="flex items-center justify-between px-3 py-2 border-b font-bold shrink-0"
-          style={{
-            backgroundColor: theme.modalHeaderBg,
-            color: theme.modalHeaderText,
-            borderColor: theme.modalBorder
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <Hash className="w-4 h-4" />
-            <span>{t.hashTitle}</span>
-          </div>
-          <button onClick={onClose} className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer font-bold">✕</button>
-        </div>
-
+    <ModalShell title={t.checksumModalTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
+      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
         <div className="p-4 space-y-4">
           <div className="p-2.5 bg-black/40 rounded border border-white/10 flex items-center gap-3">
             <ShieldCheck className="w-8 h-8 text-emerald-400 shrink-0" />
             <div className="truncate">
               <span className="font-bold text-white block truncate">{file.name}.{file.ext}</span>
-              <span className="opacity-60 text-[11px]">{file.size.toLocaleString()} bytes • {file.modifiedAt}</span>
+              <span className="opacity-60 text-[var(--fs-sm)]">{file.size.toLocaleString()} bytes • {file.modifiedAt}</span>
             </div>
           </div>
 
           {error && (
-            <div className="p-2 bg-red-500/15 rounded border border-red-500/40 text-red-300 text-[11px] break-words">
+            <div className="p-2 bg-red-500/15 rounded border border-red-500/40 text-red-300 text-[var(--fs-sm)] break-words">
               {error}
             </div>
           )}
 
-          <div className="space-y-3 select-text font-mono text-[11px]">
+          <div className="space-y-3 select-text font-mono text-[var(--fs-sm)]">
             {/* MD5 */}
             <div className="p-2 bg-black/30 rounded border border-white/10">
               <div className="flex items-center justify-between mb-1">
@@ -151,6 +128,6 @@ export const ChecksumModal: React.FC<ChecksumModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 };

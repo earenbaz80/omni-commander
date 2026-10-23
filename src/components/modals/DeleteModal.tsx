@@ -6,6 +6,7 @@ import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
+import ModalShell from '../ModalShell';
 
 interface DeleteModalProps {
   theme: ThemeConfig;
@@ -33,17 +34,9 @@ export const DeleteModal: React.FC<DeleteModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.deleteDialogLabel);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 font-mono select-none">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="w-full max-w-md rounded shadow-2xl border text-xs overflow-hidden"
-        style={{
-          backgroundColor: theme.modalBg,
-          borderColor: theme.modalBorder,
-          color: theme.itemText
-        }}
-      >
+    <ModalShell title={t.deleteDialogLabel} theme={theme} onClose={onClose}>
+      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+
         <div 
           className="flex items-center justify-between px-3 py-2 border-b font-bold shrink-0 bg-red-900/60 text-white"
           style={{ borderColor: theme.modalBorder }}
@@ -60,13 +53,13 @@ export const DeleteModal: React.FC<DeleteModalProps> = ({
             <AlertTriangle className="w-8 h-8 text-amber-400 shrink-0 mt-0.5" />
             <div>
               <p className="font-bold text-white mb-1">{t.msgConfirmDelete}</p>
-              <p className="opacity-75 text-[11px]">
+              <p className="opacity-75 text-[var(--fs-sm)]">
                 {t.deleteSummary.replace('{n}', String(items.length)).replace('{size}', totalSize.toLocaleString())}
               </p>
             </div>
           </div>
 
-          <div className="max-h-32 overflow-y-auto bg-black/40 p-2 rounded border border-white/10 text-[11px] space-y-0.5">
+          <div className="max-h-32 overflow-y-auto bg-black/40 p-2 rounded border border-white/10 text-[var(--fs-sm)] space-y-0.5">
             {items.map(i => (
               <div key={i.id} className="truncate text-red-300">
                 • {i.name}{i.ext ? `.${i.ext}` : ''} {i.isDirectory ? t.markerFolder : ''}
@@ -90,6 +83,6 @@ export const DeleteModal: React.FC<DeleteModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 };

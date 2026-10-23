@@ -6,6 +6,7 @@ import { getTranslations } from '../../i18n/translations';
 import { fsEngine } from '../../services/fileSystem';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
+import ModalShell from '../ModalShell';
 
 interface DiskUsageModalProps {
   theme: ThemeConfig;
@@ -39,36 +40,12 @@ export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.diskUsageModalTitle);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 font-mono select-none">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded shadow-2xl border text-xs overflow-hidden"
-        style={{
-          backgroundColor: theme.modalBg,
-          borderColor: theme.modalBorder,
-          color: theme.itemText
-        }}
-      >
-        <div 
-          className="flex items-center justify-between px-3 py-2 border-b font-bold shrink-0"
-          style={{
-            backgroundColor: theme.modalHeaderBg,
-            color: theme.modalHeaderText,
-            borderColor: theme.modalBorder
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <BarChart3 className="w-4 h-4" />
-            <span>{t.diskUsageTitle}</span>
-          </div>
-          <button onClick={onClose} className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer font-bold">✕</button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-5">
+    <ModalShell title={t.diskUsageTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
+      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+        <div className="p-4 space-y-5 max-h-[80vh] overflow-y-auto">
           {/* Drives capacity breakdown */}
           <div>
-            <h3 className="font-bold text-amber-300 mb-2 uppercase tracking-wider text-[11px]">
+            <h3 className="font-bold text-amber-300 mb-2 uppercase tracking-wider text-[var(--fs-sm)]">
               {t.diskConnectedDrives}
             </h3>
             <div className="space-y-2.5">
@@ -83,7 +60,7 @@ export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({
                         <HardDrive className="w-3.5 h-3.5 text-amber-400" />
                         <span>[{drive.letter}] {drive.name}</span>
                       </span>
-                      <span className="tabular-nums opacity-80 text-[11px]">
+                      <span className="tabular-nums opacity-80 text-[var(--fs-sm)]">
                         {t.diskUsedOf.replace('{size}', formatBytes(used)).replace('{total}', formatBytes(drive.totalBytes)).replace('{n}', String(percent))}
                       </span>
                     </div>
@@ -103,7 +80,7 @@ export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({
 
           {/* Top 10 Largest Files */}
           <div>
-            <h3 className="font-bold text-amber-300 mb-2 uppercase tracking-wider text-[11px]">
+            <h3 className="font-bold text-amber-300 mb-2 uppercase tracking-wider text-[var(--fs-sm)]">
               {t.diskTopFiles}
             </h3>
             <div className="border border-white/10 rounded overflow-hidden bg-black/40">
@@ -119,10 +96,10 @@ export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({
                   {topFiles.map((file, idx) => (
                     <tr key={file.id} className="border-b border-white/5 hover:bg-white/5">
                       <td className="p-2 font-bold truncate text-white flex items-center gap-1.5">
-                        <span className="text-[10px] opacity-40 tabular-nums">#{idx + 1}</span>
+                        <span className="text-[var(--fs-8)] opacity-40 tabular-nums">#{idx + 1}</span>
                         <span>{file.name}.{file.ext}</span>
                       </td>
-                      <td className="p-2 truncate opacity-70 text-[11px]">{file.path}</td>
+                      <td className="p-2 truncate opacity-70 text-[var(--fs-sm)]">{file.path}</td>
                       <td className="p-2 text-right font-bold text-amber-300 tabular-nums">{formatBytes(file.size)}</td>
                     </tr>
                   ))}
@@ -131,23 +108,7 @@ export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({
             </div>
           </div>
         </div>
-
-        {/* Footer */}
-        <div 
-          className="flex items-center justify-end px-3 py-2 border-t text-xs shrink-0"
-          style={{
-            backgroundColor: theme.modalBg,
-            borderColor: theme.modalBorder
-          }}
-        >
-          <button
-            onClick={onClose}
-            className="px-4 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-bold rounded cursor-pointer"
-          >
-            {t.btnClose}
-          </button>
-        </div>
       </div>
-    </div>
+    </ModalShell>
   );
 };

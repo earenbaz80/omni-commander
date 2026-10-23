@@ -5,6 +5,7 @@ import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
+import ModalShell from '../ModalShell';
 
 interface DiffCompareModalProps {
   theme: ThemeConfig;
@@ -30,31 +31,8 @@ export const DiffCompareModal: React.FC<DiffCompareModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.diffModalTitle);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 font-mono select-none">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="w-full max-w-6xl h-[90vh] flex flex-col rounded shadow-2xl border text-xs overflow-hidden"
-        style={{
-          backgroundColor: theme.modalBg,
-          borderColor: theme.modalBorder,
-          color: theme.itemText
-        }}
-      >
-        <div 
-          className="flex items-center justify-between px-3 py-2 border-b font-bold shrink-0"
-          style={{
-            backgroundColor: theme.modalHeaderBg,
-            color: theme.modalHeaderText,
-            borderColor: theme.modalBorder
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <GitCompare className="w-4 h-4" />
-            <span>{t.diffTitle}</span>
-          </div>
-          <button onClick={onClose} className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer font-bold">✕</button>
-        </div>
+    <ModalShell title={t.diffTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
+      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
 
         {/* File names header */}
         <div className="grid grid-cols-2 border-b border-white/20 bg-black/40 px-3 py-2 font-bold shrink-0">
@@ -67,7 +45,7 @@ export const DiffCompareModal: React.FC<DiffCompareModalProps> = ({
         </div>
 
         {/* Diff view lines container */}
-        <div className="flex-1 overflow-y-auto bg-black/80 font-mono text-[11px] select-text">
+        <div className="flex-1 overflow-y-auto bg-black/80 font-mono text-[var(--fs-sm)] select-text">
           {Array.from({ length: maxLines }).map((_, idx) => {
             const lText = leftLines[idx] !== undefined ? leftLines[idx] : '';
             const rText = rightLines[idx] !== undefined ? rightLines[idx] : '';
@@ -128,6 +106,6 @@ export const DiffCompareModal: React.FC<DiffCompareModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 };

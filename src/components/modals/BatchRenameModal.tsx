@@ -6,6 +6,7 @@ import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
+import ModalShell from '../ModalShell';
 
 interface BatchRenameModalProps {
   theme: ThemeConfig;
@@ -75,32 +76,8 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.batchRenameModalTitle);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 font-mono select-none">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded shadow-2xl border text-xs overflow-hidden"
-        style={{
-          backgroundColor: theme.modalBg,
-          borderColor: theme.modalBorder,
-          color: theme.itemText
-        }}
-      >
-        <div 
-          className="flex items-center justify-between px-3 py-2 border-b font-bold shrink-0"
-          style={{
-            backgroundColor: theme.modalHeaderBg,
-            color: theme.modalHeaderText,
-            borderColor: theme.modalBorder
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <Type className="w-4 h-4" />
-            <span>{t.batchRenameTitle} ({items.length} {t.files})</span>
-          </div>
-          <button onClick={onClose} className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer">✕</button>
-        </div>
-
+    <ModalShell title={`${t.batchRenameTitle} (${items.length} ${t.files})`} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
+      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
         <form onSubmit={handleApply} className="flex-1 flex flex-col p-4 space-y-3 overflow-hidden">
           {/* Mode Selector Tabs */}
           <div className="flex items-center gap-1 bg-black/40 p-1 rounded border border-white/10 shrink-0">
@@ -139,7 +116,7 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
             {patternType === 'replace' && (
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[11px] opacity-75 mb-0.5">{t.renameFindText}</label>
+                  <label className="block text-[var(--fs-sm)] opacity-75 mb-0.5">{t.renameFindText}</label>
                   <input
                     type="text"
                     value={findStr}
@@ -149,7 +126,7 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] opacity-75 mb-0.5">{t.renameReplaceWith}</label>
+                  <label className="block text-[var(--fs-sm)] opacity-75 mb-0.5">{t.renameReplaceWith}</label>
                   <input
                     type="text"
                     value={replaceStr}
@@ -164,7 +141,7 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
             {patternType === 'prefix' && (
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[11px] opacity-75 mb-0.5">{t.renamePrefixLabel}</label>
+                  <label className="block text-[var(--fs-sm)] opacity-75 mb-0.5">{t.renamePrefixLabel}</label>
                   <input
                     type="text"
                     value={prefixStr}
@@ -174,7 +151,7 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] opacity-75 mb-0.5">{t.renameSuffix}</label>
+                  <label className="block text-[var(--fs-sm)] opacity-75 mb-0.5">{t.renameSuffix}</label>
                   <input
                     type="text"
                     value={suffixStr}
@@ -189,7 +166,7 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
             {patternType === 'counter' && (
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className="block text-[11px] opacity-75 mb-0.5">{t.renameBaseName}</label>
+                  <label className="block text-[var(--fs-sm)] opacity-75 mb-0.5">{t.renameBaseName}</label>
                   <input
                     type="text"
                     value={prefixStr}
@@ -199,7 +176,7 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] opacity-75 mb-0.5">{t.renameStartNumber}</label>
+                  <label className="block text-[var(--fs-sm)] opacity-75 mb-0.5">{t.renameStartNumber}</label>
                   <input
                     type="number"
                     value={startNum}
@@ -208,7 +185,7 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] opacity-75 mb-0.5">{t.renameDigits}</label>
+                  <label className="block text-[var(--fs-sm)] opacity-75 mb-0.5">{t.renameDigits}</label>
                   <input
                     type="number"
                     min="1"
@@ -256,7 +233,7 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
 
           {/* Live Preview Table */}
           <div className="flex-1 overflow-y-auto border border-white/10 rounded bg-black/40">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-left text-[var(--fs-sm)] border-collapse">
               <thead className="bg-black/60 sticky top-0 border-b border-white/20 text-amber-300">
                 <tr>
                   <th className="p-2 w-1/2">{t.renameOriginal}</th>
@@ -292,6 +269,6 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
           </div>
         </form>
       </div>
-    </div>
+    </ModalShell>
   );
 };

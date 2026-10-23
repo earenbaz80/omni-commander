@@ -7,6 +7,7 @@ import { fsEngine } from '../../services/fileSystem';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
 import { getTranslations } from '../../i18n/translations';
+import ModalShell from '../ModalShell';
 
 interface RecycleBinModalProps {
   theme: ThemeConfig;
@@ -65,37 +66,8 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.recycleBinModalTitle);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fadeIn select-none font-mono">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="w-full max-w-2xl rounded shadow-2xl border flex flex-col overflow-hidden text-xs max-h-[85vh]"
-        style={{
-          backgroundColor: theme.bgPanel,
-          borderColor: theme.borderPanel,
-          color: theme.itemText
-        }}
-      >
-        {/* Header */}
-        <div 
-          className="flex items-center justify-between px-3 py-2 font-bold uppercase tracking-wider select-none border-b"
-          style={{
-            backgroundColor: theme.headerBg,
-            color: theme.headerText,
-            borderColor: theme.borderPanel
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <Trash2 className="w-4 h-4 text-rose-400" />
-            <span>{t.binTitle}</span>
-          </div>
-          <button 
-            onClick={onClose}
-            className="px-2 py-0.5 bg-black/30 hover:bg-black/60 rounded text-xs cursor-pointer font-bold"
-          >
-            ✕
-          </button>
-        </div>
+    <ModalShell title={t.binTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
+      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
 
         {/* Action Controls */}
         <div className="p-3 bg-black/40 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
@@ -148,18 +120,18 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({
                   )}
                   <div className="flex flex-col truncate">
                     <span className="font-bold text-xs truncate">{binItem.item.name}{binItem.item.ext ? `.${binItem.item.ext}` : ''}</span>
-                    <span className="text-[10px] opacity-60 truncate">{t.recycleBinOriginalLocation.replace('{path}', binItem.originalPath)}</span>
+                    <span className="text-[var(--fs-8)] opacity-60 truncate">{t.recycleBinOriginalLocation.replace('{path}', binItem.originalPath)}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 shrink-0 text-[11px] tabular-nums">
+                <div className="flex items-center gap-4 shrink-0 text-[var(--fs-sm)] tabular-nums">
                   <span className="opacity-60">{formatSize(binItem.item.size)}</span>
-                  <span className="opacity-50 text-[10px] hidden sm:inline">{binItem.deletedAt}</span>
+                  <span className="opacity-50 text-[var(--fs-8)] hidden sm:inline">{binItem.deletedAt}</span>
 
                   <div className="flex items-center gap-1.5 ml-2">
                     <button
                       onClick={() => handleRestore(binItem.id)}
-                      className="px-2 py-0.5 bg-emerald-700/40 hover:bg-emerald-600 text-emerald-200 rounded text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                      className="px-2 py-0.5 bg-emerald-700/40 hover:bg-emerald-600 text-emerald-200 rounded text-[var(--fs-8)] font-bold flex items-center gap-1 cursor-pointer"
                       title={t.binRestoreHint}
                     >
                       <RotateCcw className="w-3 h-3" />
@@ -182,17 +154,17 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({
             <div className="py-12 flex flex-col items-center justify-center text-center opacity-60 space-y-2">
               <CheckCircle2 className="w-10 h-10 text-emerald-400 opacity-60" />
               <span className="text-sm font-bold">{t.binEmptyMsg}</span>
-              <span className="text-[11px]">{t.binEmptyHint}</span>
+              <span className="text-[var(--fs-sm)]">{t.binEmptyHint}</span>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="p-2.5 bg-black/60 border-t border-white/10 flex items-center justify-between text-[10px] opacity-75">
+        <div className="p-2.5 bg-black/60 border-t border-white/10 flex items-center justify-between text-[var(--fs-8)] opacity-75">
           <span>{t.recycleBinRestoreHint}</span>
           <span>{t.escToClose}</span>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 };

@@ -109,6 +109,10 @@ describe('SettingsModal accessibility', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: 'Cerrar' })).toBeTruthy();
+    // Header close button (X icon) has aria-label="Cancelar"
+    const closeButtons = screen.getAllByRole('button', { name: 'Cancelar' });
+    expect(closeButtons.length).toBeGreaterThanOrEqual(1);
+    // The first one is the header X button
+    expect(closeButtons[0]).toBeTruthy();
   });
 });

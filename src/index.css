@@ -31,11 +31,35 @@
   background: rgba(255, 255, 255, 0.45);
 }
 
+@layer base {
+  :root {
+    /* Tipografía escalable con pasos robustos (11/13/15px) */
+    --fs-8:  8px;   /* Meta, no UI visible */
+    --fs-9:  9px;   /* Mini labels, meta */
+    --fs-10: 10px;  /* Fallback legacy, a eliminar gradualmente */
+    --fs-11: 11px;  /* DOS mini-text (file list) */
+    --fs-12: 12px;  /* Body default en sans */
+    --fs-13: 13px;  /* Compact mono (file list, logs) */
+    --fs-14: 14px;  /* Normal body (sans) */
+    --fs-15: 15px;  /* Large heading/body */
+    
+    /* Escala tipográfica escalable con pasos-base de 10px y multiplicador 1.25 */
+    --fs-sm: var(--fs-11);   /* Mini-text (file list, DOS) */
+    --fs-base: var(--fs-13); /* Compact body (mono) */
+    --fs-lg: var(--fs-15);   /* Large body/heading */
+  }
+
+  html { font-size: 125%; } /* Default Windows zoom level */
+  
+  *, *::before, *::after { box-sizing: border-box; }
+}
+
 body {
   margin: 0;
   padding: 0;
   user-select: none;
   font-family: Consolas, "Cascadia Mono", "Segoe UI Mono", "Courier New", monospace;
+  font-size: var(--fs-base); /* Usa el tamaño escalable por defecto */
 }
 
 /* Generic subtle elevation for every interactive button on hover */

@@ -81,7 +81,7 @@ export const FreeSpaceModal: React.FC<FreeSpaceModalProps> = ({
         <div className="p-4 flex flex-col gap-3">
           <span className="opacity-75">{t.freeSpaceBody}</span>
 
-          <table className="w-full text-[11px] border border-white/10 rounded">
+          <table className="w-full text-[var(--fs-sm)] border border-white/10 rounded">
             <thead>
               <tr className="opacity-60">
                 <th className="text-left font-bold px-2 py-1">{t.freeSpaceVolume}</th>
@@ -97,11 +97,8 @@ export const FreeSpaceModal: React.FC<FreeSpaceModalProps> = ({
                   <td className="px-2 py-1 text-right tabular-nums">{formatBytes(volume.size)}</td>
                   <td className="px-2 py-1 text-right tabular-nums">{formatBytes(volume.free)}</td>
                   <td
-                    className={`px-2 py-1 text-right tabular-nums font-bold ${
-                      volume.lacking > 0 ? 'text-red-400' : 'opacity-50'
-                    }`}
-                  >
-                    {volume.lacking > 0 ? formatBytes(volume.lacking) : '0 B'}
+                    className={`px-2 py-1 text-right tabular-nums font-bold ${volume.lacking > 0 ? 'opacity-50' : ''}`}>
+                    <span style={{ color: volume.lacking > 0 ? theme.accentDanger : 'inherit' }}>{volume.lacking > 0 ? formatBytes(volume.lacking) : '0 B'}</span>
                   </td>
                 </tr>
               ))}

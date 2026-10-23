@@ -19,8 +19,12 @@ export const MODAL_FOCUSABLE_SELECTOR = [
  * Escape is intentionally not handled here: App owns the global keyboard
  * engine and already closes the active modal.
  */
-export function useModalDialog<T extends HTMLElement>(label: string) {
-  const ref = useRef<T>(null);
+export function useModalDialog<T extends HTMLElement>(
+  label: string,
+  externalRef?: React.RefObject<T>
+) {
+  const internalRef = useRef<T>(null);
+  const ref = externalRef ?? internalRef;
 
   // Dialog semantics (attributes only, safe to re-run when the label changes).
   useEffect(() => {
@@ -36,7 +40,7 @@ export function useModalDialog<T extends HTMLElement>(label: string) {
       panel.removeAttribute('aria-modal');
       panel.removeAttribute('aria-label');
     };
-  }, [label]);
+  }, [label, ref]);
 
   // Focus management: enter on mount, trap Tab, restore on unmount.
   useEffect(() => {
@@ -79,7 +83,7 @@ export function useModalDialog<T extends HTMLElement>(label: string) {
       panel.removeEventListener('keydown', handleKeyDown);
       previouslyFocused?.focus?.();
     };
-  }, []);
+  }, [ref]);
 
   return ref;
 }
