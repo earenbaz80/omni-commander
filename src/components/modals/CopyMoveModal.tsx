@@ -20,7 +20,7 @@ interface CopyMoveModalProps {
   sourcePath?: string;
   targetPath?: string;
   targetDriveId?: string;
-  onConfirm: (targetPath: string, options: TransferOptions) => string | undefined;
+  onConfirm: (targetPath: string, options: TransferOptions) => string | undefined | Promise<string | undefined>;
   /** Elevate and replay this transfer in the new instance. */
   onElevate?: (
     targetPath: string,
@@ -334,13 +334,23 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
     throttleBps: speedLimitMb > 0 ? Math.round(speedLimitMb * 1024 * 1024) : 0
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Confirming can be asynchronous: the app measures the destination volume
+  // before it starts, and a transfer that does not fit opens its own window
+  // instead of starting. The dialog waits for that answer and only closes when
+  // no task was started.
+  const submittingRef = useRef(false);
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!destPath.trim()) return;
+    if (!destPath.trim() || submittingRef.current) return;
+    submittingRef.current = true;
     soundManager.playDiskAccess();
-    const started = onConfirm(destPath.trim(), submitOptions());
-    if (started) setTaskId(started);
-    else onClose();
+    try {
+      const started = await onConfirm(destPath.trim(), submitOptions());
+      if (started) setTaskId(started);
+      else onClose();
+    } finally {
+      submittingRef.current = false;
+    }
   };
 
   const dialogRef = useModalDialog<HTMLDivElement>(t.copyMoveModalTitle);

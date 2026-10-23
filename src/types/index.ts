@@ -204,6 +204,22 @@ export interface TransferOptions {
   throttleBps: number;
 }
 
+/** Free space on one volume for the bytes a pending transfer needs there. */
+export interface FreeSpaceVolume {
+  /** Volume root, e.g. `D:\`. */
+  volume: string;
+  /** Bytes the queued sources will occupy, measured by the server. */
+  size: number;
+  /** Available bytes on the volume, or null when it could not be read. */
+  free: number | null;
+  /** Bytes missing to fit, 0 when the transfer fits or cannot be judged. */
+  lacking: number;
+}
+
+export interface FreeSpaceReport {
+  volumes: FreeSpaceVolume[];
+}
+
 export interface UserSettings {
   theme: ThemeId;
   language: LanguageCode;

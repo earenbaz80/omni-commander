@@ -1480,6 +1480,52 @@ function registerFsRoutes() {
     res.json({ entries, missing });
   });
 
+  // Pre-flight space check for a transfer that is about to start. The renderer
+  // can neither measure a folder tree nor read a volume's free space, and a copy
+  // that dies at 80% with ENOSPC leaves a half-written file behind. Trees are
+  // measured with the same walker the job uses, so "Size" matches what the job
+  // will report once it starts.
+  app.post('/api/fs/freespace', async (req, res) => {
+    try {
+      const plans = (req.body || {}).plans;
+      if (!Array.isArray(plans)) return res.status(400).json({ error: 'plans must be an array' });
+      if (plans.length > 100) return res.status(400).json({ error: 'Too many plans (max 100)' });
+
+      // A single transfer always writes to one target directory, but a loaded
+      // copy list can span volumes. Group by volume root so the table has one
+      // row per disk instead of one row per batch.
+      const volumes = new Map();
+      for (const plan of plans) {
+        const targetDir = assertSafePath(plan.targetDir);
+        const root = path.win32.parse(targetDir).root.toUpperCase();
+        const group = volumes.get(root) || { volume: root, size: 0, free: null, lacking: 0 };
+        const sources = Array.isArray(plan.sources) ? plan.sources.slice(0, 5000) : [];
+        for (const value of sources) {
+          const measured = await measureTree(assertSafePath(value));
+          group.size += measured.bytes;
+        }
+        volumes.set(root, group);
+      }
+
+      for (const group of volumes.values()) {
+        try {
+          const sf = await fs.promises.statfs(group.volume);
+          const blockSize = Number(sf.bsize) || 0;
+          group.free = blockSize * (Number(sf.bavail != null ? sf.bavail : sf.bfree) || 0);
+          group.lacking = Math.max(0, group.size - group.free);
+        } catch (error) {
+          // An unreadable volume is not evidence of a problem: leave the answer
+          // unknown instead of claiming the copy does not fit.
+          logDebug('statfs failed for', group.volume, error?.message || error);
+        }
+      }
+
+      res.json({ volumes: [...volumes.values()] });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
   // Real byte hashes for a file on a real drive. The renderer cannot read the
   // bytes of a real file itself (they never come over /api/list), so it asks
   // here instead of hashing the metadata string it does have -- a digest that

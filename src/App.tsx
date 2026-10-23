@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { FileItem, Drive, ActiveModal, CommandHistoryItem, ConflictResolution, FileProgressEntry, LanguageCode, PendingConflict, ThemeId, TransferOptions, TransferPlan } from './types';
+import { FileItem, Drive, ActiveModal, CommandHistoryItem, ConflictResolution, FileProgressEntry, FreeSpaceVolume, LanguageCode, PendingConflict, ThemeId, TransferOptions, TransferPlan } from './types';
 import { fsEngine } from './services/fileSystem';
 import { themes, ThemeConfig } from './services/themeManager';
 import { soundManager } from './services/soundEffects';
@@ -10,6 +10,7 @@ import { getTranslations, setCurrentLang } from './i18n/translations';
 import { HeaderMenuBar } from './components/HeaderMenuBar';
 import { AppModals } from './components/AppModals';
 import { ConflictPromptModal } from './components/modals/ConflictPromptModal';
+import { FreeSpaceModal } from './components/modals/FreeSpaceModal';
 import { Toolbar } from './components/Toolbar';
 import { PanelView } from './components/PanelView';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -360,6 +361,14 @@ export default function App() {
   const [conflictPrompt, setConflictPrompt] = useState<PendingConflict | null>(null);
   const conflictSignalRef = useRef<{ paused: boolean; cancelled: boolean } | null>(null);
 
+  // A transfer that does not fit is held here until the user decides: the plans
+  // are already built, so forcing the copy only has to enqueue them.
+  const [freeSpacePrompt, setFreeSpacePrompt] = useState<{
+    volumes: FreeSpaceVolume[];
+    plans: TransferPlan[];
+    replay: boolean;
+  } | null>(null);
+
   const handleConflictPrompt = useCallback(
     (conflict: PendingConflict, signal: { paused: boolean; cancelled: boolean }) => {
       conflictSignalRef.current = signal;
@@ -565,8 +574,32 @@ export default function App() {
     return taskId;
   };
 
+  // Pre-flight for a transfer that is about to start. The server walks the
+  // source trees and reads each target volume, so a folder that would overflow
+  // the disk is caught before a half-written file is left behind. The check is
+  // advisory: a server that cannot answer must never block the copy.
+  const spaceLacking = async (plans: TransferPlan[]): Promise<FreeSpaceVolume[] | null> => {
+    const report = await fsEngine.checkFreeSpace(plans);
+    if (!report) return null;
+    const lacking = report.volumes.filter(volume => volume.lacking > 0);
+    return lacking.length > 0 ? lacking : null;
+  };
+
+  // Forcing does not skip the warning for the next batch: the plans go straight
+  // to the queue because the user already saw the numbers and accepted them.
+  const handleForceTransfer = () => {
+    const prompt = freeSpacePrompt;
+    setFreeSpacePrompt(null);
+    if (prompt) for (const plan of prompt.plans) enqueueTransferPlan(plan, prompt.replay);
+  };
+
   // Replays every transfer in a loaded copy list, one queued task per batch.
-  const handleRunCopyList = (plans: TransferPlan[]) => {
+  const handleRunCopyList = async (plans: TransferPlan[]) => {
+    const lacking = await spaceLacking(plans);
+    if (lacking) {
+      setFreeSpacePrompt({ volumes: lacking, plans, replay: true });
+      return;
+    }
     for (const plan of plans) enqueueTransferPlan(plan, true);
   };
 
@@ -608,16 +641,23 @@ export default function App() {
   // A live copy/move of real-drive items becomes a plan and hands the same
   // executor its absolute entry paths. Non-real items and rejected plans fall
   // back to the in-memory catalogue path through `copyItem`/`moveItem`.
-  const runConfirmedTransfer = (
+  const runConfirmedTransfer = async (
     op: 'copy' | 'move',
     targetPath: string,
     options: TransferOptions
-  ): string | undefined => {
+  ): Promise<string | undefined> => {
     const items: FileItem[] = transferItems;
     const plan = buildTransferPlan(op, items, targetPath, options);
     if (plan) {
       // The copy window stays open and follows the transfer it started: closing
       // it here left the user with only a small card and no way back into the job.
+      // A transfer that does not fit returns no task id on purpose, which closes
+      // the window and hands the decision to the free-space prompt.
+      const lacking = await spaceLacking([plan]);
+      if (lacking) {
+        setFreeSpacePrompt({ volumes: lacking, plans: [plan], replay: false });
+        return undefined;
+      }
       return enqueueTransferPlan(plan);
     }
 
@@ -1330,6 +1370,16 @@ export default function App() {
           lang={lang}
           onAnswer={handleResolveConflict}
           onCancel={handleAbortConflict}
+        />
+      )}
+
+      {freeSpacePrompt && (
+        <FreeSpaceModal
+          volumes={freeSpacePrompt.volumes}
+          theme={currentTheme}
+          lang={lang}
+          onForce={handleForceTransfer}
+          onCancel={() => setFreeSpacePrompt(null)}
         />
       )}
 

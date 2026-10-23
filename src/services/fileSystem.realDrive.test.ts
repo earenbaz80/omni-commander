@@ -109,6 +109,11 @@ function installFetchMock() {
     if (url.includes('/api/fs/delete')) {
       return reply({ jobId: 'job_2', itemsTotal: 1 });
     }
+    if (url.includes('/api/fs/freespace')) {
+      const plans = body?.plans || [];
+      const size = plans.reduce((acc: number, plan: any) => acc + (plan.sources || []).length * 100, 0);
+      return reply({ volumes: [{ volume: 'T:\\', size, free: 50, lacking: Math.max(0, size - 50) }] });
+    }
     if (url.includes('/api/fs/stat')) {
       const paths = body?.paths || [];
       return reply({
@@ -253,6 +258,52 @@ describe('FileSystemEngine real-drive bridge', () => {
 
     const call = calls.find(c => c.url.includes('/api/fs/copylist/load'));
     expect(call!.body.path).toBe('T:\\listas\\backup.json');
+  });
+
+  it('sizes a whole plan and its target volume before the transfer starts', async () => {
+    // The renderer cannot walk a folder tree or read free space, so the check
+    // has to travel as paths and come back as per-volume numbers.
+    const plan: TransferPlan = {
+      op: 'copy',
+      sourceDriveId: 'real_T',
+      targetDriveId: 'real_T',
+      targetDir: 'T:\\dest',
+      overwrite: false,
+      collision: 'ask',
+      throttleBps: 0,
+      entries: [
+        { path: 'T:\\a.txt', name: 'a', isDirectory: false, size: 10 },
+        { path: 'T:\\folder', name: 'folder', isDirectory: true, size: 0 }
+      ]
+    };
+
+    const report = await fsEngine.checkFreeSpace([plan]);
+
+    const call = calls.find(c => c.url.includes('/api/fs/freespace'));
+    expect(call).toBeDefined();
+    expect(call!.method).toBe('POST');
+    expect(call!.body).toEqual({
+      plans: [{ targetDir: 'T:\\dest', sources: ['T:\\a.txt', 'T:\\folder'] }]
+    });
+    expect(report?.volumes).toEqual([{ volume: 'T:\\', size: 200, free: 50, lacking: 150 }]);
+  });
+
+  it('does not ask the server about an empty plan', async () => {
+    const report = await fsEngine.checkFreeSpace([
+      {
+        op: 'copy',
+        sourceDriveId: 'real_T',
+        targetDriveId: 'real_T',
+        targetDir: 'T:\\dest',
+        overwrite: false,
+        collision: 'ask',
+        throttleBps: 0,
+        entries: []
+      }
+    ]);
+
+    expect(report).toEqual({ volumes: [] });
+    expect(calls.some(c => c.url.includes('/api/fs/freespace'))).toBe(false);
   });
 
   it('sizes paths picked outside the panels and reports the missing ones', async () => {

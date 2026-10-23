@@ -64,8 +64,8 @@ interface AppModalsProps {
   setLeftPanel: React.Dispatch<React.SetStateAction<PanelState>>;
   setRightPanel: React.Dispatch<React.SetStateAction<PanelState>>;
   setFsTick: React.Dispatch<React.SetStateAction<number>>;
-  handleConfirmCopy: (targetPath: string, options: TransferOptions) => string | undefined;
-  handleConfirmMove: (targetPath: string, options: TransferOptions) => string | undefined;
+  handleConfirmCopy: (targetPath: string, options: TransferOptions) => string | undefined | Promise<string | undefined>;
+  handleConfirmMove: (targetPath: string, options: TransferOptions) => string | undefined | Promise<string | undefined>;
   handleElevateTransfer: (
     op: 'copy' | 'move',
     targetPath: string,

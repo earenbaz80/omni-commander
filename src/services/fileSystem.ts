@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import { ConflictResolution, Drive, FileItem, FileProgressEntry, PendingConflict, RecycleBinItem, TransferOptions, TransferPlan, TransferPlanEntry } from '../types';
+import { ConflictResolution, Drive, FileItem, FileProgressEntry, FreeSpaceReport, PendingConflict, RecycleBinItem, TransferOptions, TransferPlan, TransferPlanEntry } from '../types';
 import { log } from '../utils/logger';
 import { tGlobal } from '../i18n/translations';
 import { fetchWithRetry } from '../utils/fetchWithRetry';
@@ -743,6 +743,22 @@ class FileSystemEngine {
     if (paths.length === 0) return { entries: [], missing: [] };
     return this.callServerFs<{ entries: TransferPlanEntry[]; missing: Array<{ path: string; reason: string }> }>('stat', {
       paths
+    });
+  }
+
+  /**
+   * Measures what a set of plans will write and how much room each target
+   * volume has left. The server walks the folder trees, which the renderer
+   * cannot do, so `size` here is the same number the job will report.
+   */
+  public async checkFreeSpace(plans: TransferPlan[]): Promise<FreeSpaceReport | null> {
+    const usable = plans.filter(plan => plan.entries.length > 0);
+    if (usable.length === 0) return { volumes: [] };
+    return this.callServerFs<FreeSpaceReport>('freespace', {
+      plans: usable.map(plan => ({
+        targetDir: plan.targetDir,
+        sources: plan.entries.map(entry => entry.path)
+      }))
     });
   }
 
