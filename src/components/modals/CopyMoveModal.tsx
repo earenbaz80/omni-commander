@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Copy, Minus, Scissors, ShieldAlert } from 'lucide-react';
 import { BackgroundTask, CollisionPolicy, FileItem, LanguageCode, TransferOptions, TransferPlan } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
@@ -42,7 +42,6 @@ const COLLISION_OPTIONS: Array<
 ];
 
 const SPEED_OPTIONS_MB = [1, 5, 10, 50];
-const MONITOR_SPEED_OPTIONS = [0, 1, 5, 10, 50];
 
 // Closing a finished transfer on its own is convenient for fire-and-forget
 // copies and hostile for everything else, so it is always an explicit choice.
@@ -64,7 +63,7 @@ function readAfterFinish(): AfterFinish {
 }
 
 function formatBytes(bytes: number): string {
-  if (!bytes || bytes < 0) return '—';
+  if (!bytes || bytes < 0) return 'â€”';
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   let i = 0;
   let n = bytes;
@@ -181,6 +180,20 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
     setLog([]);
   };
 
+  const handleSaveLog = () => {
+    if (log.length === 0) return;
+    const text = log.map(e => `[${e.time}] ${e.title}\n${e.message}`).join('\n\n');
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'errorlog.txt';
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+  };
+
   const moveEntry = (index: number, delta: number) => {
     if (!active?.plan?.entries) return;
     const next = [...active.plan.entries];
@@ -201,7 +214,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
 
   const handleSaveList = async () => {
     if (!active?.plan) return;
-    setListNote(t.transferSaveList + '…');
+    setListNote(t.transferSaveList + 'â€¦');
     try {
       const result = await fsEngine.saveCopyList([active.plan]);
       setListNote(result ? `${t.transferSaveList}: ${result.path}` : t.transferSaveList);
@@ -330,9 +343,9 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                     <span className="flex items-center gap-0.5">
                       {active.status === 'queued' && (
                         <>
-                          <button type="button" onClick={() => moveEntry(index, -1)} disabled={index === 0} className="cursor-pointer disabled:opacity-30" aria-label={t.moveUp}>↑</button>
-                          <button type="button" onClick={() => moveEntry(index, 1)} disabled={index === active.plan!.entries.length - 1} className="cursor-pointer disabled:opacity-30" aria-label={t.moveDown}>↓</button>
-                          <button type="button" onClick={() => removeEntry(index)} className="text-rose-300 hover:text-rose-100 cursor-pointer" aria-label={t.btnCancel}>✕</button>
+                          <button type="button" onClick={() => moveEntry(index, -1)} disabled={index === 0} className="cursor-pointer disabled:opacity-30" aria-label={t.moveUp}>â†‘</button>
+                          <button type="button" onClick={() => moveEntry(index, 1)} disabled={index === active.plan!.entries.length - 1} className="cursor-pointer disabled:opacity-30" aria-label={t.moveDown}>â†“</button>
+                          <button type="button" onClick={() => removeEntry(index)} className="text-rose-300 hover:text-rose-100 cursor-pointer" aria-label={t.btnCancel}>âœ•</button>
                         </>
                       )}
                     </span>
@@ -349,11 +362,11 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                 {transfers.map((entry, index) => (
                   <div key={entry.id} className="flex items-center gap-2 text-[11px]">
                     <span className="w-4 shrink-0 opacity-50">{index + 1}.</span>
-                    {entry.type === 'move' ? <Scissors className="w-3 h-3 shrink-0" /> : entry.type === 'delete' ? <span className="shrink-0">✕</span> : <Copy className="w-3 h-3 shrink-0" />}
+                    {entry.type === 'move' ? <Scissors className="w-3 h-3 shrink-0" /> : entry.type === 'delete' ? <span className="shrink-0">âœ•</span> : <Copy className="w-3 h-3 shrink-0" />}
                     <span className="flex-1 truncate" title={entry.title}>{entry.title}</span>
                     <span className="uppercase opacity-70">{entry.status}</span>
                     <span className="tabular-nums shrink-0">{entry.progress}%</span>
-                    <button type="button" onClick={() => taskQueue.cancelTask(entry.id)} className="text-rose-300 hover:text-rose-100 cursor-pointer shrink-0" aria-label={t.btnCancel}>✕</button>
+                    <button type="button" onClick={() => taskQueue.cancelTask(entry.id)} className="text-rose-300 hover:text-rose-100 cursor-pointer shrink-0" aria-label={t.btnCancel}>âœ•</button>
                   </div>
                 ))}
               </div>
@@ -384,14 +397,24 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <span className="font-bold opacity-60">{t.transferTabErrors}</span>
-              <button
-                type="button"
-                onClick={clearLog}
-                disabled={log.length === 0}
-                className="px-2 py-0.5 border border-white/20 rounded cursor-pointer disabled:opacity-40"
-              >
-                {t.transferLogClear}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSaveLog}
+                  disabled={log.length === 0}
+                  className="px-2 py-0.5 border border-white/20 rounded cursor-pointer disabled:opacity-40"
+                >
+                  {t.transferLogSave}
+                </button>
+                <button
+                  type="button"
+                  onClick={clearLog}
+                  disabled={log.length === 0}
+                  className="px-2 py-0.5 border border-white/20 rounded cursor-pointer disabled:opacity-40"
+                >
+                  {t.transferLogClear}
+                </button>
+              </div>
             </div>
             {log.length === 0 ? (
               <div className="opacity-60">{t.transferLogEmpty}</div>
@@ -415,17 +438,22 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
           <div className="flex flex-col gap-3">
             <div>
               <label className="block font-bold text-white mb-1" htmlFor="monitorSpeedSelect">{t.speedLimit}</label>
-              <select
-                id="monitorSpeedSelect"
-                value={currentSpeedMb}
-                disabled={!canControl}
-                onChange={(e) => applySpeed(Number(e.target.value))}
-                className="w-full bg-black/50 border border-white/30 rounded px-2.5 py-1.5 text-white font-mono text-xs focus:ring-1 focus:ring-amber-400 outline-none cursor-pointer disabled:opacity-40"
-              >
-                {MONITOR_SPEED_OPTIONS.map(mb => (
-                  <option key={mb} value={mb}>{mb === 0 ? t.speedUnlimited : `${mb} MB/s`}</option>
-                ))}
-              </select>
+              <div className="flex items-center gap-3">
+                <input
+                  id="monitorSpeedSelect"
+                  type="range"
+                  min={0}
+                  max={50}
+                  step={1}
+                  value={currentSpeedMb}
+                  disabled={!canControl}
+                  onChange={(e) => applySpeed(Number(e.target.value))}
+                  className="flex-1 cursor-pointer disabled:opacity-40"
+                />
+                <span className="shrink-0 tabular-nums text-[11px] opacity-80 w-16 text-right">
+                  {currentSpeedMb === 0 ? t.speedUnlimited : `${currentSpeedMb} MB/s`}
+                </span>
+              </div>
             </div>
             <div>
               <label className="block font-bold text-white mb-1" htmlFor="monitorAfterFinishSelect">{t.afterFinishLabel}</label>
@@ -505,7 +533,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             >
               <Minus className="w-3.5 h-3.5" />
             </button>
-            <button type="button" onClick={onClose} className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer">✕</button>
+            <button type="button" onClick={onClose} className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer">âœ•</button>
           </div>
         </div>
 
@@ -527,7 +555,23 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                 </div>
                 <RetroProgressBar percent={active.progress} theme={theme} status={active.status} color="#fbbf24" className="text-[16px] leading-none" />
                 {active.currentFile && (
-                  <div className="text-[11px] opacity-80 font-mono truncate" title={active.currentFile}>{active.currentFile}</div>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between gap-2 text-[10px] opacity-70">
+                      <span className="truncate font-mono" title={active.currentFile}>{active.currentFile}</span>
+                      {active.currentFileTotal ? (
+                        <span className="shrink-0 tabular-nums">
+                          {Math.round(((active.currentFileBytes || 0) / active.currentFileTotal) * 100)}%
+                        </span>
+                      ) : null}
+                    </div>
+                    <RetroProgressBar
+                      percent={active.currentFileTotal ? Math.round(((active.currentFileBytes || 0) / active.currentFileTotal) * 100) : active.progress}
+                      theme={theme}
+                      status={active.status}
+                      color="#fbbf24"
+                      className="text-[11px] leading-none"
+                    />
+                  </div>
                 )}
                 <div className="text-[11px] opacity-80 break-all">
                   {active.status === 'failed' && active.error ? (
@@ -535,7 +579,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                   ) : (
                     <>
                       {active.speed || t.inProgress}
-                      {active.etaSeconds != null && active.etaSeconds > 0 ? ` · ${t.etaLabel} ${active.etaSeconds}s` : ''}
+                      {active.etaSeconds != null && active.etaSeconds > 0 ? ` Â· ${t.etaLabel} ${active.etaSeconds}s` : ''}
                     </>
                   )}
                 </div>
@@ -601,7 +645,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             <div className="flex-1 min-h-16 overflow-y-auto bg-black/40 p-2 rounded border border-white/10 text-[11px]">
               {items.map(i => (
                 <div key={i.id} className="truncate text-amber-300">
-                  • {i.name}{i.ext ? `.${i.ext}` : ''} {i.isDirectory ? '<DIR>' : ''}
+                  â€¢ {i.name}{i.ext ? `.${i.ext}` : ''} {i.isDirectory ? '<DIR>' : ''}
                 </div>
               ))}
             </div>
@@ -715,6 +759,26 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             className="text-[18px] leading-none"
           />
 
+          {task.currentFile && (
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between gap-2 text-[11px] opacity-80">
+                <span className="truncate font-mono" title={task.currentFile}>{task.currentFile}</span>
+                <span className="shrink-0 tabular-nums">
+                  {task.currentFileBytes != null && task.currentFileTotal
+                    ? `${Math.round((task.currentFileBytes / task.currentFileTotal) * 100)}%`
+                    : ''}
+                </span>
+              </div>
+              <RetroProgressBar
+                percent={task.currentFileTotal ? Math.round(((task.currentFileBytes || 0) / task.currentFileTotal) * 100) : task.progress}
+                theme={theme}
+                status={task.status}
+                color="#fbbf24"
+                className="text-[12px] leading-none"
+              />
+            </div>
+          )}
+
           {task.status === 'running' && task.progress === 0 && (
             <div className="text-[11px] text-amber-300 font-bold animate-pulse">
               {t.searchScanning}
@@ -733,7 +797,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             ) : (
               <>
                 {task.speed || t.inProgress}
-                {task.etaSeconds != null && task.etaSeconds > 0 ? ` · ${t.etaLabel} ${task.etaSeconds}s` : ''}
+                {task.etaSeconds != null && task.etaSeconds > 0 ? ` Â· ${t.etaLabel} ${task.etaSeconds}s` : ''}
               </>
             )}
           </div>
@@ -782,7 +846,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                     title={t.btnCancel}
                     className="px-1.5 py-0.5 border border-rose-500/50 rounded text-rose-300 hover:bg-rose-950/60 cursor-pointer shrink-0"
                   >
-                    ✕
+                    âœ•
                   </button>
                 </div>
               ))}

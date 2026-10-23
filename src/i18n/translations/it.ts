@@ -647,6 +647,7 @@ export const it = {
     collisionCancel: "Annulla tutta la copia",
     collisionOverwriteIfDifferent: "Sovrascrivi se diverso",
     collisionRenameOld: "Rinomina il file vecchio",
+    transferLogSave: "Salva registro",
     speedLimit: "Limite di velocità",
     speedUnlimited: "Illimitato",
     runAsAdmin: "Riavvia come amministratore",

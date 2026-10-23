@@ -647,6 +647,7 @@ export const ja = {
     collisionCancel: "コピー全体をキャンセル",
     collisionOverwriteIfDifferent: "異なる場合のみ上書き",
     collisionRenameOld: "古いファイルをリネーム",
+    transferLogSave: "ログを保存",
     speedLimit: "速度制限",
     speedUnlimited: "無制限",
     runAsAdmin: "管理者として再起動",

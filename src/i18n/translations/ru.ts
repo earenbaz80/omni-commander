@@ -647,6 +647,7 @@ export const ru = {
     collisionCancel: "Отменить всю копию",
     collisionOverwriteIfDifferent: "Перезаписать если отличается",
     collisionRenameOld: "Переименовать старый файл",
+    transferLogSave: "Сохранить журнал",
     speedLimit: "Ограничение скорости",
     speedUnlimited: "Без ограничений",
     runAsAdmin: "Перезапустить от имени администратора",

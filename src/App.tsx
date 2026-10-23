@@ -469,6 +469,10 @@ export default function App() {
             current = copied;
             onProgress(transferred + copied, effectiveTotal);
             reportMeta(transferred + copied, entry.name);
+            taskQueue.updateTaskMeta(taskId, {
+              currentFileBytes: copied,
+              currentFileTotal: typeof serverTotal === 'number' && serverTotal > 0 ? serverTotal : (entry.size || 0)
+            });
           };
           const onFiles = (files: FileProgressEntry[]) => taskQueue.updateTaskFiles(taskId, files);
           const failureLabel = plan.op === 'move' ? 'Move' : 'Copy';

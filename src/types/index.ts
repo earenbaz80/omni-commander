@@ -134,6 +134,10 @@ export interface BackgroundTask {
   etaSeconds?: number;
   /** File currently being written, shown as progress detail. */
   currentFile?: string;
+  /** Bytes written for the current file, for a per-file progress bar. */
+  currentFileBytes?: number;
+  /** Total bytes of the current file, for a per-file progress bar. */
+  currentFileTotal?: number;
   /** Tail of the files this task touched, for per-file progress rows. */
   files?: FileProgressEntry[];
   /** What this task transfers, kept so the copy list can be saved and re-run. */

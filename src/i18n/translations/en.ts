@@ -675,6 +675,7 @@ export const en = {
     collisionCancel: "Cancel the whole copy",
     collisionOverwriteIfDifferent: "Overwrite if different",
     collisionRenameOld: "Rename old file",
+    transferLogSave: "Save log",
     speedLimit: "Speed limit",
     speedUnlimited: "Unlimited",
     runAsAdmin: "Restart as administrator",

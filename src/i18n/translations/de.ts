@@ -647,6 +647,7 @@ export const de = {
     collisionCancel: "Ganze Kopie abbrechen",
     collisionOverwriteIfDifferent: "Überschreiben wenn unterschiedlich",
     collisionRenameOld: "Alte Datei umbenennen",
+    transferLogSave: "Protokoll speichern",
     speedLimit: "Geschwindigkeitslimit",
     speedUnlimited: "Unbegrenzt",
     runAsAdmin: "Als Administrator neu starten",

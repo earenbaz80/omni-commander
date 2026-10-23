@@ -647,6 +647,7 @@ export const pt = {
     collisionCancel: "Cancelar toda a cópia",
     collisionOverwriteIfDifferent: "Sobrescrever se diferente",
     collisionRenameOld: "Renomear o arquivo antigo",
+    transferLogSave: "Salvar registro",
     speedLimit: "Limite de velocidade",
     speedUnlimited: "Ilimitado",
     runAsAdmin: "Reiniciar como administrador",

@@ -229,6 +229,8 @@ class TaskQueueManager {
       serverJobId?: string;
       throttleBps?: number;
       plan?: TransferPlan;
+      currentFileBytes?: number;
+      currentFileTotal?: number;
     }
   ): void {
     const task = this.tasks.find(t => t.id === id);
@@ -238,6 +240,8 @@ class TaskQueueManager {
     if (meta.transferredBytes !== undefined) task.transferredBytes = meta.transferredBytes;
     if (meta.totalBytes !== undefined) task.totalBytes = meta.totalBytes;
     if (meta.currentFile !== undefined) task.currentFile = meta.currentFile;
+    if (meta.currentFileBytes !== undefined) task.currentFileBytes = meta.currentFileBytes;
+    if (meta.currentFileTotal !== undefined) task.currentFileTotal = meta.currentFileTotal;
     if (meta.error !== undefined) task.error = meta.error;
     if (meta.serverJobId !== undefined) task.serverJobId = meta.serverJobId;
     if (meta.throttleBps !== undefined) task.throttleBps = meta.throttleBps;
