@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawn } = require('node:child_process');
@@ -332,6 +332,22 @@ ipcMain.handle('window:maximize', () => {
   else mainWindow.maximize();
 });
 ipcMain.handle('window:close', () => mainWindow?.close());
+
+// Adds entries to an open transfer list from outside the panels. A sandboxed
+// renderer cannot see arbitrary folders, so the picker runs here and only hands
+// back the paths; sizing and validation stay behind the server's API.
+// Windows cannot mix files and folders in one dialog, so the mode picks one.
+ipcMain.handle('dialog:pick-paths', async (event, payload) => {
+  if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) return [];
+  const mode = payload?.mode === 'folders' ? 'folders' : 'files';
+  const title = typeof payload?.title === 'string' ? payload.title.slice(0, 120) : undefined;
+  const folders = mode === 'folders';
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title,
+    properties: folders ? ['openDirectory', 'multiSelections'] : ['openFile', 'multiSelections'],
+  });
+  return result.canceled ? [] : result.filePaths;
+});
 
 // Explorer carries an elevated token for protected destinations, so a file
 // manager that never elevates looks broken on the very same folder. Relaunching

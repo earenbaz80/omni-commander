@@ -28,6 +28,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('tray:command', listener);
     return () => ipcRenderer.removeListener('tray:command', listener);
   },
+  // Native picker for paths that exist outside the panels. The title comes from
+  // the renderer so the dialog speaks the app's current language.
+  pickPaths: (mode, title) => ipcRenderer.invoke('dialog:pick-paths', { mode, title }),
   isElectron: true,
   apiPort: Number.isFinite(parsedApiPort) && parsedApiPort > 0 ? parsedApiPort : 3001,
   apiToken,

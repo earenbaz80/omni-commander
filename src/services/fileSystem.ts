@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import { ConflictResolution, Drive, FileItem, FileProgressEntry, PendingConflict, RecycleBinItem, TransferOptions, TransferPlan } from '../types';
+import { ConflictResolution, Drive, FileItem, FileProgressEntry, PendingConflict, RecycleBinItem, TransferOptions, TransferPlan, TransferPlanEntry } from '../types';
 import { log } from '../utils/logger';
 import { tGlobal } from '../i18n/translations';
 import { fetchWithRetry } from '../utils/fetchWithRetry';
@@ -715,6 +715,20 @@ class FileSystemEngine {
    */
   public async loadCopyList(path?: string): Promise<{ path: string; list: TransferPlan[]; found: boolean } | null> {
     return this.callServerFs<{ path: string; list: TransferPlan[]; found: boolean }>('copylist/load', { path: path || undefined });
+  }
+
+  /**
+   * Sizes paths that came from the native picker instead of a listing. Folders
+   * come back with 0 bytes because the transfer job measures the tree itself;
+   * `missing` carries the paths the server could not stat.
+   */
+  public async inspectPaths(
+    paths: string[]
+  ): Promise<{ entries: TransferPlanEntry[]; missing: Array<{ path: string; reason: string }> } | null> {
+    if (paths.length === 0) return { entries: [], missing: [] };
+    return this.callServerFs<{ entries: TransferPlanEntry[]; missing: Array<{ path: string; reason: string }> }>('stat', {
+      paths
+    });
   }
 
   public createDirectory(driveId: string, parentPath: string, dirName: string): FileItem {

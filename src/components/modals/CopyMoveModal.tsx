@@ -5,6 +5,8 @@ import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 import { taskQueue } from '../../services/taskQueueManager';
+import { addEntriesToPlan, planFileBytes } from '../../services/transferPlanEdits';
+import { canPickPaths, pickPathsFromDisk, PickMode } from '../../services/nativePicker';
 import { fsEngine } from '../../services/fileSystem';
 import { RetroProgressBar } from '../RetroProgressBar';
 
@@ -239,6 +241,38 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
     });
   };
 
+  // Adds what the native picker returned to the transfer on screen. The plan is
+  // re-read after the dialog closes: the transfer kept running while the user
+  // browsed, and the list on screen may no longer be the list it started with.
+  const handleAddPicked = async (mode: PickMode) => {
+    const target = active;
+    if (!target?.plan) return;
+
+    const picked = await pickPathsFromDisk(mode, lang);
+    if (picked.length === 0) return;
+
+    const inspected = await fsEngine.inspectPaths(picked);
+    if (!inspected) {
+      setListNote(t.transferAddFailed);
+      return;
+    }
+
+    const current = taskQueue.getPlan(target.id) ?? target.plan;
+    const merged = addEntriesToPlan(current, inspected.entries);
+    if (merged.added.length === 0) {
+      setListNote(t.transferAddNoNew);
+      return;
+    }
+
+    // The total never shrinks: a folder already measured by the server holds
+    // bytes the plan's own sizes cannot reproduce.
+    taskQueue.updateTaskMeta(target.id, {
+      plan: merged.plan,
+      totalBytes: Math.max(target.totalBytes || 0, planFileBytes(merged.plan))
+    });
+    setListNote(`${t.transferAddFiles}: +${merged.added.length}`);
+  };
+
   const handleSaveList = async () => {
     if (!active?.plan) return;
     setListNote(t.transferSaveList + 'â€¦');
@@ -354,6 +388,12 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                   <button type="button" onClick={() => setSelected(new Set((active?.plan?.entries || []).map((_, i) => i)))} disabled={!active?.plan?.entries?.length} className="px-2 py-0.5 border border-white/20 rounded cursor-pointer disabled:opacity-40">All</button>
                   <button type="button" onClick={() => setSelected(new Set((active?.plan?.entries || []).map((_, i) => i).filter(i => !selected.has(i))))} disabled={!active?.plan?.entries?.length} className="px-2 py-0.5 border border-white/20 rounded cursor-pointer disabled:opacity-40">Invert</button>
                   <button type="button" onClick={() => { if (!active?.plan?.entries) return; const next = active.plan.entries.filter((_, i) => !selected.has(i)); taskQueue.updateTaskMeta(active.id, { plan: { ...active.plan, entries: next }, totalBytes: next.reduce((a, e) => a + (e.isDirectory ? 0 : e.size), 0) }); setSelected(new Set()); }} disabled={selected.size === 0} className="px-2 py-0.5 border border-rose-500/50 rounded text-rose-300 cursor-pointer disabled:opacity-40">Remove selected</button>
+                  {canPickPaths() && (
+                    <>
+                      <button type="button" onClick={() => void handleAddPicked('files')} className="px-2 py-0.5 border border-emerald-500/50 rounded text-emerald-200 cursor-pointer">{t.transferAddFiles}</button>
+                      <button type="button" onClick={() => void handleAddPicked('folders')} className="px-2 py-0.5 border border-emerald-500/50 rounded text-emerald-200 cursor-pointer">{t.transferAddFolder}</button>
+                    </>
+                  )}
                   <span className="opacity-60 ml-auto">{selected.size > 0 ? `${selected.size} selected` : ''}</span>
                 </div>
                 <div className="flex items-center gap-2 text-[10px]">

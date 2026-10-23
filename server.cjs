@@ -1419,6 +1419,43 @@ function registerFsRoutes() {
     }
   });
 
+  // Sizes paths that did not come from a directory listing, which today means
+  // whatever the native picker returned. The renderer needs a real size to show
+  // a transfer total and a real type to decide between one job call and a tree
+  // walk, and it cannot stat anything itself. Folders report 0 bytes because the
+  // transfer job measures them when it starts; walking every child here would
+  // block the request on a folder like Program Files.
+  app.post('/api/fs/stat', async (req, res) => {
+    const requested = (req.body || {}).paths;
+    if (!Array.isArray(requested)) return res.status(400).json({ error: 'paths must be an array' });
+    if (requested.length > 500) return res.status(400).json({ error: 'Too many paths (max 500)' });
+
+    const entries = [];
+    const missing = [];
+    for (const value of requested) {
+      let target;
+      try {
+        target = assertSafePath(value);
+      } catch (err) {
+        missing.push({ path: String(value), reason: err.message });
+        continue;
+      }
+      const stat = await fs.promises.stat(target).catch(() => null);
+      if (!stat) {
+        missing.push({ path: target, reason: 'not found' });
+        continue;
+      }
+      entries.push({
+        path: target,
+        name: path.win32.basename(target),
+        isDirectory: stat.isDirectory(),
+        size: stat.isDirectory() ? 0 : stat.size
+      });
+    }
+
+    res.json({ entries, missing });
+  });
+
   // Real byte hashes for a file on a real drive. The renderer cannot read the
   // bytes of a real file itself (they never come over /api/list), so it asks
   // here instead of hashing the metadata string it does have -- a digest that

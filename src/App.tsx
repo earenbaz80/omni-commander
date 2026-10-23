@@ -419,9 +419,16 @@ export default function App() {
   // and per-file reporting behaviour; the plan's `replay` flag is the only
   // difference that survives into the executor.
   const enqueueTransferPlan = (plan: TransferPlan, replay = false): string => {
-    const totalBytes = plan.entries.reduce((acc, entry) => acc + (entry.isDirectory ? 0 : entry.size), 0);
+    let totalBytes = plan.entries.reduce((acc, entry) => acc + (entry.isDirectory ? 0 : entry.size), 0);
     const startedAt = Date.now();
     let taskId = '';
+
+    // The transfer window can append entries while this runs (native picker).
+    // Reading the task's plan on every step is what makes those additions real
+    // instead of decorative, and the byte total grows with them.
+    const livePlan = () => taskQueue.getPlan(taskId) ?? plan;
+    const plannedBytes = () =>
+      livePlan().entries.reduce((acc, entry) => acc + (entry.isDirectory ? 0 : entry.size), 0);
 
     const reportMeta = (done: number, currentFile: string) => {
       const elapsed = (Date.now() - startedAt) / 1000;
@@ -449,8 +456,12 @@ export default function App() {
         handleConflictPrompt(conflict, signal);
       };
       try {
-        for (const entry of plan.entries) {
+        for (let index = 0; index < livePlan().entries.length; index++) {
+          const entry = livePlan().entries[index];
           if (signal.cancelled) return;
+          // An entry appended after the start re-scales the bar instead of
+          // leaving it at 100% while bytes are still queued.
+          totalBytes = Math.max(totalBytes, plannedBytes());
           while (signal.paused && !signal.cancelled) {
             await new Promise(resolve => setTimeout(resolve, 120));
           }
@@ -531,7 +542,7 @@ export default function App() {
         // hit refresh, so the destination looked empty right after it finished.
         try {
           await fsEngine.loadSystemDriveDirectory(plan.targetDriveId, plan.targetDir);
-          const first = plan.entries[0];
+          const first = livePlan().entries[0];
           if (plan.op === 'move' && first) {
             await fsEngine.loadSystemDriveDirectory(plan.sourceDriveId, fsEngine.getParentPath(first.path));
           }

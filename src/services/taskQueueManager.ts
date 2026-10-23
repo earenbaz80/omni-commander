@@ -38,6 +38,15 @@ class TaskQueueManager {
   }
 
   /**
+   * Live plan of one task. Executors read this on every step instead of keeping
+   * the plan they were created with: the transfer window can append entries
+   * while the job runs, and a snapshot would silently ignore them.
+   */
+  public getPlan(id: string): TransferPlan | undefined {
+    return this.tasks.find(task => task.id === id)?.plan;
+  }
+
+  /**
    * The planned transfers behind the queue, oldest first, which is the order a
    * saved copy list replays in. Tasks without a plan (delete, archive) have no
    * reproducible batch and are skipped.

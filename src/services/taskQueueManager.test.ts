@@ -99,4 +99,28 @@ describe('taskQueue per-file progress', () => {
 
     expect(taskQueue.getPlans()).toEqual([]);
   });
+
+  it('hands a running executor the plan as it is now, not as it started', () => {
+    const copyPlan: TransferPlan = {
+      op: 'copy',
+      sourceDriveId: 'real_T',
+      targetDriveId: 'real_T',
+      targetDir: 'T:\\dest',
+      overwrite: true,
+      collision: 'overwrite',
+      throttleBps: 0,
+      entries: [{ path: 'T:\\a.txt', name: 'a', isDirectory: false, size: 1 }]
+    };
+    const id = taskQueue.addTask('copy', 'Copy 1', undefined, 1, undefined, copyPlan);
+
+    // The transfer window appends a picked file while the job is in flight.
+    const extended: TransferPlan = {
+      ...copyPlan,
+      entries: [...copyPlan.entries, { path: 'T:\\b.txt', name: 'b', isDirectory: false, size: 2 }]
+    };
+    taskQueue.updateTaskMeta(id, { plan: extended });
+
+    expect(taskQueue.getPlan(id)).toBe(extended);
+    expect(taskQueue.getPlan('task_missing')).toBeUndefined();
+  });
 });

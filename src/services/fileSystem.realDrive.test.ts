@@ -109,6 +109,18 @@ function installFetchMock() {
     if (url.includes('/api/fs/delete')) {
       return reply({ jobId: 'job_2', itemsTotal: 1 });
     }
+    if (url.includes('/api/fs/stat')) {
+      const paths = body?.paths || [];
+      return reply({
+        entries: paths.map((p: string) => ({
+          path: p,
+          name: p.split('\\').pop(),
+          isDirectory: p.endsWith('folder'),
+          size: p.endsWith('folder') ? 0 : 7
+        })),
+        missing: [{ path: 'T:\\nope.txt', reason: 'not found' }]
+      });
+    }
     if (url.includes('/api/fs/job/job_2')) return reply(job('job_2', 'delete', 'done'));
 
     // /api/list
@@ -241,6 +253,25 @@ describe('FileSystemEngine real-drive bridge', () => {
 
     const call = calls.find(c => c.url.includes('/api/fs/copylist/load'));
     expect(call!.body.path).toBe('T:\\listas\\backup.json');
+  });
+
+  it('sizes paths picked outside the panels and reports the missing ones', async () => {
+    const result = await fsEngine.inspectPaths(['T:\\a.txt', 'T:\\folder']);
+
+    const call = calls.find(c => c.url.includes('/api/fs/stat'));
+    expect(call).toBeDefined();
+    expect(call!.method).toBe('POST');
+    expect(call!.body).toEqual({ paths: ['T:\\a.txt', 'T:\\folder'] });
+    expect(result?.entries).toEqual([
+      { path: 'T:\\a.txt', name: 'a.txt', isDirectory: false, size: 7 },
+      { path: 'T:\\folder', name: 'folder', isDirectory: true, size: 0 }
+    ]);
+    expect(result?.missing).toHaveLength(1);
+  });
+
+  it('does not ask the server to stat an empty pick', async () => {
+    expect(await fsEngine.inspectPaths([])).toEqual({ entries: [], missing: [] });
+    expect(calls.some(c => c.url.includes('/api/fs/stat'))).toBe(false);
   });
 
   it('raises one collision prompt per destination and sends the answer back', async () => {
