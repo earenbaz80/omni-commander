@@ -47,6 +47,50 @@
     --fs-sm: var(--fs-11);   /* Mini-text (file list, DOS) */
     --fs-base: var(--fs-13); /* Compact body (mono) */
     --fs-lg: var(--fs-15);   /* Large body/heading */
+
+    /* Espaciado sistemático (base 2px) */
+    --space-0: 0;
+    --space-1: 2px;
+    --space-2: 4px;
+    --space-3: 6px;
+    --space-4: 8px;
+    --space-5: 10px;
+    --space-6: 12px;
+    --space-8: 16px;
+    --space-10: 20px;
+    --space-12: 24px;
+    --space-16: 32px;
+    --space-20: 40px;
+    --space-24: 48px;
+
+    /* Radios de borde */
+    --radius-none: 0;
+    --radius-sm: 2px;
+    --radius-md: 4px;
+    --radius-lg: 6px;
+    --radius-xl: 8px;
+    --radius-full: 9999px;
+
+    /* Sombras */
+    --shadow-none: none;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.4);
+    --shadow-lg: 0 10px 15px rgba(0,0,0,0.5);
+    --shadow-xl: 0 20px 25px rgba(0,0,0,0.6);
+
+    /* Transiciones */
+    --duration-fast: 100ms;
+    --duration-normal: 150ms;
+    --duration-slow: 250ms;
+    --easing-standard: ease-out;
+
+    /* Z-index scale */
+    --z-base: 0;
+    --z-dropdown: 100;
+    --z-sticky: 200;
+    --z-modal: 60;
+    --z-toast: 70;
+    --z-tooltip: 80;
   }
 
   html { font-size: 125%; } /* Default Windows zoom level */

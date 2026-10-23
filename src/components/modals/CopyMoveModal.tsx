@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Copy, Minus, Scissors, ShieldAlert } from 'lucide-react';
 import { BackgroundTask, CollisionPolicy, FileItem, LanguageCode, TransferOptions, TransferPlan } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
@@ -11,6 +11,7 @@ import { fsEngine } from '../../services/fileSystem';
 import { RetroProgressBar } from '../RetroProgressBar';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
+import ModalShell from '../ModalShell';
 
 interface CopyMoveModalProps {
   type: 'copy' | 'move';
@@ -65,7 +66,7 @@ function readAfterFinish(): AfterFinish {
 }
 
 function formatBytes(bytes: number): string {
-  if (!bytes || bytes < 0) return 'â€”';
+  if (!bytes || bytes < 0) return '�';
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   let i = 0;
   let n = bytes;
@@ -275,7 +276,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
 
   const handleSaveList = async () => {
     if (!active?.plan) return;
-    setListNote(t.transferSaveList + 'â€¦');
+    setListNote(t.transferSaveList + '�');
     try {
       const result = await fsEngine.saveCopyList([active.plan]);
       setListNote(result ? `${t.transferSaveList}: ${result.path}` : t.transferSaveList);
@@ -472,11 +473,11 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                 {transfers.map((entry, index) => (
                   <div key={entry.id} className="flex items-center gap-2 text-[11px]">
                     <span className="w-4 shrink-0 opacity-50">{index + 1}.</span>
-                    {entry.type === 'move' ? <Scissors className="w-3 h-3 shrink-0" /> : entry.type === 'delete' ? <span className="shrink-0">âœ•</span> : <Copy className="w-3 h-3 shrink-0" />}
+                    {entry.type === 'move' ? <Scissors className="w-3 h-3 shrink-0" /> : entry.type === 'delete' ? <span className="shrink-0">?</span> : <Copy className="w-3 h-3 shrink-0" />}
                     <span className="flex-1 truncate" title={entry.title}>{entry.title}</span>
                     <span className="uppercase opacity-70">{entry.status}</span>
                     <span className="tabular-nums shrink-0">{entry.progress}%</span>
-                    <button type="button" onClick={() => taskQueue.cancelTask(entry.id)} className="text-rose-300 hover:text-rose-100 cursor-pointer shrink-0" aria-label={t.btnCancel}>âœ•</button>
+                    <button type="button" onClick={() => taskQueue.cancelTask(entry.id)} className="text-rose-300 hover:text-rose-100 cursor-pointer shrink-0" aria-label={t.btnCancel}>?</button>
                   </div>
                 ))}
               </div>
@@ -584,69 +585,20 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
     </>
   );
 
+  // Render directly without intermediate content variable
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 font-mono select-none">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        onKeyDownCapture={(event) => {
-          if (event.key !== 'Enter' || event.shiftKey || taskId) return;
-          if ((event.target as HTMLElement).tagName === 'TEXTAREA') return;
-          event.preventDefault();
-          formRef.current?.requestSubmit();
-        }}
-        className="flex flex-col rounded shadow-2xl border text-xs overflow-hidden"
-        style={{
-          backgroundColor: theme.modalBg,
-          borderColor: theme.modalBorder,
-          color: theme.itemText,
-          resize: folded ? 'none' : 'both',
-          width: folded ? '34rem' : '34rem',
-          minWidth: '22rem',
-          minHeight: folded ? 0 : '16rem',
-          maxWidth: '100%',
-          maxHeight: '100%'
-        }}
-      >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between px-3 py-2 border-b font-bold shrink-0"
-          style={{
-            backgroundColor: theme.modalHeaderBg,
-            color: theme.modalHeaderText,
-            borderColor: theme.modalBorder
-          }}
-        >
-          <div className="flex items-center gap-2">
-            {isCopy ? <Copy className="w-4 h-4" /> : <Scissors className="w-4 h-4" />}
-            <span>{idle ? t.taskQueueShort : (isCopy ? t.copyTitle : t.moveTitle)} ({idle ? '' : (isCopy ? 'F5' : 'F6')})</span>
-            {transfers.length > 0 && (
-              <span className="text-[10px] opacity-60">({transfers.length})</span>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setFolded(f => !f)}
-              aria-label={folded ? t.transferUnfold : t.transferFold}
-              title={folded ? t.transferUnfold : t.transferFold}
-              className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded cursor-pointer"
-            >
-              {folded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={t.minimize}
-              title={`${t.minimize} (Esc)`}
-              className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded cursor-pointer"
-            >
-              <Minus className="w-3.5 h-3.5" />
-            </button>
-            <button type="button" onClick={onClose} className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer">âœ•</button>
-          </div>
-        </div>
-
+    <ModalShell
+      title={idle ? t.taskQueueShort : (isCopy ? t.copyTitle : t.moveTitle)}
+      theme={theme}
+      onClose={onClose}
+      closeButtonLabel={t.btnCancel}
+    >
+      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none" onKeyDownCapture={(event) => {
+        if (event.key !== 'Enter' || event.shiftKey || taskId) return;
+        if ((event.target as HTMLElement).tagName === 'TEXTAREA') return;
+        event.preventDefault();
+        formRef.current?.requestSubmit();
+      }}>
         {/* Folded strip */}
         {folded && (
           <div className="px-3 py-1.5 text-[11px] opacity-80 border-b shrink-0" style={{ borderColor: theme.modalBorder }}>
@@ -689,7 +641,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                   ) : (
                     <>
                       {active.speed || t.inProgress}
-                      {active.etaSeconds != null && active.etaSeconds > 0 ? ` Â· ${t.etaLabel} ${active.etaSeconds}s` : ''}
+                      {active.etaSeconds != null && active.etaSeconds > 0 ? ` � ${t.etaLabel} ${active.etaSeconds}s` : ''}
                     </>
                   )}
                 </div>
@@ -755,7 +707,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             <div className="flex-1 min-h-16 overflow-y-auto bg-black/40 p-2 rounded border border-white/10 text-[11px]">
               {items.map(i => (
                 <div key={i.id} className="truncate text-amber-300">
-                  â€¢ {i.name}{i.ext ? `.${i.ext}` : ''} {i.isDirectory ? '<DIR>' : ''}
+                  � {i.name}{i.ext ? `.${i.ext}` : ''} {i.isDirectory ? '<DIR>' : ''}
                 </div>
               ))}
             </div>
@@ -907,7 +859,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             ) : (
               <>
                 {task.speed || t.inProgress}
-                {task.etaSeconds != null && task.etaSeconds > 0 ? ` Â· ${t.etaLabel} ${task.etaSeconds}s` : ''}
+                {task.etaSeconds != null && task.etaSeconds > 0 ? ` � ${t.etaLabel} ${task.etaSeconds}s` : ''}
               </>
             )}
           </div>
@@ -956,7 +908,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                     title={t.btnCancel}
                     className="px-1.5 py-0.5 border border-rose-500/50 rounded text-rose-300 hover:bg-rose-950/60 cursor-pointer shrink-0"
                   >
-                    âœ•
+                    ?
                   </button>
                 </div>
               ))}
@@ -1034,6 +986,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
         </div>
         )}
       </div>
-    </div>
+    </ModalShell>
   );
 };
+

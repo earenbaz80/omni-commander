@@ -20,6 +20,7 @@ import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 import { createPasswordRecord } from '../../services/appLock';
+import { useThemeColors } from '../../hooks/useThemeColors';
 
 interface SettingsModalProps {
   theme: ThemeConfig;
@@ -96,7 +97,7 @@ function SettingsTabButton({ active, onClick, icon, label }: {
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-1 px-2 py-1 rounded text-left text-[var(--fs-sm)] transition-all border ${
+      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-[var(--fs-sm)] transition-all border ${
         active
           ? 'bg-amber-400 text-black font-bold border-amber-300 shadow'
           : 'bg-black/40 border-white/10 text-white/80 hover:bg-white/10 hover:border-white/30'
@@ -117,19 +118,8 @@ function SectionCard({ title, children, className = '' }: { title: string; child
   );
 }
 
-function ThemePreview({ themeId, theme }: { themeId: ThemeId; theme: ThemeConfig }) {
-  const themeColors = {
-    classic_blue: { bg: '#000084', panel: '#0000a8', accent: '#55ffff', text: '#ffffff' },
-    retro_gray: { bg: '#1a1a2e', panel: '#16213e', accent: '#0f3460', text: '#eaeaea' },
-    midnight_amber: { bg: '#0d0800', panel: '#1a1200', accent: '#ffb000', text: '#ffe082' },
-    matrix_green: { bg: '#040d06', panel: '#081a0c', accent: '#00ff66', text: '#00ff66' },
-    windows11_dark: { bg: '#18181b', panel: '#202024', accent: '#3b82f6', text: '#f4f4f5' },
-    windows11_light: { bg: '#f1f5f9', panel: '#ffffff', accent: '#2563eb', text: '#0f172a' },
-    dracula_retro: { bg: '#1e1f29', panel: '#282a36', accent: '#bd93f9', text: '#f8f8f2' },
-    solarized_dark: { bg: '#002b36', panel: '#073642', accent: '#268bd2', text: '#839496' },
-  };
-  const colors = themeColors[themeId];
-  if (!colors) return null;
+function ThemePreview({ themeId }: { themeId: ThemeId }) {
+  const colors = useThemeColors(themeId);
 
   return (
     <div className="rounded border p-1.5 mt-1" style={{ backgroundColor: colors.panel, borderColor: colors.accent }}>
@@ -232,7 +222,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             );
           })}
         </div>
-        <ThemePreview themeId={formData.theme} theme={theme} />
+        <ThemePreview themeId={formData.theme} />
       </SectionCard>
     </div>
   );
@@ -603,11 +593,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <ModalShell title={t.settingsTitle} theme={theme} onClose={handleCancel} closeButtonLabel={t.btnCancel}>
-      <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded shadow-2xl border text-[var(--fs-sm)] overflow-hidden"
+      <div className="w-full max-w-3xl max-h-[90vh] flex flex-row rounded shadow-2xl border text-[var(--fs-sm)] overflow-hidden"
         style={{ backgroundColor: theme.modalBg, borderColor: theme.modalBorder, color: theme.itemText }}>
         
-        {/* Tab Bar */}
-        <div className="flex items-center gap-0.5 bg-black/40 p-0.5 rounded-t border-b border-white/10 shrink-0">
+        {/* Sidebar - Vertical Tabs */}
+        <div className="flex flex-col gap-0.5 bg-black/30 p-1 border-r border-white/10 shrink-0 min-w-[140px]">
           {TAB_CONFIG.map(tab => (
             <SettingsTabButton
               key={tab.id}
@@ -619,66 +609,69 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           ))}
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-1.5 space-y-1.5">
-          {tabContent[activeTab]}
-        </div>
-
-        {/* Footer Actions */}
-        <div className="flex items-center justify-between px-1.5 py-1.5 border-t text-[var(--fs-sm)] shrink-0"
-          style={{ backgroundColor: theme.modalBg, borderColor: theme.modalBorder }}>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => {
-                const blob = new Blob([JSON.stringify(formData, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'omnicmd-settings.json';
-                a.click();
-                URL.revokeObjectURL(url);
-                soundManager.playKeyTick();
-              }}
-              className="px-1.5 py-0.5 border rounded cursor-pointer text-[var(--fs-8)]"
-            >
-              {t.settingsExportConfig}
-            </button>
-            <button
-              onClick={() => {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = 'application/json';
-                input.onchange = async (ev) => {
-                  const file = (ev.target as HTMLInputElement).files?.[0];
-                  if (!file) return;
-                  try {
-                    const parsed = JSON.parse(await file.text());
-                    setFormData(prev => ({ ...prev, ...parsed }));
-                    soundManager.playSuccess();
-                  } catch {
-                    alert(t.settingsInvalidConfig);
-                  }
-                };
-                input.click();
-              }}
-              className="px-1.5 py-0.5 border rounded cursor-pointer text-[var(--fs-8)]"
-            >
-              {t.settingsImportConfig}
-            </button>
+        {/* Content Area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+            {tabContent[activeTab]}
           </div>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={handleCancel}
-              className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
-            >
-              <X className="w-3 h-3 mr-0.5" /> {t.btnCancel}
-            </button>
-            <button
-              onClick={handleSave}
-              className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow flex items-center gap-0.5"
-            >
-              <Save className="w-3 h-3" /> {t.btnSave}
-            </button>
+
+          {/* Footer Actions */}
+          <div className="flex items-center justify-between px-2 py-1.5 border-t text-[var(--fs-sm)] shrink-0"
+            style={{ backgroundColor: theme.modalBg, borderColor: theme.modalBorder }}>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  const blob = new Blob([JSON.stringify(formData, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = 'omnicmd-settings.json';
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  soundManager.playKeyTick();
+                }}
+                className="px-1.5 py-0.5 border rounded cursor-pointer text-[var(--fs-8)]"
+              >
+                {t.settingsExportConfig}
+              </button>
+              <button
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = 'application/json';
+                  input.onchange = async (ev) => {
+                    const file = (ev.target as HTMLInputElement).files?.[0];
+                    if (!file) return;
+                    try {
+                      const parsed = JSON.parse(await file.text());
+                      setFormData(prev => ({ ...prev, ...parsed }));
+                      soundManager.playSuccess();
+                    } catch {
+                      alert(t.settingsInvalidConfig);
+                    }
+                  };
+                  input.click();
+                }}
+                className="px-1.5 py-0.5 border rounded cursor-pointer text-[var(--fs-8)]"
+              >
+                {t.settingsImportConfig}
+              </button>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleCancel}
+                className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
+              >
+                <X className="w-3 h-3 mr-0.5" /> {t.btnCancel}
+              </button>
+              <button
+                onClick={handleSave}
+                className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow flex items-center gap-0.5"
+              >
+                <Save className="w-3 h-3" /> {t.btnSave}
+              </button>
+            </div>
           </div>
         </div>
       </div>
