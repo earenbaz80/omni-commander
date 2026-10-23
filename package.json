@@ -18,9 +18,15 @@
     },
     "win": {
       "target": [
-        "nsis"
+        "nsis",
+        "portable"
       ],
       "icon": "build/icon.ico"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "earenbaz80",
+      "repo": "omni-commander"
     },
     "nsis": {
       "oneClick": false,
