@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawn } = require('node:child_process');
@@ -50,6 +50,194 @@ const isDev = !app.isPackaged;
 
 let mainWindow;
 
+// ---------------------------------------------------------------------------
+// Tray
+//
+// A transfer can outlive the window: closing it while a copy is still writing
+// used to kill the renderer, and with it the only pause/cancel control. The tray
+// keeps a live transfer reachable and is the way back to a hidden window.
+//
+// The renderer owns the truth about tasks, so this process mirrors a tiny,
+// strictly bounded snapshot of it and forwards commands back over IPC. Nothing
+// here reads the file system or blocks: a tray that lags a frame is harmless, a
+// main process that waits is not.
+// ---------------------------------------------------------------------------
+
+const TRAY_LABEL_LIMIT = 32;
+const TRAY_TITLE_LIMIT = 60;
+const TRAY_TOOLTIP_LIMIT = 120;
+const LIVE_STATUSES = ['running', 'paused', 'queued'];
+
+let tray = null;
+let trayMenu = null;
+// Real quitting must be distinguishable from closing the window, otherwise the
+// close handler below would hide the window during `app.quit()` and the process
+// would never exit.
+let quitting = false;
+let trayState = {
+  hasLiveWork: false,
+  activeCount: 0,
+  task: null,
+  labels: {
+    resume: 'Resume',
+    pause: 'Pause',
+    cancel: 'Cancel',
+    quit: 'Quit',
+  },
+};
+
+/** Cuts a string to a length that still fits a tray tooltip or a menu row. */
+function clampText(value, limit) {
+  const text = typeof value === 'string' ? value.trim() : '';
+  return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
+}
+
+/**
+ * The renderer is the only writer, but it is still a web page: treat everything
+ * it sends as untrusted input and rebuild a fresh object with known field types.
+ */
+function normalizeTrayState(payload) {
+  const source = payload && typeof payload === 'object' ? payload : {};
+  const rawTask = source.task && typeof source.task === 'object' ? source.task : null;
+  const status = rawTask && LIVE_STATUSES.includes(rawTask.status) ? rawTask.status : null;
+  const task = status
+    ? {
+        id: clampText(rawTask.id, TRAY_TITLE_LIMIT),
+        title: clampText(rawTask.title, TRAY_TITLE_LIMIT) || 'Transfer',
+        status,
+        progress: Number.isFinite(rawTask.progress)
+          ? Math.min(100, Math.max(0, Math.round(rawTask.progress)))
+          : 0,
+      }
+    : null;
+  const rawCount = Number(source.activeCount);
+  const activeCount = Number.isFinite(rawCount)
+    ? Math.min(99, Math.max(0, Math.trunc(rawCount)))
+    : task
+      ? 1
+      : 0;
+  const rawLabels = source.labels && typeof source.labels === 'object' ? source.labels : {};
+
+  return {
+    hasLiveWork: activeCount > 0 || !!task,
+    activeCount,
+    task,
+    labels: {
+      resume: clampText(rawLabels.resume, TRAY_LABEL_LIMIT) || 'Resume',
+      pause: clampText(rawLabels.pause, TRAY_LABEL_LIMIT) || 'Pause',
+      cancel: clampText(rawLabels.cancel, TRAY_LABEL_LIMIT) || 'Cancel',
+      quit: clampText(rawLabels.quit, TRAY_LABEL_LIMIT) || 'Quit',
+    },
+  };
+}
+
+/**
+ * The tray uses a 32px PNG derived from the installer icon: Windows scales it
+ * down for the notification area at every display scale, and unlike an .ico it
+ * can be read straight from the package bytes. Reading the bytes ourselves
+ * matters because fs is asar-aware while nativeImage's path loader is not.
+ */
+function loadTrayIcon() {
+  const file = path.join(__dirname, 'tray.png');
+  try {
+    const image = nativeImage.createFromBuffer(fs.readFileSync(file));
+    if (!image.isEmpty()) return image;
+  } catch (error) {
+    console.error('Tray icon could not be read:', error);
+  }
+  return null;
+}
+
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createMainWindow();
+    return;
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function sendTrayCommand(command) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('tray:command', command);
+}
+
+/**
+ * Rebuilds the menu from the mirrored snapshot. Resume and Pause are mutually
+ * exclusive so the menu always states what a click will actually do.
+ */
+function refreshTrayMenu() {
+  if (!tray || tray.isDestroyed()) return;
+  const { task, activeCount, labels } = trayState;
+  const status = task ? task.status : null;
+  const summary = task
+    ? `${task.title}${task.progress > 0 ? ` — ${task.progress}%` : ''}`
+    : '';
+
+  tray.setToolTip(
+    clampText(
+      summary ? `OmniCommander Pro · ${summary}` : 'OmniCommander Pro',
+      TRAY_TOOLTIP_LIMIT
+    )
+  );
+
+  const header = activeCount > 1 ? `OmniCommander Pro (${activeCount})` : 'OmniCommander Pro';
+  trayMenu = Menu.buildFromTemplate([
+    { label: header, click: showMainWindow },
+    { type: 'separator' },
+    { label: summary || '—', enabled: false },
+    {
+      label: labels.resume,
+      enabled: status === 'paused',
+      click: () => sendTrayCommand('resume'),
+    },
+    {
+      label: labels.pause,
+      enabled: status === 'running',
+      click: () => sendTrayCommand('pause'),
+    },
+    {
+      label: labels.cancel,
+      enabled: status === 'running' || status === 'paused' || status === 'queued',
+      click: () => sendTrayCommand('cancel'),
+    },
+    { type: 'separator' },
+    {
+      label: labels.quit,
+      click: () => {
+        quitting = true;
+        app.quit();
+      },
+    },
+  ]);
+
+  // Windows shows a context menu on left click as well when one is attached, and
+  // a left click must restore the window instead. Right click owns the menu
+  // there; other platforms attach it the usual way.
+  if (process.platform === 'win32') tray.setContextMenu(null);
+  else tray.setContextMenu(trayMenu);
+}
+
+function createTray() {
+  if (tray) return;
+  const icon = loadTrayIcon();
+  if (!icon) {
+    // A tray-less launch is degraded, not broken: transfers still work while the
+    // window is open. Say so instead of failing the whole app.
+    console.error('Tray icon not found; continuing without tray controls.');
+    return;
+  }
+  tray = new Tray(icon);
+  tray.setToolTip('OmniCommander Pro');
+  tray.on('click', showMainWindow);
+  tray.on('right-click', () => {
+    if (trayMenu) tray.popUpContextMenu(trayMenu);
+  });
+  refreshTrayMenu();
+  console.log('Tray controls ready.');
+}
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -87,6 +275,15 @@ function createMainWindow() {
     return isAllowedLocalUrl(url) ? { action: 'allow' } : { action: 'deny' };
   });
 
+  // Closing the window while a transfer is live hides it instead of destroying
+  // the renderer: the copy keeps writing, the tray keeps the controls, and the
+  // header item brings the window back. With nothing running, close still exits.
+  mainWindow.on('close', (event) => {
+    if (quitting || !trayState.hasLiveWork) return;
+    event.preventDefault();
+    mainWindow.hide();
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -102,6 +299,12 @@ function createMainWindow() {
 app.whenReady().then(async () => {
   await whenApiPortReady();
   createMainWindow();
+  createTray();
+});
+
+// A real quit must not be intercepted by the close-to-tray handler above.
+app.on('before-quit', () => {
+  quitting = true;
 });
 
 app.on('window-all-closed', () => {
@@ -110,6 +313,16 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
+  else showMainWindow();
+});
+
+// The renderer pushes a bounded snapshot whenever a task starts, changes state
+// or disappears of its own accord. Only the window that hosts the app may write
+// it, so a stray frame or a devtools extra cannot take over the tray.
+ipcMain.on('tray:state', (event, payload) => {
+  if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) return;
+  trayState = normalizeTrayState(payload);
+  refreshTrayMenu();
 });
 
 ipcMain.handle('window:minimize', () => mainWindow?.minimize());

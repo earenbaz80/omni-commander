@@ -19,6 +19,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   closeWindow: () => ipcRenderer.invoke('window:close'),
   relaunchAsAdmin: () => ipcRenderer.invoke('app:relaunch-admin'),
+  // Tray bridge: the renderer reports what is running, and receives
+  // pause/resume/cancel when the user picks one of those from the tray menu.
+  updateTrayState: state => ipcRenderer.send('tray:state', state),
+  onTrayCommand: callback => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, command) => callback(command);
+    ipcRenderer.on('tray:command', listener);
+    return () => ipcRenderer.removeListener('tray:command', listener);
+  },
   isElectron: true,
   apiPort: Number.isFinite(parsedApiPort) && parsedApiPort > 0 ? parsedApiPort : 3001,
   apiToken,

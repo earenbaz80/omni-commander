@@ -27,6 +27,7 @@ import { CollapsibleInfoDrawer } from './components/CollapsibleInfoDrawer';
 
 // Modals
 import { taskQueue } from './services/taskQueueManager';
+import { startTrayBridge } from './services/trayBridge';
 
 // Real drives are polled so a USB device plugged in after startup appears
 // without restarting the app. A failed poll backs off, which rides out the
@@ -238,6 +239,11 @@ export default function App() {
       setFsTick(t => t + 1);
     });
   }, []);
+
+  // The tray mirrors the live transfer and turns its menu picks into the same
+  // pause/resume/cancel the in-window bar calls. Restarting on a language change
+  // relabels the menu; the subscription itself is cheap either way.
+  useEffect(() => startTrayBridge(lang), [lang]);
 
 
   // One-time migration: replace any legacy plaintext password with a salted

@@ -1,0 +1,133 @@
+import { BackgroundTask, LanguageCode } from '../types';
+import { getTranslations } from '../i18n/translations';
+import { taskQueue } from './taskQueueManager';
+
+export type TrayCommand = 'resume' | 'pause' | 'cancel';
+export type TrayAction = 'pause' | 'resume' | 'cancel';
+export type TrayTaskStatus = 'running' | 'paused' | 'queued';
+
+/** The bounded snapshot the tray is allowed to know about. */
+export interface TraySnapshot {
+  hasLiveWork: boolean;
+  activeCount: number;
+  task: {
+    id: string;
+    title: string;
+    status: TrayTaskStatus;
+    progress: number;
+  } | null;
+  labels: {
+    resume: string;
+    pause: string;
+    cancel: string;
+    quit: string;
+  };
+}
+
+interface ElectronTrayBridge {
+  updateTrayState?: (snapshot: TraySnapshot) => void;
+  onTrayCommand?: (callback: (command: TrayCommand) => void) => (() => void) | void;
+}
+
+/**
+ * Statuses the tray can act on. A failed or finished transfer has no control
+ * worth offering, so it stays out of the tray entirely.
+ */
+const LIVE_STATUSES: ReadonlySet<string> = new Set(['running', 'paused', 'queued']);
+
+export function isLiveTask(task: BackgroundTask): boolean {
+  return LIVE_STATUSES.has(task.status);
+}
+
+/**
+ * Picks the transfer the tray menu controls.
+ *
+ * A queued task is newer than the one running, and the queue is newest-first, so
+ * taking the first live task would hand the pause button to something that has
+ * not started. The running transfer wins; when it is paused it keeps control;
+ * only when nothing is in flight does a queued task become the target.
+ */
+export function selectTrayTask(tasks: BackgroundTask[]): BackgroundTask | null {
+  return (
+    tasks.find(task => task.status === 'running') ??
+    tasks.find(task => task.status === 'paused') ??
+    tasks.find(task => task.status === 'queued') ??
+    null
+  );
+}
+
+/**
+ * Maps a tray command to the action that is actually valid for the selected
+ * task, so a stale menu (a click that lands after the transfer moved on) does
+ * nothing instead of, say, "resuming" a task that is already running.
+ */
+export function resolveTrayAction(
+  task: BackgroundTask | null,
+  command: TrayCommand
+): TrayAction | null {
+  if (!task) return null;
+  if (command === 'pause') return task.status === 'running' ? 'pause' : null;
+  if (command === 'resume') return task.status === 'paused' ? 'resume' : null;
+  if (command === 'cancel') return isLiveTask(task) ? 'cancel' : null;
+  return null;
+}
+
+function bridge(): ElectronTrayBridge | undefined {
+  if (typeof window === 'undefined') return undefined;
+  return (window as unknown as { electronAPI?: ElectronTrayBridge }).electronAPI;
+}
+
+/**
+ * Keeps the Electron tray in step with the task queue and applies the menu's
+ * picks to it. Returns a teardown function; in a browser build there is nothing
+ * to attach to and the returned function is a no-op.
+ */
+export function startTrayBridge(lang: LanguageCode): () => void {
+  const api = bridge();
+  if (!api?.updateTrayState) return () => {};
+  const updateTrayState = api.updateTrayState;
+  const t = getTranslations(lang);
+
+  const sync = () => {
+    const tasks = taskQueue.getTasks();
+    const liveTasks = tasks.filter(isLiveTask);
+    const task = selectTrayTask(tasks);
+    updateTrayState({
+      hasLiveWork: liveTasks.length > 0,
+      activeCount: liveTasks.length,
+      task:
+        task && isLiveTask(task)
+          ? {
+              id: task.id,
+              title: task.title,
+              status: task.status as TrayTaskStatus,
+              progress: task.progress,
+            }
+          : null,
+      labels: {
+        resume: t.bgTasksResume,
+        pause: t.bgTasksPause,
+        cancel: t.btnCancel,
+        quit: t.quitDialogLabel,
+      },
+    });
+  };
+
+  const handleCommand = (command: TrayCommand) => {
+    const task = selectTrayTask(taskQueue.getTasks());
+    const action = resolveTrayAction(task, command);
+    if (!task || !action) return;
+    if (action === 'resume') taskQueue.resumeTask(task.id);
+    else if (action === 'pause') taskQueue.pauseTask(task.id);
+    else taskQueue.cancelTask(task.id);
+  };
+
+  const unsubscribeQueue = taskQueue.subscribe(sync);
+  const unsubscribeCommand = api.onTrayCommand?.(handleCommand);
+  sync();
+
+  return () => {
+    unsubscribeQueue();
+    if (typeof unsubscribeCommand === 'function') unsubscribeCommand();
+  };
+}
