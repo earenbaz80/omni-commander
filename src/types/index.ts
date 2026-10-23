@@ -186,6 +186,15 @@ export interface PendingConflict {
   destination: string;
   /** Name of the destination entry, shown in the prompt headline. */
   name: string;
+  /** Bytes on each side, measured by the server when the conflict was raised. */
+  sourceSize?: number;
+  destinationSize?: number;
+  /** Last-write time in epoch milliseconds, for the same comparison. */
+  sourceModified?: number;
+  destinationModified?: number;
+  isDirectory?: boolean;
+  /** Same size and same timestamp, so overwriting would change nothing. */
+  identical?: boolean;
 }
 
 /** User-chosen knobs for a real copy/move operation. */

@@ -14,10 +14,35 @@ interface ConflictPromptModalProps {
   onCancel: () => void;
 }
 
+/** Answers apply to one conflict unless the user opts into the always variant. */
+type AnswerScope = 'once' | 'always';
+
+function formatBytes(bytes: number | undefined): string {
+  if (bytes === undefined || bytes < 0) return '—';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
+}
+
+function formatWhen(ms: number | undefined): string {
+  if (!ms) return '—';
+  return new Date(ms).toLocaleString();
+}
+
 /**
  * SuperCopier-style collision prompt. The transfer is parked on disk while this
  * is open, so every exit path must answer it: the action buttons settle this one
  * conflict and Cancel aborts the whole job instead of leaving it parked forever.
+ *
+ * Both sides are shown with their size and date. A same-name destination is not
+ * evidence that the copy is needed, and a user picking blindly between
+ * "overwrite" and "skip" is exactly how a newer file gets replaced by an older
+ * one.
  */
 export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
   conflict,
@@ -27,7 +52,7 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
   onCancel
 }) => {
   const t = getTranslations(lang);
-  const [applyToAll, setApplyToAll] = useState(false);
+  const [scope, setScope] = useState<AnswerScope>('once');
 
   const actions: Array<[ConflictResolution, string]> = [
     ['skip', t.collisionSkip],
@@ -39,6 +64,11 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
 
   const dialogRef = useModalDialog<HTMLDivElement>(t.conflictTitle);
 
+  const facts: Array<[string, string, string]> = [
+    [t.size, formatBytes(conflict.sourceSize), formatBytes(conflict.destinationSize)],
+    [t.diffModified, formatWhen(conflict.sourceModified), formatWhen(conflict.destinationModified)]
+  ];
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 font-mono select-none">
       <div
@@ -49,7 +79,7 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
           backgroundColor: theme.modalBg,
           borderColor: theme.modalBorder,
           color: theme.itemText,
-          width: '30rem',
+          width: '36rem',
           maxWidth: '100%'
         }}
       >
@@ -61,9 +91,9 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
             borderColor: theme.modalBorder
           }}
         >
-          <div className="flex items-center gap-2">
-            <TriangleAlert className="w-4 h-4" />
-            <span>{t.conflictTitle}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <TriangleAlert className="w-4 h-4 shrink-0" />
+            <span className="truncate" title={conflict.destination}>{t.conflictTitle}: {conflict.name}</span>
           </div>
           <button
             type="button"
@@ -77,18 +107,62 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
 
         <div className="p-4 flex flex-col gap-3">
           <span className="opacity-75">{t.conflictBody}</span>
-          <div className="bg-black/40 p-2 rounded border border-white/10 text-[11px] break-all text-amber-300">
-            {conflict.destination}
+
+          <div className="grid gap-x-3 gap-y-1 text-[11px] border border-white/10 rounded bg-black/30 p-2 break-all">
+            <span className="font-bold text-amber-300">{t.transferColSource}</span>
+            <span className="opacity-90">{conflict.source}</span>
+            <span className="font-bold text-amber-300">{t.transferColDest}</span>
+            <span className="opacity-90">{conflict.destination}</span>
           </div>
-          <label className="flex items-center gap-2 cursor-pointer opacity-90">
-            <input
-              type="checkbox"
-              checked={applyToAll}
-              onChange={(e) => setApplyToAll(e.target.checked)}
-              className="cursor-pointer"
-            />
-            <span>{t.conflictApplyToAll}</span>
-          </label>
+
+          <table className="w-full text-[11px] border border-white/10 rounded">
+            <thead>
+              <tr className="opacity-60">
+                <th className="text-left font-bold px-2 py-1 w-24" />
+                <th className="text-left font-bold px-2 py-1">{t.transferColSource}</th>
+                <th className="text-left font-bold px-2 py-1">{t.transferColDest}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {facts.map(([label, sourceValue, destinationValue]) => (
+                <tr key={label} className="border-t border-white/10">
+                  <td className="px-2 py-1 opacity-60">{label}</td>
+                  <td className="px-2 py-1 tabular-nums">{sourceValue}</td>
+                  <td className="px-2 py-1 tabular-nums">{destinationValue}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {conflict.identical && (
+            <span className="text-[11px] text-emerald-300">{t.conflictIdentical}</span>
+          )}
+
+          <fieldset className="flex items-center gap-4 text-[11px]">
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="radio"
+                name="conflict-scope"
+                checked={scope === 'once'}
+                onChange={() => setScope('once')}
+                className="cursor-pointer"
+              />
+              <span>{t.conflictThisFile}</span>
+            </label>
+            <label
+              className="flex items-center gap-1.5 cursor-pointer"
+              title={t.conflictAlwaysHint}
+            >
+              <input
+                type="radio"
+                name="conflict-scope"
+                checked={scope === 'always'}
+                onChange={() => setScope('always')}
+                className="cursor-pointer"
+              />
+              <span className={scope === 'always' ? 'text-amber-300 font-bold' : ''}>{t.conflictAlwaysMode}</span>
+            </label>
+          </fieldset>
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2 px-4 py-3 border-t border-white/10">
@@ -103,12 +177,13 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
             <button
               key={action}
               type="button"
-              onClick={() => onAnswer(action, applyToAll)}
+              onClick={() => onAnswer(action, scope === 'always')}
               className={
                 action === 'overwrite'
-                  ? 'px-4 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow'
-                  : 'px-4 py-1.5 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer'
+                  ? 'px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow'
+                  : 'px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer'
               }
+              title={scope === 'always' ? t.conflictAlwaysHint : undefined}
             >
               {label}
             </button>

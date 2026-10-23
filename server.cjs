@@ -546,9 +546,7 @@ function jobSnapshot(job) {
     itemsDone: job.itemsDone,
     itemsSkipped: job.itemsSkipped,
     currentFile: job.currentFile,
-    pendingConflict: job.pendingConflict
-      ? { source: job.pendingConflict.source, destination: job.pendingConflict.destination }
-      : null,
+    pendingConflict: job.pendingConflict ? { ...job.pendingConflict } : null,
     recentFiles: (job.recentFiles || []).map(f => ({
       path: f.path,
       name: f.name,
@@ -903,9 +901,35 @@ async function effectiveCollision(job, src, dest) {
 // Parks the transfer until the client answers. The snapshot exposes
 // `pendingConflict` so the UI can render the prompt, and the answer arrives
 // through POST /api/fs/job/:id/resolve. Cancel is honoured while waiting.
+// Real metadata for the two sides of a collision. The prompt shows it so the
+// user can tell a stale copy from a newer one instead of guessing by name, and
+// `identical` lets the UI point out the answer that changes nothing.
+async function conflictFact(target) {
+  const stat = await fs.promises.lstat(target).catch(() => null);
+  if (!stat) return { exists: false, isDirectory: false, size: 0, modifiedMs: 0 };
+  return { exists: true, isDirectory: stat.isDirectory(), size: stat.size, modifiedMs: stat.mtimeMs };
+}
+
 async function awaitConflictAnswer(job, src, dest) {
   job.conflictDecision = null;
-  job.pendingConflict = { source: src, destination: dest };
+  const sourceFact = await conflictFact(src);
+  const destinationFact = await conflictFact(dest);
+  job.pendingConflict = {
+    source: src,
+    destination: dest,
+    isDirectory: sourceFact.isDirectory || destinationFact.isDirectory,
+    sourceSize: sourceFact.size,
+    sourceModified: sourceFact.modifiedMs,
+    destinationSize: destinationFact.size,
+    destinationModified: destinationFact.modifiedMs,
+    identical:
+      sourceFact.exists &&
+      destinationFact.exists &&
+      !sourceFact.isDirectory &&
+      !destinationFact.isDirectory &&
+      sourceFact.size === destinationFact.size &&
+      sourceFact.modifiedMs === destinationFact.modifiedMs
+  };
   const deadline = Date.now() + CONFLICT_ANSWER_MS;
   // A UI that died, crashed or simply walked away must not park this job for the
   // life of the process: the wait is bounded and expiry fails the transfer.

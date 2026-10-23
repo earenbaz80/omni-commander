@@ -36,7 +36,16 @@ interface RealFsJob {
   itemsSkipped: number;
   currentFile: string;
   /** Destination parked for a human answer; present only while status is 'waiting'. */
-  pendingConflict: { source: string; destination: string } | null;
+  pendingConflict: {
+    source: string;
+    destination: string;
+    isDirectory?: boolean;
+    sourceSize?: number;
+    destinationSize?: number;
+    sourceModified?: number;
+    destinationModified?: number;
+    identical?: boolean;
+  } | null;
   /** Tail of the files this job touched, newest last. Bounded by the server. */
   recentFiles: FileProgressEntry[];
   speedBps: number;
@@ -526,7 +535,13 @@ class FileSystemEngine {
             destination: job.pendingConflict.destination,
             name:
               job.pendingConflict.destination.split(/[\\/]/).filter(Boolean).pop() ||
-              job.pendingConflict.destination
+              job.pendingConflict.destination,
+            isDirectory: job.pendingConflict.isDirectory,
+            sourceSize: job.pendingConflict.sourceSize,
+            destinationSize: job.pendingConflict.destinationSize,
+            sourceModified: job.pendingConflict.sourceModified,
+            destinationModified: job.pendingConflict.destinationModified,
+            identical: job.pendingConflict.identical
           });
         }
       } else {
