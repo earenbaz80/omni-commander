@@ -6,6 +6,7 @@ import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
+import ModalShell from '../ModalShell';
 
 interface ZipArchiveModalProps {
   theme: ThemeConfig;
@@ -67,32 +68,8 @@ export const ZipArchiveModal: React.FC<ZipArchiveModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.zipModalTitle);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-[var(--space-4)] font-mono select-none">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="w-full max-w-lg rounded shadow-2xl border text-xs overflow-hidden"
-        style={{
-          backgroundColor: theme.modalBg,
-          borderColor: theme.modalBorder,
-          color: theme.itemText
-        }}
-      >
-        <div 
-          className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-b font-bold shrink-0"
-          style={{
-            backgroundColor: theme.modalHeaderBg,
-            color: theme.modalHeaderText,
-            borderColor: theme.modalBorder
-          }}
-        >
-          <div className="flex items-center gap-[var(--space-2)]">
-            <FileArchive className="w-4 h-4 text-fuchsia-400" />
-            <span>{t.zipManagerTitle}</span>
-          </div>
-          <button onClick={onClose} className="px-[var(--space-2)] py-[var(--space-1)] bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer font-bold">✕</button>
-        </div>
-
+    <ModalShell title={t.zipManagerTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
+      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
         <form onSubmit={handleSubmit} className="p-[var(--space-4)] space-y-[var(--space-4)]">
           {/* Mode Switcher */}
           <div className="flex items-center gap-[var(--space-2)] bg-black/40 p-[var(--space-1)] rounded border border-white/10">
@@ -231,6 +208,6 @@ export const ZipArchiveModal: React.FC<ZipArchiveModalProps> = ({
           </div>
         </form>
       </div>
-    </div>
+    </ModalShell>
   );
 };
