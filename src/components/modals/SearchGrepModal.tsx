@@ -7,6 +7,7 @@ import { fsEngine } from '../../services/fileSystem';
 import { soundManager } from '../../services/soundEffects';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
+import ModalShell from '../ModalShell';
 
 interface SearchGrepModalProps {
   theme: ThemeConfig;
@@ -204,27 +205,8 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.searchDialogTitle);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-[var(--space-4)] font-mono select-none backdrop-blur-sm">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="w-full max-w-3xl h-[88vh] flex flex-col rounded shadow-2xl border text-xs overflow-hidden"
-        style={{
-          backgroundColor: theme.modalBg,
-          borderColor: theme.modalBorder,
-          color: theme.itemText
-        }}
-      >
-        <div 
-          className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-b font-bold shrink-0 text-white"
-          style={{ backgroundColor: theme.modalHeaderBg }}
-        >
-          <div className="flex items-center gap-[var(--space-2)]">
-            <Search className="w-4 h-4 text-amber-300" />
-            <span>{t.searchAdvTitle}</span>
-          </div>
-          <button onClick={onClose} className="px-[var(--space-2)] py-[var(--space-1)] bg-black/30 hover:bg-black/60 rounded text-xs cursor-pointer font-bold">✕</button>
-        </div>
+    <ModalShell title={t.searchAdvTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
+      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
 
         {/* Search History Bar */}
         {searchHistory.length > 0 && (
@@ -452,7 +434,7 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 };
 
