@@ -144,11 +144,11 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
             return (
               <div 
                 key={task.id}
-                className="p-[var(--space-2)].5 bg-black/50 border border-white/10 rounded flex flex-col gap-[var(--space-2)]"
+                className="p-[var(--space-3)] bg-black/50 border border-white/10 rounded flex flex-col gap-[var(--space-2)]"
               >
                 <div className="flex items-center justify-between text-[var(--fs-sm)]">
                   <div className="flex items-center gap-[var(--space-2)] font-bold text-white">
-                    <span className="px-[var(--space-1)].5 py-0.2 text-[var(--fs-8)] uppercase bg-cyan-950 text-cyan-300 border border-cyan-500/30 rounded">
+                    <span className="px-[var(--space-2)] py-[var(--space-0)] text-[var(--fs-8)] uppercase bg-cyan-950 text-cyan-300 border border-cyan-500/30 rounded">
                       {task.type}
                     </span>
                     <span>{task.title}</span>
@@ -276,7 +276,7 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-[var(--space-2)].5 bg-black/60 border-t border-white/10 flex items-center justify-between text-[var(--fs-8)] opacity-75">
+        <div className="p-[var(--space-3)] bg-black/60 border-t border-white/10 flex items-center justify-between text-[var(--fs-8)] opacity-75">
           <span>{t.bgTasksNote}</span>
           <span>{t.escToExit}</span>
         </div>
