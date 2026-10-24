@@ -21,3 +21,6 @@ dirname.txt
 test-results/
 .playwright/
 "
+
+*storybook.log
+storybook-static
