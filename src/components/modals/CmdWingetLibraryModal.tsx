@@ -5,6 +5,7 @@ import { LanguageCode } from '../../types';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
 import { getTranslations } from '../../i18n/translations';
+import ModalShell from '../ModalShell';
 
 interface CmdWingetLibraryModalProps {
   theme: ThemeConfig;
@@ -302,38 +303,8 @@ export const CmdWingetLibraryModal: React.FC<CmdWingetLibraryModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.wingetDialogLabel);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-[var(--space-2)] sm:p-[var(--space-4)] bg-black/80 backdrop-blur-sm animate-fadeIn">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-lg border shadow-2xl overflow-hidden text-xs"
-        style={{
-          backgroundColor: theme.bgPanel,
-          borderColor: theme.borderFocus,
-          color: theme.itemText
-        }}
-      >
-        {/* Header */}
-        <div 
-          className="flex items-center justify-between px-[var(--space-4)] py-[var(--space-3)] border-b select-none font-bold text-amber-300"
-          style={{ backgroundColor: theme.headerBg, borderColor: theme.borderPanel }}
-        >
-          <div className="flex items-center gap-[var(--space-2)] text-sm">
-            <Terminal className="w-5 h-5 text-amber-400" />
-            <span>{t.cmdLibTitle}</span>
-            <span className="bg-amber-400/20 text-amber-300 font-mono text-[10px] px-[var(--space-2)] py-[var(--space-1)] rounded border border-amber-400/30">
-              {t.wingetCommandCount.replace('{n}', String(COMMAND_DATABASE.length))}
-            </span>
-          </div>
-
-          <button
-            onClick={onClose}
-            aria-label={t.btnClose}
-            className="p-[var(--space-1)] hover:bg-white/10 rounded cursor-pointer transition-colors text-white/80 hover:text-white"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+    <ModalShell title={t.cmdLibTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
+      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
 
         {/* Filter Bar & Search */}
         <div className="p-[var(--space-3)] border-b flex flex-col sm:flex-row items-center gap-[var(--space-3)] bg-black/30" style={{ borderColor: theme.borderPanel }}>
@@ -470,6 +441,6 @@ export const CmdWingetLibraryModal: React.FC<CmdWingetLibraryModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 };
