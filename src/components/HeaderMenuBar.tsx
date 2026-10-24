@@ -105,7 +105,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
   return (
     <div 
       ref={menuRef}
-      className="nc-drag flex items-center justify-between px-2 py-0.5 text-xs select-none border-b shrink-0 z-30 font-mono tracking-wide"
+      className="nc-drag flex items-center justify-between px-[var(--space-2)] py-[var(--space-1)] text-xs select-none border-b shrink-0 z-30 font-mono tracking-wide"
       style={{
         backgroundColor: theme.headerBg,
         color: theme.headerText,
@@ -113,7 +113,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
       }}
     >
       {/* Left zone: Frameless window controls + Brand & Menus */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-[var(--space-1)]">
         {(onMinimizeWindow || onMaximizeWindow || onCloseWindow) && (
           <div className="flex items-center gap-0.5 mr-2 pr-2 border-r border-white/20 shrink-0">
             <button
@@ -140,7 +140,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
           </div>
         )}
 
-        <div className="flex items-center gap-1 font-bold px-2 py-0.5 mr-2 rounded bg-black/20">
+        <div className="flex items-center gap-[var(--space-1)] font-bold px-[var(--space-2)] py-[var(--space-1)] mr-2 rounded bg-black/20">
           <span className="text-sm font-black tracking-tighter">OC</span>
           <span className="font-semibold hidden sm:inline">OmniCommander Pro</span>
         </div>
@@ -149,7 +149,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         <div className="relative inline-block">
           <button
             onClick={() => handleMenuClick('left')}
-            className={`px-2 py-0.5 hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'left' ? 'bg-black/30 font-bold' : ''}`}
+            className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'left' ? 'bg-black/30 font-bold' : ''}`}
           >
             <u>L</u>eft
           </button>
@@ -158,17 +158,17 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
               className="absolute left-0 mt-0.5 w-56 shadow-2xl border py-1 z-50 text-xs font-mono"
               style={{ backgroundColor: theme.modalBg, color: theme.itemText, borderColor: theme.borderPanel }}
             >
-              <button onClick={() => handleAction(() => onNewTab('left'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(() => onNewTab('left'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.newTab}</span> <span className="opacity-60">Ctrl+T</span>
               </button>
-              <button onClick={() => handleAction(onToggleTree)} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(onToggleTree)} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.toggleTree}</span> <span className="opacity-60">{isTreeVisible ? '✓' : ''}</span>
               </button>
-              <button onClick={() => handleAction(onToggleQuickView)} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(onToggleQuickView)} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.quickView}</span> <span className="opacity-60">Ctrl+Q</span>
               </button>
               <div className="h-px bg-current opacity-20 my-1"></div>
-              <button onClick={() => handleAction(onRefresh)} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(onRefresh)} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.refresh}</span> <span className="opacity-60">Ctrl+R</span>
               </button>
             </div>
@@ -179,7 +179,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         <div className="relative inline-block">
           <button
             onClick={() => handleMenuClick('files')}
-            className={`px-2 py-0.5 hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'files' ? 'bg-black/30 font-bold' : ''}`}
+            className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'files' ? 'bg-black/30 font-bold' : ''}`}
           >
             <u>F</u>iles
           </button>
@@ -188,35 +188,35 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
               className="absolute left-0 mt-0.5 w-60 shadow-2xl border py-1 z-50 text-xs font-mono"
               style={{ backgroundColor: theme.modalBg, color: theme.itemText, borderColor: theme.borderPanel }}
             >
-              <button onClick={() => handleAction(() => onOpenModal('viewer'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(() => onOpenModal('viewer'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.view}</span> <span className="opacity-60">F3</span>
               </button>
-              <button onClick={() => handleAction(() => onOpenModal('editor'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(() => onOpenModal('editor'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.edit}</span> <span className="opacity-60">F4</span>
               </button>
-              <button onClick={() => handleAction(() => onOpenModal('copy'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(() => onOpenModal('copy'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.copy}</span> <span className="opacity-60">F5</span>
               </button>
-              <button onClick={() => handleAction(() => onOpenModal('move'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(() => onOpenModal('move'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.move}</span> <span className="opacity-60">F6</span>
               </button>
-              <button onClick={() => handleAction(() => onOpenModal('mkdir'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(() => onOpenModal('mkdir'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.mkdir}</span> <span className="opacity-60">F7</span>
               </button>
-              <button onClick={() => handleAction(() => onOpenModal('delete'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(() => onOpenModal('delete'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.delete}</span> <span className="opacity-60">F8 / Del</span>
               </button>
               <div className="h-px bg-current opacity-20 my-1"></div>
-              <button onClick={() => handleAction(() => onOpenModal('batchRename'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(() => onOpenModal('batchRename'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.batchRename}</span> <span className="opacity-60">Ctrl+M</span>
               </button>
-              <button onClick={() => handleAction(() => onOpenModal('zipArchive'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(() => onOpenModal('zipArchive'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.zipPack}</span> <span className="opacity-60">Alt+F5</span>
               </button>
-              <button onClick={() => handleAction(() => onOpenModal('checksum'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(() => onOpenModal('checksum'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.calculateHash}</span> <span className="opacity-60">Ctrl+H</span>
               </button>
-              <button onClick={() => handleAction(() => onOpenModal('properties'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(() => onOpenModal('properties'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.properties}</span> <span className="opacity-60">Alt+Enter</span>
               </button>
             </div>
@@ -227,7 +227,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         <div className="relative inline-block">
           <button
             onClick={() => handleMenuClick('commands')}
-            className={`px-2 py-0.5 hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'commands' ? 'bg-black/30 font-bold' : ''}`}
+            className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'commands' ? 'bg-black/30 font-bold' : ''}`}
           >
             <u>C</u>ommands
           </button>
@@ -236,45 +236,45 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
               className="absolute left-0 mt-0.5 w-60 shadow-2xl border py-1 z-50 text-xs font-mono"
               style={{ backgroundColor: theme.modalBg, color: theme.itemText, borderColor: theme.borderPanel }}
             >
-              <button onClick={() => handleAction(() => onOpenModal('hotlist_bookmarks'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between text-amber-300 font-bold">
+              <button onClick={() => handleAction(() => onOpenModal('hotlist_bookmarks'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between text-amber-300 font-bold">
                 <span>{t.bookmarks}</span> <span className="opacity-60">Ctrl+D</span>
               </button>
               {onSwapPanels && (
-                <button onClick={() => handleAction(onSwapPanels)} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+                <button onClick={() => handleAction(onSwapPanels)} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                   <span>{t.headerSwapPanels}</span> <span className="opacity-60">Ctrl+U</span>
                 </button>
               )}
-              <button onClick={() => handleAction(() => onOpenModal('recycle_bin'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between text-rose-300">
+              <button onClick={() => handleAction(() => onOpenModal('recycle_bin'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between text-rose-300">
                 <span>{t.recycleBin}</span> <span className="opacity-60">TR:</span>
               </button>
-              <button onClick={() => handleAction(() => onOpenModal('background_tasks'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between text-cyan-300 font-bold">
+              <button onClick={() => handleAction(() => onOpenModal('background_tasks'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between text-cyan-300 font-bold">
                 <span>{t.taskQueue}</span> <span className="opacity-60">Queue</span>
               </button>
               <div className="h-px bg-current opacity-20 my-1"></div>
-              <button onClick={() => handleAction(() => onOpenModal('searchGrep'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(() => onOpenModal('searchGrep'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.searchGrep}</span> <span className="opacity-60">Alt+F7</span>
               </button>
-              <button onClick={() => handleAction(() => onOpenModal('diffCompare'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(() => onOpenModal('diffCompare'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.compareFiles}</span> <span className="opacity-60">Diff</span>
               </button>
-              <button onClick={() => handleAction(() => onOpenModal('sync_folders'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between text-amber-300 font-bold">
+              <button onClick={() => handleAction(() => onOpenModal('sync_folders'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between text-amber-300 font-bold">
                 <span>{t.syncFolders}</span> <span className="opacity-60">Sync</span>
               </button>
-              <button onClick={() => handleAction(() => onOpenModal('file_splitter'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between text-cyan-300 font-bold">
+              <button onClick={() => handleAction(() => onOpenModal('file_splitter'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between text-cyan-300 font-bold">
                 <span>{t.splitJoinFileMenu}</span> <span className="opacity-60">Split</span>
               </button>
-              <button onClick={() => handleAction(() => onOpenModal('diskUsage'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(() => onOpenModal('diskUsage'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.diskUsage}</span> <span className="opacity-60">Ctrl+L</span>
               </button>
               <div className="h-px bg-current opacity-20 my-1"></div>
-              <button onClick={() => handleAction(onSelectAll)} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(onSelectAll)} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.selectAll}</span> <span className="opacity-60">Ctrl+A / +</span>
               </button>
-              <button onClick={() => handleAction(onInvertSelection)} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(onInvertSelection)} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.invertSelection}</span> <span className="opacity-60">*</span>
               </button>
               <div className="h-px bg-current opacity-20 my-1"></div>
-              <button onClick={() => handleAction(() => onOpenModal('userMenu'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(() => onOpenModal('userMenu'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.userMenu}</span> <span className="opacity-60">F2</span>
               </button>
             </div>
@@ -285,7 +285,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         <div className="relative inline-block">
           <button
             onClick={() => handleMenuClick('options')}
-            className={`px-2 py-0.5 hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'options' ? 'bg-black/30 font-bold' : ''}`}
+            className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'options' ? 'bg-black/30 font-bold' : ''}`}
           >
             <u>O</u>ptions
           </button>
@@ -294,11 +294,11 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
               className="absolute left-0 mt-0.5 w-64 shadow-2xl border py-1 z-50 text-xs font-mono"
               style={{ backgroundColor: theme.modalBg, color: theme.itemText, borderColor: theme.borderPanel }}
             >
-              <button onClick={() => handleAction(() => onOpenModal('settings'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(() => onOpenModal('settings'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.settings}</span> <span className="opacity-60">Alt+O</span>
               </button>
               <div className="h-px bg-current opacity-20 my-1"></div>
-              <div className="px-3 py-1 font-bold text-xs uppercase opacity-75">{t.visualTheme}</div>
+              <div className="px-[var(--space-3)] py-[var(--space-1)] font-bold text-xs uppercase opacity-75">{t.visualTheme}</div>
               <button onClick={() => handleAction(() => onSetTheme('classic_blue'))} className="w-full text-left px-4 py-0.5 hover:bg-white/20">
                 {t.menuThemeNorton} {theme.id === 'classic_blue' || theme.id === 'norton_classic' ? '✓' : ''}
               </button>
@@ -315,7 +315,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
                 {t.themeTotalCmd} {theme.id === 'retro_gray' || theme.id === 'total_commander' ? '✓' : ''}
               </button>
               <div className="h-px bg-current opacity-20 my-1"></div>
-              <button onClick={() => handleAction(onResetDefaults)} className="w-full text-left px-3 py-1 text-red-400 hover:bg-red-500/20">
+              <button onClick={() => handleAction(onResetDefaults)} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] text-red-400 hover:bg-red-500/20">
                 {t.menuResetFactory}
               </button>
             </div>
@@ -326,7 +326,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         <div className="relative inline-block">
           <button
             onClick={() => handleMenuClick('ftp')}
-            className={`px-2 py-0.5 hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'ftp' ? 'bg-black/30 font-bold' : ''}`}
+            className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'ftp' ? 'bg-black/30 font-bold' : ''}`}
           >
             <u>F</u>TP
           </button>
@@ -335,7 +335,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
               className="absolute left-0 mt-0.5 w-60 shadow-2xl border py-1 z-50 text-xs font-mono"
               style={{ backgroundColor: theme.modalBg, color: theme.itemText, borderColor: theme.borderPanel }}
             >
-              <button onClick={() => handleAction(() => onOpenModal('ftp_manager'))} className="w-full text-left px-3 py-1 hover:bg-white/20 text-emerald-300 font-bold flex justify-between">
+              <button onClick={() => handleAction(() => onOpenModal('ftp_manager'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 text-emerald-300 font-bold flex justify-between">
                 <span>{t.connectFtp}</span> <span className="opacity-60">🌐</span>
               </button>
             </div>
@@ -346,7 +346,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         <div className="relative inline-block">
           <button
             onClick={() => handleMenuClick('right')}
-            className={`px-2 py-0.5 hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'right' ? 'bg-black/30 font-bold' : ''}`}
+            className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'right' ? 'bg-black/30 font-bold' : ''}`}
           >
             <u>R</u>ight
           </button>
@@ -355,13 +355,13 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
               className="absolute left-0 mt-0.5 w-56 shadow-2xl border py-1 z-50 text-xs font-mono"
               style={{ backgroundColor: theme.modalBg, color: theme.itemText, borderColor: theme.borderPanel }}
             >
-              <button onClick={() => handleAction(() => onNewTab('right'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(() => onNewTab('right'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.newTab}</span> <span className="opacity-60">Ctrl+T</span>
               </button>
-              <button onClick={() => handleAction(onToggleTree)} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(onToggleTree)} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.toggleTree}</span> <span className="opacity-60">{isTreeVisible ? '✓' : ''}</span>
               </button>
-              <button onClick={() => handleAction(onToggleQuickView)} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(onToggleQuickView)} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.quickView}</span> <span className="opacity-60">Ctrl+Q</span>
               </button>
             </div>
@@ -372,7 +372,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         <div className="relative inline-block">
           <button
             onClick={() => handleMenuClick('help')}
-            className={`px-2 py-0.5 hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'help' ? 'bg-black/30 font-bold' : ''}`}
+            className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'help' ? 'bg-black/30 font-bold' : ''}`}
           >
             <u>H</u>elp
           </button>
@@ -381,17 +381,17 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
               className="absolute left-0 mt-0.5 w-60 shadow-2xl border py-1 z-50 text-xs font-mono"
               style={{ backgroundColor: theme.modalBg, color: theme.itemText, borderColor: theme.borderPanel }}
             >
-              <button onClick={() => handleAction(() => onOpenModal('help'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between font-bold text-amber-300">
+              <button onClick={() => handleAction(() => onOpenModal('help'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between font-bold text-amber-300">
                 <span>{t.helpTitle}</span> <span className="opacity-60">F1</span>
               </button>
-              <button onClick={() => handleAction(() => onOpenModal('protect_folder'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(() => onOpenModal('protect_folder'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.protectFolder}</span> <span className="opacity-60">🔒</span>
               </button>
-              <button onClick={() => handleAction(() => onOpenModal('app_lock'))} className="w-full text-left px-3 py-1 hover:bg-white/20 flex justify-between">
+              <button onClick={() => handleAction(() => onOpenModal('app_lock'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between">
                 <span>{t.lockApp}</span> <span className="opacity-60">🛡️</span>
               </button>
               <div className="h-px bg-current opacity-20 my-1"></div>
-              <button onClick={() => handleAction(() => onOpenModal('about'))} className="w-full text-left px-3 py-1 hover:bg-white/20 font-bold text-sky-300">
+              <button onClick={() => handleAction(() => onOpenModal('about'))} className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 font-bold text-sky-300">
                 Acerca de OmniCommander Pro...
               </button>
             </div>
@@ -400,7 +400,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
       </div>
 
       {/* Right zone: PWA & Quick buttons */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-[var(--space-1)].5">
         {/* PWA Install App Button */}
         <PWAInstallButton compact={true} lang={lang} />
 
@@ -411,7 +411,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
             onOpenModal('cmd_winget_library' as any);
           }}
           title={t.cmdLibrary}
-          className="px-2 py-0.5 bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 border border-amber-400/40 rounded flex items-center gap-1 cursor-pointer font-bold transition-colors text-[11px]"
+          className="px-[var(--space-2)] py-[var(--space-1)] bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 border border-amber-400/40 rounded flex items-center gap-[var(--space-1)] cursor-pointer font-bold transition-colors text-[11px]"
         >
           <Terminal className="w-3.5 h-3.5 text-amber-400" />
           <span className="hidden lg:inline">CMD/Winget</span>
@@ -421,7 +421,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
 
         {/* Live Digital Clock (Header position) */}
         {showClock && (clockPosition === 'header' || clockPosition === 'both') && (
-          <div className="hidden sm:flex items-center gap-1 bg-black/40 border border-amber-400/40 text-amber-300 font-mono text-[11px] px-2 py-0.5 rounded font-bold shadow-inner">
+          <div className="hidden sm:flex items-center gap-[var(--space-1)] bg-black/40 border border-amber-400/40 text-amber-300 font-mono text-[11px] px-[var(--space-2)] py-[var(--space-1)] rounded font-bold shadow-inner">
             <Clock className="w-3 h-3 text-amber-400 animate-pulse" />
             <span>{timeStr}</span>
           </div>

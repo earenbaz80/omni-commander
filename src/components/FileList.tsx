@@ -503,7 +503,7 @@ const FileListComponent: React.FC<FileListProps> = ({
     >
       {/* Table Header Columns (Norton / Total Commander style) */}
       <div 
-        className="flex items-center min-w-full px-1.5 py-0.5 border-b select-none font-bold text-[11px] shrink-0 uppercase tracking-wider gap-0 whitespace-nowrap flex-nowrap"
+        className="flex items-center min-w-full px-[var(--space-2)] py-[var(--space-1)] border-b select-none font-bold text-[11px] shrink-0 uppercase tracking-wider gap-0 whitespace-nowrap flex-nowrap"
         style={{
           backgroundColor: theme.headerBg,
           color: theme.headerText,
@@ -600,9 +600,9 @@ const FileListComponent: React.FC<FileListProps> = ({
             <div
               onClick={() => { soundManager.playDiskAccess(); onGoParent(); }}
               onDoubleClick={() => { soundManager.playDiskAccess(); onGoParent(); }}
-              className={`flex items-center justify-between px-1.5 py-0.5 cursor-pointer hover:bg-white/10 transition-colors group text-yellow-300 font-bold ${dragOverFolderId === 'parent_dir' ? 'ring-2 ring-amber-400 bg-amber-400/25 shadow' : ''}`}
+              className={`flex items-center justify-between px-[var(--space-2)] py-[var(--space-1)] cursor-pointer hover:bg-white/10 transition-colors group text-yellow-300 font-bold ${dragOverFolderId === 'parent_dir' ? 'ring-2 ring-amber-400 bg-amber-400/25 shadow' : ''}`}
             >
-              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              <div className="flex items-center gap-[var(--space-2)] flex-1 min-w-0">
                 <Folder className="w-3.5 h-3.5 text-amber-300 shrink-0" />
                 <span className="tracking-wider">..</span>
                 <span className="opacity-50 text-[10px]">&lt;UP--DIR&gt;</span>
@@ -653,7 +653,7 @@ const FileListComponent: React.FC<FileListProps> = ({
                     onSelectIndex(idx);
                     onContextMenu(e, item);
                   }}
-                  className={`flex items-center px-1.5 py-0.5 cursor-pointer transition-all ${
+                  className={`flex items-center px-[var(--space-2)] py-[var(--space-1)] cursor-pointer transition-all ${
                     isBeingDragged
                       ? 'opacity-40 ring-1 ring-dashed ring-amber-400'
                       : isHoveredTarget
@@ -674,7 +674,7 @@ const FileListComponent: React.FC<FileListProps> = ({
                     color: isHoveredTarget ? '#ffff55' : isFocused ? theme.cursorText : textColor
                   }}
                 >
-                  <div className="flex items-center gap-1.5 shrink-0 min-w-0 pr-2" style={{ width: `${colWidths.name}px`, minWidth: '44px' }}>
+                  <div className="flex items-center gap-[var(--space-2)] shrink-0 min-w-0 pr-2" style={{ width: `${colWidths.name}px`, minWidth: '44px' }}>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -703,7 +703,7 @@ const FileListComponent: React.FC<FileListProps> = ({
                     </span>
 
                     {isHoveredTarget && item.isDirectory && (
-                      <span className="ml-auto text-[9px] bg-amber-400 text-black px-1.5 py-0.5 rounded font-extrabold uppercase shrink-0 shadow animate-pulse">
+                      <span className="ml-auto text-[9px] bg-amber-400 text-black px-[var(--space-2)] py-[var(--space-1)] rounded font-extrabold uppercase shrink-0 shadow animate-pulse">
                         ↵ {dragOperation === 'move' ? t.moveToFolderBadge : t.copyToFolderBadge}
                       </span>
                     )}
@@ -779,7 +779,7 @@ const FileListComponent: React.FC<FileListProps> = ({
                           onSelectIndex(idx);
                           onContextMenu(e, item);
                         }}
-                        className={`flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer truncate transition-all cv-auto ${
+                        className={`flex items-center gap-[var(--space-2)] px-[var(--space-2)] py-[var(--space-1)] rounded cursor-pointer truncate transition-all cv-auto ${
                           isBeingDragged
                             ? 'opacity-40 ring-1 ring-dashed ring-amber-400'
                             : isHoveredTarget
@@ -851,7 +851,7 @@ const FileListComponent: React.FC<FileListProps> = ({
                     onSelectIndex(idx);
                     onContextMenu(e, item);
                   }}
-                  className={`flex flex-col items-center justify-center p-2 rounded border cursor-pointer text-center transition-all cv-auto ${
+                  className={`flex flex-col items-center justify-center p-[var(--space-2)] rounded border cursor-pointer text-center transition-all cv-auto ${
                     isBeingDragged
                       ? 'opacity-40 ring-1 ring-dashed ring-amber-400'
                       : isHoveredTarget
@@ -986,7 +986,7 @@ const FileListComponent: React.FC<FileListProps> = ({
                       {item.name}{item.ext ? `.${item.ext}` : ''}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-[10px] opacity-60 mt-0.5 tabular-nums">
+                  <div className="flex items-center justify-between text-[10px] opacity-60 mt-[var(--space-1)] tabular-nums">
                     <span>{formatSize(item)}</span>
                     <span>{item.modifiedAt?.substring(0, 10)}</span>
                   </div>
@@ -1029,7 +1029,7 @@ const FileListComponent: React.FC<FileListProps> = ({
             </div>
           )}
           <div className="flex flex-col">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-[var(--space-2)]">
               <span className={dragOperation === 'move' ? 'text-emerald-400' : 'text-sky-400'}>
                 {dragOperation === 'move' ? t.moveTo : t.copyTo}
               </span>

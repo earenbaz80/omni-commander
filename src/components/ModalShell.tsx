@@ -41,7 +41,7 @@ function ModalShell({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center p-[var(--space-4)]"
       style={{
         backgroundColor: overlay ? theme.overlay : 'transparent',
       }}
@@ -56,7 +56,7 @@ function ModalShell({
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-4 py-2.5 border-b"
+          className="flex items-center justify-between px-[var(--space-4)] py-[var(--space-3)] border-b"
           style={{
             backgroundColor: theme.modalHeaderBg,
             borderColor: theme.modalBorder,
@@ -72,7 +72,7 @@ function ModalShell({
             <button
               onClick={onClose}
               aria-label={closeButtonLabel}
-              className="p-1 rounded hover:bg-black/20 cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+              className="p-[var(--space-1)] rounded hover:bg-black/20 cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-40"
               style={{ color: theme.modalHeaderText }}
             >
               <X size={16} />
@@ -81,7 +81,7 @@ function ModalShell({
         </div>
 
         {/* Content */}
-        <div className="p-4">{children}</div>
+        <div className="p-[var(--space-4)]">{children}</div>
 
         {/* Footer - optional, can be conditionally rendered in child components */}
       </div>

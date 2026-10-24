@@ -25,14 +25,14 @@ export const FileListStatusBar: React.FC<FileListStatusBarProps> = ({
   selectedCountLabel,
 }) => (
   <div
-    className="px-2 py-0.5 border-t text-[11px] select-none flex items-center justify-between shrink-0 font-mono"
+    className="px-[var(--space-2)] py-[var(--space-1)] border-t text-[11px] select-none flex items-center justify-between shrink-0 font-mono"
     style={{
       backgroundColor: theme.headerBg,
       color: theme.headerText,
       borderColor: theme.borderPanel,
     }}
   >
-    <div className="flex items-center gap-2 truncate">
+    <div className="flex items-center gap-[var(--space-2)] truncate">
       <span>{totalFiles} {filesCountLabel}</span>
       <span className="opacity-50">|</span>
       <span>{totalDirs} {dirsCountLabel}</span>

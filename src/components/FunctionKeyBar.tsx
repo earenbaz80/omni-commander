@@ -96,7 +96,7 @@ export const FunctionKeyBar: React.FC<FunctionKeyBarProps> = ({
 
   return (
     <div 
-      className="grid grid-cols-5 sm:grid-cols-10 gap-0.5 p-0.5 border-t shrink-0 select-none font-mono text-[11px] font-bold"
+      className="grid grid-cols-5 sm:grid-cols-10 gap-[var(--space-1)] p-[var(--space-1)] border-t shrink-0 select-none font-mono text-[11px] font-bold"
       style={{
         backgroundColor: theme.bgApp,
         borderColor: theme.borderPanel
@@ -113,14 +113,14 @@ export const FunctionKeyBar: React.FC<FunctionKeyBarProps> = ({
         >
           {/* Key Number */}
           <span 
-            className="px-1.5 py-0.5"
+            className="px-[var(--space-2)] py-[var(--space-1)]"
             style={{ backgroundColor: theme.fkeyNumBg, color: theme.fkeyNumText }}
           >
             {k.num}
           </span>
           {/* Key Label */}
           <span 
-            className="flex-1 py-0.5 px-1 truncate text-center"
+            className="flex-1 py-[var(--space-1)] px-[var(--space-1)] truncate text-center"
             style={{ backgroundColor: theme.fkeyLabelBg, color: theme.fkeyLabelText }}
           >
             {k.label}

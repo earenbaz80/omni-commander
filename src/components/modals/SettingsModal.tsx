@@ -97,7 +97,7 @@ function SettingsTabButton({ active, onClick, icon, label }: {
     <button
       type="button"
       onClick={onClick}
-      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-[var(--fs-sm)] transition-all border ${
+      className={`w-full flex items-center gap-[var(--space-2)] px-[var(--space-2)] py-[var(--space-2)] rounded text-left text-[var(--fs-sm)] transition-all border ${
         active
           ? 'bg-amber-400 text-black font-bold border-amber-300 shadow'
           : 'bg-black/40 border-white/10 text-white/80 hover:bg-white/10 hover:border-white/30'
@@ -111,9 +111,9 @@ function SettingsTabButton({ active, onClick, icon, label }: {
 
 function SectionCard({ title, children, className = '' }: { title: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className={`rounded border border-white/10 bg-black/20 p-1.5 space-y-1.5 ${className}`}>
-      <h4 className="font-bold text-amber-300 uppercase tracking-wider text-[var(--fs-sm)] mb-1">{title}</h4>
-      <div className="space-y-1">{children}</div>
+    <div className={`rounded border border-white/10 bg-black/20 p-[var(--space-2)] space-y-[var(--space-2)] ${className}`}>
+      <h4 className="font-bold text-amber-300 uppercase tracking-wider text-[var(--fs-sm)] mb-[var(--space-1)]">{title}</h4>
+      <div className="space-y-[var(--space-1)]">{children}</div>
     </div>
   );
 }
@@ -122,16 +122,16 @@ function ThemePreview({ themeId }: { themeId: ThemeId }) {
   const colors = useThemeColors(themeId);
 
   return (
-    <div className="rounded border p-1.5 mt-1" style={{ backgroundColor: colors.panel, borderColor: colors.accent }}>
-      <div className="flex items-center gap-1.5 mb-0.5">
+    <div className="rounded border p-[var(--space-2)] mt-[var(--space-1)]" style={{ backgroundColor: colors.panel, borderColor: colors.accent }}>
+      <div className="flex items-center gap-[var(--space-2)] mb-[var(--space-1)]">
         <div className="w-4 h-4 rounded" style={{ backgroundColor: colors.accent }} />
         <span className="font-bold text-[var(--fs-sm)]" style={{ color: colors.text }}>Vista previa</span>
       </div>
-      <div className="grid grid-cols-2 gap-0.5 text-[var(--fs-8)]">
-        <div className="p-0.5 rounded" style={{ backgroundColor: colors.bg, color: colors.text }}>Panel</div>
-        <div className="p-0.5 rounded" style={{ backgroundColor: colors.accent, color: '#000' }}>Acento</div>
-        <div className="p-0.5 rounded" style={{ backgroundColor: colors.panel, color: colors.text }}>Texto</div>
-        <div className="p-0.5 rounded" style={{ backgroundColor: colors.bg, color: colors.accent }}>Borde</div>
+      <div className="grid grid-cols-2 gap-[var(--space-1)] text-[var(--fs-8)]">
+        <div className="p-[var(--space-1)] rounded" style={{ backgroundColor: colors.bg, color: colors.text }}>Panel</div>
+        <div className="p-[var(--space-1)] rounded" style={{ backgroundColor: colors.accent, color: '#000' }}>Acento</div>
+        <div className="p-[var(--space-1)] rounded" style={{ backgroundColor: colors.panel, color: colors.text }}>Texto</div>
+        <div className="p-[var(--space-1)] rounded" style={{ backgroundColor: colors.bg, color: colors.accent }}>Borde</div>
       </div>
     </div>
   );
@@ -197,9 +197,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const currentLangLabel = LANGUAGES.find((l) => l.code === settings.language)?.label;
 
   const themeTabContent = (
-    <div className="space-y-1.5">
+    <div className="space-y-[var(--space-2)]">
       <SectionCard title={t.settingsTheme}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--space-1)]">
           {themeList.map((th) => {
             const isSelected = formData.theme === th.id;
             return (
@@ -210,7 +210,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   soundManager.playKeyTick();
                   setFormData(prev => ({ ...prev, theme: th.id }));
                 }}
-                className={`p-1.5 rounded text-left border flex items-center justify-between cursor-pointer transition-all ${
+                className={`p-[var(--space-2)] rounded text-left border flex items-center justify-between cursor-pointer transition-all ${
                   isSelected
                     ? 'bg-amber-400 text-black border-amber-300 font-bold shadow'
                     : 'bg-black/40 border-white/10 hover:border-white/30 text-white/90'
@@ -229,7 +229,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const languageTabContent = (
     <SectionCard title={t.settingsLanguage}>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--space-1)]">
         {LANGUAGES.map((l) => (
           <button
             key={l.code}
@@ -238,7 +238,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               soundManager.playKeyTick();
               setFormData(prev => ({ ...prev, language: l.code }));
             }}
-            className={`p-1 rounded text-center border cursor-pointer ${
+            className={`p-[var(--space-1)] rounded text-center border cursor-pointer ${
               formData.language === l.code
                 ? 'bg-amber-400 text-black font-bold border-amber-300'
                 : 'bg-black/40 border-white/10 hover:bg-white/10 text-white'
@@ -252,9 +252,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   );
 
   const appearanceTabContent = (
-    <div className="space-y-1.5">
+    <div className="space-y-[var(--space-2)]">
       <SectionCard title={t.settingsAppearance}>
-        <label className="flex items-center gap-1.5 cursor-pointer">
+        <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
           <input
             type="checkbox"
             checked={formData.showToolbar}
@@ -264,7 +264,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <span>{t.settingsToolbar}</span>
         </label>
 
-        <label className="flex items-center gap-1.5 cursor-pointer">
+        <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
           <input
             type="checkbox"
             checked={formData.showCollapsibleInfoDrawer}
@@ -274,9 +274,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <span>{t.settingsInfoBar}</span>
         </label>
 
-        <div className="h-px bg-white/10 my-0.5"></div>
+        <div className="h-px bg-white/10 my-[var(--space-1)]"></div>
 
-        <label className="flex items-center gap-1.5 cursor-pointer font-bold text-amber-300">
+        <label className="flex items-center gap-[var(--space-2)] cursor-pointer font-bold text-amber-300">
           <input
             type="checkbox"
             checked={formData.crtEffectEnabled}
@@ -287,13 +287,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </label>
 
         {formData.crtEffectEnabled && (
-          <div className="pl-4 flex items-center gap-2">
+          <div className="pl-[var(--space-4)] flex items-center gap-[var(--space-2)]">
             <span className="text-[var(--fs-sm)] font-bold">{t.settingsCrtIntensity}</span>
             <select
               value={formData.crtIntensity || 'classic'}
               onChange={(e) => handleChange('crtIntensity', e.target.value)}
               onBlur={() => handleBlur('crtIntensity')}
-              className="px-1.5 py-0.5 bg-black/70 border border-white/20 rounded text-xs text-amber-300 font-mono font-bold"
+              className="px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-amber-300 font-mono font-bold"
             >
               <option value="subtle">{t.settingsCrtSubtle}</option>
               <option value="classic">{t.settingsCrtClassic}</option>
@@ -302,7 +302,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         )}
 
-        <label className="flex items-center gap-1.5 cursor-pointer font-bold text-emerald-300">
+        <label className="flex items-center gap-[var(--space-2)] cursor-pointer font-bold text-emerald-300">
           <input
             type="checkbox"
             checked={formData.blinkingCursorEnabled}
@@ -312,13 +312,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <span>{t.settingsBlinkCursor}</span>
         </label>
 
-        <label className="flex items-center gap-1.5 cursor-pointer">
+        <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
           <span className="opacity-70">{t.settingsCursorBlinkColor}</span>
           <select
             value={formData.cursorBlinkColor || 'cyan'}
             onChange={(e) => handleChange('cursorBlinkColor', e.target.value)}
             onBlur={() => handleBlur('cursorBlinkColor')}
-            className="px-1.5 py-0.5 bg-black/70 border border-white/20 rounded text-xs text-amber-300 font-mono font-bold"
+            className="px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-amber-300 font-mono font-bold"
           >
             <option value="amber">{t.settingsColorAmber}</option>
             <option value="cyan">{t.settingsColorCyan}</option>
@@ -328,13 +328,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </select>
         </label>
 
-        <label className="flex items-center gap-1.5 cursor-pointer">
+        <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
           <span className="opacity-70">{t.settingsSelectorColor}</span>
           <select
             value={formData.fileSelectorColor || 'blue'}
             onChange={(e) => handleChange('fileSelectorColor', e.target.value)}
             onBlur={() => handleBlur('fileSelectorColor')}
-            className="px-1.5 py-0.5 bg-black/70 border border-white/20 rounded text-xs text-amber-300 font-mono font-bold"
+            className="px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-amber-300 font-mono font-bold"
           >
             <option value="blue">{t.settingsColorBlue}</option>
             <option value="amber">{t.settingsColorAmber}</option>
@@ -345,9 +345,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </select>
         </label>
 
-        <div className="h-px bg-white/10 my-0.5"></div>
+        <div className="h-px bg-white/10 my-[var(--space-1)]"></div>
 
-        <label className="flex items-center gap-1.5 cursor-pointer font-bold text-amber-300">
+        <label className="flex items-center gap-[var(--space-2)] cursor-pointer font-bold text-amber-300">
           <input
             type="checkbox"
             checked={formData.showClock}
@@ -358,13 +358,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </label>
 
         {formData.showClock && (
-          <div className="pl-4 flex items-center gap-2">
+          <div className="pl-[var(--space-4)] flex items-center gap-[var(--space-2)]">
             <span className="text-[var(--fs-sm)] font-bold">{t.settingsClockPos}</span>
             <select
               value={formData.clockPosition || 'header'}
               onChange={(e) => handleChange('clockPosition', e.target.value)}
               onBlur={() => handleBlur('clockPosition')}
-              className="px-1.5 py-0.5 bg-black/70 border border-white/20 rounded text-xs text-amber-300 font-mono font-bold"
+              className="px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-amber-300 font-mono font-bold"
             >
               <option value="header">{t.settingsClockHeader}</option>
               <option value="footer">{t.settingsClockFooter}</option>
@@ -377,9 +377,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   );
 
   const behaviorTabContent = (
-    <div className="space-y-1.5">
+    <div className="space-y-[var(--space-2)]">
       <SectionCard title={t.settingsFilesSection}>
-        <label className="flex items-center gap-1.5 cursor-pointer font-semibold text-emerald-300">
+        <label className="flex items-center gap-[var(--space-2)] cursor-pointer font-semibold text-emerald-300">
           <input
             type="checkbox"
             checked={formData.showHoverTooltips}
@@ -389,7 +389,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <span>{t.settingsHoverTooltips}</span>
         </label>
 
-        <label className="flex items-center gap-1.5 cursor-pointer font-semibold text-cyan-300 pl-4">
+        <label className="flex items-center gap-[var(--space-2)] cursor-pointer font-semibold text-cyan-300 pl-[var(--space-4)]">
           <input
             type="checkbox"
             checked={formData.showImageHoverThumbnails}
@@ -400,9 +400,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <span>{t.settingsThumbnails}</span>
         </label>
 
-        <div className="h-px bg-white/10 my-0.5"></div>
+        <div className="h-px bg-white/10 my-[var(--space-1)]"></div>
 
-        <label className="flex items-center gap-1.5 cursor-pointer">
+        <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
           <input
             type="checkbox"
             checked={formData.confirmDelete}
@@ -412,7 +412,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <span>{t.settingsConfirmDelete}</span>
         </label>
 
-        <label className="flex items-center gap-1.5 cursor-pointer">
+        <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
           <input
             type="checkbox"
             checked={formData.confirmCopyOverwrite}
@@ -422,7 +422,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <span>{t.settingsConfirmOverwrite}</span>
         </label>
 
-        <label className="flex items-center gap-1.5 cursor-pointer">
+        <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
           <input
             type="checkbox"
             checked={formData.showHiddenFiles}
@@ -432,7 +432,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <span>{t.settingsShowHidden}</span>
         </label>
 
-        <label className="flex items-center gap-1.5 cursor-pointer">
+        <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
           <input
             type="checkbox"
             checked={formData.showSystemFiles}
@@ -442,7 +442,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <span>{t.settingsShowSystem}</span>
         </label>
 
-        <label className="flex items-center gap-1.5 cursor-pointer font-bold text-rose-300">
+        <label className="flex items-center gap-[var(--space-2)] cursor-pointer font-bold text-rose-300">
           <input
             type="checkbox"
             checked={formData.useRecycleBin !== false}
@@ -466,14 +466,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               soundManager.playKeyTick();
               setFormData(prev => ({ ...prev, keybindingPreset: preset.id as any }));
             }}
-            className={`p-1.5 rounded border text-left cursor-pointer transition ${
+            className={`p-[var(--space-2)] rounded border text-left cursor-pointer transition ${
               formData.keybindingPreset === preset.id
                 ? 'bg-amber-400 text-black font-bold border-amber-300 shadow'
                 : 'bg-black/50 border-white/10 text-white/80 hover:bg-white/5'
             }`}
           >
             <div className="font-bold text-[var(--fs-sm)]">{preset.name}</div>
-            <div className="text-[var(--fs-8)] opacity-75 mt-0.5">{preset.desc}</div>
+            <div className="text-[var(--fs-8)] opacity-75 mt-[var(--space-1)]">{preset.desc}</div>
           </button>
         ))}
       </div>
@@ -482,7 +482,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const soundTabContent = (
     <SectionCard title={t.settingsSoundSection}>
-      <label className="flex items-center gap-1.5 cursor-pointer">
+      <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
         <input
           type="checkbox"
           checked={formData.soundEffects}
@@ -499,9 +499,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   );
 
   const securityTabContent = (
-    <div className="space-y-1.5">
+    <div className="space-y-[var(--space-2)]">
       <SectionCard title={t.settingsSecurity}>
-        <label className="flex items-center gap-1.5 cursor-pointer font-bold text-amber-400">
+        <label className="flex items-center gap-[var(--space-2)] cursor-pointer font-bold text-amber-400">
           <input
             type="checkbox"
             checked={formData.appLockEnabled}
@@ -520,7 +520,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </label>
 
         {formData.appLockEnabled && (
-          <div className="p-1.5 bg-black/60 rounded border border-amber-400/40 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+          <div className="p-[var(--space-2)] bg-black/60 rounded border border-amber-400/40 grid grid-cols-1 sm:grid-cols-2 gap-[var(--space-2)]">
             <div>
               <span className="text-[var(--fs-8)] opacity-70 block font-bold mb-0.5">{t.settingsAppUser}</span>
               <input
@@ -528,7 +528,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 value={formData.appUsername || 'admin'}
                 onChange={(e) => handleChange('appUsername', e.target.value)}
                 onBlur={() => handleBlur('appUsername')}
-                className="w-full px-1.5 py-0.5 bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
+                className="w-full px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
               />
             </div>
             <div>
@@ -540,7 +540,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   placeholder={formData.appPasswordSalt ? t.settingsAppPassSet : t.settingsAppPassNone}
                   onChange={(e) => handleChange('newPassword', e.target.value)}
                   onBlur={() => handleBlur('newPassword')}
-                  className="w-full px-1.5 py-0.5 bg-black/70 border border-white/20 rounded text-xs text-white font-mono pr-7"
+                  className="w-full px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-white font-mono pr-[var(--space-7)]"
                 />
                 <button
                   type="button"
@@ -550,7 +550,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 >
                   {touched.newPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
-                {errors.newPassword && <span className="text-[var(--fs-8)] text-rose-300 mt-0.5 block">{errors.newPassword}</span>}
+                {errors.newPassword && <span className="text-[var(--fs-8)] text-rose-300 mt-[var(--space-1)] block">{errors.newPassword}</span>}
               </div>
             </div>
             <div className="sm:col-span-2">
@@ -562,7 +562,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   placeholder={t.settingsAppPassNone}
                   onChange={(e) => handleChange('confirmPassword', e.target.value)}
                   onBlur={() => handleBlur('confirmPassword')}
-                  className="w-full px-1.5 py-0.5 bg-black/70 border border-white/20 rounded text-xs text-white font-mono pr-7"
+                  className="w-full px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-white font-mono pr-[var(--space-7)]"
                 />
                 <button
                   type="button"
@@ -572,7 +572,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 >
                   {touched.confirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
-                {errors.confirmPassword && <span className="text-[var(--fs-8)] text-rose-300 mt-0.5 block">{errors.confirmPassword}</span>}
+                {errors.confirmPassword && <span className="text-[var(--fs-8)] text-rose-300 mt-[var(--space-1)] block">{errors.confirmPassword}</span>}
               </div>
             </div>
           </div>
@@ -612,7 +612,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Content */}
-          <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+          <div className="flex-1 overflow-y-auto p-2 space-y-[var(--space-2)]">
             {tabContent[activeTab]}
           </div>
 
@@ -631,7 +631,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   URL.revokeObjectURL(url);
                   soundManager.playKeyTick();
                 }}
-                className="px-1.5 py-0.5 border rounded cursor-pointer text-[var(--fs-8)]"
+                className="px-[var(--space-2)] py-[var(--space-1)] border rounded cursor-pointer text-[var(--fs-8)]"
               >
                 {t.settingsExportConfig}
               </button>
@@ -653,12 +653,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   };
                   input.click();
                 }}
-                className="px-1.5 py-0.5 border rounded cursor-pointer text-[var(--fs-8)]"
+                className="px-[var(--space-2)] py-[var(--space-1)] border rounded cursor-pointer text-[var(--fs-8)]"
               >
                 {t.settingsImportConfig}
               </button>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-[var(--space-2)]">
               <button
                 onClick={handleCancel}
                 className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
