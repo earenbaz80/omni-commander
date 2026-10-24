@@ -6,6 +6,7 @@ import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
+import ModalShell from '../ModalShell';
 
 interface EditorModalProps {
   theme: ThemeConfig;
@@ -77,26 +78,11 @@ export const EditorModal: React.FC<EditorModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.editorModalTitle);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-[var(--space-4)] font-mono select-none">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="w-full max-w-5xl h-[90vh] flex flex-col rounded shadow-2xl border text-xs overflow-hidden"
-        style={{
-          backgroundColor: theme.modalBg,
-          borderColor: theme.modalBorder,
-          color: theme.itemText
-        }}
-      >
-        {/* Header bar */}
-        <div 
-          className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-b font-bold shrink-0"
-          style={{
-            backgroundColor: theme.modalHeaderBg,
-            color: theme.modalHeaderText,
-            borderColor: theme.modalBorder
-          }}
-        >
+    <ModalShell title={t.editorModalTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
+      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+        {/* Search bar in header area */}
+        <div className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-b font-bold shrink-0"
+          style={{ backgroundColor: theme.modalHeaderBg, color: theme.modalHeaderText, borderColor: theme.modalBorder }}>
           <div className="flex items-center gap-[var(--space-2)] truncate">
             <Edit3 className="w-4 h-4" />
             <span className="truncate">
@@ -116,12 +102,6 @@ export const EditorModal: React.FC<EditorModalProps> = ({
               className="px-[var(--space-3)] py-[var(--space-1)] bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs flex items-center gap-[var(--space-1)] cursor-pointer font-bold"
             >
               <Save className="w-3.5 h-3.5" /> {t.btnSave} (Ctrl+S)
-            </button>
-            <button
-              onClick={onClose}
-              className="px-[var(--space-2)] py-[var(--space-1)] bg-black/20 hover:bg-red-500/80 rounded text-xs cursor-pointer font-bold"
-            >
-              ✕
             </button>
           </div>
         </div>
@@ -210,6 +190,6 @@ export const EditorModal: React.FC<EditorModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 };
