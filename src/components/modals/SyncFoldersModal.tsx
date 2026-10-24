@@ -7,6 +7,7 @@ import { fsEngine } from '../../services/fileSystem';
 import { soundManager } from '../../services/soundEffects';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
+import ModalShell from '../ModalShell';
 
 interface SyncFoldersModalProps {
   theme: ThemeConfig;
@@ -214,33 +215,8 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.syncDialogTitle);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-[var(--space-4)] font-mono select-none backdrop-blur-sm">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="w-full max-w-4xl h-[85vh] rounded-lg shadow-2xl border flex flex-col overflow-hidden text-xs"
-        style={{
-          backgroundColor: theme.modalBg,
-          borderColor: theme.modalBorder,
-          color: theme.itemText
-        }}
-      >
-        {/* Modal Header */}
-        <div 
-          className="px-[var(--space-4)] py-[var(--space-2)].5 border-b font-bold shrink-0 flex items-center justify-between text-white"
-          style={{ backgroundColor: theme.modalHeaderBg }}
-        >
-          <div className="flex items-center gap-[var(--space-2)]">
-            <FolderSync className="w-5 h-5 text-amber-300" />
-            <span className="text-sm font-bold tracking-wide">{t.syncModalTitle}</span>
-          </div>
-          <button 
-            onClick={onClose} 
-            className="px-[var(--space-2)] py-[var(--space-1)] bg-black/30 hover:bg-black/60 rounded text-xs cursor-pointer font-bold"
-          >
-            ✕
-          </button>
-        </div>
+    <ModalShell title={t.syncModalTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
+      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
 
         {/* Directory Comparison Banner */}
         <div className="p-[var(--space-3)] bg-black/50 border-b border-white/10 grid grid-cols-1 md:grid-cols-2 gap-[var(--space-3)] shrink-0">
@@ -448,6 +424,6 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 };
