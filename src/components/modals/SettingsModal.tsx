@@ -50,15 +50,26 @@ type SettingsTab =
   | 'sound'
   | 'security';
 
-const TAB_CONFIG: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
-  { id: 'theme', label: 'Tema', icon: <Palette className="w-4 h-4" /> },
-  { id: 'language', label: 'Idioma', icon: <Globe className="w-4 h-4" /> },
-  { id: 'appearance', label: 'Apariencia', icon: <Monitor className="w-4 h-4" /> },
-  { id: 'behavior', label: 'Archivos', icon: <Sliders className="w-4 h-4" /> },
-  { id: 'keybindings', label: 'Atajos', icon: <Keyboard className="w-4 h-4" /> },
-  { id: 'sound', label: 'Sonido', icon: <Volume2 className="w-4 h-4" /> },
-  { id: 'security', label: 'Seguridad', icon: <Lock className="w-4 h-4" /> },
-];
+// Tab labels use translation keys for i18n support
+const TAB_LABEL_KEYS: Record<SettingsTab, string> = {
+  theme: 'settingsTabTheme',
+  language: 'settingsTabLanguage',
+  appearance: 'settingsTabAppearance',
+  behavior: 'settingsTabBehavior',
+  keybindings: 'settingsTabKeybindings',
+  sound: 'settingsTabSound',
+  security: 'settingsTabSecurity',
+};
+
+const TAB_ICONS: Record<SettingsTab, React.ReactNode> = {
+  theme: <Palette className="w-4 h-4" />,
+  language: <Globe className="w-4 h-4" />,
+  appearance: <Monitor className="w-4 h-4" />,
+  behavior: <Sliders className="w-4 h-4" />,
+  keybindings: <Keyboard className="w-4 h-4" />,
+  sound: <Volume2 className="w-4 h-4" />,
+  security: <Lock className="w-4 h-4" />,
+};
 
 const themeList: { id: ThemeId; name: string }[] = [
   { id: 'classic_blue', name: 'Norton Classic (Azul/Cian)' },
@@ -87,7 +98,7 @@ const INITIAL_FORM: FormSettings = {
   confirmPassword: '',
 };
 
-function SettingsTabButton({ active, onClick, icon, label }: {
+export function SettingsTabButton({ active, onClick, icon, label }: {
   active: boolean;
   onClick: () => void;
   icon: React.ReactNode;
@@ -109,7 +120,7 @@ function SettingsTabButton({ active, onClick, icon, label }: {
   );
 }
 
-function SectionCard({ title, children, className = '' }: { title: string; children: React.ReactNode; className?: string }) {
+export function SectionCard({ title, children, className = '' }: { title: string; children: React.ReactNode; className?: string }) {
   return (
     <div className={`rounded border border-white/10 bg-black/20 p-[var(--space-2)] space-y-[var(--space-2)] ${className}`}>
       <h4 className="font-bold text-amber-300 uppercase tracking-wider text-[var(--fs-sm)] mb-[var(--space-1)]">{title}</h4>
@@ -118,7 +129,7 @@ function SectionCard({ title, children, className = '' }: { title: string; child
   );
 }
 
-function ThemePreview({ themeId }: { themeId: ThemeId }) {
+export function ThemePreview({ themeId }: { themeId: ThemeId }) {
   const colors = useThemeColors(themeId);
 
   return (
@@ -154,9 +165,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const validateField = useCallback((name: keyof FormSettings, value: any) => {
     const newErrors = { ...errors };
     if (name === 'newPassword' && value && value !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Las contraseñas no coinciden';
+      newErrors.confirmPassword = (t as any).protectMismatch || 'Passwords do not match';
     } else if (name === 'confirmPassword' && value && value !== formData.newPassword) {
-      newErrors.confirmPassword = 'Las contraseñas no coinciden';
+      newErrors.confirmPassword = (t as any).protectMismatch || 'Passwords do not match';
     } else if (name === 'confirmPassword' && value && value === formData.newPassword) {
       delete newErrors.confirmPassword;
     }
@@ -176,7 +187,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     // Validar todo antes de guardar
     const newErrors: Partial<Record<keyof FormSettings, string>> = {};
     if (formData.newPassword && formData.newPassword !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Las contraseñas no coinciden';
+      newErrors.confirmPassword = (t as any).protectMismatch || 'Passwords do not match';
     }
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -598,13 +609,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         
         {/* Sidebar - Vertical Tabs */}
         <div className="flex flex-col gap-[var(--space-1)] bg-black/30 p-[var(--space-1)] border-r border-white/10 shrink-0 min-w-[140px]">
-          {TAB_CONFIG.map(tab => (
+          {(Object.keys(TAB_ICONS) as SettingsTab[]).map((tabId) => (
             <SettingsTabButton
-              key={tab.id}
-              active={activeTab === tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              icon={tab.icon}
-              label={tab.label}
+              key={tabId}
+              active={activeTab === tabId}
+              onClick={() => setActiveTab(tabId)}
+              icon={TAB_ICONS[tabId]}
+              label={(t as any)[TAB_LABEL_KEYS[tabId]] || tabId}
             />
           ))}
         </div>
@@ -661,9 +672,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="flex items-center gap-[var(--space-2)]">
               <button
                 onClick={handleCancel}
-                className="px-[var(--space-3)] py-[var(--space-1)] bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
+                className="px-[var(--space-3)] py-[var(--space-1)] bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer flex items-center gap-[var(--space-1)]"
               >
-                <X className="w-3 h-3 mr-0.5" /> {t.btnCancel}
+                {t.btnCancel}
               </button>
               <button
                 onClick={handleSave}

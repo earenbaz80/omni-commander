@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import React from 'react';
 import { UserSettings } from '../types';
 import { ThemeConfig } from '../services/themeManager';
-import SettingsModal from '../components/modals/SettingsModal';
+import { SettingsModal } from '../components/modals/SettingsModal';
 
 const mockTheme: ThemeConfig = {
   id: 'classic_blue',
@@ -68,7 +68,23 @@ const defaultSettings: UserSettings = {
   keybindingPreset: 'norton',
   soundEffects: true,
   appLockEnabled: false,
-};
+  // Missing fields
+  retroDosBorders: false,
+  fontSize: 'normal',
+  fontFamily: 'mono',
+  splitLayout: 'horizontal',
+  dualPaneRatio: 50,
+  quickPreviewAutoPlay: false,
+  showCommandLine: true,
+  showFunctionBar: true,
+  showDriveButtons: true,
+  authorName: 'OmniCommander',
+  protectedFolders: {},
+  customShortcuts: {},
+  appUsername: 'admin',
+  appPasswordHash: '',
+  appPasswordSalt: '',
+} as UserSettings;
 
 const meta = {
   title: 'Design System/SettingsModal',

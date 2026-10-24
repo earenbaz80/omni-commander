@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import React from 'react';
-import KeybindingsTable from '../components/KeybindingsTable';
+import { KeybindingsTable } from '../components/KeybindingsTable';
 import { ThemeConfig } from '../services/themeManager';
 
 const mockTheme: ThemeConfig = {

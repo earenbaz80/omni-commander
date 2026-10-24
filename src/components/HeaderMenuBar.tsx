@@ -151,7 +151,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
             onClick={() => handleMenuClick('left')}
             className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'left' ? 'bg-black/30 font-bold' : ''}`}
           >
-            <u>L</u>eft
+            <u>{t.menuLeft.charAt(0)}</u>{t.menuLeft.slice(1)}
           </button>
           {openMenu === 'left' && (
             <div 
@@ -181,7 +181,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
             onClick={() => handleMenuClick('files')}
             className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'files' ? 'bg-black/30 font-bold' : ''}`}
           >
-            <u>F</u>iles
+            <u>{t.menuFiles.charAt(0)}</u>{t.menuFiles.slice(1)}
           </button>
           {openMenu === 'files' && (
             <div 
@@ -229,7 +229,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
             onClick={() => handleMenuClick('commands')}
             className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'commands' ? 'bg-black/30 font-bold' : ''}`}
           >
-            <u>C</u>ommands
+            <u>{t.menuCommands.charAt(0)}</u>{t.menuCommands.slice(1)}
           </button>
           {openMenu === 'commands' && (
             <div 
@@ -287,7 +287,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
             onClick={() => handleMenuClick('options')}
             className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'options' ? 'bg-black/30 font-bold' : ''}`}
           >
-            <u>O</u>ptions
+            <u>{t.menuOptions.charAt(0)}</u>{t.menuOptions.slice(1)}
           </button>
           {openMenu === 'options' && (
             <div 
@@ -348,7 +348,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
             onClick={() => handleMenuClick('right')}
             className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'right' ? 'bg-black/30 font-bold' : ''}`}
           >
-            <u>R</u>ight
+            <u>{t.menuRight.charAt(0)}</u>{t.menuRight.slice(1)}
           </button>
           {openMenu === 'right' && (
             <div 
@@ -374,7 +374,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
             onClick={() => handleMenuClick('help')}
             className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'help' ? 'bg-black/30 font-bold' : ''}`}
           >
-            <u>H</u>elp
+            <u>{t.menuHelp.charAt(0)}</u>{t.menuHelp.slice(1)}
           </button>
           {openMenu === 'help' && (
             <div 

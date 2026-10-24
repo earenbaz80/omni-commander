@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import React from 'react';
-import FunctionBar from '../components/FunctionBar';
+import { FunctionBar } from '../components/FunctionBar';
 import { ThemeConfig } from '../services/themeManager';
 import { getTranslations } from '../i18n/translations';
 

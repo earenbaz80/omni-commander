@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ActiveModal, LanguageCode } from '../types';
 import { ThemeConfig } from '../services/themeManager';
+import { getTranslations } from '../i18n/translations';
 import { soundManager } from '../services/soundEffects';
 
 interface FunctionKeyBarProps {
@@ -17,6 +18,7 @@ interface FunctionKeyBarProps {
 
 export const FunctionKeyBar: React.FC<FunctionKeyBarProps> = ({
   theme,
+  lang,
   onOpenModal,
   onCopy,
   onMove,
@@ -46,6 +48,8 @@ export const FunctionKeyBar: React.FC<FunctionKeyBarProps> = ({
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, []);
+
+const t = getTranslations(lang);
 
   const getKeys = () => {
     if (altPressed) {
@@ -79,16 +83,16 @@ export const FunctionKeyBar: React.FC<FunctionKeyBarProps> = ({
     }
 
     return [
-      { num: '1', label: 'Help', action: () => onOpenModal('help') },
-      { num: '2', label: 'Menu', action: () => onOpenModal('userMenu') },
-      { num: '3', label: 'View', action: onView },
-      { num: '4', label: 'Edit', action: onEdit },
-      { num: '5', label: 'Copy', action: onCopy },
-      { num: '6', label: 'RenMov', action: onMove },
-      { num: '7', label: 'MkDir', action: onMkDir },
-      { num: '8', label: 'Delete', action: onDelete },
-      { num: '9', label: 'PullDn', action: () => {} },
-      { num: '10', label: 'Quit', action: () => onOpenModal('quit') },
+      { num: '1', label: t.helpF1, action: () => onOpenModal('help') },
+      { num: '2', label: t.menuF2, action: () => onOpenModal('userMenu') },
+      { num: '3', label: t.viewF3, action: onView },
+      { num: '4', label: t.editF4, action: onEdit },
+      { num: '5', label: t.copyF5, action: onCopy },
+      { num: '6', label: t.moveF6, action: onMove },
+      { num: '7', label: t.mkdirF7, action: onMkDir },
+      { num: '8', label: t.deleteF8, action: onDelete },
+      { num: '9', label: t.configF9, action: () => {} },
+      { num: '10', label: t.quitF10, action: () => onOpenModal('quit') },
     ];
   };
 
