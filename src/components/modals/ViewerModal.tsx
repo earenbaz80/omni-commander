@@ -8,6 +8,7 @@ import { fsEngine } from '../../services/fileSystem';
 import { createSvgDataUrl } from '../../utils/svgPreview';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
+import ModalShell from '../ModalShell';
 
 interface ViewerModalProps {
   theme: ThemeConfig;
@@ -136,26 +137,11 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-[var(--space-4)] font-mono select-none">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded shadow-2xl border text-xs overflow-hidden"
-        style={{
-          backgroundColor: theme.modalBg,
-          borderColor: theme.modalBorder,
-          color: theme.itemText
-        }}
-      >
+    <ModalShell title={t.viewerModalTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
+      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
         {/* Header bar */}
-        <div 
-          className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-b font-bold shrink-0"
-          style={{
-            backgroundColor: theme.modalHeaderBg,
-            color: theme.modalHeaderText,
-            borderColor: theme.modalBorder
-          }}
-        >
+        <div className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-b font-bold shrink-0"
+          style={{ backgroundColor: theme.modalHeaderBg, color: theme.modalHeaderText, borderColor: theme.modalBorder }}>
           <div className="flex items-center gap-[var(--space-2)] truncate">
             <Eye className="w-4 h-4" />
             <span className="truncate">{t.viewerLabel} {file.path}\{file.name}.{file.ext} ({file.size.toLocaleString()} bytes)</span>
@@ -167,12 +153,6 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
               className="px-[var(--space-2)] py-[var(--space-1)] bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer"
             >
               {t.edit}
-            </button>
-            <button
-              onClick={onClose}
-              className="px-[var(--space-2)] py-[var(--space-1)] bg-black/20 hover:bg-red-500/80 rounded text-xs cursor-pointer font-bold"
-            >
-              ✕ Esc
             </button>
           </div>
         </div>
@@ -382,6 +362,6 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 };
