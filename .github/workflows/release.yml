@@ -33,3 +33,18 @@ jobs:
         run: npx electron-builder --win --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compress release artifacts
+        run: |
+          cd release
+          Compress-Archive -Path "OmniCommander Pro ${{ github.ref_name }}.exe" -DestinationPath "OmniCommander Pro ${{ github.ref_name }}.zip" -Force
+          Compress-Archive -Path "OmniCommander Pro Setup ${{ github.ref_name }}.exe" -DestinationPath "OmniCommander Pro Setup ${{ github.ref_name }}.zip" -Force
+        shell: pwsh
+
+      - name: Upload compressed artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
