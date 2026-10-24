@@ -6,6 +6,7 @@ import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
+import ModalShell from '../ModalShell';
 
 interface FTPManagerModalProps {
   theme: ThemeConfig;
@@ -96,33 +97,8 @@ export const FTPManagerModal: React.FC<FTPManagerModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.ftpDialogLabel);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-[var(--space-4)] font-mono select-none backdrop-blur-sm">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="w-full max-w-2xl rounded-lg shadow-2xl border flex flex-col overflow-hidden text-xs"
-        style={{
-          backgroundColor: theme.modalBg,
-          borderColor: theme.modalBorder,
-          color: theme.itemText
-        }}
-      >
-        {/* Header */}
-        <div 
-          className="px-[var(--space-4)] py-[var(--space-2)].5 border-b font-bold shrink-0 flex items-center justify-between text-white"
-          style={{ backgroundColor: theme.modalHeaderBg }}
-        >
-          <div className="flex items-center gap-[var(--space-2)]">
-            <Server className="w-5 h-5 text-emerald-400" />
-            <span className="text-sm font-bold tracking-wide">{t.ftpTitle}</span>
-          </div>
-          <button 
-            onClick={onClose} 
-            className="px-[var(--space-2)] py-[var(--space-1)] bg-black/30 hover:bg-black/60 rounded text-xs cursor-pointer font-bold"
-          >
-            ✕
-          </button>
-        </div>
+    <ModalShell title={t.ftpTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
+      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
 
         {/* Content Body */}
         <div className="p-[var(--space-4)] space-y-[var(--space-4)] overflow-y-auto max-h-[75vh]">
@@ -281,6 +257,6 @@ export const FTPManagerModal: React.FC<FTPManagerModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 };
