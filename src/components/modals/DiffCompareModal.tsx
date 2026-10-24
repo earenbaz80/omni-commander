@@ -35,7 +35,7 @@ export const DiffCompareModal: React.FC<DiffCompareModalProps> = ({
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
 
         {/* File names header */}
-        <div className="grid grid-cols-2 border-b border-white/20 bg-black/40 px-3 py-2 font-bold shrink-0">
+        <div className="grid grid-cols-2 border-b border-white/20 bg-black/40 px-[var(--space-3)] py-[var(--space-2)] font-bold shrink-0">
           <div className="truncate text-amber-300">
             [{t.leftPanel}]: {leftFile ? `${leftFile.name}.${leftFile.ext}` : t.diffNoFileSelected}
           </div>
@@ -61,8 +61,8 @@ export const DiffCompareModal: React.FC<DiffCompareModalProps> = ({
             return (
               <div key={idx} className={`grid grid-cols-2 border-b border-white/5 leading-5 ${rowBg}`}>
                 {/* Left Line */}
-                <div className="flex items-start px-2 py-0.5 overflow-x-auto">
-                  <span className="w-8 text-right opacity-30 select-none mr-2 shrink-0 tabular-nums">
+                <div className="flex items-start px-[var(--space-2)] py-[var(--space-1)] overflow-x-auto">
+                  <span className="w-8 text-right opacity-30 select-none mr-[var(--space-2)] shrink-0 tabular-nums">
                     {leftLines[idx] !== undefined ? idx + 1 : ''}
                   </span>
                   <span className={`whitespace-pre ${isDiff && lText ? 'text-red-300 font-semibold' : 'text-slate-200'}`}>
@@ -71,8 +71,8 @@ export const DiffCompareModal: React.FC<DiffCompareModalProps> = ({
                 </div>
 
                 {/* Right Line */}
-                <div className="flex items-start px-2 py-0.5 overflow-x-auto border-l border-white/10">
-                  <span className="w-8 text-right opacity-30 select-none mr-2 shrink-0 tabular-nums">
+                <div className="flex items-start px-[var(--space-2)] py-[var(--space-1)] overflow-x-auto border-l border-white/10">
+                  <span className="w-8 text-right opacity-30 select-none mr-[var(--space-2)] shrink-0 tabular-nums">
                     {rightLines[idx] !== undefined ? idx + 1 : ''}
                   </span>
                   <span className={`whitespace-pre ${isDiff && rText ? 'text-emerald-300 font-semibold' : 'text-slate-200'}`}>
@@ -86,21 +86,21 @@ export const DiffCompareModal: React.FC<DiffCompareModalProps> = ({
 
         {/* Footer */}
         <div 
-          className="flex items-center justify-between px-3 py-2 border-t text-xs shrink-0"
+          className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-t text-xs shrink-0"
           style={{
             backgroundColor: theme.modalBg,
             borderColor: theme.modalBorder
           }}
         >
-          <div className="flex items-center gap-4">
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-red-900 rounded"></span> {t.diffRemovedDifferent}</span>
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-emerald-900 rounded"></span> {t.diffAdded}</span>
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-amber-900 rounded"></span> {t.diffModified}</span>
+          <div className="flex items-center gap-[var(--space-4)]">
+            <span className="flex items-center gap-[var(--space-2)]"><span className="w-3 h-3 bg-red-900 rounded"></span> {t.diffRemovedDifferent}</span>
+            <span className="flex items-center gap-[var(--space-2)]"><span className="w-3 h-3 bg-emerald-900 rounded"></span> {t.diffAdded}</span>
+            <span className="flex items-center gap-[var(--space-2)]"><span className="w-3 h-3 bg-amber-900 rounded"></span> {t.diffModified}</span>
           </div>
 
           <button
             onClick={onClose}
-            className="px-4 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-bold rounded cursor-pointer"
+            className="px-[var(--space-4)] py-[var(--space-2)] bg-amber-400 hover:bg-amber-300 text-black font-bold rounded cursor-pointer"
           >
             {t.btnClose} (Esc)
           </button>

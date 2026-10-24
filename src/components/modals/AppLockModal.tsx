@@ -68,19 +68,19 @@ export const AppLockModal: React.FC<AppLockModalProps> = ({
     <ModalShell title={t.appLockTitle} theme={theme} onClose={() => {}} closeButtonLabel={t.btnCancel}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
         {/* Lock Header */}
-        <div className="px-4 py-3 border-b font-bold shrink-0 flex items-center justify-between text-white" style={{ backgroundColor: theme.modalHeaderBg, borderBottomColor: theme.modalBorder }}>
-          <div className="flex items-center gap-2">
+        <div className="px-[var(--space-4)] py-[var(--space-3)] border-b font-bold shrink-0 flex items-center justify-between text-white" style={{ backgroundColor: theme.modalHeaderBg, borderBottomColor: theme.modalBorder }}>
+          <div className="flex items-center gap-[var(--space-2)]">
             <ShieldCheck className="w-5 h-5 text-amber-300" />
             <span className="text-sm font-bold tracking-wide">{t.appLockTitle}</span>
           </div>
-          <span className="text-[var(--fs-8)] bg-black/30 px-2 py-0.5 rounded font-mono font-extrabold text-amber-300">
+          <span className="text-[var(--fs-8)] bg-black/30 px-[var(--space-2)] py-[var(--space-1)] rounded font-mono font-extrabold text-amber-300">
             PROTECTED
           </span>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleUnlock} className="p-6 space-y-4">
-          <div className="text-center space-y-2 pb-2 border-b border-white/10">
+        <form onSubmit={handleUnlock} className="p-6 space-y-[var(--space-4)]">
+          <div className="text-center space-y-[var(--space-2)] pb-2 border-b border-white/10">
             <div className="w-16 h-16 mx-auto rounded-full bg-sky-950 border-2 border-amber-400 flex items-center justify-center text-amber-300 shadow-inner">
               <Lock className="w-8 h-8" />
             </div>
@@ -91,15 +91,15 @@ export const AppLockModal: React.FC<AppLockModalProps> = ({
           </div>
 
           {hasError && (
-            <div className="p-2.5 bg-red-950 border border-red-500 text-red-200 font-bold rounded text-[var(--fs-sm)] text-center flex items-center justify-center gap-2">
+            <div className="p-[var(--space-2)].5 bg-red-950 border border-red-500 text-red-200 font-bold rounded text-[var(--fs-sm)] text-center flex items-center justify-center gap-[var(--space-2)]">
               <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
               <span>{t.appLockBadCreds}</span>
             </div>
           )}
 
-          <div className="space-y-3">
+          <div className="space-y-[var(--space-3)]">
             <div>
-              <label className="block text-[var(--fs-sm)] font-bold mb-1 opacity-80 flex items-center gap-1">
+              <label className="block text-[var(--fs-sm)] font-bold mb-[var(--space-1)] opacity-80 flex items-center gap-[var(--space-1)]">
                 <User className="w-3.5 h-3.5 text-amber-400" /> {t.lockUserLabel}
               </label>
               <input
@@ -110,12 +110,12 @@ export const AppLockModal: React.FC<AppLockModalProps> = ({
                   setHasError(false);
                 }}
                 placeholder={t.appLockUserPlaceholder}
-                className="w-full px-3 py-2 bg-black/70 border border-white/20 rounded outline-none focus:border-amber-400 text-white font-mono text-xs"
+                className="w-full px-[var(--space-3)] py-[var(--space-2)] bg-black/70 border border-white/20 rounded outline-none focus:border-amber-400 text-white font-mono text-xs"
               />
             </div>
 
             <div>
-              <label className="block text-[var(--fs-sm)] font-bold mb-1 opacity-80 flex items-center gap-1">
+              <label className="block text-[var(--fs-sm)] font-bold mb-[var(--space-1)] opacity-80 flex items-center gap-[var(--space-1)]">
                 <Key className="w-3.5 h-3.5 text-cyan-400" /> {t.lockPassLabel}
               </label>
               <input
@@ -126,7 +126,7 @@ export const AppLockModal: React.FC<AppLockModalProps> = ({
                   setHasError(false);
                 }}
                 placeholder={t.appLockPassPlaceholder}
-                className="w-full px-3 py-2 bg-black/70 border border-white/20 rounded outline-none focus:border-amber-400 text-white font-mono text-xs"
+                className="w-full px-[var(--space-3)] py-[var(--space-2)] bg-black/70 border border-white/20 rounded outline-none focus:border-amber-400 text-white font-mono text-xs"
                 autoFocus
               />
             </div>
@@ -135,7 +135,7 @@ export const AppLockModal: React.FC<AppLockModalProps> = ({
           <div className="pt-2">
             <button
               type="submit" disabled={isChecking}
-              className="w-full py-2.5 bg-amber-400 hover:bg-amber-300 disabled:opacity-60 disabled:cursor-wait text-black font-extrabold text-xs rounded cursor-pointer shadow-lg flex items-center justify-center gap-2 uppercase tracking-wider"
+              className="w-full py-[var(--space-2)].5 bg-amber-400 hover:bg-amber-300 disabled:opacity-60 disabled:cursor-wait text-black font-extrabold text-xs rounded cursor-pointer shadow-lg flex items-center justify-center gap-[var(--space-2)] uppercase tracking-wider"
             >
               <Lock className="w-4 h-4" />
               {isChecking ? t.lockChecking : t.lockUnlockBtn}

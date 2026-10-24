@@ -101,7 +101,7 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
           <thead>
             <tr className="bg-black/40">
               {header.map((h, idx) => (
-                <th key={idx} className="border border-white/20 p-2 font-bold text-amber-300">
+                <th key={idx} className="border border-white/20 p-[var(--space-2)] font-bold text-amber-300">
                   {h.trim()}
                 </th>
               ))}
@@ -113,7 +113,7 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
               return (
                 <tr key={rIdx} className="hover:bg-white/5">
                   {cols.map((col, cIdx) => (
-                    <td key={cIdx} className="border border-white/10 p-2 tabular-nums">
+                    <td key={cIdx} className="border border-white/10 p-[var(--space-2)] tabular-nums">
                       {col.trim()}
                     </td>
                   ))}
@@ -136,7 +136,7 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 font-mono select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-[var(--space-4)] font-mono select-none">
       <div
         ref={dialogRef}
         tabIndex={-1}
@@ -149,28 +149,28 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
       >
         {/* Header bar */}
         <div 
-          className="flex items-center justify-between px-3 py-2 border-b font-bold shrink-0"
+          className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-b font-bold shrink-0"
           style={{
             backgroundColor: theme.modalHeaderBg,
             color: theme.modalHeaderText,
             borderColor: theme.modalBorder
           }}
         >
-          <div className="flex items-center gap-2 truncate">
+          <div className="flex items-center gap-[var(--space-2)] truncate">
             <Eye className="w-4 h-4" />
             <span className="truncate">{t.viewerLabel} {file.path}\{file.name}.{file.ext} ({file.size.toLocaleString()} bytes)</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-[var(--space-2)]">
             <button
               onClick={onEdit}
-              className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer"
+              className="px-[var(--space-2)] py-[var(--space-1)] bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer"
             >
               {t.edit}
             </button>
             <button
               onClick={onClose}
-              className="px-2 py-0.5 bg-black/20 hover:bg-red-500/80 rounded text-xs cursor-pointer font-bold"
+              className="px-[var(--space-2)] py-[var(--space-1)] bg-black/20 hover:bg-red-500/80 rounded text-xs cursor-pointer font-bold"
             >
               ✕ Esc
             </button>
@@ -178,14 +178,14 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
         </div>
 
         {/* Mode switcher tabs */}
-        <div className="flex items-center justify-between px-3 py-1 bg-black/30 border-b border-white/10 shrink-0">
-          <div className="flex items-center gap-1">
+        <div className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-1)] bg-black/30 border-b border-white/10 shrink-0">
+          <div className="flex items-center gap-[var(--space-1)]">
             <button
               onClick={() => {
                 soundManager.playKeyTick();
                 setActiveTab('text');
               }}
-              className={`px-2.5 py-1 rounded text-xs flex items-center gap-1 cursor-pointer ${
+              className={`px-[var(--space-3)] py-[var(--space-1)] rounded text-xs flex items-center gap-[var(--space-1)] cursor-pointer ${
                 activeTab === 'text' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10 text-white/80'
               }`}
             >
@@ -197,7 +197,7 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
                 soundManager.playKeyTick();
                 setActiveTab('hex');
               }}
-              className={`px-2.5 py-1 rounded text-xs flex items-center gap-1 cursor-pointer ${
+              className={`px-[var(--space-3)] py-[var(--space-1)] rounded text-xs flex items-center gap-[var(--space-1)] cursor-pointer ${
                 activeTab === 'hex' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10 text-white/80'
               }`}
             >
@@ -210,7 +210,7 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
                   soundManager.playKeyTick();
                   setActiveTab('csv');
                 }}
-                className={`px-2.5 py-1 rounded text-xs flex items-center gap-1 cursor-pointer ${
+                className={`px-[var(--space-3)] py-[var(--space-1)] rounded text-xs flex items-center gap-[var(--space-1)] cursor-pointer ${
                   activeTab === 'csv' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10 text-white/80'
                 }`}
               >
@@ -224,7 +224,7 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
                   soundManager.playKeyTick();
                   setActiveTab('preview');
                 }}
-                className={`px-2.5 py-1 rounded text-xs flex items-center gap-1 cursor-pointer ${
+                className={`px-[var(--space-3)] py-[var(--space-1)] rounded text-xs flex items-center gap-[var(--space-1)] cursor-pointer ${
                   activeTab === 'preview' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10 text-white/80'
                 }`}
               >
@@ -235,7 +235,7 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
 
           <button
             onClick={handleCopyContent}
-            className="flex items-center gap-1 px-2 py-0.5 bg-white/10 hover:bg-white/20 rounded text-xs cursor-pointer"
+            className="flex items-center gap-[var(--space-1)] px-[var(--space-2)] py-[var(--space-1)] bg-white/10 hover:bg-white/20 rounded text-xs cursor-pointer"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
             <span>{copied ? t.copiedLabel : t.copyBtn}</span>
@@ -243,7 +243,7 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
         </div>
 
         {/* Content Viewport */}
-        <div className="flex-1 overflow-auto p-4 bg-black/50 select-text">
+        <div className="flex-1 overflow-auto p-[var(--space-4)] bg-black/50 select-text">
           {activeTab === 'text' && (
             <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-slate-100">
               {content}
@@ -251,20 +251,20 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
           )}
 
           {activeTab === 'hex' && (
-            <div className="space-y-3">
+            <div className="space-y-[var(--space-3)]">
               <div className="flex items-center justify-between pb-2 border-b border-white/10 text-xs">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-[var(--space-2)]">
                   <span className="font-bold text-emerald-400">{t.viewerHexEditorTitle}</span>
                   <span className="opacity-60 text-[10px]">({t.viewerBytesTotal.replace('{n}', String(byteBuffer.length))})</span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-[var(--space-2)]">
                   <button
                     onClick={() => {
                       setHexEditMode(!hexEditMode);
                       soundManager.playKeyTick();
                     }}
-                    className={`px-2.5 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 cursor-pointer ${
+                    className={`px-[var(--space-3)] py-[var(--space-1)] rounded text-[11px] font-bold flex items-center gap-[var(--space-1)] cursor-pointer ${
                       hexEditMode ? 'bg-amber-400 text-black' : 'bg-white/10 text-white/80 hover:bg-white/20'
                     }`}
                   >
@@ -275,7 +275,7 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
                   {hexEditMode && (
                     <button
                       onClick={handleSaveHexChanges}
-                      className="px-3 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-[11px] flex items-center gap-1 cursor-pointer"
+                      className="px-[var(--space-3)] py-[var(--space-1)] bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-[11px] flex items-center gap-[var(--space-1)] cursor-pointer"
                     >
                       <Save className="w-3 h-3" />
                       <span>{t.viewerSaveVfs}</span>
@@ -285,18 +285,18 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
               </div>
 
               {hexSavedNotice && (
-                <div className="p-2 bg-emerald-950 border border-emerald-500/50 text-emerald-300 text-[11px] rounded flex items-center gap-1.5 animate-fadeIn">
+                <div className="p-[var(--space-2)] bg-emerald-950 border border-emerald-500/50 text-emerald-300 text-[11px] rounded flex items-center gap-[var(--space-2)] animate-fadeIn">
                   <Check className="w-3.5 h-3.5" />
                   <span>{t.viewerHexSaved}</span>
                 </div>
               )}
 
               {hexEditMode ? (
-                <div className="p-2 bg-black/60 rounded border border-white/15 space-y-2">
+                <div className="p-[var(--space-2)] bg-black/60 rounded border border-white/15 space-y-[var(--space-2)]">
                   <div className="text-[10px] text-amber-300 opacity-90">
                     {t.viewerHexClickHint}
                   </div>
-                  <div className="grid grid-cols-16 gap-1 font-mono text-[11px]">
+                  <div className="grid grid-cols-16 gap-[var(--space-1)] font-mono text-[11px]">
                     {byteBuffer.slice(0, 256).map((byte, idx) => {
                       const isSelected = selectedByteIndex === idx;
                       const hexStr = byte.toString(16).padStart(2, '0').toUpperCase();
@@ -310,7 +310,7 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
                             value={hexStr}
                             onChange={(e) => handleByteEdit(idx, e.target.value)}
                             onFocus={() => setSelectedByteIndex(idx)}
-                            className={`w-7 text-center rounded px-0.5 py-0.5 font-bold outline-none text-[11px] ${
+                            className={`w-7 text-center rounded px-0.5 py-[var(--space-1)] font-bold outline-none text-[11px] ${
                               isSelected
                                 ? 'bg-amber-400 text-black'
                                 : 'bg-white/5 text-emerald-400 hover:bg-white/10 border border-white/10'
@@ -338,9 +338,9 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
           {activeTab === 'csv' && renderCsvTable()}
 
           {activeTab === 'preview' && (
-            <div className="flex flex-col items-center justify-center p-8 space-y-4">
+            <div className="flex flex-col items-center justify-center p-8 space-y-[var(--space-4)]">
               {ext === 'SVG' && (
-                <div className="w-48 h-48 border border-white/20 p-4 rounded bg-white/5 flex items-center justify-center">
+                <div className="w-48 h-48 border border-white/20 p-[var(--space-4)] rounded bg-white/5 flex items-center justify-center">
                   <img
                     src={createSvgDataUrl(content)}
                     alt={t.viewerPreviewAlt.replace('{name}', file.name).replace('{ext}', file.ext)}
@@ -350,12 +350,12 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
               )}
 
               {isAudio && (
-                <div className="text-center space-y-3">
+                <div className="text-center space-y-[var(--space-3)]">
                   <Music className="w-16 h-16 text-violet-400 mx-auto animate-pulse" />
                   <p className="font-bold text-base">{file.name}.{file.ext}</p>
                   <button
                     onClick={() => soundManager.playSuccess()}
-                    className="px-4 py-2 bg-amber-400 text-black font-bold rounded hover:bg-amber-300 cursor-pointer shadow"
+                    className="px-[var(--space-4)] py-[var(--space-2)] bg-amber-400 text-black font-bold rounded hover:bg-amber-300 cursor-pointer shadow"
                   >
                     {t.viewerPlayTone}
                   </button>
@@ -367,7 +367,7 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
 
         {/* Footer */}
         <div 
-          className="flex items-center justify-between px-3 py-1.5 border-t text-xs shrink-0"
+          className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-t text-xs shrink-0"
           style={{
             backgroundColor: theme.modalBg,
             borderColor: theme.modalBorder
@@ -376,7 +376,7 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
           <span className="opacity-75">{t.viewerLinesChars.replace('{n}', String(content.split('\n').length)).replace('{total}', String(content.length))}</span>
           <button
             onClick={onClose}
-            className="px-4 py-1 bg-amber-400 hover:bg-amber-300 text-black font-bold rounded cursor-pointer"
+            className="px-[var(--space-4)] py-[var(--space-1)] bg-amber-400 hover:bg-amber-300 text-black font-bold rounded cursor-pointer"
           >
             {t.btnClose} (Esc)
           </button>

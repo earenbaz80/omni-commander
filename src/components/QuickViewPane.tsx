@@ -41,10 +41,10 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({
   if (!targetItem) {
     return (
       <div 
-        className="flex-1 flex flex-col items-center justify-center p-4 text-center font-mono text-xs opacity-60"
+        className="flex-1 flex flex-col items-center justify-center p-[var(--space-4)] text-center font-mono text-xs opacity-60"
         style={{ backgroundColor: theme.bgPanel, color: theme.itemText }}
       >
-        <Eye className="w-8 h-8 mb-2 opacity-40" />
+        <Eye className="w-8 h-8 mb-[var(--space-2)] opacity-40" />
         <span>{t.quickViewHint}</span>
       </div>
     );
@@ -91,44 +91,44 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({
     >
       {/* Header bar */}
       <div 
-        className="flex items-center justify-between px-2 py-1 border-b font-bold text-xs shrink-0"
+        className="flex items-center justify-between px-[var(--space-2)] py-[var(--space-1)] border-b font-bold text-xs shrink-0"
         style={{ backgroundColor: theme.headerBg, color: theme.headerText, borderColor: theme.borderPanel }}
       >
-        <div className="flex items-center gap-1 truncate">
+        <div className="flex items-center gap-[var(--space-1)] truncate">
           <Eye className="w-3.5 h-3.5" />
           <span className="truncate">{targetItem.name}.{targetItem.ext}</span>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-[var(--space-1)]">
           {(isAudio || isVideo) && (
             <button
               onClick={() => setViewTab('media')}
-              className={`px-1.5 py-0.5 rounded text-[10px] cursor-pointer font-bold ${viewTab === 'media' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-black/20 text-white'}`}
+              className={`px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[10px] cursor-pointer font-bold ${viewTab === 'media' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-black/20 text-white'}`}
             >
-              <Music className="w-3.5 h-3.5 inline mr-1" /> Reproductor
+              <Music className="w-3.5 h-3.5 inline mr-[var(--space-1)]" /> Reproductor
             </button>
           )}
           <button
             onClick={() => setViewTab('text')}
-            className={`px-1.5 py-0.5 rounded text-[10px] cursor-pointer ${viewTab === 'text' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-black/20'}`}
+            className={`px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[10px] cursor-pointer ${viewTab === 'text' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-black/20'}`}
           >
             Texto
           </button>
           <button
             onClick={() => setViewTab('hex')}
-            className={`px-1.5 py-0.5 rounded text-[10px] cursor-pointer ${viewTab === 'hex' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-black/20'}`}
+            className={`px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[10px] cursor-pointer ${viewTab === 'hex' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-black/20'}`}
           >
             Hex
           </button>
           <button
             onClick={() => setViewTab('info')}
-            className={`px-1.5 py-0.5 rounded text-[10px] cursor-pointer ${viewTab === 'info' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-black/20'}`}
+            className={`px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[10px] cursor-pointer ${viewTab === 'info' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-black/20'}`}
           >
             Info
           </button>
           <button
             onClick={onClose}
-            className="px-1.5 py-0.5 hover:bg-black/30 text-white rounded text-[10px] cursor-pointer font-bold ml-1"
+            className="px-[var(--space-1)].5 py-[var(--space-1)] hover:bg-black/30 text-white rounded text-[10px] cursor-pointer font-bold ml-[var(--space-1)]"
           >
             ✕
           </button>
@@ -136,12 +136,12 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({
       </div>
 
       {/* Main Preview Body */}
-      <div className="flex-1 overflow-auto p-2">
+      <div className="flex-1 overflow-auto p-[var(--space-2)]">
         {/* Dedicated Audio & Video Mini Player */}
         {(isAudio || isVideo || viewTab === 'media') && (
-          <div className="p-3 bg-black/60 rounded border border-amber-400/40 mb-3 space-y-3 shadow-inner">
+          <div className="p-[var(--space-3)] bg-black/60 rounded border border-amber-400/40 mb-[var(--space-3)] space-y-[var(--space-3)] shadow-inner">
             <div className="flex items-center justify-between border-b border-white/10 pb-2">
-              <div className="flex items-center gap-2 truncate">
+              <div className="flex items-center gap-[var(--space-2)] truncate">
                 {isAudio ? (
                   <Music className="w-5 h-5 text-amber-300 animate-pulse shrink-0" />
                 ) : (
@@ -153,7 +153,7 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({
                 </div>
               </div>
 
-              <span className="text-[10px] font-mono bg-amber-400/20 text-amber-300 px-2 py-0.5 rounded font-bold border border-amber-400/30">
+              <span className="text-[10px] font-mono bg-amber-400/20 text-amber-300 px-[var(--space-2)] py-[var(--space-1)] rounded font-bold border border-amber-400/30">
                 {isPlaying ? t.qvPlaying : t.qvPaused}
               </span>
             </div>
@@ -165,7 +165,7 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({
                   <video src={targetItem.content} controls className="w-full h-full object-contain" />
                 ) : (
                   <div className="flex flex-col items-center justify-center text-cyan-300">
-                    <Film className="w-10 h-10 mb-1" />
+                    <Film className="w-10 h-10 mb-[var(--space-1)]" />
                     <span className="text-[10px] opacity-80 font-bold">{t.simulatedVideo}</span>
                   </div>
                 )}
@@ -174,7 +174,7 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({
 
             {/* Simulated Audio Waveform Bar Visualizer */}
             {isAudio && (
-              <div className="h-12 bg-black/80 rounded border border-white/10 flex items-end justify-between px-2 py-1 gap-1 overflow-hidden">
+              <div className="h-12 bg-black/80 rounded border border-white/10 flex items-end justify-between px-[var(--space-2)] py-[var(--space-1)] gap-[var(--space-1)] overflow-hidden">
                 {[...Array(28)].map((_, i) => {
                   const barHeight = isPlaying ? Math.floor(Math.sin(i + currentTime) * 40 + 50) : 20;
                   return (
@@ -189,7 +189,7 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({
             )}
 
             {/* Progress / Seek bar */}
-            <div className="space-y-1">
+            <div className="space-y-[var(--space-1)]">
               <input
                 type="range"
                 min="0"
@@ -205,11 +205,11 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({
             </div>
 
             {/* Controls Bar */}
-            <div className="flex items-center justify-between gap-2 pt-1">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-[var(--space-2)] pt-1">
+              <div className="flex items-center gap-[var(--space-2)]">
                 <button
                   onClick={togglePlay}
-                  className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded flex items-center gap-1 cursor-pointer shadow"
+                  className="px-[var(--space-3)] py-[var(--space-1)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded flex items-center gap-[var(--space-1)] cursor-pointer shadow"
                 >
                   {isPlaying ? <Pause className="w-3.5 h-3.5 fill-black" /> : <Play className="w-3.5 h-3.5 fill-black" />}
                   <span>{isPlaying ? t.qvPause : t.qvPlay}</span>
@@ -217,7 +217,7 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({
 
                 <button
                   onClick={() => setIsLooping(!isLooping)}
-                  className={`p-1.5 rounded border cursor-pointer ${isLooping ? 'bg-amber-400/30 text-amber-300 border-amber-400' : 'bg-black/30 border-white/20 text-slate-300'}`}
+                  className={`p-[var(--space-2)] rounded border cursor-pointer ${isLooping ? 'bg-amber-400/30 text-amber-300 border-amber-400' : 'bg-black/30 border-white/20 text-slate-300'}`}
                   title={t.qvRepeatTrack}
                 >
                   <Repeat className="w-3.5 h-3.5" />
@@ -225,7 +225,7 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({
               </div>
 
               {/* Volume Slider */}
-              <div className="flex items-center gap-1.5 bg-black/40 px-2 py-1 rounded border border-white/10">
+              <div className="flex items-center gap-[var(--space-2)] bg-black/40 px-[var(--space-2)] py-[var(--space-1)] rounded border border-white/10">
                 <button onClick={() => setIsMuted(!isMuted)} className="hover:text-amber-300 cursor-pointer">
                   {isMuted || volume === 0 ? <VolumeX className="w-3.5 h-3.5 text-red-400" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
                 </button>
@@ -249,7 +249,7 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({
         {viewTab === 'text' && (
           <div>
             {isImage && targetItem.ext.toUpperCase() === 'SVG' && targetItem.content ? (
-              <div className="flex flex-col items-center justify-center p-4 bg-black/20 rounded mb-2">
+              <div className="flex flex-col items-center justify-center p-[var(--space-4)] bg-black/20 rounded mb-[var(--space-2)]">
                 <img
                   src={createSvgDataUrl(targetItem.content)}
                   alt={t.previewOf.replace('{name}', `${targetItem.name}.${targetItem.ext}`)}
@@ -271,8 +271,8 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({
         )}
 
         {viewTab === 'info' && (
-          <div className="space-y-2 select-text">
-            <div className="p-2 bg-black/30 rounded border border-white/10 space-y-1">
+          <div className="space-y-[var(--space-2)] select-text">
+            <div className="p-[var(--space-2)] bg-black/30 rounded border border-white/10 space-y-[var(--space-1)]">
               <div><span className="opacity-60">{t.pathLabel}</span> {targetItem.path}\{targetItem.name}.{targetItem.ext}</div>
               <div><span className="opacity-60">{t.sizeLabel}</span> {targetItem.size.toLocaleString()} bytes</div>
               <div><span className="opacity-60">{t.modifiedLabel}</span> {targetItem.modifiedAt}</div>

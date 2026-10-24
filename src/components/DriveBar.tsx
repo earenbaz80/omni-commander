@@ -24,7 +24,7 @@ export const DriveBar: React.FC<DriveBarProps> = ({
 }) => {
   if (!drives.length) {
     return (
-      <div className="px-2 py-1 text-[11px] opacity-70 border-t">
+      <div className="px-[var(--space-2)] py-[var(--space-1)] text-[11px] opacity-70 border-t">
         {tGlobal('driveNoRealDrives')}
       </div>
     );
@@ -48,13 +48,13 @@ export const DriveBar: React.FC<DriveBarProps> = ({
     const tone = (color: string) => (selected ? 'text-black' : color);
     switch (type) {
       case 'ram':
-        return <Cpu className={`w-3 h-3 ${tone('text-emerald-400')} inline mr-1`} />;
+        return <Cpu className={`w-3 h-3 ${tone('text-emerald-400')} inline mr-[var(--space-1)]`} />;
       case 'network':
-        return <FolderSync className={`w-3 h-3 ${tone('text-purple-400')} inline mr-1`} />;
+        return <FolderSync className={`w-3 h-3 ${tone('text-purple-400')} inline mr-[var(--space-1)]`} />;
       case 'host_fs':
-        return <Database className={`w-3 h-3 ${tone('text-amber-400')} inline mr-1`} />;
+        return <Database className={`w-3 h-3 ${tone('text-amber-400')} inline mr-[var(--space-1)]`} />;
       default:
-        return <HardDrive className={`w-3 h-3 ${tone('text-blue-300')} inline mr-1`} />;
+        return <HardDrive className={`w-3 h-3 ${tone('text-blue-300')} inline mr-[var(--space-1)]`} />;
     }
   };
 
@@ -64,7 +64,7 @@ export const DriveBar: React.FC<DriveBarProps> = ({
 
   return (
     <div 
-      className="flex items-center justify-between px-2 py-1 text-xs border-b shrink-0 font-mono select-none"
+      className="flex items-center justify-between px-[var(--space-2)] py-[var(--space-1)] text-xs border-b shrink-0 font-mono select-none"
       style={{
         backgroundColor: isActive ? theme.bgPanel : theme.bgPanelInactive,
         borderColor: theme.borderPanel,
@@ -72,7 +72,7 @@ export const DriveBar: React.FC<DriveBarProps> = ({
       }}
     >
       {/* Drive Selector Buttons */}
-      <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
+      <div className="flex items-center gap-[var(--space-1)] overflow-x-auto no-scrollbar py-[var(--space-1)]">
         <span className="text-[11px] opacity-75 font-semibold mr-0.5">
           {panelSide === 'left' ? 'Alt+F1' : 'Alt+F2'}:
         </span>
@@ -87,7 +87,7 @@ export const DriveBar: React.FC<DriveBarProps> = ({
                 onSelectDrive(drive.id);
               }}
               title={`${drive.letter} ${drive.name}${drive.fileSystem ? ` [${drive.fileSystem}]` : ''}${drive.driveKind ? ` (${drive.driveKind})` : ''} - ${formatBytes(drive.freeBytes)} free`}
-              className={`px-1.5 py-0.5 text-xs font-bold transition-all rounded flex items-center gap-0.5 shrink-0 cursor-pointer ${
+              className={`px-[var(--space-1)].5 py-[var(--space-1)] text-xs font-bold transition-all rounded flex items-center gap-[var(--space-1)] shrink-0 cursor-pointer ${
                 isSelected
                   ? 'bg-amber-400 text-black shadow-inner font-extrabold ring-1 ring-amber-300'
                   : 'bg-black/30 hover:bg-black/50 text-white/90 border border-white/20'
@@ -102,7 +102,7 @@ export const DriveBar: React.FC<DriveBarProps> = ({
 
       {/* Disk Space Meter */}
       {currentDrive && (
-        <div className="hidden lg:flex items-center gap-2 text-[11px] opacity-90 shrink-0 pl-2">
+        <div className="hidden lg:flex items-center gap-[var(--space-2)] text-[11px] opacity-90 shrink-0 pl-2">
           <div className="w-16 h-2 bg-black/40 rounded-full overflow-hidden border border-white/20">
             <div 
               className={`h-full ${usedPercent > 85 ? 'bg-red-500' : usedPercent > 60 ? 'bg-amber-400' : 'bg-emerald-400'}`}

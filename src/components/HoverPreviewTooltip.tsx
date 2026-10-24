@@ -58,7 +58,7 @@ export const HoverPreviewTooltip: React.FC<HoverPreviewTooltipProps> = ({
     >
       {/* Header bar */}
       <div 
-        className="px-2.5 py-1 border-b font-bold flex items-center justify-between truncate text-[11px]"
+        className="px-[var(--space-3)] py-[var(--space-1)] border-b font-bold flex items-center justify-between truncate text-[11px]"
         style={{
           backgroundColor: theme.modalHeaderBg,
           color: theme.modalHeaderText
@@ -69,9 +69,9 @@ export const HoverPreviewTooltip: React.FC<HoverPreviewTooltipProps> = ({
 
       {/* Floating Image Thumbnail Preview if image and enabled */}
       {isImage && showThumbnail && (
-        <div className="p-2 bg-black/60 border-b border-white/10 flex flex-col items-center justify-center">
+        <div className="p-[var(--space-2)] bg-black/60 border-b border-white/10 flex flex-col items-center justify-center">
           {ext === 'SVG' && item.content ? (
-            <div className="w-28 h-28 p-1 rounded bg-black/40 border border-white/20 flex items-center justify-center overflow-hidden">
+            <div className="w-28 h-28 p-[var(--space-1)] rounded bg-black/40 border border-white/20 flex items-center justify-center overflow-hidden">
               <img
                 src={createSvgDataUrl(item.content)}
                 alt={t.commonPreviewOf.replace('{name}', item.name).replace('{ext}', item.ext)}
@@ -80,11 +80,11 @@ export const HoverPreviewTooltip: React.FC<HoverPreviewTooltipProps> = ({
             </div>
           ) : (
             <div className="w-28 h-28 rounded bg-black/40 border border-white/20 flex flex-col items-center justify-center text-amber-300">
-              <ImageIcon className="w-10 h-10 mb-1 opacity-70" />
+              <ImageIcon className="w-10 h-10 mb-[var(--space-1)] opacity-70" />
               <span className="text-[10px] font-bold uppercase">{ext} Image</span>
             </div>
           )}
-          <span className="text-[10px] opacity-75 mt-1 font-semibold text-emerald-300">
+          <span className="text-[10px] opacity-75 mt-[var(--space-1)] font-semibold text-emerald-300">
             Vista previa miniatura
           </span>
         </div>
@@ -92,25 +92,25 @@ export const HoverPreviewTooltip: React.FC<HoverPreviewTooltipProps> = ({
 
       {/* Text snippet preview for documents / text */}
       {!isImage && item.content && !item.isDirectory && (
-        <div className="p-1.5 bg-black/40 border-b border-white/10 text-[10px] text-slate-300 max-h-16 overflow-hidden leading-tight font-mono opacity-80">
+        <div className="p-[var(--space-2)] bg-black/40 border-b border-white/10 text-[10px] text-slate-300 max-h-16 overflow-hidden leading-tight font-mono opacity-80">
           {item.content.slice(0, 100)}...
         </div>
       )}
 
       {/* Item Metadata Details */}
-      <div className="p-2 space-y-1 text-[10px] bg-black/30">
+      <div className="p-[var(--space-2)] space-y-[var(--space-1)] text-[10px] bg-black/30">
         <div className="flex items-center justify-between">
-          <span className="opacity-60 flex items-center gap-1"><HardDrive className="w-2.5 h-2.5" /> {t.sizeLabel}</span>
+          <span className="opacity-60 flex items-center gap-[var(--space-1)]"><HardDrive className="w-2.5 h-2.5" /> {t.sizeLabel}</span>
           <span className="font-bold text-white tabular-nums">{formatSize(item.size)}</span>
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="opacity-60 flex items-center gap-1"><Calendar className="w-2.5 h-2.5" /> {t.modifiedLabel}</span>
+          <span className="opacity-60 flex items-center gap-[var(--space-1)]"><Calendar className="w-2.5 h-2.5" /> {t.modifiedLabel}</span>
           <span className="text-white tabular-nums">{item.modifiedAt.substring(0, 16)}</span>
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="opacity-60 flex items-center gap-1"><Shield className="w-2.5 h-2.5" /> {t.attributesLabel}</span>
+          <span className="opacity-60 flex items-center gap-[var(--space-1)]"><Shield className="w-2.5 h-2.5" /> {t.attributesLabel}</span>
           <span className="text-amber-300 tracking-widest font-bold">
             {item.attributes.readOnly ? 'R' : '-'}{item.attributes.hidden ? 'H' : '-'}{item.attributes.archive ? 'A' : '-'}{item.attributes.system ? 'S' : '-'}
           </span>

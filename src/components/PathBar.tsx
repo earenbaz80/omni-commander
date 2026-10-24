@@ -138,7 +138,7 @@ export const PathBar: React.FC<PathBarProps> = ({
   return (
     <div 
       ref={rootRef}
-      className="flex items-center gap-1 px-1 py-1 text-xs border-b shrink-0 font-mono select-none w-full min-w-0"
+      className="flex items-center gap-[var(--space-1)] px-[var(--space-1)] py-[var(--space-1)] text-xs border-b shrink-0 font-mono select-none w-full min-w-0"
       style={{
         backgroundColor: isActive ? theme.bgPanel : theme.bgPanelInactive,
         borderColor: theme.borderPanel,
@@ -150,9 +150,9 @@ export const PathBar: React.FC<PathBarProps> = ({
         ref={scrollRef}
         className="flex-1 min-w-0 overflow-x-auto no-scrollbar scrollbar-hidden overscroll-x-contain"
       >
-      <div className="flex min-w-max items-center gap-2 px-2 py-1">
+      <div className="flex min-w-max items-center gap-[var(--space-2)] px-[var(--space-2)] py-[var(--space-1)]">
       {/* Left controls: Back, Forward, Up, Refresh */}
-      <div className="flex items-center gap-0.5 shrink-0">
+      <div className="flex items-center gap-[var(--space-1)] shrink-0">
         <button
           onClick={() => {
             soundManager.playKeyTick();
@@ -160,7 +160,7 @@ export const PathBar: React.FC<PathBarProps> = ({
           }}
           disabled={!canGoBack}
           title="Back"
-          className={`p-1 rounded ${canGoBack ? 'hover:bg-black/30 cursor-pointer text-white' : 'opacity-30 cursor-not-allowed'}`}
+          className={`p-[var(--space-1)] rounded ${canGoBack ? 'hover:bg-black/30 cursor-pointer text-white' : 'opacity-30 cursor-not-allowed'}`}
         >
           <ChevronLeft className="w-3.5 h-3.5" />
         </button>
@@ -172,7 +172,7 @@ export const PathBar: React.FC<PathBarProps> = ({
           }}
           disabled={!canGoForward}
           title="Forward"
-          className={`p-1 rounded ${canGoForward ? 'hover:bg-black/30 cursor-pointer text-white' : 'opacity-30 cursor-not-allowed'}`}
+          className={`p-[var(--space-1)] rounded ${canGoForward ? 'hover:bg-black/30 cursor-pointer text-white' : 'opacity-30 cursor-not-allowed'}`}
         >
           <ChevronRight className="w-3.5 h-3.5" />
         </button>
@@ -183,7 +183,7 @@ export const PathBar: React.FC<PathBarProps> = ({
             onGoParent();
           }}
           title="Parent Directory (Backspace)"
-          className="p-1 hover:bg-black/30 rounded cursor-pointer text-white"
+          className="p-[var(--space-1)] hover:bg-black/30 rounded cursor-pointer text-white"
         >
           <ArrowUp className="w-3.5 h-3.5" />
         </button>
@@ -194,14 +194,14 @@ export const PathBar: React.FC<PathBarProps> = ({
             onRefresh();
           }}
           title="Refresh (Ctrl+R)"
-          className="p-1 hover:bg-black/30 rounded cursor-pointer text-white"
+          className="p-[var(--space-1)] hover:bg-black/30 rounded cursor-pointer text-white"
         >
           <RefreshCw className="w-3.5 h-3.5" />
         </button>
       </div>
 
       {/* Path Display / Breadcrumbs or Text Input */}
-      <div className="flex-1 min-w-max bg-black/40 border border-white/20 rounded px-2 py-0.5 text-xs flex items-center">
+      <div className="flex-1 min-w-max bg-black/40 border border-white/20 rounded px-[var(--space-2)] py-[var(--space-1)] text-xs flex items-center">
         {isEditing ? (
           <form onSubmit={handleEditSubmit} className="w-full">
             <input
@@ -219,7 +219,7 @@ export const PathBar: React.FC<PathBarProps> = ({
         ) : (
           <div 
             onClick={() => setIsEditing(true)}
-            className="flex items-center gap-1 whitespace-nowrap cursor-text w-full py-0.5"
+            className="flex items-center gap-[var(--space-1)] whitespace-nowrap cursor-text w-full py-[var(--space-1)]"
             title="Click to edit path"
           >
             <span className="font-bold text-amber-300 shrink-0">{driveLetter}\</span>
@@ -247,16 +247,16 @@ export const PathBar: React.FC<PathBarProps> = ({
       </div>
 
       {/* Right Tools: Filter input & View modes */}
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="flex items-center gap-[var(--space-1)] shrink-0">
         {/* View Mode Buttons */}
-        <div className="flex items-center bg-black/30 rounded border border-white/10 p-0.5">
+        <div className="flex items-center bg-black/30 rounded border border-white/10 p-[var(--space-1)]">
           <button
             onClick={() => {
               soundManager.playKeyTick();
               onChangeViewMode('full');
             }}
             title="Full Details View"
-            className={`p-1 rounded cursor-pointer ${viewMode === 'full' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10 text-white/80'}`}
+            className={`p-[var(--space-1)] rounded cursor-pointer ${viewMode === 'full' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10 text-white/80'}`}
           >
             <List className="w-3 h-3" />
           </button>
@@ -266,7 +266,7 @@ export const PathBar: React.FC<PathBarProps> = ({
               onChangeViewMode('brief');
             }}
             title="Brief Multi-column View"
-            className={`p-1 rounded cursor-pointer ${viewMode === 'brief' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10 text-white/80'}`}
+            className={`p-[var(--space-1)] rounded cursor-pointer ${viewMode === 'brief' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10 text-white/80'}`}
           >
             <Columns className="w-3 h-3" />
           </button>
@@ -276,7 +276,7 @@ export const PathBar: React.FC<PathBarProps> = ({
               onChangeViewMode('thumbnails');
             }}
             title="Thumbnails View"
-            className={`p-1 rounded cursor-pointer ${viewMode === 'thumbnails' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10 text-white/80'}`}
+            className={`p-[var(--space-1)] rounded cursor-pointer ${viewMode === 'thumbnails' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10 text-white/80'}`}
           >
             <LayoutGrid className="w-3 h-3" />
           </button>
@@ -286,7 +286,7 @@ export const PathBar: React.FC<PathBarProps> = ({
               onChangeViewMode('gallery');
             }}
             title={t.galleryView}
-            className={`p-1 rounded cursor-pointer ${viewMode === 'gallery' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10 text-white/80'}`}
+            className={`p-[var(--space-1)] rounded cursor-pointer ${viewMode === 'gallery' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10 text-white/80'}`}
           >
             <ImageIcon className="w-3 h-3" />
           </button>
@@ -300,7 +300,7 @@ export const PathBar: React.FC<PathBarProps> = ({
               onToggleTree();
             }}
             title={isTreeVisible ? t.hideDirectoryTree : t.showDirectoryTree}
-            className={`p-1 rounded cursor-pointer border flex items-center gap-1 text-[11px] font-bold transition-all ${
+            className={`p-[var(--space-1)] rounded cursor-pointer border flex items-center gap-[var(--space-1)] text-[11px] font-bold transition-all ${
               isTreeVisible
                 ? 'bg-amber-400 text-black border-amber-300 shadow'
                 : 'bg-black/30 hover:bg-black/50 text-white/80 border-white/15'

@@ -96,7 +96,7 @@ export const FTPManagerModal: React.FC<FTPManagerModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.ftpDialogLabel);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 font-mono select-none backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-[var(--space-4)] font-mono select-none backdrop-blur-sm">
       <div
         ref={dialogRef}
         tabIndex={-1}
@@ -109,32 +109,32 @@ export const FTPManagerModal: React.FC<FTPManagerModalProps> = ({
       >
         {/* Header */}
         <div 
-          className="px-4 py-2.5 border-b font-bold shrink-0 flex items-center justify-between text-white"
+          className="px-[var(--space-4)] py-[var(--space-2)].5 border-b font-bold shrink-0 flex items-center justify-between text-white"
           style={{ backgroundColor: theme.modalHeaderBg }}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-[var(--space-2)]">
             <Server className="w-5 h-5 text-emerald-400" />
             <span className="text-sm font-bold tracking-wide">{t.ftpTitle}</span>
           </div>
           <button 
             onClick={onClose} 
-            className="px-2 py-0.5 bg-black/30 hover:bg-black/60 rounded text-xs cursor-pointer font-bold"
+            className="px-[var(--space-2)] py-[var(--space-1)] bg-black/30 hover:bg-black/60 rounded text-xs cursor-pointer font-bold"
           >
             ✕
           </button>
         </div>
 
         {/* Content Body */}
-        <div className="p-4 space-y-4 overflow-y-auto max-h-[75vh]">
+        <div className="p-[var(--space-4)] space-y-[var(--space-4)] overflow-y-auto max-h-[75vh]">
           {/* Saved Servers Preset Buttons */}
           <div>
-            <span className="text-[10px] uppercase font-bold text-amber-300 block mb-1">{t.ftpSaved}</span>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <span className="text-[10px] uppercase font-bold text-amber-300 block mb-[var(--space-1)]">{t.ftpSaved}</span>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--space-2)]">
               {savedServers.map(srv => (
                 <button
                   key={srv.id}
                   onClick={() => handleSelectPreset(srv)}
-                  className="p-2 bg-black/40 hover:bg-white/10 rounded border border-white/10 text-left cursor-pointer transition-all"
+                  className="p-[var(--space-2)] bg-black/40 hover:bg-white/10 rounded border border-white/10 text-left cursor-pointer transition-all"
                 >
                   <p className="font-bold text-white text-[11px] truncate">{srv.name}</p>
                   <p className="text-[9px] opacity-60 font-mono">{srv.protocol}://{srv.host}:{srv.port}</p>
@@ -144,10 +144,10 @@ export const FTPManagerModal: React.FC<FTPManagerModalProps> = ({
           </div>
 
           {/* Configuration Form */}
-          <div className="p-3 bg-black/50 rounded border border-white/10 space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+          <div className="p-[var(--space-3)] bg-black/50 rounded border border-white/10 space-y-[var(--space-3)]">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-[var(--space-2)]">
               <div>
-                <span className="text-[10px] opacity-70 block font-bold mb-1">{t.ftpProtocol}</span>
+                <span className="text-[10px] opacity-70 block font-bold mb-[var(--space-1)]">{t.ftpProtocol}</span>
                 <select
                   value={protocol}
                   onChange={(e) => {
@@ -156,7 +156,7 @@ export const FTPManagerModal: React.FC<FTPManagerModalProps> = ({
                     if (p === 'SFTP') setPort('22');
                     else setPort('21');
                   }}
-                  className="w-full px-2 py-1 bg-black/70 border border-white/20 rounded text-xs text-amber-300 font-bold"
+                  className="w-full px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-amber-300 font-bold"
                 >
                   <option value="SFTP">{t.ftpOptSftp}</option>
                   <option value="FTP">{t.ftpOptFtp}</option>
@@ -165,56 +165,56 @@ export const FTPManagerModal: React.FC<FTPManagerModalProps> = ({
               </div>
 
               <div className="sm:col-span-2">
-                <span className="text-[10px] opacity-70 block font-bold mb-1">{t.ftpHost}</span>
+                <span className="text-[10px] opacity-70 block font-bold mb-[var(--space-1)]">{t.ftpHost}</span>
                 <input
                   type="text"
                   value={host}
                   onChange={(e) => setHost(e.target.value)}
-                  className="w-full px-2 py-1 bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
+                  className="w-full px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
                   placeholder={t.ftpHostPlaceholder}
                 />
               </div>
 
               <div>
-                <span className="text-[10px] opacity-70 block font-bold mb-1">{t.ftpPort}</span>
+                <span className="text-[10px] opacity-70 block font-bold mb-[var(--space-1)]">{t.ftpPort}</span>
                 <input
                   type="text"
                   value={port}
                   onChange={(e) => setPort(e.target.value)}
-                  className="w-full px-2 py-1 bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
+                  className="w-full px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--space-2)]">
               <div>
-                <span className="text-[10px] opacity-70 block font-bold mb-1">{t.ftpUser}</span>
+                <span className="text-[10px] opacity-70 block font-bold mb-[var(--space-1)]">{t.ftpUser}</span>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full px-2 py-1 bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
+                  className="w-full px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
                 />
               </div>
 
               <div>
-                <span className="text-[10px] opacity-70 block font-bold mb-1">{t.ftpPass}</span>
+                <span className="text-[10px] opacity-70 block font-bold mb-[var(--space-1)]">{t.ftpPass}</span>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-2 py-1 bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
+                  className="w-full px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
                 />
               </div>
             </div>
 
             <div>
-              <span className="text-[10px] opacity-70 block font-bold mb-1">{t.ftpRemotePath}</span>
+              <span className="text-[10px] opacity-70 block font-bold mb-[var(--space-1)]">{t.ftpRemotePath}</span>
               <input
                 type="text"
                 value={remotePath}
                 onChange={(e) => setRemotePath(e.target.value)}
-                className="w-full px-2 py-1 bg-black/70 border border-white/20 rounded text-xs text-cyan-300 font-mono"
+                className="w-full px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-cyan-300 font-mono"
               />
             </div>
           </div>
@@ -222,11 +222,11 @@ export const FTPManagerModal: React.FC<FTPManagerModalProps> = ({
           {/* Connection Output Log */}
           <div>
             <div className="flex items-center justify-between pb-1">
-              <span className="text-[10px] font-bold text-emerald-400 uppercase flex items-center gap-1">
+              <span className="text-[10px] font-bold text-emerald-400 uppercase flex items-center gap-[var(--space-1)]">
                 <Terminal className="w-3 h-3" /> {t.ftpLogConsole}
               </span>
             </div>
-            <div className="h-32 p-2 bg-black/90 border border-emerald-500/30 rounded font-mono text-[10px] text-emerald-400 overflow-y-auto space-y-1">
+            <div className="h-32 p-[var(--space-2)] bg-black/90 border border-emerald-500/30 rounded font-mono text-[10px] text-emerald-400 overflow-y-auto space-y-[var(--space-1)]">
               {logs.map((log, idx) => (
                 <div key={idx} className="leading-tight truncate">{log}</div>
               ))}
@@ -236,28 +236,28 @@ export const FTPManagerModal: React.FC<FTPManagerModalProps> = ({
 
         {/* Footer */}
         <div 
-          className="px-4 py-3 border-t shrink-0 flex items-center justify-between"
+          className="px-[var(--space-4)] py-[var(--space-3)] border-t shrink-0 flex items-center justify-between"
           style={{
             backgroundColor: theme.modalBg,
             borderColor: theme.modalBorder
           }}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-[var(--space-2)]">
             {isConnected ? (
-              <span className="text-emerald-400 font-bold text-xs flex items-center gap-1">
+              <span className="text-emerald-400 font-bold text-xs flex items-center gap-[var(--space-1)]">
                 <ShieldCheck className="w-4 h-4" /> {t.ftpStatusConnected}
               </span>
             ) : isConnecting ? (
-              <span className="text-amber-300 font-bold text-xs flex items-center gap-1 animate-pulse">
+              <span className="text-amber-300 font-bold text-xs flex items-center gap-[var(--space-1)] animate-pulse">
                 <RefreshCw className="w-4 h-4 animate-spin" /> {t.ftpStatusConnecting}
               </span>
             ) : null}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-[var(--space-2)]">
             <button
               onClick={onClose}
-              className="px-4 py-1.5 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
+              className="px-[var(--space-4)] py-[var(--space-2)] bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
             >
               {t.btnCancel}
             </button>
@@ -266,14 +266,14 @@ export const FTPManagerModal: React.FC<FTPManagerModalProps> = ({
               <button
                 onClick={handleConnect}
                 disabled={isConnecting}
-                className="px-5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded cursor-pointer shadow flex items-center gap-1.5"
+                className="px-5 py-[var(--space-2)] bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded cursor-pointer shadow flex items-center gap-[var(--space-2)]"
               >
                 <Server className="w-4 h-4" /> {t.ftpBtnTestConnect}
               </button>
             ) : (
               <button
                 onClick={handleOpenDrive}
-                className="px-6 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow flex items-center gap-1.5"
+                className="px-6 py-[var(--space-2)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow flex items-center gap-[var(--space-2)]"
               >
                 <HardDrive className="w-4 h-4" /> {t.ftpBtnOpenDrive}
               </button>

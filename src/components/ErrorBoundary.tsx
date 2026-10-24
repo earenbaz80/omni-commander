@@ -57,19 +57,19 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
         className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-neutral-950/95"
       >
         <div className="w-full max-w-2xl border-2 border-red-500/60 bg-neutral-900 shadow-2xl">
-          <div className="flex items-center gap-2 border-b-2 border-red-500/60 bg-red-600/80 px-4 py-2">
+          <div className="flex items-center gap-[var(--space-2)] border-b-2 border-red-500/60 bg-red-600/80 px-[var(--space-4)] py-[var(--space-2)]">
             <span className="text-sm font-bold uppercase tracking-wider text-white">
               {tGlobal('ebTitle')}
             </span>
           </div>
 
-          <div className="space-y-4 p-4 font-mono text-sm text-neutral-100">
+          <div className="space-y-[var(--space-4)] p-[var(--space-4)] font-mono text-sm text-neutral-100">
             <p className="text-red-300">
               {tGlobal('ebMessage')}
             </p>
 
-            <div className="border border-neutral-700 bg-black/40 p-3">
-              <div className="mb-1 text-xs uppercase tracking-wide text-neutral-400">
+            <div className="border border-neutral-700 bg-black/40 p-[var(--space-3)]">
+              <div className="mb-[var(--space-1)] text-xs uppercase tracking-wide text-neutral-400">
                 {tGlobal('ebDetails')}
               </div>
               <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words text-xs text-amber-300">
@@ -78,25 +78,25 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
               </pre>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-[var(--space-2)]">
               <button
                 type="button"
                 onClick={this.handleRetry}
-                className="border border-neutral-500 bg-neutral-800 px-3 py-1.5 font-mono text-xs uppercase tracking-wide hover:bg-neutral-700"
+                className="border border-neutral-500 bg-neutral-800 px-[var(--space-3)] py-[var(--space-2)] font-mono text-xs uppercase tracking-wide hover:bg-neutral-700"
               >
                 {tGlobal('ebRetry')}
               </button>
               <button
                 type="button"
                 onClick={this.handleReload}
-                className="border border-neutral-500 bg-neutral-800 px-3 py-1.5 font-mono text-xs uppercase tracking-wide hover:bg-neutral-700"
+                className="border border-neutral-500 bg-neutral-800 px-[var(--space-3)] py-[var(--space-2)] font-mono text-xs uppercase tracking-wide hover:bg-neutral-700"
               >
                 {tGlobal('ebReload')}
               </button>
               <button
                 type="button"
                 onClick={this.handleCopyDetails}
-                className="border border-neutral-500 bg-neutral-800 px-3 py-1.5 font-mono text-xs uppercase tracking-wide hover:bg-neutral-700"
+                className="border border-neutral-500 bg-neutral-800 px-[var(--space-3)] py-[var(--space-2)] font-mono text-xs uppercase tracking-wide hover:bg-neutral-700"
               >
                 {tGlobal('ebCopyDetails')}
               </button>

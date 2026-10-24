@@ -49,9 +49,9 @@ export const PropertiesModal: React.FC<PropertiesModalProps> = ({
   return (
     <ModalShell title={`${t.properties}: ${file.name}.${file.ext}`} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
-        <div className="p-4 space-y-4 font-mono text-[var(--fs-sm)]">
+        <div className="p-[var(--space-4)] space-y-[var(--space-4)] font-mono text-[var(--fs-sm)]">
           {/* Header Icon + Name */}
-          <div className="flex items-center gap-3 pb-3 border-b border-white/10">
+          <div className="flex items-center gap-[var(--space-3)] pb-3 border-b border-white/10">
             <div className="w-10 h-10 rounded bg-black/40 border border-white/20 flex items-center justify-center">
               {file.isDirectory ? <Folder className="w-6 h-6 text-amber-400" /> : <FileText className="w-6 h-6 text-sky-400" />}
             </div>
@@ -62,7 +62,7 @@ export const PropertiesModal: React.FC<PropertiesModalProps> = ({
           </div>
 
           {/* Details Table */}
-          <div className="space-y-1.5 opacity-90 text-[var(--fs-sm)]">
+          <div className="space-y-[var(--space-2)] opacity-90 text-[var(--fs-sm)]">
             <div className="flex"><span className="w-28 opacity-60">{t.propLocation}</span> <span className="text-white truncate">{file.path}</span></div>
             <div className="flex"><span className="w-28 opacity-60">{t.sizeLabel}</span> <span className="text-white">{formatBytes(file.size)}</span></div>
             <div className="flex"><span className="w-28 opacity-60">{t.propSizeOnDisk}</span> <span className="text-white">{formatBytes(Math.ceil(Math.max(file.size, 4096) / 4096) * 4096)}</span></div>
@@ -72,9 +72,9 @@ export const PropertiesModal: React.FC<PropertiesModalProps> = ({
 
           {/* Attributes Checkboxes */}
           <div className="pt-2 border-t border-white/10">
-            <span className="font-bold text-amber-300 block mb-2">{t.propAttributesNtfs}</span>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="flex items-center gap-1.5 cursor-pointer">
+            <span className="font-bold text-amber-300 block mb-[var(--space-2)]">{t.propAttributesNtfs}</span>
+            <div className="grid grid-cols-2 gap-[var(--space-2)]">
+              <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
                 <input
                   type="checkbox"
                   checked={attributes.readOnly}
@@ -83,7 +83,7 @@ export const PropertiesModal: React.FC<PropertiesModalProps> = ({
                 <span>{t.propReadOnly}</span>
               </label>
 
-              <label className="flex items-center gap-1.5 cursor-pointer">
+              <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
                 <input
                   type="checkbox"
                   checked={attributes.hidden}
@@ -92,7 +92,7 @@ export const PropertiesModal: React.FC<PropertiesModalProps> = ({
                 <span>{t.propHidden}</span>
               </label>
 
-              <label className="flex items-center gap-1.5 cursor-pointer">
+              <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
                 <input
                   type="checkbox"
                   checked={attributes.archive}
@@ -101,7 +101,7 @@ export const PropertiesModal: React.FC<PropertiesModalProps> = ({
                 <span>{t.propArchive}</span>
               </label>
 
-              <label className="flex items-center gap-1.5 cursor-pointer">
+              <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
                 <input
                   type="checkbox"
                   checked={attributes.system}
@@ -113,10 +113,10 @@ export const PropertiesModal: React.FC<PropertiesModalProps> = ({
           </div>
 
           {/* Footer buttons */}
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+          <div className="flex items-center justify-end gap-[var(--space-2)] pt-2 border-t border-white/10">
             <button
               onClick={onClose}
-              className="px-5 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow"
+              className="px-5 py-[var(--space-2)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow"
             >
               {t.btnOk}
             </button>

@@ -78,43 +78,43 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
   return (
     <ModalShell title={`${t.batchRenameTitle} (${items.length} ${t.files})`} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
-        <form onSubmit={handleApply} className="flex-1 flex flex-col p-4 space-y-3 overflow-hidden">
+        <form onSubmit={handleApply} className="flex-1 flex flex-col p-[var(--space-4)] space-y-[var(--space-3)] overflow-hidden">
           {/* Mode Selector Tabs */}
-          <div className="flex items-center gap-1 bg-black/40 p-1 rounded border border-white/10 shrink-0">
+          <div className="flex items-center gap-[var(--space-1)] bg-black/40 p-[var(--space-1)] rounded border border-white/10 shrink-0">
             <button
               type="button"
               onClick={() => setPatternType('replace')}
-              className={`px-3 py-1 rounded cursor-pointer ${patternType === 'replace' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10'}`}
+              className={`px-[var(--space-3)] py-[var(--space-1)] rounded cursor-pointer ${patternType === 'replace' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10'}`}
             >
               {t.batchRenameReplaceTab}
             </button>
             <button
               type="button"
               onClick={() => setPatternType('prefix')}
-              className={`px-3 py-1 rounded cursor-pointer ${patternType === 'prefix' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10'}`}
+              className={`px-[var(--space-3)] py-[var(--space-1)] rounded cursor-pointer ${patternType === 'prefix' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10'}`}
             >
               {t.batchRenamePrefixTab}
             </button>
             <button
               type="button"
               onClick={() => setPatternType('counter')}
-              className={`px-3 py-1 rounded cursor-pointer ${patternType === 'counter' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10'}`}
+              className={`px-[var(--space-3)] py-[var(--space-1)] rounded cursor-pointer ${patternType === 'counter' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10'}`}
             >
               {t.batchRenameCounterTab}
             </button>
             <button
               type="button"
               onClick={() => setPatternType('case')}
-              className={`px-3 py-1 rounded cursor-pointer ${patternType === 'case' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10'}`}
+              className={`px-[var(--space-3)] py-[var(--space-1)] rounded cursor-pointer ${patternType === 'case' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10'}`}
             >
               {t.batchRenameCaseTab}
             </button>
           </div>
 
           {/* Mode inputs */}
-          <div className="p-3 bg-black/30 rounded border border-white/10 space-y-2 shrink-0">
+          <div className="p-[var(--space-3)] bg-black/30 rounded border border-white/10 space-y-[var(--space-2)] shrink-0">
             {patternType === 'replace' && (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-[var(--space-2)]">
                 <div>
                   <label className="block text-[var(--fs-sm)] opacity-75 mb-0.5">{t.renameFindText}</label>
                   <input
@@ -122,7 +122,7 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
                     value={findStr}
                     onChange={(e) => setFindStr(e.target.value)}
                     placeholder={t.renameFindPlaceholder}
-                    className="w-full bg-black/50 border border-white/20 rounded px-2 py-1 text-white font-mono text-xs"
+                    className="w-full bg-black/50 border border-white/20 rounded px-[var(--space-2)] py-[var(--space-1)] text-white font-mono text-xs"
                   />
                 </div>
                 <div>
@@ -132,14 +132,14 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
                     value={replaceStr}
                     onChange={(e) => setReplaceStr(e.target.value)}
                     placeholder={t.renameReplacePlaceholder}
-                    className="w-full bg-black/50 border border-white/20 rounded px-2 py-1 text-white font-mono text-xs"
+                    className="w-full bg-black/50 border border-white/20 rounded px-[var(--space-2)] py-[var(--space-1)] text-white font-mono text-xs"
                   />
                 </div>
               </div>
             )}
 
             {patternType === 'prefix' && (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-[var(--space-2)]">
                 <div>
                   <label className="block text-[var(--fs-sm)] opacity-75 mb-0.5">{t.renamePrefixLabel}</label>
                   <input
@@ -147,7 +147,7 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
                     value={prefixStr}
                     onChange={(e) => setPrefixStr(e.target.value)}
                     placeholder={t.renamePrefixPlaceholder}
-                    className="w-full bg-black/50 border border-white/20 rounded px-2 py-1 text-white font-mono text-xs"
+                    className="w-full bg-black/50 border border-white/20 rounded px-[var(--space-2)] py-[var(--space-1)] text-white font-mono text-xs"
                   />
                 </div>
                 <div>
@@ -157,14 +157,14 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
                     value={suffixStr}
                     onChange={(e) => setSuffixStr(e.target.value)}
                     placeholder={t.renameSuffixPlaceholder}
-                    className="w-full bg-black/50 border border-white/20 rounded px-2 py-1 text-white font-mono text-xs"
+                    className="w-full bg-black/50 border border-white/20 rounded px-[var(--space-2)] py-[var(--space-1)] text-white font-mono text-xs"
                   />
                 </div>
               </div>
             )}
 
             {patternType === 'counter' && (
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-[var(--space-2)]">
                 <div>
                   <label className="block text-[var(--fs-sm)] opacity-75 mb-0.5">{t.renameBaseName}</label>
                   <input
@@ -172,7 +172,7 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
                     value={prefixStr}
                     onChange={(e) => setPrefixStr(e.target.value)}
                     placeholder="Foto_"
-                    className="w-full bg-black/50 border border-white/20 rounded px-2 py-1 text-white font-mono text-xs"
+                    className="w-full bg-black/50 border border-white/20 rounded px-[var(--space-2)] py-[var(--space-1)] text-white font-mono text-xs"
                   />
                 </div>
                 <div>
@@ -181,7 +181,7 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
                     type="number"
                     value={startNum}
                     onChange={(e) => setStartNum(parseInt(e.target.value) || 1)}
-                    className="w-full bg-black/50 border border-white/20 rounded px-2 py-1 text-white font-mono text-xs"
+                    className="w-full bg-black/50 border border-white/20 rounded px-[var(--space-2)] py-[var(--space-1)] text-white font-mono text-xs"
                   />
                 </div>
                 <div>
@@ -192,15 +192,15 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
                     max="6"
                     value={numDigits}
                     onChange={(e) => setNumDigits(parseInt(e.target.value) || 3)}
-                    className="w-full bg-black/50 border border-white/20 rounded px-2 py-1 text-white font-mono text-xs"
+                    className="w-full bg-black/50 border border-white/20 rounded px-[var(--space-2)] py-[var(--space-1)] text-white font-mono text-xs"
                   />
                 </div>
               </div>
             )}
 
             {patternType === 'case' && (
-              <div className="flex items-center gap-4 py-1">
-                <label className="flex items-center gap-1.5 cursor-pointer">
+              <div className="flex items-center gap-[var(--space-4)] py-[var(--space-1)]">
+                <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
                   <input
                     type="radio"
                     name="case"
@@ -209,7 +209,7 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
                   />
                   <span>{t.renameLower}</span>
                 </label>
-                <label className="flex items-center gap-1.5 cursor-pointer">
+                <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
                   <input
                     type="radio"
                     name="case"
@@ -218,7 +218,7 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
                   />
                   <span>{t.renameUpper}</span>
                 </label>
-                <label className="flex items-center gap-1.5 cursor-pointer">
+                <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
                   <input
                     type="radio"
                     name="case"
@@ -236,15 +236,15 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
             <table className="w-full text-left text-[var(--fs-sm)] border-collapse">
               <thead className="bg-black/60 sticky top-0 border-b border-white/20 text-amber-300">
                 <tr>
-                  <th className="p-2 w-1/2">{t.renameOriginal}</th>
-                  <th className="p-2 w-1/2">{t.renamePreview}</th>
+                  <th className="p-[var(--space-2)] w-1/2">{t.renameOriginal}</th>
+                  <th className="p-[var(--space-2)] w-1/2">{t.renamePreview}</th>
                 </tr>
               </thead>
               <tbody>
                 {previewList.map((p) => (
                   <tr key={p.id} className="border-b border-white/5 hover:bg-white/5">
-                    <td className="p-2 truncate opacity-70">{p.oldName}</td>
-                    <td className="p-2 truncate font-bold text-emerald-400">{p.newName}</td>
+                    <td className="p-[var(--space-2)] truncate opacity-70">{p.oldName}</td>
+                    <td className="p-[var(--space-2)] truncate font-bold text-emerald-400">{p.newName}</td>
                   </tr>
                 ))}
               </tbody>
@@ -252,17 +252,17 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
           </div>
 
           {/* Footer buttons */}
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10 shrink-0">
+          <div className="flex items-center justify-end gap-[var(--space-2)] pt-2 border-t border-white/10 shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-1.5 bg-white/10 hover:bg-white/20 rounded cursor-pointer"
+              className="px-[var(--space-4)] py-[var(--space-2)] bg-white/10 hover:bg-white/20 rounded cursor-pointer"
             >
               {t.btnCancel}
             </button>
             <button
               type="submit"
-              className="px-5 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow"
+              className="px-5 py-[var(--space-2)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow"
             >
               {t.btnApply} ({previewList.length} {t.files})
             </button>

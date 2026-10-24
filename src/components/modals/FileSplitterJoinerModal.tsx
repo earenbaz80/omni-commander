@@ -90,7 +90,7 @@ export const FileSplitterJoinerModal: React.FC<FileSplitterJoinerModalProps> = (
   const dialogRef = useModalDialog<HTMLDivElement>(t.splitterDialogTitle);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 font-mono select-none backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-[var(--space-4)] font-mono select-none backdrop-blur-sm">
       <div
         ref={dialogRef}
         tabIndex={-1}
@@ -103,10 +103,10 @@ export const FileSplitterJoinerModal: React.FC<FileSplitterJoinerModalProps> = (
       >
         {/* Header */}
         <div 
-          className="px-4 py-2.5 border-b font-bold shrink-0 flex items-center justify-between text-white"
+          className="px-[var(--space-4)] py-[var(--space-2)].5 border-b font-bold shrink-0 flex items-center justify-between text-white"
           style={{ backgroundColor: theme.modalHeaderBg }}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-[var(--space-2)]">
             {mode === 'split' ? (
               <Scissors className="w-5 h-5 text-amber-300" />
             ) : (
@@ -118,17 +118,17 @@ export const FileSplitterJoinerModal: React.FC<FileSplitterJoinerModalProps> = (
           </div>
           <button 
             onClick={onClose} 
-            className="px-2 py-0.5 bg-black/30 hover:bg-black/60 rounded text-xs cursor-pointer font-bold"
+            className="px-[var(--space-2)] py-[var(--space-1)] bg-black/30 hover:bg-black/60 rounded text-xs cursor-pointer font-bold"
           >
             ✕
           </button>
         </div>
 
         {/* Toggle Mode Bar */}
-        <div className="p-3 bg-black/40 border-b border-white/10 flex items-center justify-center gap-2">
+        <div className="p-[var(--space-3)] bg-black/40 border-b border-white/10 flex items-center justify-center gap-[var(--space-2)]">
           <button
             onClick={() => setMode('split')}
-            className={`px-4 py-1 rounded font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
+            className={`px-[var(--space-4)] py-[var(--space-1)] rounded font-bold cursor-pointer transition-all flex items-center gap-[var(--space-2)] ${
               mode === 'split' ? 'bg-amber-400 text-black shadow' : 'bg-black/40 text-slate-300 border border-white/20'
             }`}
           >
@@ -137,7 +137,7 @@ export const FileSplitterJoinerModal: React.FC<FileSplitterJoinerModalProps> = (
 
           <button
             onClick={() => setMode('join')}
-            className={`px-4 py-1 rounded font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
+            className={`px-[var(--space-4)] py-[var(--space-1)] rounded font-bold cursor-pointer transition-all flex items-center gap-[var(--space-2)] ${
               mode === 'join' ? 'bg-emerald-400 text-black shadow' : 'bg-black/40 text-slate-300 border border-white/20'
             }`}
           >
@@ -146,9 +146,9 @@ export const FileSplitterJoinerModal: React.FC<FileSplitterJoinerModalProps> = (
         </div>
 
         {/* Form Body */}
-        <div className="p-4 space-y-4">
+        <div className="p-[var(--space-4)] space-y-[var(--space-4)]">
           {/* File Selected */}
-          <div className="p-2.5 bg-black/50 rounded border border-white/20 flex items-center gap-2">
+          <div className="p-[var(--space-2)].5 bg-black/50 rounded border border-white/20 flex items-center gap-[var(--space-2)]">
             <FileText className="w-5 h-5 text-cyan-400 shrink-0" />
             <div className="truncate">
               <span className="text-[10px] opacity-60 block uppercase font-bold">{t.splitSelected}</span>
@@ -159,9 +159,9 @@ export const FileSplitterJoinerModal: React.FC<FileSplitterJoinerModalProps> = (
           </div>
 
           {mode === 'split' && (
-            <div className="space-y-2 p-3 bg-black/40 rounded border border-white/10">
+            <div className="space-y-[var(--space-2)] p-[var(--space-3)] bg-black/40 rounded border border-white/10">
               <span className="text-[10px] font-bold text-amber-300 uppercase block">{t.splitPartSize}</span>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-[var(--space-2)]">
                 {[
                   { id: '100k', label: t.splitterSize100k },
                   { id: '1m', label: t.splitterSize1m },
@@ -173,7 +173,7 @@ export const FileSplitterJoinerModal: React.FC<FileSplitterJoinerModalProps> = (
                   <button
                     key={preset.id}
                     onClick={() => setChunkPreset(preset.id as any)}
-                    className={`p-1.5 rounded border text-[10px] font-bold text-center cursor-pointer transition-all ${
+                    className={`p-[var(--space-2)] rounded border text-[10px] font-bold text-center cursor-pointer transition-all ${
                       chunkPreset === preset.id ? 'bg-amber-400 text-black border-amber-300' : 'bg-black/40 border-white/20 hover:bg-white/10'
                     }`}
                   >
@@ -183,13 +183,13 @@ export const FileSplitterJoinerModal: React.FC<FileSplitterJoinerModalProps> = (
               </div>
 
               {chunkPreset === 'custom' && (
-                <div className="pt-2 flex items-center gap-2">
+                <div className="pt-2 flex items-center gap-[var(--space-2)]">
                   <span className="text-[11px] font-bold">{t.splitSizeKb}</span>
                   <input
                     type="number"
                     value={customChunkKB}
                     onChange={(e) => setCustomChunkKB(Number(e.target.value))}
-                    className="w-32 px-2 py-1 bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
+                    className="w-32 px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
                   />
                 </div>
               )}
@@ -197,8 +197,8 @@ export const FileSplitterJoinerModal: React.FC<FileSplitterJoinerModalProps> = (
           )}
 
           {mode === 'join' && (
-            <div className="p-3 bg-black/40 rounded border border-white/10 text-[11px] space-y-1">
-              <p className="font-bold text-emerald-300 flex items-center gap-1">
+            <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 text-[11px] space-y-[var(--space-1)]">
+              <p className="font-bold text-emerald-300 flex items-center gap-[var(--space-1)]">
                 <CheckCircle2 className="w-4 h-4" /> {t.splitterAutoDetect}
               </p>
               <p className="opacity-80">
@@ -208,7 +208,7 @@ export const FileSplitterJoinerModal: React.FC<FileSplitterJoinerModalProps> = (
           )}
 
           {/* Destination Path */}
-          <div className="p-2.5 bg-black/50 rounded border border-white/10 flex items-center gap-2">
+          <div className="p-[var(--space-2)].5 bg-black/50 rounded border border-white/10 flex items-center gap-[var(--space-2)]">
             <HardDrive className="w-4 h-4 text-amber-400 shrink-0" />
             <div className="truncate">
               <span className="text-[10px] opacity-60 block uppercase font-bold">{t.splitDest}</span>
@@ -217,7 +217,7 @@ export const FileSplitterJoinerModal: React.FC<FileSplitterJoinerModalProps> = (
           </div>
 
           {resultMsg && (
-            <div className="p-2.5 bg-emerald-950 border border-emerald-400 text-emerald-200 rounded font-bold text-center">
+            <div className="p-[var(--space-2)].5 bg-emerald-950 border border-emerald-400 text-emerald-200 rounded font-bold text-center">
               {resultMsg}
             </div>
           )}
@@ -225,7 +225,7 @@ export const FileSplitterJoinerModal: React.FC<FileSplitterJoinerModalProps> = (
 
         {/* Footer */}
         <div 
-          className="px-4 py-3 border-t shrink-0 flex items-center justify-end gap-2"
+          className="px-[var(--space-4)] py-[var(--space-3)] border-t shrink-0 flex items-center justify-end gap-[var(--space-2)]"
           style={{
             backgroundColor: theme.modalBg,
             borderColor: theme.modalBorder
@@ -234,7 +234,7 @@ export const FileSplitterJoinerModal: React.FC<FileSplitterJoinerModalProps> = (
           <button
             onClick={onClose}
             disabled={isProcessing}
-            className="px-4 py-1.5 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
+            className="px-[var(--space-4)] py-[var(--space-2)] bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
           >
             {t.btnCancel}
           </button>
@@ -242,7 +242,7 @@ export const FileSplitterJoinerModal: React.FC<FileSplitterJoinerModalProps> = (
           <button
             onClick={handleExecute}
             disabled={isProcessing || !sourceFile}
-            className="px-6 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow flex items-center gap-1.5"
+            className="px-6 py-[var(--space-2)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow flex items-center gap-[var(--space-2)]"
           >
             {mode === 'split' ? (
               <>

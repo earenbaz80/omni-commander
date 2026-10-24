@@ -302,7 +302,7 @@ export const CmdWingetLibraryModal: React.FC<CmdWingetLibraryModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.wingetDialogLabel);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-[var(--space-2)] sm:p-[var(--space-4)] bg-black/80 backdrop-blur-sm animate-fadeIn">
       <div
         ref={dialogRef}
         tabIndex={-1}
@@ -315,13 +315,13 @@ export const CmdWingetLibraryModal: React.FC<CmdWingetLibraryModalProps> = ({
       >
         {/* Header */}
         <div 
-          className="flex items-center justify-between px-4 py-3 border-b select-none font-bold text-amber-300"
+          className="flex items-center justify-between px-[var(--space-4)] py-[var(--space-3)] border-b select-none font-bold text-amber-300"
           style={{ backgroundColor: theme.headerBg, borderColor: theme.borderPanel }}
         >
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-[var(--space-2)] text-sm">
             <Terminal className="w-5 h-5 text-amber-400" />
             <span>{t.cmdLibTitle}</span>
-            <span className="bg-amber-400/20 text-amber-300 font-mono text-[10px] px-2 py-0.5 rounded border border-amber-400/30">
+            <span className="bg-amber-400/20 text-amber-300 font-mono text-[10px] px-[var(--space-2)] py-[var(--space-1)] rounded border border-amber-400/30">
               {t.wingetCommandCount.replace('{n}', String(COMMAND_DATABASE.length))}
             </span>
           </div>
@@ -329,14 +329,14 @@ export const CmdWingetLibraryModal: React.FC<CmdWingetLibraryModalProps> = ({
           <button
             onClick={onClose}
             aria-label={t.btnClose}
-            className="p-1 hover:bg-white/10 rounded cursor-pointer transition-colors text-white/80 hover:text-white"
+            className="p-[var(--space-1)] hover:bg-white/10 rounded cursor-pointer transition-colors text-white/80 hover:text-white"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Filter Bar & Search */}
-        <div className="p-3 border-b flex flex-col sm:flex-row items-center gap-3 bg-black/30" style={{ borderColor: theme.borderPanel }}>
+        <div className="p-[var(--space-3)] border-b flex flex-col sm:flex-row items-center gap-[var(--space-3)] bg-black/30" style={{ borderColor: theme.borderPanel }}>
           <div className="relative flex-1 w-full">
             <Search className="w-4 h-4 absolute left-2.5 top-2.5 opacity-50 text-amber-300" />
             <input
@@ -344,16 +344,16 @@ export const CmdWingetLibraryModal: React.FC<CmdWingetLibraryModalProps> = ({
               placeholder={t.cmdLibSearch}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 rounded bg-black/60 border border-white/20 text-amber-300 placeholder-white/40 focus:outline-none focus:border-amber-400 font-mono text-xs"
+              className="w-full pl-9 pr-3 py-[var(--space-2)] rounded bg-black/60 border border-white/20 text-amber-300 placeholder-white/40 focus:outline-none focus:border-amber-400 font-mono text-xs"
             />
           </div>
 
-          <div className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 no-scrollbar">
+          <div className="flex items-center gap-[var(--space-1)] overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 no-scrollbar">
             {categories.map(cat => (
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`px-2.5 py-1 rounded text-[11px] whitespace-nowrap cursor-pointer transition-colors font-medium border ${
+                className={`px-[var(--space-3)] py-[var(--space-1)] rounded text-[11px] whitespace-nowrap cursor-pointer transition-colors font-medium border ${
                   selectedCategory === cat.id
                     ? 'bg-amber-400 text-black border-amber-300 font-bold'
                     : 'bg-black/40 border-white/10 hover:bg-white/10 text-white/80'
@@ -366,7 +366,7 @@ export const CmdWingetLibraryModal: React.FC<CmdWingetLibraryModalProps> = ({
         </div>
 
         {/* Command List Container */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-3 font-mono">
+        <div className="flex-1 overflow-y-auto p-[var(--space-3)] space-y-[var(--space-3)] font-mono">
           {filteredCommands.length === 0 ? (
             <div className="text-center py-12 opacity-60">
               {t.wingetNoResults.replace('{query}', '"' + searchQuery + '"')}
@@ -375,13 +375,13 @@ export const CmdWingetLibraryModal: React.FC<CmdWingetLibraryModalProps> = ({
             filteredCommands.map(cmd => (
               <div 
                 key={cmd.id}
-                className="p-3 rounded border bg-black/40 hover:bg-black/60 transition-all flex flex-col gap-2 relative group"
+                className="p-[var(--space-3)] rounded border bg-black/40 hover:bg-black/60 transition-all flex flex-col gap-[var(--space-2)] relative group"
                 style={{ borderColor: theme.borderPanel }}
               >
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-[var(--space-2)] border-b border-white/10 pb-2">
+                  <div className="flex items-center gap-[var(--space-2)]">
                     <span className="font-bold text-amber-300 text-sm">{cmd.name}</span>
-                    <span className={`text-[10px] px-2 py-0.5 rounded font-sans border ${
+                    <span className={`text-[10px] px-[var(--space-2)] py-[var(--space-1)] rounded font-sans border ${
                       cmd.isWinget 
                         ? 'bg-blue-500/20 text-blue-300 border-blue-400/40' 
                         : 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
@@ -390,11 +390,11 @@ export const CmdWingetLibraryModal: React.FC<CmdWingetLibraryModalProps> = ({
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-[var(--space-2)]">
                     {/* Copy Example */}
                     <button
                       onClick={() => handleCopy(cmd.id, cmd.example)}
-                      className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white/90 flex items-center gap-1 cursor-pointer transition-colors text-[11px]"
+                      className="px-[var(--space-2)] py-[var(--space-1)] rounded bg-white/10 hover:bg-white/20 text-white/90 flex items-center gap-[var(--space-1)] cursor-pointer transition-colors text-[11px]"
                       title={t.cmdLibCopyHint}
                     >
                       {copiedId === cmd.id ? (
@@ -417,7 +417,7 @@ export const CmdWingetLibraryModal: React.FC<CmdWingetLibraryModalProps> = ({
                           onRunInTerminal(cmd.example);
                           onClose();
                         }}
-                        className="px-2.5 py-1 rounded bg-amber-400 text-black hover:bg-amber-300 flex items-center gap-1 cursor-pointer transition-colors font-bold text-[11px]"
+                        className="px-[var(--space-3)] py-[var(--space-1)] rounded bg-amber-400 text-black hover:bg-amber-300 flex items-center gap-[var(--space-1)] cursor-pointer transition-colors font-bold text-[11px]"
                         title={t.wingetRunHint}
                       >
                         <Play className="w-3 h-3 fill-black" />
@@ -433,15 +433,15 @@ export const CmdWingetLibraryModal: React.FC<CmdWingetLibraryModalProps> = ({
                 </p>
 
                 {/* Syntax & Example */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] pt-1">
-                  <div className="bg-black/70 p-2 rounded border border-white/10">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--space-2)] text-[11px] pt-1">
+                  <div className="bg-black/70 p-[var(--space-2)] rounded border border-white/10">
                     <span className="text-amber-400/80 block text-[10px] font-bold">{t.wingetSyntaxLabel}</span>
                     <code className="text-amber-200 select-all block mt-0.5 overflow-x-auto whitespace-pre">
                       {cmd.syntax}
                     </code>
                   </div>
 
-                  <div className="bg-black/70 p-2 rounded border border-amber-400/20">
+                  <div className="bg-black/70 p-[var(--space-2)] rounded border border-amber-400/20">
                     <span className="text-emerald-400 block text-[10px] font-bold">{t.cmdLibExample}</span>
                     <code className="text-emerald-300 select-all block mt-0.5 overflow-x-auto whitespace-pre font-bold">
                       {cmd.example}
@@ -455,16 +455,16 @@ export const CmdWingetLibraryModal: React.FC<CmdWingetLibraryModalProps> = ({
 
         {/* Footer Info */}
         <div 
-          className="px-4 py-2 border-t flex flex-wrap items-center justify-between text-[11px] opacity-80"
+          className="px-[var(--space-4)] py-[var(--space-2)] border-t flex flex-wrap items-center justify-between text-[11px] opacity-80"
           style={{ backgroundColor: theme.headerBg, borderColor: theme.borderPanel }}
         >
-          <span className="flex items-center gap-1">
+          <span className="flex items-center gap-[var(--space-1)]">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
             {t.wingetFooterInfo}
           </span>
           <button
             onClick={onClose}
-            className="px-4 py-1 bg-amber-400 text-black rounded font-bold hover:bg-amber-300 transition-colors cursor-pointer"
+            className="px-[var(--space-4)] py-[var(--space-1)] bg-amber-400 text-black rounded font-bold hover:bg-amber-300 transition-colors cursor-pointer"
           >
             {t.wingetCloseLibrary}
           </button>

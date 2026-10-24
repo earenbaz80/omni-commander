@@ -363,7 +363,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
   // Shared tabbed monitor block (list / errors / options).
   const renderTabs = () => (
     <>
-      <div className="flex items-end gap-0 px-3 pt-2 shrink-0 border-b" style={{ borderColor: theme.modalBorder }}>
+      <div className="flex items-end gap-0 px-[var(--space-3)] pt-2 shrink-0 border-b" style={{ borderColor: theme.modalBorder }}>
         {(['list', 'errors', 'options'] as Tab[]).map(tabKey => {
           const label =
             tabKey === 'list' ? t.transferTabList
@@ -375,7 +375,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
               key={tabKey}
               type="button"
               onClick={() => setTab(tabKey)}
-              className="px-3 py-1 text-[11px] font-bold rounded-t cursor-pointer border-t border-x"
+              className="px-[var(--space-3)] py-[var(--space-1)] text-[11px] font-bold rounded-t cursor-pointer border-t border-x"
               style={{
                 backgroundColor: activeTab ? theme.modalBg : theme.modalHeaderBg,
                 borderColor: theme.modalBorder,
@@ -390,30 +390,30 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
         })}
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto p-3 text-[11px]">
+      <div className="flex-1 min-h-0 overflow-y-auto p-[var(--space-3)] text-[11px]">
         {tab === 'list' && (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-[var(--space-3)]">
             {active?.plan?.entries?.length ? (
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2 text-[10px]">
-                  <button type="button" onClick={() => setSelected(new Set((active?.plan?.entries || []).map((_, i) => i)))} disabled={!active?.plan?.entries?.length} className="px-2 py-0.5 border border-white/20 rounded cursor-pointer disabled:opacity-40">All</button>
-                  <button type="button" onClick={() => setSelected(new Set((active?.plan?.entries || []).map((_, i) => i).filter(i => !selected.has(i))))} disabled={!active?.plan?.entries?.length} className="px-2 py-0.5 border border-white/20 rounded cursor-pointer disabled:opacity-40">Invert</button>
-                  <button type="button" onClick={() => { if (!active?.plan?.entries) return; const next = active.plan.entries.filter((_, i) => !selected.has(i)); taskQueue.updateTaskMeta(active.id, { plan: { ...active.plan, entries: next }, totalBytes: next.reduce((a, e) => a + (e.isDirectory ? 0 : e.size), 0) }); setSelected(new Set()); }} disabled={selected.size === 0} className="px-2 py-0.5 border border-rose-500/50 rounded text-rose-300 cursor-pointer disabled:opacity-40">Remove selected</button>
+              <div className="flex flex-col gap-[var(--space-1)]">
+                <div className="flex items-center gap-[var(--space-2)] text-[10px]">
+                  <button type="button" onClick={() => setSelected(new Set((active?.plan?.entries || []).map((_, i) => i)))} disabled={!active?.plan?.entries?.length} className="px-[var(--space-2)] py-[var(--space-1)] border border-white/20 rounded cursor-pointer disabled:opacity-40">All</button>
+                  <button type="button" onClick={() => setSelected(new Set((active?.plan?.entries || []).map((_, i) => i).filter(i => !selected.has(i))))} disabled={!active?.plan?.entries?.length} className="px-[var(--space-2)] py-[var(--space-1)] border border-white/20 rounded cursor-pointer disabled:opacity-40">Invert</button>
+                  <button type="button" onClick={() => { if (!active?.plan?.entries) return; const next = active.plan.entries.filter((_, i) => !selected.has(i)); taskQueue.updateTaskMeta(active.id, { plan: { ...active.plan, entries: next }, totalBytes: next.reduce((a, e) => a + (e.isDirectory ? 0 : e.size), 0) }); setSelected(new Set()); }} disabled={selected.size === 0} className="px-[var(--space-2)] py-[var(--space-1)] border border-rose-500/50 rounded text-rose-300 cursor-pointer disabled:opacity-40">Remove selected</button>
                   {canPickPaths() && (
                     <>
-                      <button type="button" onClick={() => void handleAddPicked('files')} className="px-2 py-0.5 border border-emerald-500/50 rounded text-emerald-200 cursor-pointer">{t.transferAddFiles}</button>
-                      <button type="button" onClick={() => void handleAddPicked('folders')} className="px-2 py-0.5 border border-emerald-500/50 rounded text-emerald-200 cursor-pointer">{t.transferAddFolder}</button>
+                      <button type="button" onClick={() => void handleAddPicked('files')} className="px-[var(--space-2)] py-[var(--space-1)] border border-emerald-500/50 rounded text-emerald-200 cursor-pointer">{t.transferAddFiles}</button>
+                      <button type="button" onClick={() => void handleAddPicked('folders')} className="px-[var(--space-2)] py-[var(--space-1)] border border-emerald-500/50 rounded text-emerald-200 cursor-pointer">{t.transferAddFolder}</button>
                     </>
                   )}
                   <span className="opacity-60 ml-auto">{selected.size > 0 ? `${selected.size} selected` : ''}</span>
                 </div>
-                <div className="flex items-center gap-2 text-[10px]">
+                <div className="flex items-center gap-[var(--space-2)] text-[10px]">
                   <span className="opacity-60">{t.sortBy}</span>
                   <select
                     value=""
                     onChange={(e) => { if (e.target.value) sortEntries(e.target.value as 'path' | 'name' | 'size'); e.target.value = ''; }}
                     disabled={active.status !== 'queued'}
-                    className="bg-black/50 border border-white/30 rounded px-1.5 py-0.5 text-white font-mono text-[10px] cursor-pointer disabled:opacity-40"
+                    className="bg-black/50 border border-white/30 rounded px-[var(--space-1)].5 py-[var(--space-1)] text-white font-mono text-[10px] cursor-pointer disabled:opacity-40"
                   >
                     <option value="">{t.sortBy}</option>
                     <option value="path">{t.transferColSource}</option>
@@ -421,7 +421,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                     <option value="size">{t.transferColSize}</option>
                   </select>
                 </div>
-                <div className="grid gap-1 text-[10px] font-bold opacity-60" style={{ gridTemplateColumns: '1.5rem 1.25rem 1fr 4.5rem 1fr 1.25rem' }}>
+                <div className="grid gap-[var(--space-1)] text-[10px] font-bold opacity-60" style={{ gridTemplateColumns: '1.5rem 1.25rem 1fr 4.5rem 1fr 1.25rem' }}>
                   <div />
                   <div />
                   <div>{t.transferColSource}</div>
@@ -432,7 +432,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                 {active.plan.entries.map((entry, index) => (
                   <div
                     key={`${entry.path}-${index}`}
-                    className="grid gap-1 items-center text-[11px]"
+                    className="grid gap-[var(--space-1)] items-center text-[11px]"
                     style={{ gridTemplateColumns: '1.5rem 1.25rem 1fr 4.5rem 1fr 1.25rem' }}
                   >
                     <span className="opacity-50">{index + 1}.</span>
@@ -449,7 +449,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                     <span className="truncate font-mono" title={entry.path}>{entry.path}</span>
                     <span className="opacity-80">{formatBytes(entry.size)}</span>
                     <span className="truncate font-mono opacity-80" title={active.plan!.targetDir}>{active.plan!.targetDir}</span>
-                    <span className="flex items-center gap-0.5">
+                    <span className="flex items-center gap-[var(--space-1)]">
                       {active.status === 'queued' ? (
                         <>
                           <button type="button" onClick={() => moveEntryTop(index)} disabled={index === 0} className="cursor-pointer disabled:opacity-30" aria-label={t.moveTop}>T</button>
@@ -468,10 +468,10 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             )}
 
             {transfers.length > 1 && (
-              <div className="border-t border-white/10 pt-2 flex flex-col gap-1">
+              <div className="border-t border-white/10 pt-2 flex flex-col gap-[var(--space-1)]">
                 <div className="text-[10px] font-bold uppercase opacity-60">{t.taskQueueShort}</div>
                 {transfers.map((entry, index) => (
-                  <div key={entry.id} className="flex items-center gap-2 text-[11px]">
+                  <div key={entry.id} className="flex items-center gap-[var(--space-2)] text-[11px]">
                     <span className="w-4 shrink-0 opacity-50">{index + 1}.</span>
                     {entry.type === 'move' ? <Scissors className="w-3 h-3 shrink-0" /> : entry.type === 'delete' ? <span className="shrink-0">?</span> : <Copy className="w-3 h-3 shrink-0" />}
                     <span className="flex-1 truncate" title={entry.title}>{entry.title}</span>
@@ -483,19 +483,19 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
               </div>
             )}
 
-            <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+            <div className="flex items-center gap-[var(--space-2)] pt-2 border-t border-white/10">
               <button
                 type="button"
                 onClick={handleSaveList}
                 disabled={!active?.plan}
-                className="px-2.5 py-1 border border-white/20 rounded cursor-pointer disabled:opacity-40"
+                className="px-[var(--space-3)] py-[var(--space-1)] border border-white/20 rounded cursor-pointer disabled:opacity-40"
               >
                 {t.transferSaveList}
               </button>
               <button
                 type="button"
                 onClick={handleLoadList}
-                className="px-2.5 py-1 border border-white/20 rounded cursor-pointer"
+                className="px-[var(--space-3)] py-[var(--space-1)] border border-white/20 rounded cursor-pointer"
               >
                 {t.transferLoadList}
               </button>
@@ -505,15 +505,15 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
         )}
 
         {tab === 'errors' && (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-[var(--space-2)]">
             <div className="flex items-center justify-between">
               <span className="font-bold opacity-60">{t.transferTabErrors}</span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-[var(--space-2)]">
                 <button
                   type="button"
                   onClick={handleSaveLog}
                   disabled={log.length === 0}
-                  className="px-2 py-0.5 border border-white/20 rounded cursor-pointer disabled:opacity-40"
+                  className="px-[var(--space-2)] py-[var(--space-1)] border border-white/20 rounded cursor-pointer disabled:opacity-40"
                 >
                   {t.transferLogSave}
                 </button>
@@ -521,7 +521,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                   type="button"
                   onClick={clearLog}
                   disabled={log.length === 0}
-                  className="px-2 py-0.5 border border-white/20 rounded cursor-pointer disabled:opacity-40"
+                  className="px-[var(--space-2)] py-[var(--space-1)] border border-white/20 rounded cursor-pointer disabled:opacity-40"
                 >
                   {t.transferLogClear}
                 </button>
@@ -530,10 +530,10 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             {log.length === 0 ? (
               <div className="opacity-60">{t.transferLogEmpty}</div>
             ) : (
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-[var(--space-2)]">
                 {log.map(entry => (
-                  <div key={entry.key} className="border border-rose-500/30 rounded p-1.5" title={entry.title}>
-                    <div className="flex items-center gap-2 text-[10px] opacity-70">
+                  <div key={entry.key} className="border border-rose-500/30 rounded p-[var(--space-2)]" title={entry.title}>
+                    <div className="flex items-center gap-[var(--space-2)] text-[10px] opacity-70">
                       <span>{entry.time}</span>
                       <span className="truncate">{entry.title}</span>
                     </div>
@@ -546,10 +546,10 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
         )}
 
         {tab === 'options' && (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-[var(--space-3)]">
             <div>
-              <label className="block font-bold text-white mb-1" htmlFor="monitorSpeedSelect">{t.speedLimit}</label>
-              <div className="flex items-center gap-3">
+              <label className="block font-bold text-white mb-[var(--space-1)]" htmlFor="monitorSpeedSelect">{t.speedLimit}</label>
+              <div className="flex items-center gap-[var(--space-3)]">
                 <input
                   id="monitorSpeedSelect"
                   type="range"
@@ -567,12 +567,12 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
               </div>
             </div>
             <div>
-              <label className="block font-bold text-white mb-1" htmlFor="monitorAfterFinishSelect">{t.afterFinishLabel}</label>
+              <label className="block font-bold text-white mb-[var(--space-1)]" htmlFor="monitorAfterFinishSelect">{t.afterFinishLabel}</label>
               <select
                 id="monitorAfterFinishSelect"
                 value={afterFinish}
                 onChange={(e) => chooseAfterFinish(e.target.value as AfterFinish)}
-                className="w-full bg-black/50 border border-white/30 rounded px-2.5 py-1.5 text-white font-mono text-xs focus:ring-1 focus:ring-amber-400 outline-none cursor-pointer"
+                className="w-full bg-black/50 border border-white/30 rounded px-[var(--space-3)] py-[var(--space-2)] text-white font-mono text-xs focus:ring-1 focus:ring-amber-400 outline-none cursor-pointer"
               >
                 <option value="stay">{t.afterFinishStay}</option>
                 <option value="close">{t.afterFinishClose}</option>
@@ -601,7 +601,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
       }}>
         {/* Folded strip */}
         {folded && (
-          <div className="px-3 py-1.5 text-[11px] opacity-80 border-b shrink-0" style={{ borderColor: theme.modalBorder }}>
+          <div className="px-[var(--space-3)] py-[var(--space-2)] text-[11px] opacity-80 border-b shrink-0" style={{ borderColor: theme.modalBorder }}>
             {active ? (active.speed || t.inProgress) : t.bgTasksEmpty}
           </div>
         )}
@@ -610,15 +610,15 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
         {idle && !folded && (
           <>
             {active && (
-              <div className="p-3 flex flex-col gap-2 border-b shrink-0" style={{ borderColor: theme.modalBorder }}>
-                <div className="flex items-center justify-between gap-2">
+              <div className="p-[var(--space-3)] flex flex-col gap-[var(--space-2)] border-b shrink-0" style={{ borderColor: theme.modalBorder }}>
+                <div className="flex items-center justify-between gap-[var(--space-2)]">
                   <span className="font-bold text-[12px] truncate" title={active.title}>{active.title}</span>
                   <span className="font-bold text-cyan-400 shrink-0">{active.progress}%</span>
                 </div>
                 <RetroProgressBar percent={active.progress} theme={theme} status={active.status} color="#fbbf24" className="text-[16px] leading-none" />
                 {active.currentFile && (
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center justify-between gap-2 text-[10px] opacity-70">
+                  <div className="flex flex-col gap-[var(--space-1)]">
+                    <div className="flex items-center justify-between gap-[var(--space-2)] text-[10px] opacity-70">
                       <span className="truncate font-mono" title={active.currentFile}>{active.currentFile}</span>
                       {active.currentFileTotal ? (
                         <span className="shrink-0 tabular-nums">
@@ -646,7 +646,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                   )}
                 </div>
                 {(active.status === 'running' || active.status === 'paused') && (
-                  <div className="flex items-center gap-2 text-[12px]">
+                  <div className="flex items-center gap-[var(--space-2)] text-[12px]">
                     <button
                       type="button"
                       onClick={() => {
@@ -654,7 +654,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                         if (active.status === 'paused') taskQueue.resumeTask(active.id);
                         else taskQueue.pauseTask(active.id);
                       }}
-                      className="px-2.5 py-1 border border-cyan-500/60 rounded text-cyan-300 hover:bg-cyan-950/60 cursor-pointer font-bold"
+                      className="px-[var(--space-3)] py-[var(--space-1)] border border-cyan-500/60 rounded text-cyan-300 hover:bg-cyan-950/60 cursor-pointer font-bold"
                     >
                       {active.status === 'paused' ? t.bgTasksResume : t.bgTasksPause}
                     </button>
@@ -664,7 +664,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                         soundManager.playKeyTick();
                         taskQueue.cancelTask(active.id);
                       }}
-                      className="px-2.5 py-1 border border-rose-500/60 rounded text-rose-300 hover:bg-rose-950/60 cursor-pointer font-bold"
+                      className="px-[var(--space-3)] py-[var(--space-1)] border border-rose-500/60 rounded text-rose-300 hover:bg-rose-950/60 cursor-pointer font-bold"
                     >
                       {t.btnCancel}
                     </button>
@@ -673,21 +673,21 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
               </div>
             )}
             {renderTabs()}
-            <div className="flex items-center justify-between gap-2 p-3 border-t shrink-0" style={{ borderColor: theme.modalBorder }}>
+            <div className="flex items-center justify-between gap-[var(--space-2)] p-[var(--space-3)] border-t shrink-0" style={{ borderColor: theme.modalBorder }}>
               <button
                 type="button"
                 onClick={() => {
                   soundManager.playKeyTick();
                   onClose();
                 }}
-                className="px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow"
+                className="px-[var(--space-3)] py-[var(--space-2)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow"
               >
                 {t.copyTitle}
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
+                className="px-[var(--space-3)] py-[var(--space-2)] bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
               >
                 {t.btnCancel} (Esc)
               </button>
@@ -697,14 +697,14 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
 
         {/* Configuration form, replaced by the live progress view once started */}
         {!idle && !task && (
-        <form ref={formRef} onSubmit={handleSubmit} className="p-4 flex flex-col gap-4 min-h-0 flex-1 overflow-y-auto">
+        <form ref={formRef} onSubmit={handleSubmit} className="p-[var(--space-4)] flex flex-col gap-[var(--space-4)] min-h-0 flex-1 overflow-y-auto">
           <div className="flex flex-col min-h-0 flex-1">
-            <span className="opacity-75 block mb-1">
+            <span className="opacity-75 block mb-[var(--space-1)]">
               {isCopy
                 ? t.copyItemsLead.replace('{n}', String(items.length)).replace('{size}', totalSize.toLocaleString())
                 : t.moveItemsLead.replace('{n}', String(items.length)).replace('{size}', totalSize.toLocaleString())}
             </span>
-            <div className="flex-1 min-h-16 overflow-y-auto bg-black/40 p-2 rounded border border-white/10 text-[11px]">
+            <div className="flex-1 min-h-16 overflow-y-auto bg-black/40 p-[var(--space-2)] rounded border border-white/10 text-[11px]">
               {items.map(i => (
                 <div key={i.id} className="truncate text-amber-300">
                   � {i.name}{i.ext ? `.${i.ext}` : ''} {i.isDirectory ? '<DIR>' : ''}
@@ -714,23 +714,23 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
           </div>
 
           <div>
-            <label className="block font-bold text-white mb-1">{t.copyMoveDestLabel}</label>
+            <label className="block font-bold text-white mb-[var(--space-1)]">{t.copyMoveDestLabel}</label>
             <input
               type="text"
               ref={destInputRef}
               value={destPath}
               onChange={(e) => setDestPath(e.target.value)}
-              className="w-full bg-black/50 border border-white/30 rounded px-2.5 py-1.5 text-white font-mono text-xs focus:ring-1 focus:ring-amber-400 outline-none"
+              className="w-full bg-black/50 border border-white/30 rounded px-[var(--space-3)] py-[var(--space-2)] text-white font-mono text-xs focus:ring-1 focus:ring-amber-400 outline-none"
               autoFocus
             />
           </div>
 
           {/* What to do when the destination entry already exists. */}
           <div>
-            <span className="block font-bold text-white mb-1">{t.collisionPolicy}</span>
+            <span className="block font-bold text-white mb-[var(--space-1)]">{t.collisionPolicy}</span>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1" role="radiogroup" aria-label={t.collisionPolicy}>
               {COLLISION_OPTIONS.map(([value, labelKey]) => (
-                <label key={value} className="flex items-center gap-1.5 cursor-pointer opacity-90">
+                <label key={value} className="flex items-center gap-[var(--space-2)] cursor-pointer opacity-90">
                   <input
                     type="radio"
                     name="collisionPolicy"
@@ -747,12 +747,12 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
 
           {/* Optional bandwidth cap, SuperCopier style. */}
           <div>
-            <label className="block font-bold text-white mb-1" htmlFor="speedLimitSelect">{t.speedLimit}</label>
+            <label className="block font-bold text-white mb-[var(--space-1)]" htmlFor="speedLimitSelect">{t.speedLimit}</label>
             <select
               id="speedLimitSelect"
               value={speedLimitMb}
               onChange={(e) => setSpeedLimitMb(Number(e.target.value))}
-              className="w-full bg-black/50 border border-white/30 rounded px-2.5 py-1.5 text-white font-mono text-xs focus:ring-1 focus:ring-amber-400 outline-none cursor-pointer"
+              className="w-full bg-black/50 border border-white/30 rounded px-[var(--space-3)] py-[var(--space-2)] text-white font-mono text-xs focus:ring-1 focus:ring-amber-400 outline-none cursor-pointer"
             >
               <option value={0}>{t.speedUnlimited}</option>
               {SPEED_OPTIONS_MB.map(mb => (
@@ -764,7 +764,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
           {/* What happens once the transfer is over. Remembered, because nobody
               wants to re-pick this before every copy. */}
           <div>
-            <label className="block font-bold text-white mb-1" htmlFor="afterFinishSelect">{t.afterFinishLabel}</label>
+            <label className="block font-bold text-white mb-[var(--space-1)]" htmlFor="afterFinishSelect">{t.afterFinishLabel}</label>
             <select
               id="afterFinishSelect"
               value={afterFinish}
@@ -777,7 +777,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                   // A full quota costs the reminder, never the transfer.
                 }
               }}
-              className="w-full bg-black/50 border border-white/30 rounded px-2.5 py-1.5 text-white font-mono text-xs focus:ring-1 focus:ring-amber-400 outline-none cursor-pointer"
+              className="w-full bg-black/50 border border-white/30 rounded px-[var(--space-3)] py-[var(--space-2)] text-white font-mono text-xs focus:ring-1 focus:ring-amber-400 outline-none cursor-pointer"
             >
               <option value="stay">{t.afterFinishStay}</option>
               <option value="close">{t.afterFinishClose}</option>
@@ -786,18 +786,18 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
           </div>
 
           {/* Action buttons */}
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/10">
+          <div className="flex items-center justify-end gap-[var(--space-2)] pt-3 border-t border-white/10">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-1.5 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
+              className="px-[var(--space-4)] py-[var(--space-2)] bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
             >
               {t.btnCancel} (Esc)
             </button>
             <button
               type="submit"
               autoFocus
-              className="px-5 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow"
+              className="px-5 py-[var(--space-2)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow"
             >
               {isCopy ? t.copyConfirm : t.moveConfirm}
             </button>
@@ -807,8 +807,8 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
 
         {/* Live progress view */}
         {!idle && task && (
-        <div className="p-4 flex flex-col gap-3 min-h-0 flex-1 overflow-y-auto">
-          <div className="flex items-center justify-between gap-2">
+        <div className="p-[var(--space-4)] flex flex-col gap-[var(--space-3)] min-h-0 flex-1 overflow-y-auto">
+          <div className="flex items-center justify-between gap-[var(--space-2)]">
             <span className="font-bold text-[13px] truncate" title={task.title}>{task.title}</span>
             <span className="font-bold text-cyan-400 shrink-0">{task.progress}%</span>
           </div>
@@ -822,8 +822,8 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
           />
 
           {task.currentFile && (
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center justify-between gap-2 text-[11px] opacity-80">
+            <div className="flex flex-col gap-[var(--space-1)]">
+              <div className="flex items-center justify-between gap-[var(--space-2)] text-[11px] opacity-80">
                 <span className="truncate font-mono" title={task.currentFile}>{task.currentFile}</span>
                 <span className="shrink-0 tabular-nums">
                   {task.currentFileBytes != null && task.currentFileTotal
@@ -865,7 +865,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
           </div>
 
           {(task.status === 'running' || task.status === 'paused') && (
-            <div className="flex items-center gap-2 text-[12px]">
+            <div className="flex items-center gap-[var(--space-2)] text-[12px]">
               <button
                 type="button"
                 onClick={() => {
@@ -873,7 +873,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                   if (task.status === 'paused') taskQueue.resumeTask(task.id);
                   else taskQueue.pauseTask(task.id);
                 }}
-                className="px-2.5 py-1 border border-cyan-500/60 rounded text-cyan-300 hover:bg-cyan-950/60 cursor-pointer font-bold"
+                className="px-[var(--space-3)] py-[var(--space-1)] border border-cyan-500/60 rounded text-cyan-300 hover:bg-cyan-950/60 cursor-pointer font-bold"
               >
                 {task.status === 'paused' ? t.bgTasksResume : t.bgTasksPause}
               </button>
@@ -883,7 +883,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                   soundManager.playKeyTick();
                   taskQueue.cancelTask(task.id);
                 }}
-                className="px-2.5 py-1 border border-rose-500/60 rounded text-rose-300 hover:bg-rose-950/60 cursor-pointer font-bold"
+                className="px-[var(--space-3)] py-[var(--space-1)] border border-rose-500/60 rounded text-rose-300 hover:bg-rose-950/60 cursor-pointer font-bold"
               >
                 {t.btnCancel}
               </button>
@@ -891,10 +891,10 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
           )}
 
           {otherTasks.length > 0 && (
-            <div className="border-t border-current/20 pt-2 flex flex-col gap-1.5">
+            <div className="border-t border-current/20 pt-2 flex flex-col gap-[var(--space-2)]">
               <div className="text-[10px] font-bold uppercase opacity-60">{t.taskQueueShort}</div>
               {otherTasks.map((entry) => (
-                <div key={entry.id} className="flex items-center gap-2 text-[11px]">
+                <div key={entry.id} className="flex items-center gap-[var(--space-2)] text-[11px]">
                   <span className="w-14 shrink-0 uppercase opacity-60">{entry.status}</span>
                   <span className="flex-1 truncate font-mono" title={entry.title}>{entry.title}</span>
                   <span className="tabular-nums shrink-0 opacity-80">{entry.progress}%</span>
@@ -906,7 +906,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                     }}
                     aria-label={t.btnCancel}
                     title={t.btnCancel}
-                    className="px-1.5 py-0.5 border border-rose-500/50 rounded text-rose-300 hover:bg-rose-950/60 cursor-pointer shrink-0"
+                    className="px-[var(--space-1)].5 py-[var(--space-1)] border border-rose-500/50 rounded text-rose-300 hover:bg-rose-950/60 cursor-pointer shrink-0"
                   >
                     ?
                   </button>
@@ -928,7 +928,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                   setAdminNote(`${t.runAsAdmin}: ${result?.reason || 'failed'}`);
                 }
               }}
-              className={`flex items-center justify-center gap-1.5 w-full px-2 py-1 rounded border font-bold text-[12px] cursor-pointer ${
+              className={`flex items-center justify-center gap-[var(--space-2)] w-full px-[var(--space-2)] py-[var(--space-1)] rounded border font-bold text-[12px] cursor-pointer ${
                 needsAdmin
                   ? 'border-amber-400 text-amber-300 bg-amber-950/50 hover:bg-amber-900/70'
                   : 'border-amber-700/50 text-amber-500/80 hover:bg-amber-950/40'
@@ -944,25 +944,25 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
           )}
 
           {finishedPrompt && (
-            <div className="border border-amber-400/60 bg-amber-950/40 rounded p-2 flex flex-col gap-2">
+            <div className="border border-amber-400/60 bg-amber-950/40 rounded p-[var(--space-2)] flex flex-col gap-[var(--space-2)]">
               <span className="text-[11px] font-bold text-amber-300">
                 {isCopy ? t.msgCopiedSuccess : t.msgMovedSuccess}
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-[var(--space-2)]">
                 <button
                   type="button"
                   onClick={() => {
                     setFinishedPrompt(false);
                     onClose();
                   }}
-                  className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-black font-bold rounded cursor-pointer"
+                  className="px-[var(--space-3)] py-[var(--space-1)] bg-amber-400 hover:bg-amber-300 text-black font-bold rounded cursor-pointer"
                 >
                   {t.btnClose}
                 </button>
                 <button
                   type="button"
                   onClick={() => setFinishedPrompt(false)}
-                  className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
+                  className="px-[var(--space-3)] py-[var(--space-1)] bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
                 >
                   {t.afterFinishStay}
                 </button>
@@ -972,12 +972,12 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
 
           {!folded && renderTabs()}
 
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10 mt-auto">
+          <div className="flex items-center justify-end gap-[var(--space-2)] pt-2 border-t border-white/10 mt-auto">
             {isFinished && (
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow"
+                className="px-[var(--space-4)] py-[var(--space-2)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow"
               >
                 {t.btnClose}
               </button>

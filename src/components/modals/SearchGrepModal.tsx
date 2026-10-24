@@ -204,7 +204,7 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.searchDialogTitle);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 font-mono select-none backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-[var(--space-4)] font-mono select-none backdrop-blur-sm">
       <div
         ref={dialogRef}
         tabIndex={-1}
@@ -216,30 +216,30 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
         }}
       >
         <div 
-          className="flex items-center justify-between px-3 py-2 border-b font-bold shrink-0 text-white"
+          className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-b font-bold shrink-0 text-white"
           style={{ backgroundColor: theme.modalHeaderBg }}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-[var(--space-2)]">
             <Search className="w-4 h-4 text-amber-300" />
             <span>{t.searchAdvTitle}</span>
           </div>
-          <button onClick={onClose} className="px-2 py-0.5 bg-black/30 hover:bg-black/60 rounded text-xs cursor-pointer font-bold">✕</button>
+          <button onClick={onClose} className="px-[var(--space-2)] py-[var(--space-1)] bg-black/30 hover:bg-black/60 rounded text-xs cursor-pointer font-bold">✕</button>
         </div>
 
         {/* Search History Bar */}
         {searchHistory.length > 0 && (
-          <div className="px-3 py-1.5 bg-amber-950/30 border-b border-amber-500/20 flex flex-wrap items-center justify-between gap-1.5 text-[11px] shrink-0">
-            <div className="flex items-center gap-1.5 font-bold text-amber-300">
+          <div className="px-[var(--space-3)] py-[var(--space-2)] bg-amber-950/30 border-b border-amber-500/20 flex flex-wrap items-center justify-between gap-[var(--space-2)] text-[11px] shrink-0">
+            <div className="flex items-center gap-[var(--space-2)] font-bold text-amber-300">
               <History className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               <span>{t.searchHistoryCount.replace('{n}', String(searchHistory.length))}</span>
             </div>
-            <div className="flex flex-wrap items-center gap-1.5 max-w-full overflow-x-auto no-scrollbar">
+            <div className="flex flex-wrap items-center gap-[var(--space-2)] max-w-full overflow-x-auto no-scrollbar">
               {searchHistory.map((item) => (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => applyHistoryItem(item)}
-                  className="px-2 py-0.5 rounded border border-amber-400/30 bg-black/60 hover:bg-amber-400 hover:text-black text-amber-200 transition-colors cursor-pointer flex items-center gap-1 font-mono text-[10px]"
+                  className="px-[var(--space-2)] py-[var(--space-1)] rounded border border-amber-400/30 bg-black/60 hover:bg-amber-400 hover:text-black text-amber-200 transition-colors cursor-pointer flex items-center gap-[var(--space-1)] font-mono text-[10px]"
                   title={t.searchRecall.replace('{label}', `${item.filePattern}${item.grepText ? ` | "${item.grepText}"` : ''} (${item.datePreset})`)}
                 >
                   <RotateCcw className="w-2.5 h-2.5 shrink-0" />
@@ -255,7 +255,7 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
                   saveSearchHistory([]);
                   soundManager.playKeyTick();
                 }}
-                className="px-1.5 py-0.5 text-[10px] text-red-400/80 hover:text-red-300 hover:bg-red-950/40 rounded transition-colors cursor-pointer"
+                className="px-[var(--space-1)].5 py-[var(--space-1)] text-[10px] text-red-400/80 hover:text-red-300 hover:bg-red-950/40 rounded transition-colors cursor-pointer"
                 title={t.searchClearHistory}
               >
                 <Trash2 className="w-3 h-3" />
@@ -265,8 +265,8 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
         )}
 
         {/* Search Parameters Form */}
-        <form onSubmit={handleSearch} className="p-3 bg-black/40 border-b border-white/10 space-y-3 shrink-0">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <form onSubmit={handleSearch} className="p-[var(--space-3)] bg-black/40 border-b border-white/10 space-y-[var(--space-3)] shrink-0">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--space-2)]">
             <div>
               <label className="block text-[11px] opacity-80 mb-0.5 font-bold">{t.searchNameWildcard}</label>
               <input
@@ -274,7 +274,7 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
                 value={filePattern}
                 onChange={(e) => setFilePattern(e.target.value)}
                 placeholder={t.searchWildcardPlaceholder}
-                className="w-full bg-black/60 border border-white/20 rounded px-2 py-1 text-white font-mono text-xs outline-none focus:ring-1 focus:ring-amber-400"
+                className="w-full bg-black/60 border border-white/20 rounded px-[var(--space-2)] py-[var(--space-1)] text-white font-mono text-xs outline-none focus:ring-1 focus:ring-amber-400"
                 autoFocus
               />
             </div>
@@ -285,20 +285,20 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
                 value={grepText}
                 onChange={(e) => setGrepText(e.target.value)}
                 placeholder={t.searchTextPlaceholder}
-                className="w-full bg-black/60 border border-white/20 rounded px-2 py-1 text-white font-mono text-xs outline-none focus:ring-1 focus:ring-amber-400"
+                className="w-full bg-black/60 border border-white/20 rounded px-[var(--space-2)] py-[var(--space-1)] text-white font-mono text-xs outline-none focus:ring-1 focus:ring-amber-400"
               />
             </div>
           </div>
 
           {/* Filters Bar: Dates, Sizes, Attributes */}
-          <div className="p-2 bg-black/50 rounded border border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px]">
+          <div className="p-[var(--space-2)] bg-black/50 rounded border border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-[var(--space-3)] text-[11px]">
             {/* Date Preset */}
             <div>
-              <span className="text-[10px] font-bold text-amber-300 uppercase block mb-1">{t.searchDateRange}</span>
+              <span className="text-[10px] font-bold text-amber-300 uppercase block mb-[var(--space-1)]">{t.searchDateRange}</span>
               <select
                 value={datePreset}
                 onChange={(e) => setDatePreset(e.target.value as any)}
-                className="w-full px-2 py-1 bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
+                className="w-full px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
               >
                 <option value="all">{t.searchDateAll}</option>
                 <option value="today">{t.searchDateToday}</option>
@@ -309,14 +309,14 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
 
             {/* Size Min/Max */}
             <div>
-              <span className="text-[10px] font-bold text-sky-300 uppercase block mb-1">{t.searchSizeRange}</span>
-              <div className="flex items-center gap-1">
+              <span className="text-[10px] font-bold text-sky-300 uppercase block mb-[var(--space-1)]">{t.searchSizeRange}</span>
+              <div className="flex items-center gap-[var(--space-1)]">
                 <input
                   type="number"
                   placeholder={t.searchMinKb}
                   value={minSizeKB}
                   onChange={(e) => setMinSizeKB(e.target.value)}
-                  className="w-1/2 px-1.5 py-1 bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
+                  className="w-1/2 px-[var(--space-1)].5 py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
                 />
                 <span className="opacity-50">-</span>
                 <input
@@ -324,16 +324,16 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
                   placeholder={t.searchMaxKb}
                   value={maxSizeKB}
                   onChange={(e) => setMaxSizeKB(e.target.value)}
-                  className="w-1/2 px-1.5 py-1 bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
+                  className="w-1/2 px-[var(--space-1)].5 py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
                 />
               </div>
             </div>
 
             {/* Attributes Checkboxes */}
             <div>
-              <span className="text-[10px] font-bold text-emerald-300 uppercase block mb-1">{t.searchAttrSection}</span>
-              <div className="flex items-center gap-2 pt-0.5">
-                <label className="flex items-center gap-1 cursor-pointer">
+              <span className="text-[10px] font-bold text-emerald-300 uppercase block mb-[var(--space-1)]">{t.searchAttrSection}</span>
+              <div className="flex items-center gap-[var(--space-2)] pt-0.5">
+                <label className="flex items-center gap-[var(--space-1)] cursor-pointer">
                   <input
                     type="checkbox"
                     checked={filterReadOnly}
@@ -341,7 +341,7 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
                   />
                   <span>R/O</span>
                 </label>
-                <label className="flex items-center gap-1 cursor-pointer">
+                <label className="flex items-center gap-[var(--space-1)] cursor-pointer">
                   <input
                     type="checkbox"
                     checked={filterHidden}
@@ -349,7 +349,7 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
                   />
                   <span>{t.searchAttrHidden}</span>
                 </label>
-                <label className="flex items-center gap-1 cursor-pointer">
+                <label className="flex items-center gap-[var(--space-1)] cursor-pointer">
                   <input
                     type="checkbox"
                     checked={filterSystem}
@@ -362,8 +362,8 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
           </div>
 
           <div className="flex items-center justify-between pt-1">
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-1 cursor-pointer">
+            <div className="flex items-center gap-[var(--space-4)]">
+              <label className="flex items-center gap-[var(--space-1)] cursor-pointer">
                 <input
                   type="checkbox"
                   checked={caseSensitive}
@@ -372,7 +372,7 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
                 <span>{t.searchCaseSensitive}</span>
               </label>
 
-              <label className="flex items-center gap-1 cursor-pointer">
+              <label className="flex items-center gap-[var(--space-1)] cursor-pointer">
                 <input
                   type="checkbox"
                   checked={searchAllDrives}
@@ -385,7 +385,7 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
             <button
               type="submit"
               disabled={isSearching}
-              className="px-6 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow flex items-center gap-1.5"
+              className="px-6 py-[var(--space-2)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow flex items-center gap-[var(--space-2)]"
             >
               <Search className="w-4 h-4" />
               <span>{isSearching ? t.searchSearchingShort : t.searchStart}</span>
@@ -394,7 +394,7 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
         </form>
 
         {/* Results List */}
-        <div className="flex-1 overflow-y-auto p-2 bg-black/60 space-y-1 font-mono">
+        <div className="flex-1 overflow-y-auto p-[var(--space-2)] bg-black/60 space-y-[var(--space-1)] font-mono">
           {results.length === 0 ? (
             <div className="p-8 text-center opacity-50 italic">
               {isSearching ? t.searchScanning : t.searchNoResults}
@@ -408,10 +408,10 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
                   onSelectFile(file);
                   onClose();
                 }}
-                className="p-2 rounded border border-white/10 hover:border-amber-400 hover:bg-white/10 cursor-pointer transition-colors"
+                className="p-[var(--space-2)] rounded border border-white/10 hover:border-amber-400 hover:bg-white/10 cursor-pointer transition-colors"
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 font-bold text-amber-300">
+                  <div className="flex items-center gap-[var(--space-2)] font-bold text-amber-300">
                     <FileText className="w-3.5 h-3.5" />
                     <span>{file.path}\{file.name}.{file.ext}</span>
                   </div>
@@ -419,7 +419,7 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
                 </div>
 
                 {matches.length > 0 && (
-                  <div className="mt-1 pl-5 space-y-0.5 text-[11px] text-emerald-300 font-mono">
+                  <div className="mt-[var(--space-1)] pl-5 space-y-0.5 text-[11px] text-emerald-300 font-mono">
                     {matches.slice(0, 3).map((m, mIdx) => (
                       <div key={mIdx} className="truncate">
                         <span className="opacity-50">{t.searchLine.replace('{n}', String(m.line))}</span> {m.text}
@@ -437,7 +437,7 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
 
         {/* Footer */}
         <div 
-          className="flex items-center justify-between px-3 py-2 border-t text-xs shrink-0"
+          className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-t text-xs shrink-0"
           style={{
             backgroundColor: theme.modalBg,
             borderColor: theme.modalBorder
@@ -446,7 +446,7 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
           <span className="font-bold text-amber-300">{t.searchFound.replace('{n}', String(results.length))}</span>
           <button
             onClick={onClose}
-            className="px-4 py-1 bg-white/10 hover:bg-white/20 rounded cursor-pointer font-bold"
+            className="px-[var(--space-4)] py-[var(--space-1)] bg-white/10 hover:bg-white/20 rounded cursor-pointer font-bold"
           >
             {t.btnClose}
           </button>

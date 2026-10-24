@@ -56,8 +56,8 @@ export const ChecksumModal: React.FC<ChecksumModalProps> = ({
   return (
     <ModalShell title={t.checksumModalTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
-        <div className="p-4 space-y-4">
-          <div className="p-2.5 bg-black/40 rounded border border-white/10 flex items-center gap-3">
+        <div className="p-[var(--space-4)] space-y-[var(--space-4)]">
+          <div className="p-[var(--space-2)].5 bg-black/40 rounded border border-white/10 flex items-center gap-[var(--space-3)]">
             <ShieldCheck className="w-8 h-8 text-emerald-400 shrink-0" />
             <div className="truncate">
               <span className="font-bold text-white block truncate">{file.name}.{file.ext}</span>
@@ -66,19 +66,19 @@ export const ChecksumModal: React.FC<ChecksumModalProps> = ({
           </div>
 
           {error && (
-            <div className="p-2 bg-red-500/15 rounded border border-red-500/40 text-red-300 text-[var(--fs-sm)] break-words">
+            <div className="p-[var(--space-2)] bg-red-500/15 rounded border border-red-500/40 text-red-300 text-[var(--fs-sm)] break-words">
               {error}
             </div>
           )}
 
-          <div className="space-y-3 select-text font-mono text-[var(--fs-sm)]">
+          <div className="space-y-[var(--space-3)] select-text font-mono text-[var(--fs-sm)]">
             {/* MD5 */}
-            <div className="p-2 bg-black/30 rounded border border-white/10">
-              <div className="flex items-center justify-between mb-1">
+            <div className="p-[var(--space-2)] bg-black/30 rounded border border-white/10">
+              <div className="flex items-center justify-between mb-[var(--space-1)]">
                 <span className="font-bold text-amber-300">{t.checksumMd5}</span>
                 <button
                   onClick={() => hashes && handleCopy('md5', hashes.md5)}
-                  className="px-2 py-0.5 bg-white/10 hover:bg-white/20 rounded flex items-center gap-1 cursor-pointer"
+                  className="px-[var(--space-2)] py-[var(--space-1)] bg-white/10 hover:bg-white/20 rounded flex items-center gap-[var(--space-1)] cursor-pointer"
                 >
                   {copiedKey === 'md5' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
                   <span>{copiedKey === 'md5' ? t.copiedLabel : t.copyBtn}</span>
@@ -88,12 +88,12 @@ export const ChecksumModal: React.FC<ChecksumModalProps> = ({
             </div>
 
             {/* SHA-1 */}
-            <div className="p-2 bg-black/30 rounded border border-white/10">
-              <div className="flex items-center justify-between mb-1">
+            <div className="p-[var(--space-2)] bg-black/30 rounded border border-white/10">
+              <div className="flex items-center justify-between mb-[var(--space-1)]">
                 <span className="font-bold text-cyan-300">{t.checksumSha1}</span>
                 <button
                   onClick={() => hashes && handleCopy('sha1', hashes.sha1)}
-                  className="px-2 py-0.5 bg-white/10 hover:bg-white/20 rounded flex items-center gap-1 cursor-pointer"
+                  className="px-[var(--space-2)] py-[var(--space-1)] bg-white/10 hover:bg-white/20 rounded flex items-center gap-[var(--space-1)] cursor-pointer"
                 >
                   {copiedKey === 'sha1' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
                   <span>{copiedKey === 'sha1' ? t.copiedLabel : t.copyBtn}</span>
@@ -103,12 +103,12 @@ export const ChecksumModal: React.FC<ChecksumModalProps> = ({
             </div>
 
             {/* SHA-256 */}
-            <div className="p-2 bg-black/30 rounded border border-white/10">
-              <div className="flex items-center justify-between mb-1">
+            <div className="p-[var(--space-2)] bg-black/30 rounded border border-white/10">
+              <div className="flex items-center justify-between mb-[var(--space-1)]">
                 <span className="font-bold text-emerald-300">{t.checksumSha256}</span>
                 <button
                   onClick={() => hashes && handleCopy('sha256', hashes.sha256)}
-                  className="px-2 py-0.5 bg-white/10 hover:bg-white/20 rounded flex items-center gap-1 cursor-pointer"
+                  className="px-[var(--space-2)] py-[var(--space-1)] bg-white/10 hover:bg-white/20 rounded flex items-center gap-[var(--space-1)] cursor-pointer"
                 >
                   {copiedKey === 'sha256' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
                   <span>{copiedKey === 'sha256' ? t.copiedLabel : t.copyBtn}</span>
@@ -121,7 +121,7 @@ export const ChecksumModal: React.FC<ChecksumModalProps> = ({
           <div className="flex items-center justify-end pt-2 border-t border-white/10">
             <button
               onClick={onClose}
-              className="px-4 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-bold rounded cursor-pointer"
+              className="px-[var(--space-4)] py-[var(--space-2)] bg-amber-400 hover:bg-amber-300 text-black font-bold rounded cursor-pointer"
             >
               {t.btnClose}
             </button>

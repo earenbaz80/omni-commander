@@ -74,15 +74,15 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
     <ModalShell title={t.conflictTitle} theme={theme} onClose={onCancel} closeButtonLabel={t.btnCancel}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
         {/* Header with icon and full destination path */}
-        <div className="flex items-center gap-2 min-w-0 pb-2 border-b font-bold shrink-0" style={{ borderBottomColor: theme.modalBorder }}>
+        <div className="flex items-center gap-[var(--space-2)] min-w-0 pb-2 border-b font-bold shrink-0" style={{ borderBottomColor: theme.modalBorder }}>
           <TriangleAlert className="w-4 h-4 shrink-0" />
           <span className="truncate" title={conflict.destination}>{t.conflictTitle}: {conflict.name}</span>
         </div>
 
-        <div className="p-4 flex flex-col gap-3">
+        <div className="p-[var(--space-4)] flex flex-col gap-[var(--space-3)]">
           <span className="opacity-75">{t.conflictBody}</span>
 
-          <div className="grid gap-x-3 gap-y-1 text-[var(--fs-sm)] border border-white/10 rounded bg-black/30 p-2 break-all">
+          <div className="grid gap-x-3 gap-y-1 text-[var(--fs-sm)] border border-white/10 rounded bg-black/30 p-[var(--space-2)] break-all">
             <span className="font-bold" style={{ color: theme.accentWarn }}>{t.transferColSource}</span>
             <span className="opacity-90">{conflict.source}</span>
             <span className="font-bold" style={{ color: theme.accentWarn }}>{t.transferColDest}</span>
@@ -92,17 +92,17 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
           <table className="w-full text-[var(--fs-sm)] border border-white/10 rounded">
             <thead>
               <tr className="opacity-60">
-                <th className="text-left font-bold px-2 py-1 w-24" />
-                <th className="text-left font-bold px-2 py-1">{t.transferColSource}</th>
-                <th className="text-left font-bold px-2 py-1">{t.transferColDest}</th>
+                <th className="text-left font-bold px-[var(--space-2)] py-[var(--space-1)] w-24" />
+                <th className="text-left font-bold px-[var(--space-2)] py-[var(--space-1)]">{t.transferColSource}</th>
+                <th className="text-left font-bold px-[var(--space-2)] py-[var(--space-1)]">{t.transferColDest}</th>
               </tr>
             </thead>
             <tbody>
               {facts.map(([label, sourceValue, destinationValue]) => (
                 <tr key={label} className="border-t border-white/10">
-                  <td className="px-2 py-1 opacity-60">{label}</td>
-                  <td className="px-2 py-1 tabular-nums">{sourceValue}</td>
-                  <td className="px-2 py-1 tabular-nums">{destinationValue}</td>
+                  <td className="px-[var(--space-2)] py-[var(--space-1)] opacity-60">{label}</td>
+                  <td className="px-[var(--space-2)] py-[var(--space-1)] tabular-nums">{sourceValue}</td>
+                  <td className="px-[var(--space-2)] py-[var(--space-1)] tabular-nums">{destinationValue}</td>
                 </tr>
               ))}
             </tbody>
@@ -112,8 +112,8 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
             <span className="text-[var(--fs-sm)] text-emerald-300">{t.conflictIdentical}</span>
           )}
 
-          <fieldset className="flex items-center gap-4 text-[var(--fs-sm)]">
-            <label className="flex items-center gap-1.5 cursor-pointer">
+          <fieldset className="flex items-center gap-[var(--space-4)] text-[var(--fs-sm)]">
+            <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
               <input
                 type="radio"
                 name="conflict-scope"
@@ -124,7 +124,7 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
               <span>{t.conflictThisFile}</span>
             </label>
             <label
-              className="flex items-center gap-1.5 cursor-pointer"
+              className="flex items-center gap-[var(--space-2)] cursor-pointer"
               title={t.conflictAlwaysHint}
             >
               <input
@@ -139,11 +139,11 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
           </fieldset>
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2 px-4 py-3 border-t border-white/10">
+        <div className="flex flex-wrap items-center justify-end gap-[var(--space-2)] px-[var(--space-4)] py-[var(--space-3)] border-t border-white/10">
           <button
             type="button"
             onClick={onCancel}
-            className="mr-auto px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
+            className="mr-auto px-[var(--space-3)] py-[var(--space-2)] bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
           >
             {t.btnCancel}
           </button>
@@ -154,8 +154,8 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
               onClick={() => onAnswer(action, scope === 'always')}
               className={
                 action === 'overwrite'
-                  ? 'px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow'
-                  : 'px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer'
+                  ? 'px-[var(--space-3)] py-[var(--space-2)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow'
+                  : 'px-[var(--space-3)] py-[var(--space-2)] bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer'
               }
               title={scope === 'always' ? t.conflictAlwaysHint : undefined}
             >

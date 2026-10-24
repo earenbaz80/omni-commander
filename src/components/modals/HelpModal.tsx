@@ -75,13 +75,13 @@ export const HelpModal: React.FC<HelpModalProps> = ({
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-1 px-3 py-1.5 bg-black/40 border-b border-white/10 shrink-0 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-[var(--space-1)] px-[var(--space-3)] py-[var(--space-2)] bg-black/40 border-b border-white/10 shrink-0 overflow-x-auto no-scrollbar">
           <button
             onClick={() => {
               soundManager.playKeyTick();
               setActiveTab('shortcuts');
             }}
-            className={`px-3 py-1 rounded text-xs flex items-center gap-1.5 cursor-pointer font-semibold ${
+            className={`px-[var(--space-3)] py-[var(--space-1)] rounded text-xs flex items-center gap-[var(--space-2)] cursor-pointer font-semibold ${
               activeTab === 'shortcuts' ? 'bg-amber-400 text-black shadow' : 'hover:bg-white/10 text-white/80'
             }`}
           >
@@ -93,7 +93,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
               soundManager.playKeyTick();
               setActiveTab('dual_panel');
             }}
-            className={`px-3 py-1 rounded text-xs flex items-center gap-1.5 cursor-pointer font-semibold ${
+            className={`px-[var(--space-3)] py-[var(--space-1)] rounded text-xs flex items-center gap-[var(--space-2)] cursor-pointer font-semibold ${
               activeTab === 'dual_panel' ? 'bg-amber-400 text-black shadow' : 'hover:bg-white/10 text-white/80'
             }`}
           >
@@ -105,7 +105,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
               soundManager.playKeyTick();
               setActiveTab('commands');
             }}
-            className={`px-3 py-1 rounded text-xs flex items-center gap-1.5 cursor-pointer font-semibold ${
+            className={`px-[var(--space-3)] py-[var(--space-1)] rounded text-xs flex items-center gap-[var(--space-2)] cursor-pointer font-semibold ${
               activeTab === 'commands' ? 'bg-amber-400 text-black shadow' : 'hover:bg-white/10 text-white/80'
             }`}
           >
@@ -117,7 +117,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
               soundManager.playKeyTick();
               setActiveTab('tools');
             }}
-            className={`px-3 py-1 rounded text-xs flex items-center gap-1.5 cursor-pointer font-semibold ${
+            className={`px-[var(--space-3)] py-[var(--space-1)] rounded text-xs flex items-center gap-[var(--space-2)] cursor-pointer font-semibold ${
               activeTab === 'tools' ? 'bg-amber-400 text-black shadow' : 'hover:bg-white/10 text-white/80'
             }`}
           >
@@ -126,19 +126,19 @@ export const HelpModal: React.FC<HelpModalProps> = ({
         </div>
 
         {/* Tab Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 select-text">
+        <div className="flex-1 overflow-y-auto p-[var(--space-4)] space-y-[var(--space-4)] select-text">
           {/* 1. Shortcuts Tab */}
           {activeTab === 'shortcuts' && (
-            <div className="space-y-4">
+            <div className="space-y-[var(--space-4)]">
               {shortcutGroups.map((group, gIdx) => (
-                <div key={gIdx} className="space-y-2">
+                <div key={gIdx} className="space-y-[var(--space-2)]">
                   <h3 className="font-bold text-amber-300 uppercase tracking-wider text-[11px] pb-1 border-b border-white/10">
                     {group.title}
                   </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--space-2)]">
                     {group.shortcuts.map((sc, sIdx) => (
-                      <div key={sIdx} className="p-2 bg-black/30 rounded border border-white/10 flex items-start gap-2">
-                        <span className="px-1.5 py-0.5 bg-black/60 border border-amber-400/40 text-amber-300 font-bold rounded text-[var(--fs-8)] shrink-0">
+                      <div key={sIdx} className="p-[var(--space-2)] bg-black/30 rounded border border-white/10 flex items-start gap-[var(--space-2)]">
+                        <span className="px-[var(--space-1)].5 py-[var(--space-1)] bg-black/60 border border-amber-400/40 text-amber-300 font-bold rounded text-[var(--fs-8)] shrink-0">
                           {sc.key}
                         </span>
                         <span className="opacity-90 text-[var(--fs-sm)]">{sc.desc}</span>
@@ -152,25 +152,25 @@ export const HelpModal: React.FC<HelpModalProps> = ({
 
           {/* 2. Dual Panel Tab */}
           {activeTab === 'dual_panel' && (
-            <div className="space-y-3 leading-relaxed text-[var(--fs-sm)]">
-              <div className="p-3 bg-black/40 rounded border border-white/10 space-y-2">
+            <div className="space-y-[var(--space-3)] leading-relaxed text-[var(--fs-sm)]">
+              <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-2)]">
                 <h4 className="text-amber-300 font-bold text-xs uppercase">{t.helpDualPane}</h4>
                 <p>
                   {t.helpDualPaneDesc}
                 </p>
               </div>
 
-              <div className="p-3 bg-black/40 rounded border border-white/10 space-y-2">
+              <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-2)]">
                 <h4 className="text-cyan-300 font-bold text-xs uppercase">{t.helpTabs}</h4>
                 <p>
-                  {t.helpTabsDescPart1}<kbd className="px-1 py-0.5 bg-white/10 rounded">Ctrl + T</kbd>{t.helpTabsDescPart2}<kbd className="px-1 py-0.5 bg-white/10 rounded">Ctrl + W</kbd>{t.helpTabsDescPart3}
+                  {t.helpTabsDescPart1}<kbd className="px-[var(--space-1)] py-[var(--space-1)] bg-white/10 rounded">Ctrl + T</kbd>{t.helpTabsDescPart2}<kbd className="px-[var(--space-1)] py-[var(--space-1)] bg-white/10 rounded">Ctrl + W</kbd>{t.helpTabsDescPart3}
                 </p>
               </div>
 
-              <div className="p-3 bg-black/40 rounded border border-white/10 space-y-2">
+              <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-2)]">
                 <h4 className="text-emerald-300 font-bold text-xs uppercase">{t.helpQuickView}</h4>
                 <p>
-                  {t.helpQuickViewDescPart1}<kbd className="px-1 py-0.5 bg-white/10 rounded">Ctrl + Q</kbd>{t.helpQuickViewDescPart2}
+                  {t.helpQuickViewDescPart1}<kbd className="px-[var(--space-1)] py-[var(--space-1)] bg-white/10 rounded">Ctrl + Q</kbd>{t.helpQuickViewDescPart2}
                 </p>
               </div>
             </div>
@@ -178,12 +178,12 @@ export const HelpModal: React.FC<HelpModalProps> = ({
 
           {/* 3. Commands Tab */}
           {activeTab === 'commands' && (
-            <div className="space-y-3 leading-relaxed text-[var(--fs-sm)]">
+            <div className="space-y-[var(--space-3)] leading-relaxed text-[var(--fs-sm)]">
               <p className="opacity-90">
                 {t.helpCommandsIntro}
               </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--space-2)]">
                 {[
                   { cmd: 'dir / ls', desc: t.helpCmdDirDesc },
                   { cmd: t.helpCmdCdPath, desc: t.helpCmdCdDesc },
@@ -198,7 +198,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                   { cmd: 'date / time', desc: t.helpCmdDateDesc },
                   { cmd: 'help', desc: t.helpCmdHelpDesc },
                 ].map((c, idx) => (
-                  <div key={idx} className="p-2 bg-black/40 rounded border border-white/10">
+                  <div key={idx} className="p-[var(--space-2)] bg-black/40 rounded border border-white/10">
                     <span className="font-bold text-amber-300 block text-xs">{c.cmd}</span>
                     <span className="opacity-80 text-[var(--fs-sm)]">{c.desc}</span>
                   </div>
@@ -209,10 +209,10 @@ export const HelpModal: React.FC<HelpModalProps> = ({
 
           {/* 4. Tools Tab */}
           {activeTab === 'tools' && (
-            <div className="space-y-3 leading-relaxed text-[var(--fs-sm)]">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="p-3 bg-black/40 rounded border border-white/10 space-y-1">
-                  <h4 className="font-bold text-amber-300 flex items-center gap-1.5">
+            <div className="space-y-[var(--space-3)] leading-relaxed text-[var(--fs-sm)]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--space-3)]">
+                <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-1)]">
+                  <h4 className="font-bold text-amber-300 flex items-center gap-[var(--space-2)]">
                     <FileText className="w-3.5 h-3.5" /> {t.helpToolRenameTitle}
                   </h4>
                   <p className="opacity-80 text-[var(--fs-sm)]">
@@ -220,8 +220,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                   </p>
                 </div>
 
-                <div className="p-3 bg-black/40 rounded border border-white/10 space-y-1">
-                  <h4 className="font-bold text-cyan-300 flex items-center gap-1.5">
+                <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-1)]">
+                  <h4 className="font-bold text-cyan-300 flex items-center gap-[var(--space-2)]">
                     <GitCompare className="w-3.5 h-3.5" /> {t.helpToolDiffTitle}
                   </h4>
                   <p className="opacity-80 text-[var(--fs-sm)]">
@@ -229,8 +229,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                   </p>
                 </div>
 
-                <div className="p-3 bg-black/40 rounded border border-white/10 space-y-1">
-                  <h4 className="font-bold text-emerald-300 flex items-center gap-1.5">
+                <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-1)]">
+                  <h4 className="font-bold text-emerald-300 flex items-center gap-[var(--space-2)]">
                     <Search className="w-3.5 h-3.5" /> {t.helpToolSearchTitle}
                   </h4>
                   <p className="opacity-80 text-[var(--fs-sm)]">
@@ -238,8 +238,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                   </p>
                 </div>
 
-                <div className="p-3 bg-black/40 rounded border border-white/10 space-y-1">
-                  <h4 className="font-bold text-fuchsia-300 flex items-center gap-1.5">
+                <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-1)]">
+                  <h4 className="font-bold text-fuchsia-300 flex items-center gap-[var(--space-2)]">
                     <Hash className="w-3.5 h-3.5" /> {t.helpToolChecksumTitle}
                   </h4>
                   <p className="opacity-80 text-[var(--fs-sm)]">
@@ -253,7 +253,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
 
         {/* Footer */}
         <div 
-          className="flex items-center justify-between px-3 py-2 border-t text-xs shrink-0"
+          className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-t text-xs shrink-0"
           style={{
             backgroundColor: theme.modalBg,
             borderColor: theme.modalBorder
@@ -262,7 +262,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           <span className="opacity-70 text-[var(--fs-sm)]">{t.helpFooter}</span>
           <button
             onClick={onClose}
-            className="px-5 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow"
+            className="px-5 py-[var(--space-2)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow"
           >
             {t.btnClose} (Esc)
           </button>

@@ -46,8 +46,8 @@ export const UnlockFolderModal: React.FC<UnlockFolderModalProps> = ({
   return (
     <ModalShell title={t.unlockTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          <div className="text-center space-y-1">
+        <form onSubmit={handleSubmit} className="p-[var(--space-4)] space-y-[var(--space-4)]">
+          <div className="text-center space-y-[var(--space-1)]">
             <div className="w-12 h-12 mx-auto rounded-full bg-red-950/80 border-2 border-amber-400 flex items-center justify-center text-amber-300">
               <Lock className="w-6 h-6" />
             </div>
@@ -56,14 +56,14 @@ export const UnlockFolderModal: React.FC<UnlockFolderModalProps> = ({
           </div>
 
           {hasError && (
-            <div className="p-2 bg-red-950 border border-red-500 text-red-200 font-bold rounded text-[var(--fs-sm)] text-center flex items-center justify-center gap-1.5">
+            <div className="p-[var(--space-2)] bg-red-950 border border-red-500 text-red-200 font-bold rounded text-[var(--fs-sm)] text-center flex items-center justify-center gap-[var(--space-2)]">
               <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
               <span>{t.unlockBadPass}</span>
             </div>
           )}
 
           <div>
-            <label className="block text-[var(--fs-sm)] font-bold mb-1 opacity-80">{t.unlockEnterPass}</label>
+            <label className="block text-[var(--fs-sm)] font-bold mb-[var(--space-1)] opacity-80">{t.unlockEnterPass}</label>
             <input
               type="password"
               value={passwordInput}
@@ -72,22 +72,22 @@ export const UnlockFolderModal: React.FC<UnlockFolderModalProps> = ({
                 setHasError(false);
               }}
               placeholder={t.unlockPassPlaceholder}
-              className="w-full px-3 py-2 bg-black/70 border border-white/20 rounded outline-none focus:border-amber-400 text-white font-mono text-xs text-center tracking-widest"
+              className="w-full px-[var(--space-3)] py-[var(--space-2)] bg-black/70 border border-white/20 rounded outline-none focus:border-amber-400 text-white font-mono text-xs text-center tracking-widest"
               autoFocus
             />
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+          <div className="flex items-center justify-end gap-[var(--space-2)] pt-2 border-t border-white/10">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-1.5 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
+              className="px-[var(--space-4)] py-[var(--space-2)] bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
             >
               {t.btnCancel}
             </button>
             <button
               type="submit"
-              className="px-5 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow flex items-center gap-1.5"
+              className="px-5 py-[var(--space-2)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow flex items-center gap-[var(--space-2)]"
             >
               <Key className="w-3.5 h-3.5" />
               {t.unlockBtn}

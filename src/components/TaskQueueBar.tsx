@@ -85,7 +85,7 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
           }}
           aria-label={t.taskQueue}
           title={t.taskQueue}
-          className="bg-neutral-900 border-2 border-cyan-400 rounded-md shadow-2xl px-3 py-1.5 flex items-center gap-2 text-white hover:bg-cyan-950/90 transition cursor-pointer"
+          className="bg-neutral-900 border-2 border-cyan-400 rounded-md shadow-2xl px-[var(--space-3)] py-[var(--space-2)] flex items-center gap-[var(--space-2)] text-white hover:bg-cyan-950/90 transition cursor-pointer"
         >
           <Activity className="w-3.5 h-3.5 text-cyan-400" />
           <span className="font-bold text-cyan-300">{t.taskQueueShort}</span>
@@ -108,14 +108,14 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
         {/* Header */}
         <div 
           onClick={onOpenTasksModal}
-          className="bg-cyan-950/90 px-3 py-1.5 flex items-center justify-between cursor-pointer border-b border-cyan-500/40 hover:bg-cyan-900/90 transition"
+          className="bg-cyan-950/90 px-[var(--space-3)] py-[var(--space-2)] flex items-center justify-between cursor-pointer border-b border-cyan-500/40 hover:bg-cyan-900/90 transition"
         >
-          <div className="flex items-center gap-2 font-bold text-cyan-300">
+          <div className="flex items-center gap-[var(--space-2)] font-bold text-cyan-300">
             <Activity className="w-4 h-4 animate-pulse text-cyan-400" />
             <span>{t.taskQueueShort} ({activeTasks.length} {t.activeLabel})</span>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-[var(--space-1)]">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -125,7 +125,7 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
               aria-label={t.collapseTaskQueue}
               aria-expanded={true}
               title={t.collapseTaskQueue}
-              className="flex items-center gap-1 px-1.5 py-0.5 border border-cyan-500/60 rounded hover:bg-white/20 cursor-pointer"
+              className="flex items-center gap-[var(--space-1)] px-[var(--space-1)].5 py-[var(--space-1)] border border-cyan-500/60 rounded hover:bg-white/20 cursor-pointer"
             >
               <ChevronDown className="w-3.5 h-3.5" />
             </button>
@@ -133,10 +133,10 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
         </div>
 
         {/* Body */}
-        <div className="p-2.5 space-y-1.5 bg-black/80">
+        <div className="p-[var(--space-2)].5 space-y-[var(--space-2)] bg-black/80">
           <div className="flex items-center justify-between text-[13px]">
             <span className="font-bold truncate text-neutral-200">{topTask.title}</span>
-            <span className="font-bold text-cyan-400 shrink-0 ml-2">{topTask.progress}%</span>
+            <span className="font-bold text-cyan-400 shrink-0 ml-[var(--space-2)]">{topTask.progress}%</span>
           </div>
 
           <RetroProgressBar
@@ -148,7 +148,7 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
           />
 
           {(topTask.status === 'running' || topTask.status === 'paused') && (
-            <div className="flex items-center gap-1.5 text-[12px]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-[var(--space-2)] text-[12px]" onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -156,13 +156,13 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
                   if (topTask.status === 'paused') taskQueue.resumeTask(topTask.id);
                   else taskQueue.pauseTask(topTask.id);
                 }}
-                className="px-1.5 py-0.5 border border-cyan-500/60 rounded text-cyan-300 hover:bg-cyan-950/60 cursor-pointer font-bold"
+                className="px-[var(--space-1)].5 py-[var(--space-1)] border border-cyan-500/60 rounded text-cyan-300 hover:bg-cyan-950/60 cursor-pointer font-bold"
               >
                 {topTask.status === 'paused' ? t.bgTasksResume : t.bgTasksPause}
               </button>
 
               {topTask.serverJobId && (
-                <label className="flex items-center gap-1 opacity-80">
+                <label className="flex items-center gap-[var(--space-1)] opacity-80">
                   <span>{t.speedLimit}</span>
                   <select
                     value={topTask.throttleBps ?? 0}
@@ -175,7 +175,7 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
                       taskQueue.updateTaskMeta(topTask.id, { throttleBps: bps });
                       void fsEngine.setJobThrottle(topTask.serverJobId as string, bps);
                     }}
-                    className="bg-black text-cyan-300 border border-cyan-700 rounded px-1 py-0.5 font-mono cursor-pointer"
+                    className="bg-black text-cyan-300 border border-cyan-700 rounded px-[var(--space-1)] py-[var(--space-1)] font-mono cursor-pointer"
                   >
                     <option value={0}>{t.speedUnlimited}</option>
                     <option value={1048576}>1 MB/s</option>
@@ -188,7 +188,7 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
           )}
 
           {currentFileEntry && (
-            <div className="flex items-center gap-1.5 text-[11px] opacity-70 font-mono">
+            <div className="flex items-center gap-[var(--space-2)] text-[11px] opacity-70 font-mono">
               <span className="truncate flex-1" title={currentFileEntry.path}>
                 {currentFileEntry.name}
               </span>
@@ -208,7 +208,7 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
                 soundManager.playKeyTick();
                 void (window as any).electronAPI.relaunchAsAdmin();
               }}
-              className={`w-full px-1.5 py-1 border rounded cursor-pointer font-bold text-[12px] ${
+              className={`w-full px-[var(--space-1)].5 py-[var(--space-1)] border rounded cursor-pointer font-bold text-[12px] ${
                 needsAdmin
                   ? 'border-amber-400 text-amber-300 bg-amber-950/50 hover:bg-amber-900/70'
                   : 'border-amber-700/50 text-amber-500/80 hover:bg-amber-950/40'

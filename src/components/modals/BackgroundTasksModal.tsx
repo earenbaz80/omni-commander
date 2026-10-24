@@ -95,16 +95,16 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
 
         {/* Action Controls */}
-        <div className="p-3 bg-black/40 border-b border-white/10 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-xs">
+        <div className="p-[var(--space-3)] bg-black/40 border-b border-white/10 flex items-center justify-between gap-[var(--space-2)]">
+          <div className="flex items-center gap-[var(--space-2)] text-xs">
             <span className="font-bold text-cyan-300">{tasks.filter(t => t.status === 'running').length}</span>
             <span className="opacity-75">{t.bgTasksRunning}</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-[var(--space-2)]">
             <button
               onClick={() => { void handleSaveList(); }}
-              className="px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded flex items-center gap-1 font-bold cursor-pointer"
+              className="px-[var(--space-3)] py-[var(--space-1)] bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded flex items-center gap-[var(--space-1)] font-bold cursor-pointer"
             >
               <Save className="w-3 h-3" />
               <span>{t.copyListSave}</span>
@@ -112,7 +112,7 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
 
             <button
               onClick={() => { void handleLoadList(); }}
-              className="px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded flex items-center gap-1 font-bold cursor-pointer"
+              className="px-[var(--space-3)] py-[var(--space-1)] bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded flex items-center gap-[var(--space-1)] font-bold cursor-pointer"
             >
               <FolderOpen className="w-3 h-3" />
               <span>{t.copyListLoad}</span>
@@ -120,7 +120,7 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
 
             <button
               onClick={handleClearCompleted}
-              className="px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded flex items-center gap-1 font-bold cursor-pointer"
+              className="px-[var(--space-3)] py-[var(--space-1)] bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded flex items-center gap-[var(--space-1)] font-bold cursor-pointer"
             >
               <Trash2 className="w-3 h-3" />
               <span>{t.bgTasksClearCompleted}</span>
@@ -129,13 +129,13 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
         </div>
 
         {listStatus && (
-          <div className="px-3 py-1.5 bg-black/60 border-b border-white/10 text-[var(--fs-8)] text-cyan-300 break-all">
+          <div className="px-[var(--space-3)] py-[var(--space-2)] bg-black/60 border-b border-white/10 text-[var(--fs-8)] text-cyan-300 break-all">
             {listStatus}
           </div>
         )}
 
         {/* Task List */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-2 max-h-96">
+        <div className="flex-1 overflow-y-auto p-[var(--space-3)] space-y-[var(--space-2)] max-h-96">
           {tasks.map((task) => {
             const isRunning = task.status === 'running';
             const isPaused = task.status === 'paused';
@@ -144,17 +144,17 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
             return (
               <div 
                 key={task.id}
-                className="p-2.5 bg-black/50 border border-white/10 rounded flex flex-col gap-1.5"
+                className="p-[var(--space-2)].5 bg-black/50 border border-white/10 rounded flex flex-col gap-[var(--space-2)]"
               >
                 <div className="flex items-center justify-between text-[var(--fs-sm)]">
-                  <div className="flex items-center gap-2 font-bold text-white">
-                    <span className="px-1.5 py-0.2 text-[var(--fs-8)] uppercase bg-cyan-950 text-cyan-300 border border-cyan-500/30 rounded">
+                  <div className="flex items-center gap-[var(--space-2)] font-bold text-white">
+                    <span className="px-[var(--space-1)].5 py-0.2 text-[var(--fs-8)] uppercase bg-cyan-950 text-cyan-300 border border-cyan-500/30 rounded">
                       {task.type}
                     </span>
                     <span>{task.title}</span>
                   </div>
 
-                  <div className="flex items-center gap-2 text-[var(--fs-8)]">
+                  <div className="flex items-center gap-[var(--space-2)] text-[var(--fs-8)]">
                     {task.speed && isRunning && (
                       <span className="text-amber-300 font-bold">{task.speed}</span>
                     )}
@@ -184,7 +184,7 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
                 {/* DOS-style per-file rows, newest first: one line per file, each
                     with its own progress readout. */}
                 {task.files && task.files.length > 0 && (
-                  <div className="bg-black/40 border border-white/10 rounded-sm px-2 py-1 max-h-32 overflow-y-auto">
+                  <div className="bg-black/40 border border-white/10 rounded-sm px-[var(--space-2)] py-[var(--space-1)] max-h-32 overflow-y-auto">
                     <div className="flex items-center justify-between text-[var(--fs-8)] uppercase opacity-50">
                       <span>{t.bgTasksFiles}</span>
                       <span className="tabular-nums">{task.files.length}</span>
@@ -204,7 +204,7 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
                       return (
                         <div
                           key={file.path}
-                          className="flex items-center gap-2 text-[var(--fs-8)] font-mono py-0.5"
+                          className="flex items-center gap-[var(--space-2)] text-[var(--fs-8)] font-mono py-[var(--space-1)]"
                           title={file.path}
                         >
                           <span className={`shrink-0 ${tone}`}>{mark}</span>
@@ -219,7 +219,7 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
                 )}
 
                 {task.error && (
-                  <div className="text-[var(--fs-8)] text-rose-300 bg-rose-950/40 border-l-2 border-rose-500 px-2 py-1 rounded-sm break-words">
+                  <div className="text-[var(--fs-8)] text-rose-300 bg-rose-950/40 border-l-2 border-rose-500 px-[var(--space-2)] py-[var(--space-1)] rounded-sm break-words">
                     {task.error}
                   </div>
                 )}
@@ -234,11 +234,11 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
 
                 <div className="flex items-center justify-between text-[var(--fs-8)] opacity-75 tabular-nums">
                   <span>{t.bgTasksProgress.replace('{n}', String(task.progress))}</span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-[var(--space-2)]">
                     {isRunning && (
                       <button
                         onClick={() => handlePause(task.id)}
-                        className="px-2 py-0.5 bg-amber-950/40 hover:bg-amber-900/60 text-amber-300 rounded flex items-center gap-1 cursor-pointer"
+                        className="px-[var(--space-2)] py-[var(--space-1)] bg-amber-950/40 hover:bg-amber-900/60 text-amber-300 rounded flex items-center gap-[var(--space-1)] cursor-pointer"
                       >
                         <Pause className="w-2.5 h-2.5" />
                         <span>{t.bgTasksPause}</span>
@@ -247,7 +247,7 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
                     {isPaused && (
                       <button
                         onClick={() => handleResume(task.id)}
-                        className="px-2 py-0.5 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 rounded flex items-center gap-1 cursor-pointer"
+                        className="px-[var(--space-2)] py-[var(--space-1)] bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 rounded flex items-center gap-[var(--space-1)] cursor-pointer"
                       >
                         <Play className="w-2.5 h-2.5" />
                         <span>{t.bgTasksResume}</span>
@@ -256,7 +256,7 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
                     {(isRunning || isPaused) && (
                       <button
                         onClick={() => handleCancel(task.id)}
-                        className="px-2 py-0.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 rounded flex items-center gap-1 cursor-pointer"
+                        className="px-[var(--space-2)] py-[var(--space-1)] bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 rounded flex items-center gap-[var(--space-1)] cursor-pointer"
                       >
                         <XCircle className="w-2.5 h-2.5" />
                         <span>{t.btnCancel}</span>
@@ -276,7 +276,7 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-2.5 bg-black/60 border-t border-white/10 flex items-center justify-between text-[var(--fs-8)] opacity-75">
+        <div className="p-[var(--space-2)].5 bg-black/60 border-t border-white/10 flex items-center justify-between text-[var(--fs-8)] opacity-75">
           <span>{t.bgTasksNote}</span>
           <span>{t.escToExit}</span>
         </div>

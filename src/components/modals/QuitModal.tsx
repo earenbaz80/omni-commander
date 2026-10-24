@@ -26,7 +26,7 @@ export const QuitModal: React.FC<QuitModalProps> = ({
   return (
     <ModalShell title={t.quitTitle} label={t.btnCancel} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
-        <div className="p-4 space-y-4 text-center">
+        <div className="p-[var(--space-4)] space-y-[var(--space-4)] text-center">
           <p className="text-white text-sm font-bold">
             {t.quitConfirmQuestion}
           </p>
@@ -34,10 +34,10 @@ export const QuitModal: React.FC<QuitModalProps> = ({
             {t.quitSavedNote}
           </p>
 
-          <div className="flex items-center justify-center gap-3 pt-2">
+          <div className="flex items-center justify-center gap-[var(--space-3)] pt-2">
             <button
               onClick={onClose}
-              className="px-4 py-1.5 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
+              className="px-[var(--space-4)] py-[var(--space-2)] bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
             >
               {t.quitStay}
             </button>
@@ -46,7 +46,7 @@ export const QuitModal: React.FC<QuitModalProps> = ({
                 soundManager.playBeep(300, 0.2);
                 onConfirmQuit();
               }}
-              className="px-5 py-1.5 bg-red-600 hover:bg-red-500 text-white font-extrabold rounded cursor-pointer shadow"
+              className="px-5 py-[var(--space-2)] bg-red-600 hover:bg-red-500 text-white font-extrabold rounded cursor-pointer shadow"
             >
               {t.quitToMsDos}
             </button>

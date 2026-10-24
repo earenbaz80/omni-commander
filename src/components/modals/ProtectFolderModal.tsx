@@ -55,15 +55,15 @@ export const ProtectFolderModal: React.FC<ProtectFolderModalProps> = ({
   return (
     <ModalShell title={t.protectTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
-        <div className="p-4 space-y-4">
-          <div className="p-2.5 bg-black/40 rounded border border-white/10 space-y-1">
+        <div className="p-[var(--space-4)] space-y-[var(--space-4)]">
+          <div className="p-[var(--space-2)].5 bg-black/40 rounded border border-white/10 space-y-[var(--space-1)]">
             <span className="text-[var(--fs-8)] opacity-70 uppercase font-bold block">{t.protectTarget}</span>
             <span className="font-bold text-amber-300 text-xs break-all">{folderPath}</span>
           </div>
 
           {isAlreadyProtected ? (
-            <div className="p-3 bg-red-950/60 border border-red-500/50 rounded space-y-3 text-center">
-              <div className="flex items-center justify-center gap-2 text-red-300 font-bold">
+            <div className="p-[var(--space-3)] bg-red-950/60 border border-red-500/50 rounded space-y-[var(--space-3)] text-center">
+              <div className="flex items-center justify-center gap-[var(--space-2)] text-red-300 font-bold">
                 <ShieldCheck className="w-5 h-5 text-red-400" />
                 <span>{t.protectAlready}</span>
               </div>
@@ -72,22 +72,22 @@ export const ProtectFolderModal: React.FC<ProtectFolderModalProps> = ({
               </p>
               <button
                 onClick={handleRemoveProtection}
-                className="w-full py-1.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded cursor-pointer shadow"
+                className="w-full py-[var(--space-2)] bg-red-600 hover:bg-red-500 text-white font-bold rounded cursor-pointer shadow"
               >
                 {t.protectRemove}
               </button>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-[var(--space-3)]">
               {errorMsg && (
-                <div className="p-2 bg-red-950 border border-red-500 text-red-300 font-bold rounded text-[var(--fs-sm)] flex items-center gap-1.5">
+                <div className="p-[var(--space-2)] bg-red-950 border border-red-500 text-red-300 font-bold rounded text-[var(--fs-sm)] flex items-center gap-[var(--space-2)]">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
                   <span>{errorMsg}</span>
                 </div>
               )}
 
               <div>
-                <label className="block text-[var(--fs-sm)] font-bold mb-1 opacity-80">{t.protectNewPass}</label>
+                <label className="block text-[var(--fs-sm)] font-bold mb-[var(--space-1)] opacity-80">{t.protectNewPass}</label>
                 <input
                   type="password"
                   value={password}
@@ -96,13 +96,13 @@ export const ProtectFolderModal: React.FC<ProtectFolderModalProps> = ({
                     setErrorMsg('');
                   }}
                   placeholder={t.protectPassPlaceholder}
-                  className="w-full px-3 py-1.5 bg-black/60 border border-white/20 rounded outline-none focus:border-amber-400 text-white font-mono text-xs"
+                  className="w-full px-[var(--space-3)] py-[var(--space-2)] bg-black/60 border border-white/20 rounded outline-none focus:border-amber-400 text-white font-mono text-xs"
                   autoFocus
                 />
               </div>
 
               <div>
-                <label className="block text-[var(--fs-sm)] font-bold mb-1 opacity-80">{t.protectConfirm}</label>
+                <label className="block text-[var(--fs-sm)] font-bold mb-[var(--space-1)] opacity-80">{t.protectConfirm}</label>
                 <input
                   type="password"
                   value={confirmPassword}
@@ -111,20 +111,20 @@ export const ProtectFolderModal: React.FC<ProtectFolderModalProps> = ({
                     setErrorMsg('');
                   }}
                   placeholder={t.protectConfirmPlaceholder}
-                  className="w-full px-3 py-1.5 bg-black/60 border border-white/20 rounded outline-none focus:border-amber-400 text-white font-mono text-xs"
+                  className="w-full px-[var(--space-3)] py-[var(--space-2)] bg-black/60 border border-white/20 rounded outline-none focus:border-amber-400 text-white font-mono text-xs"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+              <div className="flex items-center justify-end gap-[var(--space-2)] pt-2 border-t border-white/10">
                 <button
                   onClick={onClose}
-                  className="px-4 py-1.5 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
+                  className="px-[var(--space-4)] py-[var(--space-2)] bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
                 >
                   {t.btnCancel}
                 </button>
                 <button
                   onClick={handleSave}
-                  className="px-5 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow flex items-center gap-1.5"
+                  className="px-5 py-[var(--space-2)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow flex items-center gap-[var(--space-2)]"
                 >
                   <Key className="w-3.5 h-3.5" />
                   {t.protectFolder}

@@ -395,23 +395,23 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
       {isLogOpen && (
         <div 
           ref={logContainerRef}
-          className="max-h-44 overflow-y-auto p-2 bg-black/90 border-b border-white/20 select-text font-mono text-[11px] space-y-1.5"
+          className="max-h-44 overflow-y-auto p-[var(--space-2)] bg-black/90 border-b border-white/20 select-text font-mono text-[11px] space-y-[var(--space-2)]"
         >
           <div className="flex items-center justify-between pb-1 border-b border-white/10 opacity-70">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-[var(--space-2)]">
               <span className="font-bold text-amber-400">OmniCommander Pro Shell Console</span>
               {isAdminMode && (
-                <span className="bg-red-600 text-white font-black px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider animate-pulse">
+                <span className="bg-red-600 text-white font-black px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[9px] uppercase tracking-wider animate-pulse">
                   Administrator: ELEVATED
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-[var(--space-2)]">
               {onToggleAdminMode && (
                 <button
                   type="button"
                   onClick={onToggleAdminMode}
-                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded border cursor-pointer ${
+                  className={`text-[10px] font-bold px-[var(--space-1)].5 py-[var(--space-1)] rounded border cursor-pointer ${
                     isAdminMode ? 'bg-amber-400 text-black border-amber-300' : 'bg-black/40 text-slate-300 border-white/20 hover:bg-white/10'
                   }`}
                 >
@@ -420,7 +420,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
               )}
               <button 
                 onClick={onClearHistory}
-                className="hover:text-red-400 cursor-pointer flex items-center gap-0.5 text-[10px]"
+                className="hover:text-red-400 cursor-pointer flex items-center gap-[var(--space-1)] text-[10px]"
               >
                 <Trash2 className="w-3 h-3" /> {t.clearLabel}
               </button>
@@ -438,7 +438,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
           ) : (
             commandHistory.map((item) => (
               <div key={item.id} className="space-y-0.5">
-                <div className="flex items-center gap-1 font-bold text-amber-300">
+                <div className="flex items-center gap-[var(--space-1)] font-bold text-amber-300">
                   <span>{currentPath}&gt;</span>
                   <span className="text-white">{item.command}</span>
                 </div>
@@ -455,18 +455,18 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
 
       {/* Real-Time Command History Autocomplete Popup */}
       {isSuggestionsOpen && suggestions.length > 0 && (
-        <div className="absolute bottom-full left-0 right-0 z-50 mb-0.5 px-2 pointer-events-auto">
+        <div className="absolute bottom-full left-0 right-0 z-50 mb-0.5 px-[var(--space-2)] pointer-events-auto">
           <div 
             className="w-full max-w-2xl bg-neutral-950/95 border-2 border-amber-400/80 rounded shadow-2xl overflow-hidden backdrop-blur font-mono text-[11px] animate-fadeIn"
             style={{ color: theme.itemText }}
           >
             {/* Suggestions Header */}
-            <div className="px-2.5 py-1 bg-amber-950/80 border-b border-amber-400/40 flex items-center justify-between text-[10px] font-bold text-amber-300">
-              <div className="flex items-center gap-1.5">
+            <div className="px-[var(--space-3)] py-[var(--space-1)] bg-amber-950/80 border-b border-amber-400/40 flex items-center justify-between text-[10px] font-bold text-amber-300">
+              <div className="flex items-center gap-[var(--space-2)]">
                 <History className="w-3 h-3 text-amber-400 animate-pulse" />
                 <span>{t.cmdAutocomplete.replace('{n}', String(suggestions.length))}</span>
               </div>
-              <div className="flex items-center gap-2 opacity-80 font-normal">
+              <div className="flex items-center gap-[var(--space-2)] opacity-80 font-normal">
                 <span>{t.keyNavigate}</span>
                 <span>{t.keyComplete}</span>
                 <span>{t.keyRun}</span>
@@ -475,7 +475,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
             </div>
 
             {/* Suggestions List */}
-            <div ref={suggestionsContainerRef} className="max-h-48 overflow-y-auto divide-y divide-white/5 p-1 space-y-0.5">
+            <div ref={suggestionsContainerRef} className="max-h-48 overflow-y-auto divide-y divide-white/5 p-[var(--space-1)] space-y-0.5">
               {suggestions.map((sug, idx) => {
                 const isSelected = selectedSuggestionIndex === idx;
                 const isHistory = sug.source === 'history';
@@ -487,28 +487,28 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
                     onClick={() => applySuggestion(sug.text, false)}
                     onDoubleClick={() => applySuggestion(sug.text, true)}
                     onMouseEnter={() => setSelectedSuggestionIndex(idx)}
-                    className={`flex items-center justify-between px-2 py-1 rounded cursor-pointer transition-colors ${
+                    className={`flex items-center justify-between px-[var(--space-2)] py-[var(--space-1)] rounded cursor-pointer transition-colors ${
                       isSelected
                         ? 'bg-amber-400 text-black font-bold shadow'
                         : 'hover:bg-white/10 text-white/90'
                     }`}
                   >
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className="flex items-center gap-[var(--space-2)] min-w-0 flex-1">
                       <div className="shrink-0 flex items-center">
                         {isHistory ? (
-                          <span className={`px-1 py-0.2 rounded text-[9px] font-bold uppercase flex items-center gap-0.5 ${
+                          <span className={`px-[var(--space-1)] py-0.2 rounded text-[9px] font-bold uppercase flex items-center gap-[var(--space-1)] ${
                             isSelected ? 'bg-black text-amber-300' : 'bg-amber-950/90 text-amber-400 border border-amber-500/40'
                           }`}>
                             <History className="w-2.5 h-2.5" /> {t.historyShort}
                           </span>
                         ) : isBuiltin ? (
-                          <span className={`px-1 py-0.2 rounded text-[9px] font-bold uppercase ${
+                          <span className={`px-[var(--space-1)] py-0.2 rounded text-[9px] font-bold uppercase ${
                             isSelected ? 'bg-black text-cyan-300' : 'bg-cyan-950/90 text-cyan-400 border border-cyan-500/40'
                           }`}>
                             DOS
                           </span>
                         ) : (
-                          <span className={`px-1 py-0.2 rounded text-[9px] font-bold uppercase ${
+                          <span className={`px-[var(--space-1)] py-0.2 rounded text-[9px] font-bold uppercase ${
                             isSelected ? 'bg-black text-emerald-300' : 'bg-emerald-950/90 text-emerald-400 border border-emerald-500/40'
                           }`}>
                             {t.file}
@@ -521,12 +521,12 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 text-[10px] shrink-0 opacity-80 pl-2">
+                    <div className="flex items-center gap-[var(--space-2)] text-[10px] shrink-0 opacity-80 pl-2">
                       {sug.timestamp && (
                         <span className="text-[9px] opacity-60 hidden sm:inline">{sug.timestamp}</span>
                       )}
                       {isSelected ? (
-                        <span className="flex items-center gap-1 font-bold text-black text-[9px] bg-amber-300 px-1 rounded">
+                        <span className="flex items-center gap-[var(--space-1)] font-bold text-black text-[9px] bg-amber-300 px-[var(--space-1)] rounded">
                           <CornerDownLeft className="w-2.5 h-2.5" /> Enter
                         </span>
                       ) : (
@@ -543,12 +543,12 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
 
       {/* Tab Completion Bar (Fallback / Explicit Tab) */}
       {tabState && tabState.matches.length > 0 && !isSuggestionsOpen && (
-        <div className="flex flex-wrap items-center gap-1.5 px-2 py-1 bg-black/80 border-b border-amber-400/30 font-mono text-[11px] select-none text-amber-300">
-          <span className="text-white/70 font-bold flex items-center gap-1 text-[10px]">
-            <kbd className="px-1 py-0.2 bg-amber-400/20 border border-amber-400/40 rounded text-amber-300 font-extrabold text-[9px]">TAB</kbd>
+        <div className="flex flex-wrap items-center gap-[var(--space-2)] px-[var(--space-2)] py-[var(--space-1)] bg-black/80 border-b border-amber-400/30 font-mono text-[11px] select-none text-amber-300">
+          <span className="text-white/70 font-bold flex items-center gap-[var(--space-1)] text-[10px]">
+            <kbd className="px-[var(--space-1)] py-0.2 bg-amber-400/20 border border-amber-400/40 rounded text-amber-300 font-extrabold text-[9px]">TAB</kbd>
             <span>Coincidencias ({tabState.matches.length}):</span>
           </span>
-          <div className="flex items-center gap-1 overflow-x-auto max-w-full no-scrollbar py-0.5">
+          <div className="flex items-center gap-[var(--space-1)] overflow-x-auto max-w-full no-scrollbar py-[var(--space-1)]">
             {tabState.matches.map((match, idx) => {
               const isSelected = idx === tabState.currentIndex;
               return (
@@ -566,7 +566,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
                     });
                     inputRef.current?.focus();
                   }}
-                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono cursor-pointer transition-colors whitespace-nowrap border ${
+                  className={`px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[10px] font-mono cursor-pointer transition-colors whitespace-nowrap border ${
                     isSelected
                       ? 'bg-amber-400 text-black border-amber-300 font-extrabold shadow-sm'
                       : 'bg-black/60 text-amber-200/80 border-white/10 hover:border-amber-400/50 hover:bg-white/10'
@@ -581,12 +581,12 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
       )}
 
       {/* Main Command Input Row */}
-      <form onSubmit={handleSubmit} className="flex items-center px-2 py-1 gap-1 relative">
+      <form onSubmit={handleSubmit} className="flex items-center px-[var(--space-2)] py-[var(--space-1)] gap-[var(--space-1)] relative">
         <button
           type="button"
           onClick={() => setIsLogOpen(!isLogOpen)}
           title={t.toggleConsole}
-          className="p-0.5 hover:bg-white/10 rounded cursor-pointer text-amber-400 shrink-0"
+          className="p-[var(--space-1)] hover:bg-white/10 rounded cursor-pointer text-amber-400 shrink-0"
         >
           {isLogOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
         </button>
@@ -623,7 +623,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-[var(--space-2)] shrink-0">
           {commandHistory.length > 0 && (
             <button
               type="button"
@@ -632,7 +632,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
                 setIsSuggestionsOpen(prev => !prev);
               }}
               title={t.commandHistory}
-              className={`p-1 rounded text-[11px] font-bold flex items-center gap-1 cursor-pointer transition ${
+              className={`p-[var(--space-1)] rounded text-[11px] font-bold flex items-center gap-[var(--space-1)] cursor-pointer transition ${
                 isSuggestionsOpen && suggestions.length > 0
                   ? 'bg-amber-400/30 text-amber-300 border border-amber-400/50'
                   : 'bg-black/30 hover:bg-white/10 text-white/60'
@@ -645,7 +645,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
 
           <button
             type="submit"
-            className="px-2.5 py-0.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded text-[11px] cursor-pointer shadow flex items-center gap-1"
+            className="px-[var(--space-3)] py-[var(--space-1)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded text-[11px] cursor-pointer shadow flex items-center gap-[var(--space-1)]"
           >
             <span>{t.runCommand}</span>
             <CornerDownLeft className="w-3 h-3" />

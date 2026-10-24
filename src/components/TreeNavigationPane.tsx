@@ -112,7 +112,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`group flex items-center justify-between py-0.5 px-1 rounded cursor-pointer transition-all ${
+        className={`group flex items-center justify-between py-[var(--space-1)] px-[var(--space-1)] rounded cursor-pointer transition-all ${
           isDragOver
             ? 'ring-2 ring-amber-400 bg-amber-400/30 text-amber-200 font-bold'
             : isActive
@@ -127,7 +127,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
           onSelectNode(driveId, dirPath);
         }}
       >
-        <div className="flex items-center gap-1.5 min-w-0 truncate">
+        <div className="flex items-center gap-[var(--space-2)] min-w-0 truncate">
           {/* Chevron expander */}
           <button
             onClick={(e) => {
@@ -156,7 +156,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
         </div>
 
         {subdirs.length > 0 && (
-          <span className={`text-[9px] px-1 rounded opacity-60 tabular-nums shrink-0 ml-1 ${isActive ? 'text-black font-bold' : ''}`}>
+          <span className={`text-[9px] px-[var(--space-1)] rounded opacity-60 tabular-nums shrink-0 ml-[var(--space-1)] ${isActive ? 'text-black font-bold' : ''}`}>
             {subdirs.length}
           </span>
         )}
@@ -164,7 +164,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
 
       {/* Recursive children */}
       {isExpanded && (
-        <div className="border-l border-white/10 ml-2.5">
+        <div className="border-l border-white/10 ml-[var(--space-2)].5">
           {filteredSubdirs.map((child) => (
             <TreeNodeItem
               key={child.id}
@@ -184,7 +184,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
 
           {filteredSubdirs.length === 0 && (
             <div 
-              className="text-[10px] opacity-40 italic py-0.5"
+              className="text-[10px] opacity-40 italic py-[var(--space-1)]"
               style={{ paddingLeft: `${Math.max(4, (depth + 1) * 12)}px` }}
             >
               {tGlobal('treeNoSubfolders')}
@@ -233,21 +233,21 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
     >
       {/* Pane Header */}
       <div 
-        className="px-2.5 py-1.5 font-bold flex items-center justify-between border-b shrink-0 text-[11px]"
+        className="px-[var(--space-3)] py-[var(--space-2)] font-bold flex items-center justify-between border-b shrink-0 text-[11px]"
         style={{
           backgroundColor: theme.headerBg,
           color: theme.headerText,
           borderColor: theme.borderPanel
         }}
       >
-        <span className="flex items-center gap-1.5 font-extrabold uppercase tracking-wide">
+        <span className="flex items-center gap-[var(--space-2)] font-extrabold uppercase tracking-wide">
           <FolderTree className="w-3.5 h-3.5" /> Árbol de Carpetas
         </span>
         {onClose && (
           <button 
             onClick={onClose} 
             title={t.hideTreePanel}
-            className="hover:bg-black/20 px-1 py-0.5 rounded cursor-pointer font-bold text-xs"
+            className="hover:bg-black/20 px-[var(--space-1)] py-[var(--space-1)] rounded cursor-pointer font-bold text-xs"
           >
             ✕
           </button>
@@ -255,8 +255,8 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
       </div>
 
       {/* Live Directory Filter Input */}
-      <div className="p-1.5 border-b border-white/10 shrink-0 bg-black/40">
-        <div className="flex items-center gap-1 bg-black/60 border border-white/20 rounded px-1.5 py-1 focus-within:border-amber-400">
+      <div className="p-[var(--space-2)] border-b border-white/10 shrink-0 bg-black/40">
+        <div className="flex items-center gap-[var(--space-1)] bg-black/60 border border-white/20 rounded px-[var(--space-1)].5 py-[var(--space-1)] focus-within:border-amber-400">
           <Search className="w-3 h-3 text-amber-400 shrink-0" />
           <input
             type="text"
@@ -274,14 +274,14 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
       </div>
 
       {/* Scrollable Tree View Content */}
-      <div className="flex-1 overflow-y-auto p-1.5 space-y-3">
+      <div className="flex-1 overflow-y-auto p-[var(--space-2)] space-y-[var(--space-3)]">
         {/* Section 1: Main Libraries / Shortcuts */}
-        <div className="space-y-1">
+        <div className="space-y-[var(--space-1)]">
           <div 
-            className="flex items-center justify-between font-bold text-[10px] uppercase text-amber-300 opacity-90 cursor-pointer hover:opacity-100 px-1"
+            className="flex items-center justify-between font-bold text-[10px] uppercase text-amber-300 opacity-90 cursor-pointer hover:opacity-100 px-[var(--space-1)]"
             onClick={() => toggleExpand('LIBRARIES')}
           >
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-[var(--space-1)]">
               {expandedPaths['LIBRARIES'] ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
               <span>{t.quickAccess}</span>
             </div>
@@ -300,7 +300,7 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
                       soundManager.playDiskAccess();
                       handleSelectNode(lib.driveId, lib.path);
                     }}
-                    className={`w-full text-left px-2 py-1 rounded flex items-center gap-2 cursor-pointer transition-colors text-[11px] truncate ${
+                    className={`w-full text-left px-[var(--space-2)] py-[var(--space-1)] rounded flex items-center gap-[var(--space-2)] cursor-pointer transition-colors text-[11px] truncate ${
                       isActive ? 'bg-amber-400 text-black font-extrabold shadow' : 'hover:bg-white/10 text-white/90'
                     }`}
                   >
@@ -314,15 +314,15 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
         </div>
 
         {/* Section 2: Drives and Recursive Subdirectories */}
-        <div className="space-y-1">
-          <div className="font-bold text-[10px] uppercase text-cyan-300 opacity-90 pb-1 border-b border-white/10 flex items-center justify-between px-1">
-            <span className="flex items-center gap-1">
+        <div className="space-y-[var(--space-1)]">
+          <div className="font-bold text-[10px] uppercase text-cyan-300 opacity-90 pb-1 border-b border-white/10 flex items-center justify-between px-[var(--space-1)]">
+            <span className="flex items-center gap-[var(--space-1)]">
               <HardDrive className="w-3 h-3" /> Unidades de Disco
             </span>
             <span className="text-[9px] opacity-60 tabular-nums">({drives.filter(d => d.isMounted).length})</span>
           </div>
 
-          <div className="space-y-1 pt-0.5">
+          <div className="space-y-[var(--space-1)] pt-0.5">
             {drives.filter(d => d.isMounted).map(drive => {
               const driveLetter = drive.letter;
               const isDriveExpanded = !!expandedPaths[driveLetter];
@@ -341,13 +341,13 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
                       soundManager.playDiskAccess();
                       handleSelectNode(drive.id, driveLetter);
                     }}
-                    className={`flex items-center justify-between px-1.5 py-1 rounded cursor-pointer text-[11px] font-bold transition-all ${
+                    className={`flex items-center justify-between px-[var(--space-1)].5 py-[var(--space-1)] rounded cursor-pointer text-[11px] font-bold transition-all ${
                       isDriveActive 
                         ? 'bg-sky-950 border border-sky-400 text-sky-200' 
                         : 'hover:bg-white/10 text-white/90'
                     }`}
                   >
-                    <div className="flex items-center gap-1.5 min-w-0 truncate">
+                    <div className="flex items-center gap-[var(--space-2)] min-w-0 truncate">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -368,7 +368,7 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
                     </div>
 
                     {rootDirs.length > 0 && (
-                      <span className="text-[9px] opacity-60 tabular-nums shrink-0 ml-1">
+                      <span className="text-[9px] opacity-60 tabular-nums shrink-0 ml-[var(--space-1)]">
                         {rootDirs.length}
                       </span>
                     )}
@@ -376,7 +376,7 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
 
                   {/* Subdirectories for this drive */}
                   {isDriveExpanded && (
-                    <div className="border-l border-white/10 ml-2.5">
+                    <div className="border-l border-white/10 ml-[var(--space-2)].5">
                       {filteredRootDirs.map((sub) => (
                         <TreeNodeItem
                           key={sub.id}
@@ -395,7 +395,7 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
                       ))}
 
                       {filteredRootDirs.length === 0 && (
-                        <div className="text-[10px] opacity-40 italic pl-4 py-0.5">
+                        <div className="text-[10px] opacity-40 italic pl-4 py-[var(--space-1)]">
                           {t.treeEmptyDisk}
                         </div>
                       )}

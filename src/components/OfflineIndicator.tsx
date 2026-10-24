@@ -11,7 +11,7 @@ export const OfflineIndicator: React.FC<{ lang: LanguageCode }> = ({ lang }) => 
   if (isOnline) return null;
 
   return (
-    <div className="fixed bottom-12 left-4 z-50 flex items-center gap-2 rounded bg-amber-600 border border-amber-400 px-3 py-1 text-xs font-bold text-white shadow-2xl font-mono animate-pulse select-none">
+    <div className="fixed bottom-12 left-4 z-50 flex items-center gap-[var(--space-2)] rounded bg-amber-600 border border-amber-400 px-[var(--space-3)] py-[var(--space-1)] text-xs font-bold text-white shadow-2xl font-mono animate-pulse select-none">
       <WifiOff className="w-3.5 h-3.5 text-white" />
       <span>{t.offlineMode}</span>
     </div>

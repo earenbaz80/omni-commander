@@ -43,7 +43,7 @@ export const FreeSpaceModal: React.FC<FreeSpaceModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.freeSpaceTitle);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 font-mono select-none">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-[var(--space-4)] font-mono select-none">
       <div
         ref={dialogRef}
         tabIndex={-1}
@@ -57,47 +57,47 @@ export const FreeSpaceModal: React.FC<FreeSpaceModalProps> = ({
         }}
       >
         <div
-          className="flex items-center justify-between px-3 py-2 border-b font-bold shrink-0"
+          className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-b font-bold shrink-0"
           style={{
             backgroundColor: theme.modalHeaderBg,
             color: theme.modalHeaderText,
             borderColor: theme.modalBorder
           }}
         >
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-[var(--space-2)] min-w-0">
             <HardDriveDownload className="w-4 h-4 shrink-0" />
             <span className="truncate">{t.freeSpaceTitle}</span>
           </div>
           <button
             type="button"
             onClick={onCancel}
-            className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer"
+            className="px-[var(--space-2)] py-[var(--space-1)] bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer"
             aria-label={t.btnCancel}
           >
             ✕
           </button>
         </div>
 
-        <div className="p-4 flex flex-col gap-3">
+        <div className="p-[var(--space-4)] flex flex-col gap-[var(--space-3)]">
           <span className="opacity-75">{t.freeSpaceBody}</span>
 
           <table className="w-full text-[var(--fs-sm)] border border-white/10 rounded">
             <thead>
               <tr className="opacity-60">
-                <th className="text-left font-bold px-2 py-1">{t.freeSpaceVolume}</th>
-                <th className="text-right font-bold px-2 py-1">{t.transferColSize}</th>
-                <th className="text-right font-bold px-2 py-1">{t.freeSpaceFree}</th>
-                <th className="text-right font-bold px-2 py-1">{t.freeSpaceLacking}</th>
+                <th className="text-left font-bold px-[var(--space-2)] py-[var(--space-1)]">{t.freeSpaceVolume}</th>
+                <th className="text-right font-bold px-[var(--space-2)] py-[var(--space-1)]">{t.transferColSize}</th>
+                <th className="text-right font-bold px-[var(--space-2)] py-[var(--space-1)]">{t.freeSpaceFree}</th>
+                <th className="text-right font-bold px-[var(--space-2)] py-[var(--space-1)]">{t.freeSpaceLacking}</th>
               </tr>
             </thead>
             <tbody>
               {volumes.map(volume => (
                 <tr key={volume.volume} className="border-t border-white/10">
-                  <td className="px-2 py-1 font-bold">{volume.volume}</td>
-                  <td className="px-2 py-1 text-right tabular-nums">{formatBytes(volume.size)}</td>
-                  <td className="px-2 py-1 text-right tabular-nums">{formatBytes(volume.free)}</td>
+                  <td className="px-[var(--space-2)] py-[var(--space-1)] font-bold">{volume.volume}</td>
+                  <td className="px-[var(--space-2)] py-[var(--space-1)] text-right tabular-nums">{formatBytes(volume.size)}</td>
+                  <td className="px-[var(--space-2)] py-[var(--space-1)] text-right tabular-nums">{formatBytes(volume.free)}</td>
                   <td
-                    className={`px-2 py-1 text-right tabular-nums font-bold ${volume.lacking > 0 ? 'opacity-50' : ''}`}>
+                    className={`px-[var(--space-2)] py-[var(--space-1)] text-right tabular-nums font-bold ${volume.lacking > 0 ? 'opacity-50' : ''}`}>
                     <span style={{ color: volume.lacking > 0 ? theme.accentDanger : 'inherit' }}>{volume.lacking > 0 ? formatBytes(volume.lacking) : '0 B'}</span>
                   </td>
                 </tr>
@@ -106,18 +106,18 @@ export const FreeSpaceModal: React.FC<FreeSpaceModalProps> = ({
           </table>
         </div>
 
-        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-white/10">
+        <div className="flex items-center justify-end gap-[var(--space-2)] px-[var(--space-4)] py-[var(--space-3)] border-t border-white/10">
           <button
             type="button"
             onClick={onCancel}
-            className="mr-auto px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
+            className="mr-auto px-[var(--space-3)] py-[var(--space-2)] bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
           >
             {t.btnCancel}
           </button>
           <button
             type="button"
             onClick={onForce}
-            className="px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow"
+            className="px-[var(--space-3)] py-[var(--space-2)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow"
           >
             {t.freeSpaceForce}
           </button>

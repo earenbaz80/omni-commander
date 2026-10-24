@@ -38,28 +38,28 @@ export const DeleteModal: React.FC<DeleteModalProps> = ({
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
 
         <div 
-          className="flex items-center justify-between px-3 py-2 border-b font-bold shrink-0 bg-red-900/60 text-white"
+          className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-b font-bold shrink-0 bg-red-900/60 text-white"
           style={{ borderColor: theme.modalBorder }}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-[var(--space-2)]">
             <Trash2 className="w-4 h-4 text-red-300" />
             <span>{t.deleteTitle} (F8 / Supr)</span>
           </div>
-          <button onClick={onClose} className="px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer">✕</button>
+          <button onClick={onClose} className="px-[var(--space-2)] py-[var(--space-1)] bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer">✕</button>
         </div>
 
-        <div className="p-4 space-y-4">
-          <div className="flex items-start gap-3">
+        <div className="p-[var(--space-4)] space-y-[var(--space-4)]">
+          <div className="flex items-start gap-[var(--space-3)]">
             <AlertTriangle className="w-8 h-8 text-amber-400 shrink-0 mt-0.5" />
             <div>
-              <p className="font-bold text-white mb-1">{t.msgConfirmDelete}</p>
+              <p className="font-bold text-white mb-[var(--space-1)]">{t.msgConfirmDelete}</p>
               <p className="opacity-75 text-[var(--fs-sm)]">
                 {t.deleteSummary.replace('{n}', String(items.length)).replace('{size}', totalSize.toLocaleString())}
               </p>
             </div>
           </div>
 
-          <div className="max-h-32 overflow-y-auto bg-black/40 p-2 rounded border border-white/10 text-[var(--fs-sm)] space-y-0.5">
+          <div className="max-h-32 overflow-y-auto bg-black/40 p-[var(--space-2)] rounded border border-white/10 text-[var(--fs-sm)] space-y-0.5">
             {items.map(i => (
               <div key={i.id} className="truncate text-red-300">
                 • {i.name}{i.ext ? `.${i.ext}` : ''} {i.isDirectory ? t.markerFolder : ''}
@@ -67,16 +67,16 @@ export const DeleteModal: React.FC<DeleteModalProps> = ({
             ))}
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+          <div className="flex items-center justify-end gap-[var(--space-2)] pt-2 border-t border-white/10">
             <button
               onClick={onClose}
-              className="px-4 py-1.5 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
+              className="px-[var(--space-4)] py-[var(--space-2)] bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
             >
               {t.btnCancel} (Esc)
             </button>
             <button
               onClick={handleConfirm}
-              className="px-5 py-1.5 bg-red-600 hover:bg-red-500 text-white font-extrabold rounded cursor-pointer shadow"
+              className="px-5 py-[var(--space-2)] bg-red-600 hover:bg-red-500 text-white font-extrabold rounded cursor-pointer shadow"
             >
               {t.delete} (Enter)
             </button>

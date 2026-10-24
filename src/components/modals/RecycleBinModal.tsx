@@ -70,25 +70,25 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
 
         {/* Action Controls */}
-        <div className="p-3 bg-black/40 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-xs">
+        <div className="p-[var(--space-3)] bg-black/40 border-b border-white/10 flex flex-wrap items-center justify-between gap-[var(--space-2)]">
+          <div className="flex items-center gap-[var(--space-2)] text-xs">
             <span className="font-bold text-amber-300">{items.length}</span>
             <span className="opacity-75">{t.binItems}</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-[var(--space-2)]">
             {items.length > 0 && (
               <>
                 <button
                   onClick={handleRestoreAll}
-                  className="px-2.5 py-1 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/40 rounded flex items-center gap-1 font-bold cursor-pointer"
+                  className="px-[var(--space-3)] py-[var(--space-1)] bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/40 rounded flex items-center gap-[var(--space-1)] font-bold cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>{t.binRestoreAll}</span>
                 </button>
                 <button
                   onClick={handleEmptyBin}
-                  className="px-2.5 py-1 bg-rose-600/30 hover:bg-rose-600/50 text-rose-300 border border-rose-500/40 rounded flex items-center gap-1 font-bold cursor-pointer"
+                  className="px-[var(--space-3)] py-[var(--space-1)] bg-rose-600/30 hover:bg-rose-600/50 text-rose-300 border border-rose-500/40 rounded flex items-center gap-[var(--space-1)] font-bold cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>{t.binEmpty}</span>
@@ -99,20 +99,20 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({
         </div>
 
         {/* Item Table */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1 max-h-96">
+        <div className="flex-1 overflow-y-auto p-[var(--space-2)] space-y-[var(--space-1)] max-h-96">
           {items.map((binItem) => {
             const isSelected = selectedId === binItem.id;
             return (
               <div
                 key={binItem.id}
                 onClick={() => setSelectedId(binItem.id)}
-                className={`flex items-center justify-between p-2 rounded transition border ${
+                className={`flex items-center justify-between p-[var(--space-2)] rounded transition border ${
                   isSelected 
                     ? 'bg-amber-500/20 border-amber-400 text-white' 
                     : 'bg-black/30 border-transparent hover:bg-white/5 opacity-90'
                 }`}
               >
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                <div className="flex items-center gap-[var(--space-2)].5 min-w-0 flex-1">
                   {binItem.item.isDirectory ? (
                     <Folder className="w-4 h-4 text-amber-300 shrink-0" />
                   ) : (
@@ -124,14 +124,14 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 shrink-0 text-[var(--fs-sm)] tabular-nums">
+                <div className="flex items-center gap-[var(--space-4)] shrink-0 text-[var(--fs-sm)] tabular-nums">
                   <span className="opacity-60">{formatSize(binItem.item.size)}</span>
                   <span className="opacity-50 text-[var(--fs-8)] hidden sm:inline">{binItem.deletedAt}</span>
 
-                  <div className="flex items-center gap-1.5 ml-2">
+                  <div className="flex items-center gap-[var(--space-2)] ml-[var(--space-2)]">
                     <button
                       onClick={() => handleRestore(binItem.id)}
-                      className="px-2 py-0.5 bg-emerald-700/40 hover:bg-emerald-600 text-emerald-200 rounded text-[var(--fs-8)] font-bold flex items-center gap-1 cursor-pointer"
+                      className="px-[var(--space-2)] py-[var(--space-1)] bg-emerald-700/40 hover:bg-emerald-600 text-emerald-200 rounded text-[var(--fs-8)] font-bold flex items-center gap-[var(--space-1)] cursor-pointer"
                       title={t.binRestoreHint}
                     >
                       <RotateCcw className="w-3 h-3" />
@@ -139,7 +139,7 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({
                     </button>
                     <button
                       onClick={() => handlePermanentDelete(binItem.id)}
-                      className="p-1 text-rose-400 hover:text-rose-200 hover:bg-rose-950/40 rounded cursor-pointer"
+                      className="p-[var(--space-1)] text-rose-400 hover:text-rose-200 hover:bg-rose-950/40 rounded cursor-pointer"
                       title={t.binDeletePerm}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -151,7 +151,7 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({
           })}
 
           {items.length === 0 && (
-            <div className="py-12 flex flex-col items-center justify-center text-center opacity-60 space-y-2">
+            <div className="py-12 flex flex-col items-center justify-center text-center opacity-60 space-y-[var(--space-2)]">
               <CheckCircle2 className="w-10 h-10 text-emerald-400 opacity-60" />
               <span className="text-sm font-bold">{t.binEmptyMsg}</span>
               <span className="text-[var(--fs-sm)]">{t.binEmptyHint}</span>
@@ -160,7 +160,7 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-2.5 bg-black/60 border-t border-white/10 flex items-center justify-between text-[var(--fs-8)] opacity-75">
+        <div className="p-[var(--space-2)].5 bg-black/60 border-t border-white/10 flex items-center justify-between text-[var(--fs-8)] opacity-75">
           <span>{t.recycleBinRestoreHint}</span>
           <span>{t.escToClose}</span>
         </div>

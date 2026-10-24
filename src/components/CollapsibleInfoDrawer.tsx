@@ -71,12 +71,12 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
     >
       {/* Drawer Header Toggle Bar */}
       <div 
-        className="px-2 py-1 flex items-center justify-between cursor-pointer bg-black/30 hover:bg-black/50 text-[11px]"
+        className="px-[var(--space-2)] py-[var(--space-1)] flex items-center justify-between cursor-pointer bg-black/30 hover:bg-black/50 text-[11px]"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <div className="flex items-center gap-3 truncate">
+        <div className="flex items-center gap-[var(--space-3)] truncate">
           <button 
-            className="flex items-center gap-1 font-bold text-amber-400 hover:text-amber-300"
+            className="flex items-center gap-[var(--space-1)] font-bold text-amber-400 hover:text-amber-300"
             title={t.collapseInfoPanel}
           >
             {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
@@ -87,7 +87,7 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
           <span className="opacity-40">|</span>
 
           {/* Quick Drive Meter */}
-          <div className="flex items-center gap-1.5 text-[10px]">
+          <div className="flex items-center gap-[var(--space-2)] text-[10px]">
             <HardDrive className="w-3 h-3 text-cyan-400 shrink-0" />
             <span className="font-bold">{activeDrive.letter}</span>
             <span className="opacity-80 font-mono">{formatSize(activeDrive.freeBytes)} {t.freeLabel} ({100 - usedPercent}%)</span>
@@ -112,10 +112,10 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
         </div>
 
         {/* Right Badges */}
-        <div className="flex items-center gap-2 text-[10px]" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-[var(--space-2)] text-[10px]" onClick={(e) => e.stopPropagation()}>
           {/* Live Digital Clock (Footer position) */}
           {showClock && (clockPosition === 'footer' || clockPosition === 'both') && (
-            <div className="flex items-center gap-1 bg-black/60 border border-amber-400/50 text-amber-300 font-mono text-[10px] px-2 py-0.5 rounded font-bold">
+            <div className="flex items-center gap-[var(--space-1)] bg-black/60 border border-amber-400/50 text-amber-300 font-mono text-[10px] px-[var(--space-2)] py-[var(--space-1)] rounded font-bold">
               <Clock className="w-3 h-3 text-amber-400 animate-pulse" />
               <span>{timeStr}</span>
             </div>
@@ -123,7 +123,7 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
           {/* Protected Folder Flag */}
           <button
             onClick={onProtectFolder}
-            className={`px-2 py-0.5 rounded font-bold border flex items-center gap-1 cursor-pointer transition-colors ${
+            className={`px-[var(--space-2)] py-[var(--space-1)] rounded font-bold border flex items-center gap-[var(--space-1)] cursor-pointer transition-colors ${
               isFolderProtected 
                 ? 'bg-red-950/80 border-red-500 text-red-300 hover:bg-red-900' 
                 : 'bg-black/40 border-white/20 text-white/70 hover:bg-white/10'
@@ -137,7 +137,7 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
           {/* Admin Mode Toggle */}
           <button
             onClick={onToggleAdminMode}
-            className={`px-2 py-0.5 rounded font-bold border flex items-center gap-1 cursor-pointer transition-colors ${
+            className={`px-[var(--space-2)] py-[var(--space-1)] rounded font-bold border flex items-center gap-[var(--space-1)] cursor-pointer transition-colors ${
               isAdminMode 
                 ? 'bg-amber-500/20 border-amber-400 text-amber-300 hover:bg-amber-500/30' 
                 : 'bg-black/40 border-white/20 text-white/60 hover:bg-white/10'
@@ -151,7 +151,7 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
           {/* App Lock Button */}
           <button
             onClick={onLockApp}
-            className="px-2 py-0.5 bg-sky-950/80 border border-sky-400 text-sky-300 hover:bg-sky-900 rounded font-bold flex items-center gap-1 cursor-pointer"
+            className="px-[var(--space-2)] py-[var(--space-1)] bg-sky-950/80 border border-sky-400 text-sky-300 hover:bg-sky-900 rounded font-bold flex items-center gap-[var(--space-1)] cursor-pointer"
             title={t.lockAppWithPassword}
           >
             <ShieldCheck className="w-3 h-3" /> {t.lockApp}
@@ -161,13 +161,13 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
 
       {/* Expanded Detailed Grid */}
       {isExpanded && (
-        <div className="p-3 bg-black/60 border-t border-white/10 grid grid-cols-1 md:grid-cols-4 gap-3 text-[11px] animate-in slide-in-from-bottom-2 duration-150">
+        <div className="p-[var(--space-3)] bg-black/60 border-t border-white/10 grid grid-cols-1 md:grid-cols-4 gap-[var(--space-3)] text-[11px] animate-in slide-in-from-bottom-2 duration-150">
           {/* Col 1: System Hardware Performance */}
-          <div className="p-2.5 bg-black/40 rounded border border-white/10 space-y-1.5">
-            <h5 className="font-bold text-amber-300 uppercase tracking-wider text-[10px] flex items-center gap-1">
+          <div className="p-[var(--space-2)].5 bg-black/40 rounded border border-white/10 space-y-[var(--space-2)]">
+            <h5 className="font-bold text-amber-300 uppercase tracking-wider text-[10px] flex items-center gap-[var(--space-1)]">
               <Cpu className="w-3.5 h-3.5" /> {t.systemPerformance}
             </h5>
-            <div className="space-y-1 text-[10px]">
+            <div className="space-y-[var(--space-1)] text-[10px]">
               <div className="flex justify-between">
                 <span className="opacity-70">{t.cpuLoad}</span>
                 <span className="font-bold text-emerald-400">14% (16 Cores)</span>
@@ -184,11 +184,11 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
           </div>
 
           {/* Col 2: Storage Gauge */}
-          <div className="p-2.5 bg-black/40 rounded border border-white/10 space-y-1.5">
-            <h5 className="font-bold text-cyan-300 uppercase tracking-wider text-[10px] flex items-center gap-1">
+          <div className="p-[var(--space-2)].5 bg-black/40 rounded border border-white/10 space-y-[var(--space-2)]">
+            <h5 className="font-bold text-cyan-300 uppercase tracking-wider text-[10px] flex items-center gap-[var(--space-1)]">
               <HardDrive className="w-3.5 h-3.5" /> {t.capacityOf} {activeDrive.letter}
             </h5>
-            <div className="space-y-1 text-[10px]">
+            <div className="space-y-[var(--space-1)] text-[10px]">
               <div className="flex justify-between">
                 <span className="opacity-70">{t.spaceTotal}</span>
                 <span className="font-bold">{formatSize(activeDrive.totalBytes)}</span>
@@ -205,12 +205,12 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
           </div>
 
           {/* Col 3: Focused File / Folder Card */}
-          <div className="p-2.5 bg-black/40 rounded border border-white/10 space-y-1.5">
-            <h5 className="font-bold text-emerald-300 uppercase tracking-wider text-[10px] flex items-center gap-1">
+          <div className="p-[var(--space-2)].5 bg-black/40 rounded border border-white/10 space-y-[var(--space-2)]">
+            <h5 className="font-bold text-emerald-300 uppercase tracking-wider text-[10px] flex items-center gap-[var(--space-1)]">
               <FileText className="w-3.5 h-3.5" /> {t.focusedElement}
             </h5>
             {focusedItem ? (
-              <div className="space-y-1 text-[10px] truncate">
+              <div className="space-y-[var(--space-1)] text-[10px] truncate">
                 <div className="truncate font-bold text-white">{focusedItem.name}{focusedItem.ext ? `.${focusedItem.ext}` : ''}</div>
                 <div className="flex justify-between opacity-80">
                   <span>{t.typeLabel} {focusedItem.isDirectory ? t.folder : focusedItem.ext || t.file}</span>
@@ -224,11 +224,11 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
           </div>
 
           {/* Col 4: Network & Security Status */}
-          <div className="p-2.5 bg-black/40 rounded border border-white/10 space-y-1.5">
-            <h5 className="font-bold text-purple-300 uppercase tracking-wider text-[10px] flex items-center gap-1">
+          <div className="p-[var(--space-2)].5 bg-black/40 rounded border border-white/10 space-y-[var(--space-2)]">
+            <h5 className="font-bold text-purple-300 uppercase tracking-wider text-[10px] flex items-center gap-[var(--space-1)]">
               <Server className="w-3.5 h-3.5" /> {t.networkSecurity}
             </h5>
-            <div className="space-y-1 text-[10px]">
+            <div className="space-y-[var(--space-1)] text-[10px]">
               <div className="flex justify-between">
                 <span className="opacity-70">{t.sharedNetworks}</span>
                 <span className="text-emerald-400 font-bold">SMB Online</span>

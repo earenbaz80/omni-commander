@@ -40,34 +40,34 @@ export const MkDirModal: React.FC<MkDirModalProps> = ({
   return (
     <ModalShell title={isNewFile ? t.newFileTitle : `${t.mkdirTitle} (F7)`} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+        <form onSubmit={handleSubmit} className="p-[var(--space-4)] space-y-[var(--space-4)]">
           <div>
-            <span className="opacity-75 block mb-1">
+            <span className="opacity-75 block mb-[var(--space-1)]">
               {t.mkdirCreateIn} <strong className="text-white">{currentPath}</strong>
             </span>
-            <label className="block font-bold text-white mb-1">
+            <label className="block font-bold text-white mb-[var(--space-1)]">
               {isNewFile ? t.mkdirFileNameLabel : t.mkdirDirNameLabel}
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-black/50 border border-white/30 rounded px-2.5 py-1.5 text-white font-mono text-xs focus:ring-1 focus:ring-amber-400 outline-none"
+              className="w-full bg-black/50 border border-white/30 rounded px-[var(--space-3)] py-[var(--space-2)] text-white font-mono text-xs focus:ring-1 focus:ring-amber-400 outline-none"
               autoFocus
             />
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+          <div className="flex items-center justify-end gap-[var(--space-2)] pt-2 border-t border-white/10">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-1.5 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
+              className="px-[var(--space-4)] py-[var(--space-2)] bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
             >
               {t.btnCancel} (Esc)
             </button>
             <button
               type="submit"
-              className="px-5 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow"
+              className="px-5 py-[var(--space-2)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow"
             >
               {t.btnOk} (Enter)
             </button>

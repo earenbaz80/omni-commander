@@ -457,7 +457,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const keybindingsTabContent = (
     <SectionCard title={t.settingsKeybindings}>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-1">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--space-1)]">
         {keybindingPresets.map((preset) => (
           <button
             key={preset.id}
@@ -597,7 +597,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         style={{ backgroundColor: theme.modalBg, borderColor: theme.modalBorder, color: theme.itemText }}>
         
         {/* Sidebar - Vertical Tabs */}
-        <div className="flex flex-col gap-0.5 bg-black/30 p-1 border-r border-white/10 shrink-0 min-w-[140px]">
+        <div className="flex flex-col gap-[var(--space-1)] bg-black/30 p-[var(--space-1)] border-r border-white/10 shrink-0 min-w-[140px]">
           {TAB_CONFIG.map(tab => (
             <SettingsTabButton
               key={tab.id}
@@ -612,14 +612,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Content */}
-          <div className="flex-1 overflow-y-auto p-2 space-y-[var(--space-2)]">
+          <div className="flex-1 overflow-y-auto p-[var(--space-2)] space-y-[var(--space-2)]">
             {tabContent[activeTab]}
           </div>
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-between px-2 py-1.5 border-t text-[var(--fs-sm)] shrink-0"
+          <div className="flex items-center justify-between px-[var(--space-2)] py-[var(--space-2)] border-t text-[var(--fs-sm)] shrink-0"
             style={{ backgroundColor: theme.modalBg, borderColor: theme.modalBorder }}>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-[var(--space-1)]">
               <button
                 onClick={() => {
                   const blob = new Blob([JSON.stringify(formData, null, 2)], { type: 'application/json' });
@@ -661,13 +661,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="flex items-center gap-[var(--space-2)]">
               <button
                 onClick={handleCancel}
-                className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
+                className="px-[var(--space-3)] py-[var(--space-1)] bg-white/10 hover:bg-white/20 rounded font-semibold cursor-pointer"
               >
                 <X className="w-3 h-3 mr-0.5" /> {t.btnCancel}
               </button>
               <button
                 onClick={handleSave}
-                className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow flex items-center gap-0.5"
+                className="px-[var(--space-3)] py-[var(--space-1)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow flex items-center gap-[var(--space-1)]"
               >
                 <Save className="w-3 h-3" /> {t.btnSave}
               </button>

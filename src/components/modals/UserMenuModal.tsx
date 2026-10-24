@@ -44,12 +44,12 @@ export const UserMenuModal: React.FC<UserMenuModalProps> = ({
   return (
     <ModalShell title={t.userMenuTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
-        <div className="p-3 space-y-1.5">
+        <div className="p-[var(--space-3)] space-y-[var(--space-2)]">
           {actions.map((act) => (
             <button
               key={act.key}
               onClick={() => handleSelect(act.modal)}
-              className="w-full p-2 rounded bg-black/30 hover:bg-white/15 border border-white/10 flex items-center gap-3 cursor-pointer text-left transition-colors"
+              className="w-full p-[var(--space-2)] rounded bg-black/30 hover:bg-white/15 border border-white/10 flex items-center gap-[var(--space-3)] cursor-pointer text-left transition-colors"
             >
               <span className="w-6 h-6 rounded bg-amber-400 text-black font-extrabold flex items-center justify-center shrink-0">
                 {act.key}
