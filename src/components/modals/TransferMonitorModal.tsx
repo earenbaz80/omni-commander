@@ -8,6 +8,7 @@ import { taskQueue } from '../../services/taskQueueManager';
 import { fsEngine } from '../../services/fileSystem';
 import { RetroProgressBar } from '../RetroProgressBar';
 import { useModalDialog } from '../../hooks/useModalDialog';
+import ModalShell from '../ModalShell';
 
 interface TransferMonitorModalProps {
   theme: ThemeConfig;
@@ -145,66 +146,8 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({
   const canControl = active?.status === 'running' || active?.status === 'paused';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-[var(--space-4)] font-mono select-none">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="flex flex-col rounded shadow-2xl border text-xs overflow-hidden"
-        style={{
-          backgroundColor: theme.modalBg,
-          borderColor: theme.modalBorder,
-          color: theme.itemText,
-          resize: folded ? 'none' : 'both',
-          width: '38rem',
-          minWidth: '22rem',
-          minHeight: folded ? 0 : '16rem',
-          maxWidth: '100%',
-          maxHeight: '100%'
-        }}
-      >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-b font-bold shrink-0"
-          style={{ backgroundColor: theme.modalHeaderBg, borderColor: theme.modalBorder }}
-        >
-          <div className="flex items-center gap-[var(--space-2)]">
-            <Copy className="w-4 h-4" />
-            <span>{t.taskQueueShort}</span>
-            <span className="opacity-60 font-normal">({transfers.length})</span>
-          </div>
-          <div className="flex items-center gap-[var(--space-1)]">
-            <button
-              type="button"
-              onClick={() => {
-                soundManager.playKeyTick();
-                setFolded(value => !value);
-              }}
-              aria-label={folded ? t.transferUnfold : t.transferFold}
-              title={folded ? t.transferUnfold : t.transferFold}
-              className="px-[var(--space-2)] py-[var(--space-1)] bg-black/20 hover:bg-black/40 rounded cursor-pointer"
-            >
-              {folded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={t.minimize}
-              title={`${t.minimize} (Esc)`}
-              className="px-[var(--space-2)] py-[var(--space-1)] bg-black/20 hover:bg-black/40 rounded cursor-pointer"
-            >
-              <Minus className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={t.btnCancel}
-              title={t.btnCancel}
-              className="px-[var(--space-2)] py-[var(--space-1)] bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
+    <ModalShell title={t.taskQueueShort} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
+      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
 
         {/* Progress of whatever is running right now, always visible. */}
         {active && (
@@ -422,6 +365,6 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 };
