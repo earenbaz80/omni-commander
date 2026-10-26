@@ -58,6 +58,9 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(import.meta.dirname, '.'),
       },
     },
+    optimizeDeps: {
+      exclude: ['libarchive.js'],
+    },
     server: {
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},

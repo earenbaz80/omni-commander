@@ -27,6 +27,7 @@ interface ContextMenuProps {
   onRefresh: () => void;
   onProtectFolder: () => void;
   onSplitFile?: () => void;
+  onArchiveInfo?: (item: FileItem) => void;
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({
@@ -50,7 +51,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onUpload,
   onRefresh,
   onProtectFolder,
-  onSplitFile
+  onSplitFile,
+  onArchiveInfo
 }) => {
   const t = getTranslations(lang);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -136,6 +138,37 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           </button>
 
           <div className="h-px bg-current opacity-20 my-[var(--space-1)]" />
+
+          {/* Archive Actions Section */}
+          {(targetItem.ext?.toUpperCase() === 'ZIP' || targetItem.ext?.toUpperCase() === 'RAR' || targetItem.ext?.toUpperCase() === '7Z' || targetItem.ext?.toUpperCase() === 'TAR') && (
+            <>
+              <div className="px-[var(--space-3)] py-[var(--space-1)] text-[10px] uppercase opacity-50 font-bold border-b border-white/10 mb-[var(--space-2)]">
+                {t.archiveActions || 'Archive Actions'}
+              </div>
+
+              <button
+                onClick={() => handleAction(() => onArchiveInfo?.(targetItem))}
+                className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-white/20 flex items-center gap-[var(--space-2)] cursor-pointer"
+              >
+                <span className="flex items-center gap-[var(--space-2)]">
+                  <Info className="w-3.5 h-3.5 text-emerald-300" />
+                  {t.archiveInfo || 'Archive Information'}
+                </span>
+              </button>
+
+              <button
+                onClick={() => handleAction(() => onArchiveInfo?.(targetItem))}
+                className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-white/20 flex items-center gap-[var(--space-2)] cursor-pointer"
+              >
+                <span className="flex items-center gap-[var(--space-2)]">
+                  <RefreshCw className="w-3.5 h-3.5 text-cyan-300" />
+                  {t.detectArchiveFormat || 'Detect Archive Format'}
+                </span>
+              </button>
+
+              <div className="h-px bg-current opacity-20 my-[var(--space-1)]" />
+            </>
+          )}
 
           <button
             onClick={() => handleAction(onZip)}

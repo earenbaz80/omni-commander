@@ -400,11 +400,14 @@ export default function App() {
   // disk directly instead of going through the in-memory catalogue.
   const buildTransferPlan = (
     op: 'copy' | 'move',
-    items: FileItem[],
+    items: FileItem[] | null,
     targetPath: string,
     options: TransferOptions
   ): TransferPlan | undefined => {
-    if (items.length === 0 || !items.every(item => fsEngine.isRealFile(item))) return undefined;
+    // Guardrail: Handle null/undefined items gracefully
+    const normalizedItems = (items ?? []) as FileItem[];
+    
+    if (normalizedItems.length === 0 || !normalizedItems.every(item => fsEngine.isRealFile(item))) return undefined;
     return {
       op,
       sourceDriveId: currentActiveTab.driveId,
@@ -1330,6 +1333,12 @@ export default function App() {
             if (contextMenuState.targetItem) {
               setSelectedFileForModal(contextMenuState.targetItem);
               setActiveModal('file_splitter');
+            }
+          }}
+          onArchiveInfo={() => {
+            if (contextMenuState.targetItem) {
+              setSelectedFileForModal(contextMenuState.targetItem);
+              setActiveModal('archive_info');
             }
           }}
         />

@@ -31,6 +31,7 @@ const CmdWingetLibraryModal = React.lazy(() => import('./modals/CmdWingetLibrary
 const BookmarksHotlistModal = React.lazy(() => import('./modals/BookmarksHotlistModal').then(m => ({ default: m.BookmarksHotlistModal })));
 const RecycleBinModal = React.lazy(() => import('./modals/RecycleBinModal').then(m => ({ default: m.RecycleBinModal })));
 const BackgroundTasksModal = React.lazy(() => import('./modals/BackgroundTasksModal').then(m => ({ default: m.BackgroundTasksModal })));
+const ArchiveInfoModal = React.lazy(() => import('./modals/ArchiveInfoModal').then(m => ({ default: m.ArchiveInfoModal })));
 
 
 type UnlockTarget = {
@@ -476,6 +477,24 @@ export const AppModals: React.FC<AppModalsProps> = ({
             theme={currentTheme}
             lang={lang}
             onRunCopyList={onRunCopyList}
+            onClose={() => setActiveModal(null)}
+          />
+        )}
+
+        {activeModal === 'archive_info' && selectedFileForModal && (
+          <ArchiveInfoModal
+            theme={currentTheme}
+            lang={lang}
+            fileName={selectedFileForModal.name}
+            formatInfo={{ format: selectedFileForModal.ext.toUpperCase() || '' }}
+            fileSize={selectedFileForModal.size || 0}
+            fileDate={new Date(selectedFileForModal.modifiedAt || Date.now())}
+            onExtractAll={() => {
+              setActiveModal('zipArchive');
+            }}
+            onExtractSelected={() => {
+              // Placeholder para extracción selectiva futura
+            }}
             onClose={() => setActiveModal(null)}
           />
         )}

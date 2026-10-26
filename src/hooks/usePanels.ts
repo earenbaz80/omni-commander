@@ -238,6 +238,31 @@ export function usePanels(deps: PanelDeps) {
       return;
     }
 
+    // Detect if we're entering/leaving a virtual archive
+    const targetPanel = panelSide === 'left' ? leftPanel : rightPanel;
+    const activeTab = targetPanel.tabs.find(t => t.id === targetPanel.activeTabId);
+    const currentArchiveRoot = activeTab?.archiveRoot;
+    
+    // Check if newPath is inside an archive
+    let newArchiveRoot: string | undefined;
+    let newVirtualPath: string | undefined;
+    
+    if (currentArchiveRoot && newPath.startsWith(currentArchiveRoot + '\\')) {
+      // Staying inside the same archive - update virtual path
+      newArchiveRoot = currentArchiveRoot;
+      newVirtualPath = newPath.slice(currentArchiveRoot.length + 1);
+    } else if (!currentArchiveRoot) {
+      // Check if new path is an archive root (from openZipArchive)
+      const mount = fsEngine.getArchiveSource(activeTab?.driveId || '', newPath);
+      if (mount) {
+        // Entering an archive
+        newArchiveRoot = newPath;
+        newVirtualPath = '';
+      }
+    }
+    // If we have currentArchiveRoot but newPath doesn't start with it, we're leaving the archive
+    // newArchiveRoot and newVirtualPath remain undefined (clearing archive state)
+
     const targetSet = panelSide === 'left' ? setLeftPanel : setRightPanel;
     targetSet(p => ({
       ...p,
@@ -251,11 +276,13 @@ export function usePanels(deps: PanelDeps) {
           historyIndex: newHistory.length - 1,
           selectedIds: [],
           focusedIndex: 0,
-          filterText: ''
+          filterText: '',
+          archiveRoot: newArchiveRoot ?? (newVirtualPath === undefined ? undefined : tab.archiveRoot),
+          virtualPath: newVirtualPath ?? (newArchiveRoot === undefined ? undefined : tab.virtualPath),
         };
       })
     }));
-  }, [checkFolderPasswordProtection, setLeftPanel, setRightPanel]);
+  }, [checkFolderPasswordProtection, setLeftPanel, setRightPanel, leftPanel, rightPanel]);
 
   // Multi-Tab management
   const handleSelectTab = (panelSide: 'left' | 'right', tabId: string) => {
@@ -283,7 +310,10 @@ export function usePanels(deps: PanelDeps) {
       sortDirection: 'asc',
       filterText: '',
       selectedIds: [],
-      focusedIndex: 0
+      focusedIndex: 0,
+      // Preserve archive navigation state
+      archiveRoot: currentTab.archiveRoot,
+      virtualPath: currentTab.virtualPath,
     };
 
     targetSet(p => ({

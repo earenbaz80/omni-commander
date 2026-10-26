@@ -4,6 +4,13 @@ import { ConflictResolution, Drive, FileItem, FileProgressEntry, FreeSpaceReport
 import { log } from '../utils/logger';
 import { tGlobal } from '../i18n/translations';
 import { fetchWithRetry } from '../utils/fetchWithRetry';
+
+export class ArchivePasswordError extends Error {
+  constructor(public filename: string, public message: string, public reason?: 'required' | 'invalid') {
+    super(`Archive error: ${message}`);
+    this.name = 'ArchivePasswordError';
+  }
+}
 import { calculateFileHashes as calculateFileHashesImpl } from './fileSystemCrypto';
 
 const STORAGE_KEY = 'nc_filesystem_v1';

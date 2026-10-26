@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Folder, FileText, FileCode, FileArchive, Image as ImageIcon, Music, Film, Terminal, Check, File, Copy, Scissors } from 'lucide-react';
+import { Folder, FileText, FileCode, FileArchive, FolderArchive, Package, Archive, Image as ImageIcon, Music, Film, Terminal, Check, File, Copy, Scissors } from 'lucide-react';
 import { FileItem, SortField, SortDirection, ViewMode, LanguageCode } from '../types';
 import { ThemeConfig } from '../services/themeManager';
 import { getTranslations } from '../i18n/translations';
@@ -253,7 +253,19 @@ const FileListComponent: React.FC<FileListProps> = ({
     if (['EXE', 'COM', 'BAT', 'CMD', 'SH', 'PS1'].includes(ext)) {
       return <Terminal className={`${size} text-emerald-400 shrink-0`} style={style} />;
     }
-    if (['ZIP', 'RAR', '7Z', 'TAR', 'GZ', 'ISO'].includes(ext)) {
+    if (ext === 'ZIP') {
+      return <FileArchive className={`${size} text-amber-400 shrink-0`} style={style} />;
+    }
+    if (ext === 'RAR' || ext === 'R00' || ext === 'R01' || ext === 'R10' || ext === 'R99') {
+      return <Package className={`${size} text-purple-400 shrink-0`} style={style} />;
+    }
+    if (ext === '7Z' || ext === '7ZIP') {
+      return <FolderArchive className={`${size} text-cyan-400 shrink-0`} style={style} />;
+    }
+    if (ext === 'TAR' || ext === 'TGZ' || ext === 'TBZ2' || ext === 'TZ' || ext === 'TAZ') {
+      return <Archive className={`${size} text-emerald-400 shrink-0`} style={style} />;
+    }
+    if (['GZ', 'ISO'].includes(ext)) {
       return <FileArchive className={`${size} text-red-400 shrink-0`} style={style} />;
     }
     if (['TXT', 'DOC', 'DOCX', 'PDF', 'MD', 'RTF'].includes(ext)) {

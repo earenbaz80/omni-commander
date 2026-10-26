@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Folder, FolderOpen, ChevronRight, ChevronDown, HardDrive, Library, X, Search, FolderTree } from 'lucide-react';
 import { ThemeConfig } from '../services/themeManager';
 import { Drive, FileItem, LanguageCode } from '../types';
@@ -17,6 +17,9 @@ interface TreeNavigationPaneProps {
   onSelectDrive: (driveId: string) => void;
   onClose?: () => void;
   onDropItems?: (draggedItems: FileItem[], targetPath: string, targetDriveId: string, operation: 'copy' | 'move') => void;
+  // Virtual archive navigation
+  archiveRoot?: string;      // Absolute path of the archive file on disk
+  virtualPath?: string;      // Current path inside the archive (relative to archive root)
 }
 
 interface TreeNodeItemProps {
@@ -201,10 +204,13 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
   lang,
   drives,
   currentPath,
+  currentDriveId,
   onNavigate,
   onSelectDrive,
   onClose,
-  onDropItems
+  onDropItems,
+  archiveRoot,
+  virtualPath
 }) => {
   const t = getTranslations(lang);
   const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({});
@@ -222,6 +228,16 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
 
   // Quick Libraries / Shortcuts (sin unidades simuladas)
   const mainLibraries: any[] = [];
+
+  // Get virtual archive folders when inside an archive
+  const virtualFolders = React.useMemo(() => {
+    if (!archiveRoot) return [];
+    const allItems = fsEngine.getFiles(currentDriveId, archiveRoot);
+    const prefix = virtualPath ? `${archiveRoot}\\${virtualPath}` : archiveRoot;
+    return allItems
+      .filter(f => f.isDirectory && f.path === prefix)
+      .map(f => ({ ...f, displayPath: f.path.slice(archiveRoot.length + 1) }));
+  }, [archiveRoot, virtualPath, currentDriveId]);
 
   return (
     <div 
@@ -312,6 +328,44 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
             </div>
           )}
         </div>
+
+        {/* Section: Virtual Archive Folders (when inside an archive) */}
+        {archiveRoot && virtualFolders.length > 0 && (
+          <div className="space-y-[var(--space-1)]">
+            <div className="font-bold text-[10px] uppercase text-emerald-300 opacity-90 pb-1 border-b border-white/10 flex items-center justify-between px-[var(--space-1)]">
+              <span className="flex items-center gap-[var(--space-1)]">
+                <FolderTree className="w-3 h-3" /> Archive: {archiveRoot?.split('\\').pop()}
+                <span className="text-[9px] bg-emerald-900/50 px-1 rounded border border-emerald-400/30">{archiveRoot?.split('.').pop()?.toUpperCase()}</span>
+              </span>
+              {virtualPath && (
+                <span className="text-[9px] opacity-60">
+                  {virtualPath.split('\\').length} level(s) deep
+                </span>
+              )}
+            </div>
+            <div className="space-y-0.5 pt-0.5">
+              {virtualFolders.map((folder, idx) => {
+                const fullPath = `${archiveRoot}\\${folder.displayPath}`;
+                const isActive = currentPath === fullPath;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      soundManager.playDiskAccess();
+                      handleSelectNode(currentDriveId, fullPath);
+                    }}
+                    className={`w-full text-left px-[var(--space-2)] py-[var(--space-1)] rounded flex items-center gap-[var(--space-2)] cursor-pointer transition-colors text-[11px] truncate ${
+                      isActive ? 'bg-emerald-400 text-black font-extrabold shadow' : 'hover:bg-white/10 text-white/90'
+                    }`}
+                  >
+                    <Folder className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-black' : 'text-emerald-400'}`} />
+                    <span className="truncate">{folder.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Section 2: Drives and Recursive Subdirectories */}
         <div className="space-y-[var(--space-1)]">

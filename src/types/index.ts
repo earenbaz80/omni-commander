@@ -66,6 +66,9 @@ export interface PanelTab {
   selectedIds: string[];
   focusedIndex: number;
   isLocked?: boolean;
+  // Virtual archive navigation state
+  archiveRoot?: string;      // Absolute path of the archive file on disk
+  virtualPath?: string;      // Current path inside the archive (relative to archive root)
 }
 
 export interface PanelState {
@@ -311,6 +314,7 @@ export type ActiveModal =
   | 'properties'
   | 'zip_archive'
   | 'zipArchive'
+  | 'zipPassword'
   | 'disk_usage'
   | 'diskUsage'
   | 'settings'
@@ -335,7 +339,9 @@ export type ActiveModal =
   | 'hotlistBookmarks'
   | 'background_tasks'
   | 'backgroundTasks'
-  | 'transfer_monitor';
+  | 'transfer_monitor'
+  | 'archive_info'
+  | 'archiveInfo';
 
 export interface CommandHistoryItem {
   id: string;
