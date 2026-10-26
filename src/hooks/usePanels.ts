@@ -514,7 +514,7 @@ export function usePanels(deps: PanelDeps) {
       if (item.isDirectory) {
         const newPath = `${item.path}\\${item.name}`;
         handleNavigate(activePanel, newPath);
-      } else if (item.ext.toUpperCase() === 'ZIP' && !item.archiveRoot) {
+      } else if ((['ZIP','RAR','7Z','TAR','GZ','TGZ'].includes(item.ext.toUpperCase())) && !item.archiveRoot) {
         let password: string | undefined;
         for (;;) {
           try {
@@ -525,11 +525,13 @@ export function usePanels(deps: PanelDeps) {
               const next = requestArchivePassword ? await requestArchivePassword(item.name, (e as any).reason === 'invalid') : null;
               if (!next) return;
               password = next;
+            } else if (['RAR','7Z','TAR','GZ','TGZ'].includes(item.ext.toUpperCase()) && (e instanceof Error) && (e.message?.includes('ZIP') || e.message?.includes('password'))) {
+              handleNavigate(activePanel, await fsEngine.openZipArchive(item));
+              return;
             } else throw e;
           }
         }
       } else {
-        if (['RAR', '7Z', 'TAR', 'GZ', 'TGZ'].includes(item.ext.toUpperCase())) throw new Error(tGlobal('zipUnsupported'));
         const content = item.archiveRoot || item.contentEncoding === 'base64'
           ? new TextDecoder().decode(await fsEngine.readFileBytes(item)) : item.content;
         setSelectedFileForModal({ ...item, content });

@@ -78,6 +78,28 @@ export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({
             </div>
           </div>
 
+          {/* TreeSize-style folder hierarchy */}
+          <div>
+            <h3 className="font-bold text-amber-300 mb-[var(--space-2)] uppercase tracking-wider text-[var(--fs-sm)]">TreeSize — Folder Hierarchy</h3>
+            <div className="border border-white/10 rounded overflow-hidden bg-black/40 space-y-1 p-2 text-xs">
+              {(fsEngine as any).getFolderSizes ? (
+                (() => {
+                  const root = (fsEngine as any).getFolderSizes('C:\\');
+                  const renderTree = (item: any, depth = 0) => (
+                    <div key={item.path} style={{ paddingLeft: depth * 12 }}>
+                      <div className="flex justify-between text-white truncate hover:bg-white/10">
+                        <span>📁 {item.name}</span>
+                        <span className="tabular-nums text-amber-300">{(item.sizeBytes / (1024 * 1024)).toFixed(1)} MB / {item.fileCount} files</span>
+                      </div>
+                      {item.subFolders?.map((sub: any) => renderTree(sub, depth + 1))}
+                    </div>
+                  );
+                  return root ? renderTree(root) : <div className="opacity-50">No data</div>;
+                })()
+              ) : <div className="opacity-50">Method not available</div>}
+            </div>
+          </div>
+
           {/* Top 10 Largest Files */}
           <div>
             <h3 className="font-bold text-amber-300 mb-[var(--space-2)] uppercase tracking-wider text-[var(--fs-sm)]">

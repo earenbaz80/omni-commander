@@ -1,5 +1,5 @@
 import React from 'react';
-import { FolderPlus, Copy, Scissors, Trash2, Search, Filter, RefreshCw, Info } from 'lucide-react';
+import { FolderPlus, Copy, Scissors, Trash2, Search, Filter, RefreshCw, Info, FolderTree, Thermometer, Trash } from 'lucide-react';
 import { ThemeConfig } from '../services/themeManager';
 import { ActiveModal, FileItem, PanelState, PanelTab } from '../types';
 import { soundManager } from '../services/soundEffects';
@@ -78,6 +78,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       </button>
       <button onClick={() => { if (activeFocusedItem) { setSelectedFileForModal(activeFocusedItem); setActiveModal('properties'); } }} className='px-[var(--space-2)] py-[var(--space-1)] rounded border' title={t.toolbarProperties}>
         <Info className='w-4 h-4' />
+      </button>
+      <button onClick={() => { setActiveModal('disk_usage'); }} className='px-[var(--space-2)] py-[var(--space-1)] rounded border bg-amber-900/30' title='TreeSize — Folder Hierarchy'>
+        <FolderTree className='w-4 h-4 text-amber-300' />
+      </button>
+      <button onClick={() => { setActiveModal('disk_usage'); }} className='px-[var(--space-2)] py-[var(--space-1)] rounded border bg-cyan-900/30' title='%TEMP% — Open Temp Folder'>
+        <Thermometer className='w-4 h-4 text-cyan-300' />
+      </button>
+      <button onClick={() => { alert('Limpiar %TEMP% y %PREFETCH%'); }} className='px-[var(--space-2)] py-[var(--space-1)] rounded border bg-red-900/30' title='Limpiar Temp / Prefetch'>
+        <Trash className='w-4 h-4 text-red-300' />
       </button>
     </div>
   );

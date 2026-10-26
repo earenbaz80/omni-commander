@@ -28,6 +28,8 @@ interface ContextMenuProps {
   onProtectFolder: () => void;
   onSplitFile?: () => void;
   onArchiveInfo?: (item: FileItem) => void;
+  onSendToDesktop?: () => void;
+  onSendToDocuments?: () => void;
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({
@@ -52,7 +54,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onRefresh,
   onProtectFolder,
   onSplitFile,
-  onArchiveInfo
+  onArchiveInfo,
+  onSendToDesktop,
+  onSendToDocuments
 }) => {
   const t = getTranslations(lang);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -169,6 +173,11 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               <div className="h-px bg-current opacity-20 my-[var(--space-1)]" />
             </>
           )}
+
+          <div className="h-px bg-current opacity-20 my-[var(--space-1)]" />
+          <div className="px-[var(--space-3)] py-[var(--space-1)] text-[10px] uppercase opacity-50 font-bold">Enviar a:</div>
+          <button onClick={() => handleAction(onSendToDesktop)} className="...cursor-pointer"><span>🖥️ Escritorio</span></button>
+          <button onClick={() => handleAction(onSendToDocuments)} className="...cursor-pointer"><span>📄 Documentos</span></button>
 
           <button
             onClick={() => handleAction(onZip)}

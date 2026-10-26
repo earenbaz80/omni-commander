@@ -1350,6 +1350,8 @@ export default function App() {
               setActiveModal('archive_info');
             }
           }}
+          onSendToDesktop={() => alert('Enviar a Escritorio: ' + (contextMenuState.targetItem?.name || 'archivo'))}
+          onSendToDocuments={() => alert('Enviar a Documentos: ' + (contextMenuState.targetItem?.name || 'archivo'))}
         />
       )}
 

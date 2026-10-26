@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import { archiveEntryPath, base64ToBytes, bytesToBase64, loadArchive } from './zipArchive';
-import { ConflictResolution, Drive, FileItem, FileProgressEntry, FreeSpaceReport, PendingConflict, RecycleBinItem, TransferOptions, TransferPlan, TransferPlanEntry } from '../types';
+import { ConflictResolution, Drive, DiskUsageItem, FileItem, FileProgressEntry, FreeSpaceReport, PendingConflict, RecycleBinItem, TransferOptions, TransferPlan, TransferPlanEntry } from '../types';
 import { log } from '../utils/logger';
 import { tGlobal } from '../i18n/translations';
 import { fetchWithRetry } from '../utils/fetchWithRetry';
@@ -1519,6 +1519,35 @@ class FileSystemEngine {
 
     this.saveToStorage();
     return joinedFile;
+  }
+
+  // Recursively compute folder sizes (TreeSize style)
+  public getFolderSizes(path: string, driveId?: string): DiskUsageItem | null {
+    const normPath = this.normalizePath(path);
+    const items = this.getFiles(driveId || this.getActiveDriveId() || 'C');
+    const rootFiles = items.filter(i => i.path === normPath || i.path === normPath + '\\');
+    const folderItem: DiskUsageItem = { path: normPath, name: normPath.split('\\').pop() || normPath, sizeBytes: 0, fileCount: 0, subFolders: [] };
+    const subDirNames = new Set<string>();
+    rootFiles.forEach(f => {
+      const parentDir = f.path;
+      const fullPath = parentDir ? parentDir + '\\' + f.name : f.name;
+      if (f.isDirectory) {
+        subDirNames.add(f.name);
+      } else {
+        folderItem.fileCount++;
+        folderItem.sizeBytes += f.size || 0;
+      }
+    });
+    Array.from(subDirNames).forEach(subName => {
+      const subPath = normPath ? normPath + '\\' + subName : subName;
+      const subItem = this.getFolderSizes(subPath, driveId || this.getActiveDriveId() || 'C');
+      if (subItem) {
+        folderItem.subFolders!.push(subItem);
+        folderItem.sizeBytes += subItem.sizeBytes;
+        folderItem.fileCount += subItem.fileCount;
+      }
+    });
+    return folderItem;
   }
 
   // Reset to factory defaults

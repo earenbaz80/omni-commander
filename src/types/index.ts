@@ -291,6 +291,14 @@ export interface FileOperationProgress {
   error?: string;
 }
 
+export interface DiskUsageItem {
+  path: string;
+  name: string;
+  sizeBytes: number;
+  fileCount: number;
+  subFolders?: DiskUsageItem[];
+}
+
 export type ActiveModal =
   | null
   | 'help'
