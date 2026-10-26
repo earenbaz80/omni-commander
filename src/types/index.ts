@@ -21,6 +21,9 @@ export interface FileItem {
     archive: boolean;
   };
   content?: string; // Text content or base64 data
+  contentEncoding?: 'utf8' | 'base64';
+  archiveRoot?: string;
+  archiveEntry?: string;
   mimeType?: string;
   icon?: string;
   isLocked?: boolean;

@@ -839,6 +839,20 @@ function assertSafePath(value) {
   return path.win32.normalize(rooted);
 }
 
+async function assertArchiveDestination(rootValue, target) {
+  const root = assertSafePath(rootValue);
+  const relative = path.win32.relative(root, target);
+  if (!relative || relative === '..' || relative.startsWith('..\\') || path.win32.isAbsolute(relative)) throw new Error('Invalid destination');
+  let cursor = target;
+  while (true) {
+    const stat = await fs.promises.lstat(cursor).catch(err => { if (err.code !== 'ENOENT') throw err; return null; });
+    if (stat?.isSymbolicLink()) throw new Error('Destination contains a symbolic link');
+    const parent = path.win32.dirname(cursor);
+    if (parent === cursor) break;
+    cursor = parent;
+  }
+}
+
 /**
  * Sizes a tree before a transfer starts. Walks in batches instead of one entry
  * at a time: a folder like Program Files holds tens of thousands of files, and a
@@ -1418,6 +1432,7 @@ function registerFsRoutes() {
   app.post('/api/fs/mkdir', async (req, res) => {
     try {
       const target = assertSafePath((req.body || {}).path);
+      if (req.body.archiveRoot) await assertArchiveDestination(req.body.archiveRoot, target);
       await fs.promises.mkdir(target, { recursive: true });
       invalidateListings();
       res.json({ ok: true, path: target });
@@ -1439,6 +1454,29 @@ function registerFsRoutes() {
       await fs.promises.rename(source, dest);
       invalidateListings();
       res.json({ ok: true, path: dest });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/fs/read-bytes', async (req, res) => {
+    try {
+      const target = assertSafePath((req.body || {}).path);
+      const bytes = await fs.promises.readFile(target);
+      res.type('application/octet-stream').send(bytes);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/fs/write-bytes', express.raw({ type: 'application/octet-stream', limit: '512mb' }), async (req, res) => {
+    try {
+      const target = assertSafePath(req.query.path);
+      await assertArchiveDestination(req.query.root, target);
+      await fs.promises.mkdir(path.win32.dirname(target), { recursive: true });
+      await fs.promises.writeFile(target, req.body, { flag: 'wx' });
+      invalidateListings();
+      res.json({ ok: true, path: target });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
