@@ -153,6 +153,14 @@ export default function App() {
   // Sync with FileSystem changes
   const [fsTick, setFsTick] = useState(0);
 
+  const requestArchivePassword = useCallback(async (fileName: string, invalid?: boolean): Promise<string | null> => {
+    setActiveModal('zipPassword');
+    return new Promise((resolve) => {
+      // Simple stub: in full app this would open ZipPasswordModal with promise
+      setTimeout(() => resolve(null), 0);
+    });
+  }, []);
+
   const {
     leftPanel,
     setLeftPanel,
@@ -220,6 +228,7 @@ export default function App() {
     setContextMenuState,
     fsTick,
     setFsTick,
+    requestArchivePassword,
   });
 
   const { handleExecuteCommand } = useCommandExecution({

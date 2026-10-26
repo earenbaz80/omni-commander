@@ -1356,8 +1356,8 @@ class FileSystemEngine {
     return item;
   }
 
-  public async openZipArchive(source: FileItem): Promise<string> {
-    const zip = await loadArchive(await this.readFileBytes(source), this.realEntryName(source));
+  public async openZipArchive(source: FileItem, password?: string): Promise<string> {
+    const zip = await loadArchive(await this.readFileBytes(source), this.realEntryName(source), password);
     const root = this.realAbsolutePath(source);
     const items: FileItem[] = [];
     for (const entry of Object.values(zip.files)) {

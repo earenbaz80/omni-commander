@@ -19,6 +19,7 @@ interface PanelDeps {
   setContextMenuState: React.Dispatch<React.SetStateAction<{ visible: boolean; x: number; y: number; targetItem: FileItem | null; panelSide: 'left' | 'right' }>>;
   fsTick: number;
   setFsTick: React.Dispatch<React.SetStateAction<number>>;
+  requestArchivePassword?: (fileName: string, invalid?: boolean) => Promise<string | null>;
 }
 
 /**
@@ -42,6 +43,7 @@ export function usePanels(deps: PanelDeps) {
   setContextMenuState,
   fsTick,
   setFsTick,
+  requestArchivePassword,
   } = deps;
 
   // Left & Right Panels State
@@ -513,7 +515,19 @@ export function usePanels(deps: PanelDeps) {
         const newPath = `${item.path}\\${item.name}`;
         handleNavigate(activePanel, newPath);
       } else if (item.ext.toUpperCase() === 'ZIP' && !item.archiveRoot) {
-        handleNavigate(activePanel, await fsEngine.openZipArchive(item));
+        let password: string | undefined;
+        for (;;) {
+          try {
+            handleNavigate(activePanel, await fsEngine.openZipArchive(item, password));
+            return;
+          } catch (e) {
+            if (e instanceof Error && e.name === 'ArchivePasswordError') {
+              const next = requestArchivePassword ? await requestArchivePassword(item.name, (e as any).reason === 'invalid') : null;
+              if (!next) return;
+              password = next;
+            } else throw e;
+          }
+        }
       } else {
         if (['RAR', '7Z', 'TAR', 'GZ', 'TGZ'].includes(item.ext.toUpperCase())) throw new Error(tGlobal('zipUnsupported'));
         const content = item.archiveRoot || item.contentEncoding === 'base64'

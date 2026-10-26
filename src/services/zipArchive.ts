@@ -12,10 +12,10 @@ export function archiveEntryPath(name: string): string {
   return parts.join('\\');
 }
 
-export async function loadArchive(bytes: Uint8Array, name: string): Promise<JSZip> {
+export async function loadArchive(bytes: Uint8Array, name: string, password?: string): Promise<JSZip> {
   let zip: JSZip;
   try {
-    zip = await JSZip.loadAsync(bytes, { checkCRC32: true, createFolders: true });
+    zip = await JSZip.loadAsync(bytes, { checkCRC32: true, createFolders: true, password });
   } catch {
     throw new Error(tGlobal('zipErrCorrupt').replace('{name}', name));
   }
