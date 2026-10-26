@@ -36,9 +36,10 @@ jobs:
 
       - name: Compress release artifacts
         run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
           cd release
-          Compress-Archive -Path "OmniCommander Pro ${{ github.ref_name }}.exe" -DestinationPath "OmniCommander Pro ${{ github.ref_name }}.zip" -Force
-          Compress-Archive -Path "OmniCommander Pro Setup ${{ github.ref_name }}.exe" -DestinationPath "OmniCommander Pro Setup ${{ github.ref_name }}.zip" -Force
+          Compress-Archive -Path "OmniCommander Pro $version.exe" -DestinationPath "OmniCommander Pro $version.zip" -Force
+          Compress-Archive -Path "OmniCommander Pro Setup $version.exe" -DestinationPath "OmniCommander Pro Setup $version.zip" -Force
         shell: pwsh
 
       - name: Upload compressed artifacts
