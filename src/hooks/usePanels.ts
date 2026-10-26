@@ -477,15 +477,24 @@ export function usePanels(deps: PanelDeps) {
   }, [activeItems]);
 
   // Open item
-  const handleOpenItem = useCallback((item: FileItem) => {
-    if (item.isDirectory) {
-      const newPath = `${item.path}\\${item.name}`;
-      handleNavigate(activePanel, newPath);
-    } else {
-      setSelectedFileForModal(item);
-      setActiveModal('viewer');
+  const handleOpenItem = useCallback(async (item: FileItem) => {
+    try {
+      if (item.isDirectory) {
+        const newPath = `${item.path}\\${item.name}`;
+        handleNavigate(activePanel, newPath);
+      } else if (item.ext.toUpperCase() === 'ZIP' && !item.archiveRoot) {
+        handleNavigate(activePanel, await fsEngine.openZipArchive(item));
+      } else {
+        if (['RAR', '7Z', 'TAR', 'GZ', 'TGZ'].includes(item.ext.toUpperCase())) throw new Error(tGlobal('zipUnsupported'));
+        const content = item.archiveRoot || item.contentEncoding === 'base64'
+          ? new TextDecoder().decode(await fsEngine.readFileBytes(item)) : item.content;
+        setSelectedFileForModal({ ...item, content });
+        setActiveModal('viewer');
+      }
+    } catch (error) {
+      alert(error instanceof Error ? error.message : String(error));
     }
-  }, [activePanel,handleNavigate]);
+  }, [activePanel, handleNavigate]);
 
   // Reset quick search on active panel, path, or modal change
   useEffect(() => {

@@ -276,9 +276,9 @@ export const AppModals: React.FC<AppModalsProps> = ({
           <ZipArchiveModal
             theme={currentTheme}
             lang={lang}
-            selectedItems={getSelectedOrFocusedItems()}
+            selectedItems={fsEngine.getArchiveSource(currentActiveTab.driveId, currentActiveTab.currentPath) ? [fsEngine.getArchiveSource(currentActiveTab.driveId, currentActiveTab.currentPath)!] : getSelectedOrFocusedItems()}
             targetDriveId={currentActiveTab.driveId}
-            targetPath={currentActiveTab.currentPath}
+            targetPath={fsEngine.getArchiveSource(currentActiveTab.driveId, currentActiveTab.currentPath) ? currentInactiveTab.currentPath : currentActiveTab.currentPath}
             onCompress={handleCompressZip}
             onExtract={handleExtractZip}
             onClose={() => setActiveModal(null)}

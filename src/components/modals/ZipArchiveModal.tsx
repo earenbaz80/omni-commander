@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileArchive, FolderInput, FolderOutput, Shield } from 'lucide-react';
+import { FolderInput, FolderOutput } from 'lucide-react';
 import { FileItem, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
@@ -34,9 +34,6 @@ export const ZipArchiveModal: React.FC<ZipArchiveModalProps> = ({
   const isArchiveSelected = selectedItems.length === 1 && ['ZIP', 'TAR', 'GZ', 'TGZ', '7Z', 'RAR'].includes(selectedItems[0].ext.toUpperCase());
   const [mode, setMode] = useState<'pack' | 'unpack'>(isArchiveSelected ? 'unpack' : 'pack');
   const [format, setFormat] = useState<ArchiveFormat>('ZIP');
-  const [compressionLevel, setCompressionLevel] = useState<'fast' | 'normal' | 'ultra'>('normal');
-  const [encryptArchive, setEncryptArchive] = useState(false);
-  const [archivePassword, setArchivePassword] = useState('');
 
   const getExtensionForFormat = (fmt: ArchiveFormat) => {
     switch (fmt) {
@@ -55,7 +52,6 @@ export const ZipArchiveModal: React.FC<ZipArchiveModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (mode === 'pack') {
-      soundManager.playSuccess();
       onCompress(finalArchiveName);
     } else {
       if (selectedItems[0]) {
@@ -112,7 +108,7 @@ export const ZipArchiveModal: React.FC<ZipArchiveModalProps> = ({
               <div>
                 <label className="block font-bold text-white mb-[var(--space-1)].5">{t.zipFormat}</label>
                 <div className="grid grid-cols-4 gap-[var(--space-2)]">
-                  {(['ZIP', 'TAR', 'TAR.GZ', '7Z'] as ArchiveFormat[]).map((fmt) => (
+                  {(['ZIP'] as ArchiveFormat[]).map((fmt) => (
                     <button
                       key={fmt}
                       type="button"
@@ -140,44 +136,9 @@ export const ZipArchiveModal: React.FC<ZipArchiveModalProps> = ({
                     autoFocus
                   />
                 </div>
-                <div>
-                  <label className="block font-bold text-white mb-[var(--space-1)]">{t.zipLevel}</label>
-                  <select
-                    value={compressionLevel}
-                    onChange={(e) => setCompressionLevel(e.target.value as any)}
-                    className="w-full bg-black/70 border border-white/30 rounded px-[var(--space-3)] py-[var(--space-2)] text-white font-mono text-xs focus:ring-1 focus:ring-amber-400 outline-none"
-                  >
-                    <option value="fast">{t.zipFast}</option>
-                    <option value="normal">{t.zipNormal}</option>
-                    <option value="ultra">{t.zipUltra}</option>
-                  </select>
-                </div>
               </div>
 
-              {/* Encryption options */}
-              <div className="p-[var(--space-2)] bg-black/40 border border-white/10 rounded space-y-[var(--space-2)]">
-                <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={encryptArchive}
-                    onChange={e => setEncryptArchive(e.target.checked)}
-                    className="rounded border-white/30"
-                  />
-                  <span className="text-white font-semibold flex items-center gap-[var(--space-1)]">
-                    <Shield className="w-3 h-3 text-amber-400" /> {t.zipEncryptAes}
-                  </span>
-                </label>
-
-                {encryptArchive && (
-                  <input
-                    type="password"
-                    value={archivePassword}
-                    onChange={e => setArchivePassword(e.target.value)}
-                    placeholder={t.zipPassPlaceholder}
-                    className="w-full bg-black/60 border border-amber-400/50 rounded px-[var(--space-3)] py-[var(--space-1)] text-white font-mono text-xs outline-none"
-                  />
-                )}
-              </div>
+              <p className="text-[11px] opacity-75">{t.zipUnsupported}</p>
 
               <div className="text-[11px] opacity-75">
                 {t.zipOutput} <strong className="text-amber-300">{finalArchiveName}</strong>

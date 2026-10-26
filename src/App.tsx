@@ -649,6 +649,16 @@ export default function App() {
     options: TransferOptions
   ): Promise<string | undefined> => {
     const items: FileItem[] = transferItems;
+    if (items.some(item => item.archiveRoot) || fsEngine.getArchiveSource(currentInactiveTab.driveId, targetPath)) {
+      return taskQueue.addTask('extract', t.unzipExtract, t.appDest.replace('{path}', targetPath), 0, async () => {
+        if (op !== 'copy' || fsEngine.getArchiveSource(currentInactiveTab.driveId, targetPath)) throw new Error(t.zipReadOnly);
+        for (const item of items) {
+          const source = fsEngine.getArchiveSource(item.driveId, item.path);
+          if (!source) throw new Error(t.zipErrEmpty);
+          await fsEngine.extractZipArchive(source, currentInactiveTab.driveId, targetPath, item.archiveEntry);
+        }
+      });
+    }
     const plan = buildTransferPlan(op, items, targetPath, options);
     if (plan) {
       // The copy window stays open and follows the transfer it started: closing
@@ -838,14 +848,19 @@ export default function App() {
     const items = getSelectedOrFocusedItems();
     if (items.length === 0) return;
     const totalBytes = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
-    taskQueue.addTask('archive', t.appPacking.replace('{name}', archiveName), t.appItemsCount.replace('{n}', String(items.length)), totalBytes);
-    await fsEngine.createZipArchive(items, archiveName, currentActiveTab.driveId, currentActiveTab.currentPath);
+    taskQueue.addTask('archive', t.appPacking.replace('{name}', archiveName), t.appItemsCount.replace('{n}', String(items.length)), totalBytes, async () => {
+      await fsEngine.createZipArchive(items, archiveName, currentActiveTab.driveId, currentActiveTab.currentPath);
+    });
     setActiveModal(null);
   };
 
   const handleExtractZip = async (zipFile: FileItem) => {
-    taskQueue.addTask('extract', t.appUnpacking.replace('{name}', `${zipFile.name}.${zipFile.ext}`), t.appDest.replace('{path}', currentActiveTab.currentPath), zipFile.size);
-    await fsEngine.extractZipArchive(zipFile, currentActiveTab.driveId, currentActiveTab.currentPath);
+    const mounted = fsEngine.getArchiveSource(currentActiveTab.driveId, currentActiveTab.currentPath);
+    const source = mounted || zipFile;
+    const destination = mounted ? currentInactiveTab : currentActiveTab;
+    taskQueue.addTask('extract', t.appUnpacking.replace('{name}', `${source.name}.${source.ext}`), t.appDest.replace('{path}', destination.currentPath), source.size, async () => {
+      await fsEngine.extractZipArchive(source, destination.driveId, destination.currentPath);
+    });
     setActiveModal(null);
   };
 
@@ -861,50 +876,48 @@ export default function App() {
       operation === 'move' ? 'move' : 'copy',
       (operation === 'move' ? t.appMovingDrag : t.appCopyingDrag).replace('{n}', String(draggedItems.length)),
       t.appDest.replace('{path}', targetPath),
-      totalBytes
-    );
-
-    const movedIds = new Set(draggedItems.map(i => i.id));
-
-    void (async () => {
-      for (const item of draggedItems) {
-        // Real-drive entries are written by the server and addressed by
-        // absolute path. The catalogue id is only needed for simulated items,
-        // and a listing refresh mid-drag can invalidate it.
-        if (fsEngine.isRealFile(item)) {
-          const isSameDir = item.driveId === targetDriveId && item.path === targetPath;
-          await fsEngine.transferPaths(operation, [fsEngine.absolutePathOf(item)], targetPath, !isSameDir);
-        } else if (operation === 'move') {
-          await fsEngine.moveItem(item.id, targetDriveId, targetPath);
-        } else {
-          const isSameDir = item.driveId === targetDriveId && item.path === targetPath;
-          await fsEngine.copyItem(item.id, targetDriveId, targetPath, !isSameDir);
+      totalBytes,
+      async () => {
+        if (fsEngine.getArchiveSource(targetDriveId, targetPath)) throw new Error(t.zipReadOnly);
+        const movedIds = new Set(draggedItems.map(i => i.id));
+        for (const item of draggedItems) {
+          // Real-drive entries are written by the server and addressed by
+          // absolute path. The catalogue id is only needed for simulated items,
+          // and a listing refresh mid-drag can invalidate it.
+          if (fsEngine.isRealFile(item)) {
+            const isSameDir = item.driveId === targetDriveId && item.path === targetPath;
+            await fsEngine.transferPaths(operation, [fsEngine.absolutePathOf(item)], targetPath, !isSameDir);
+          } else if (operation === 'move') {
+            await fsEngine.moveItem(item.id, targetDriveId, targetPath);
+          } else {
+            const isSameDir = item.driveId === targetDriveId && item.path === targetPath;
+            await fsEngine.copyItem(item.id, targetDriveId, targetPath, !isSameDir);
+          }
         }
-      }
 
-      if (operation === 'move') {
-        setLeftPanel(p => ({
-          ...p,
-          tabs: p.tabs.map(tab => ({
-            ...tab,
-            selectedIds: tab.selectedIds.filter(id => !movedIds.has(id))
-          }))
-        }));
-        setRightPanel(p => ({
-          ...p,
-          tabs: p.tabs.map(tab => ({
-            ...tab,
-            selectedIds: tab.selectedIds.filter(id => !movedIds.has(id))
-          }))
-        }));
-        // Move-success feedback belongs to a completed move only; a copy has its
-        // own completion signal and must not play the move sound.
-        soundManager.playSuccess();
-      }
-      // Both operations refresh the panes once the transfer actually finished.
-      setFsTick(t => t + 1);
-    })().catch(e => console.error('Drop operation failed', e));
-  }, []);
+        if (operation === 'move') {
+          setLeftPanel(p => ({
+            ...p,
+            tabs: p.tabs.map(tab => ({
+              ...tab,
+              selectedIds: tab.selectedIds.filter(id => !movedIds.has(id))
+            }))
+          }));
+          setRightPanel(p => ({
+            ...p,
+            tabs: p.tabs.map(tab => ({
+              ...tab,
+              selectedIds: tab.selectedIds.filter(id => !movedIds.has(id))
+            }))
+          }));
+          // Move-success feedback belongs to a completed move only; a copy has its
+          // own completion signal and must not play the move sound.
+          soundManager.playSuccess();
+        }
+        // Both operations refresh the panes once the transfer actually finished.
+        setFsTick(t => t + 1);
+      });
+  }, [t]);
 
   const handleDropNativeFiles = useCallback(async (
     files: globalThis.FileList,
