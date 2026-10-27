@@ -1,6 +1,6 @@
 import React from 'react';
-import { HardDrive, BarChart3 } from 'lucide-react';
-import { Drive, FileItem, LanguageCode } from '../../types';
+import { HardDrive } from 'lucide-react';
+import { DiskUsageItem, Drive, FileItem, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { fsEngine } from '../../services/fileSystem';
@@ -12,10 +12,13 @@ interface DiskUsageModalProps {
   theme: ThemeConfig;
   lang: LanguageCode;
   drives: Drive[];
+  /** Drive and directory the TreeSize view is built from (the active panel). */
+  driveId: string;
+  rootPath: string;
   onClose: () => void;
 }
 
-export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({ theme, lang, drives, onClose }) => {
+export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({ theme, lang, drives, driveId, rootPath, onClose }) => {
   const t = getTranslations(lang);
   const allFiles = (fsEngine as any).files as FileItem[];
 
@@ -24,6 +27,25 @@ export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({ theme, lang, dri
     .filter((f) => !f.isDirectory)
     .sort((a, b) => b.size - a.size)
     .slice(0, 10);
+
+  // Built from the active panel's listing index instead of a hard-coded C:\,
+  // which used to crash because getFolderSizes was called without a drive.
+  const tree = React.useMemo(
+    () => (driveId ? fsEngine.getFolderSizes(rootPath || 'C:', driveId) : null),
+    [driveId, rootPath],
+  );
+
+  const renderTree = (item: DiskUsageItem, depth = 0): React.ReactNode => (
+    <div key={item.path} style={{ paddingLeft: depth * 12 }}>
+      <div className="flex justify-between text-white truncate hover:bg-white/10">
+        <span>📁 {item.name}</span>
+        <span className="tabular-nums text-amber-300">
+          {(item.sizeBytes / (1024 * 1024)).toFixed(1)} MB / {item.fileCount} files
+        </span>
+      </div>
+      {item.subFolders?.map((sub) => renderTree(sub, depth + 1))}
+    </div>
+  );
 
   const formatBytes = (bytes: number): string => {
     if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
@@ -88,26 +110,13 @@ export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({ theme, lang, dri
             <h3 className="font-bold text-amber-300 mb-[var(--space-2)] uppercase tracking-wider text-[var(--fs-sm)]">
               TreeSize — Folder Hierarchy
             </h3>
+            {rootPath && (
+              <div className="text-[var(--fs-8)] opacity-60 mb-1 truncate" title={rootPath}>
+                {rootPath}
+              </div>
+            )}
             <div className="border border-white/10 rounded overflow-hidden bg-black/40 space-y-1 p-2 text-xs">
-              {(fsEngine as any).getFolderSizes ? (
-                (() => {
-                  const root = (fsEngine as any).getFolderSizes('C:\\');
-                  const renderTree = (item: any, depth = 0) => (
-                    <div key={item.path} style={{ paddingLeft: depth * 12 }}>
-                      <div className="flex justify-between text-white truncate hover:bg-white/10">
-                        <span>📁 {item.name}</span>
-                        <span className="tabular-nums text-amber-300">
-                          {(item.sizeBytes / (1024 * 1024)).toFixed(1)} MB / {item.fileCount} files
-                        </span>
-                      </div>
-                      {item.subFolders?.map((sub: any) => renderTree(sub, depth + 1))}
-                    </div>
-                  );
-                  return root ? renderTree(root) : <div className="opacity-50">No data</div>;
-                })()
-              ) : (
-                <div className="opacity-50">Method not available</div>
-              )}
+              {tree ? renderTree(tree) : <div className="opacity-50">No data</div>}
             </div>
           </div>
 

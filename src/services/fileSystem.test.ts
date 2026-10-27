@@ -143,6 +143,33 @@ describe('FileSystemEngine defaults', () => {
     }
   });
 
+  it('getFolderSizes sums files recursively for the requested drive', () => {
+    fsEngine.resetToDefaults();
+    fsEngine.setDrives([
+      { id: 'real_T', letter: 'T:', name: 'Test', type: 'local', totalBytes: 1, freeBytes: 1, isMounted: true },
+    ]);
+    fsEngine.createDirectory('real_T', 'T:', 'alpha');
+    fsEngine.createDirectory('real_T', 'T:\\alpha', 'nested');
+    fsEngine.createFile('real_T', 'T:', 'root.txt', '12345');
+    fsEngine.createFile('real_T', 'T:\\alpha', 'a.txt', '123');
+    fsEngine.createFile('real_T', 'T:\\alpha\\nested', 'n.txt', 'x');
+    // Same path on another drive must not leak into the tree.
+    fsEngine.createFile('real_OTHER', 'T:', 'ignored.txt', 'xxxx');
+
+    const tree = fsEngine.getFolderSizes('T:', 'real_T');
+    expect(tree).not.toBeNull();
+    expect(tree!.name).toBe('T:');
+    expect(tree!.sizeBytes).toBe(9);
+    expect(tree!.fileCount).toBe(3);
+    expect(tree!.subFolders!.map((folder) => folder.name)).toEqual(['alpha']);
+
+    const alpha = tree!.subFolders![0];
+    expect(alpha.sizeBytes).toBe(4);
+    expect(alpha.fileCount).toBe(2);
+
+    fsEngine.resetToDefaults();
+  });
+
   it('strips content from the payload written to localStorage', async () => {
     fsEngine.resetToDefaults();
     try {

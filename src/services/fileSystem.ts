@@ -1671,38 +1671,47 @@ class FileSystemEngine {
     return joinedFile;
   }
 
-  // Recursively compute folder sizes (TreeSize style)
-  public getFolderSizes(path: string, driveId?: string): DiskUsageItem | null {
+  /**
+   * Recursively computes folder sizes (TreeSize style) from the in-memory
+   * listing index. The caller must name the drive: the engine has no notion of
+   * an "active" drive, and the previous fallback called a method that does not
+   * exist, so every invocation without a driveId threw a TypeError.
+   *
+   * Only directories that have been listed contribute bytes; a bucket that was
+   * never loaded (or was evicted by the LRU) simply adds nothing until it is
+   * fetched again.
+   */
+  public getFolderSizes(path: string, driveId: string): DiskUsageItem | null {
+    if (!driveId) return null;
     const normPath = this.normalizePath(path);
-    const items = this.getFiles(driveId || this.getActiveDriveId() || 'C');
-    const rootFiles = items.filter((i) => i.path === normPath || i.path === normPath + '\\');
+    const items = this.getFiles(driveId, normPath);
+    const trimmed = normPath.replace(/\\+$/, '');
     const folderItem: DiskUsageItem = {
       path: normPath,
-      name: normPath.split('\\').pop() || normPath,
+      name: trimmed.split('\\').pop() || normPath,
       sizeBytes: 0,
       fileCount: 0,
       subFolders: [],
     };
+
     const subDirNames = new Set<string>();
-    rootFiles.forEach((f) => {
-      const parentDir = f.path;
-      const fullPath = parentDir ? parentDir + '\\' + f.name : f.name;
-      if (f.isDirectory) {
-        subDirNames.add(f.name);
+    for (const item of items) {
+      if (item.isDirectory) {
+        subDirNames.add(item.name);
       } else {
         folderItem.fileCount++;
-        folderItem.sizeBytes += f.size || 0;
+        folderItem.sizeBytes += item.size || 0;
       }
-    });
-    Array.from(subDirNames).forEach((subName) => {
-      const subPath = normPath ? normPath + '\\' + subName : subName;
-      const subItem = this.getFolderSizes(subPath, driveId || this.getActiveDriveId() || 'C');
-      if (subItem) {
-        folderItem.subFolders!.push(subItem);
-        folderItem.sizeBytes += subItem.sizeBytes;
-        folderItem.fileCount += subItem.fileCount;
-      }
-    });
+    }
+
+    for (const subName of subDirNames) {
+      const subItem = this.getFolderSizes(this.childAbsolutePath(normPath, subName), driveId);
+      if (!subItem) continue;
+      folderItem.subFolders!.push(subItem);
+      folderItem.sizeBytes += subItem.sizeBytes;
+      folderItem.fileCount += subItem.fileCount;
+    }
+
     return folderItem;
   }
 

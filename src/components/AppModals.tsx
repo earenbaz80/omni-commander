@@ -334,7 +334,14 @@ export const AppModals: React.FC<AppModalsProps> = ({
         )}
 
         {activeModal === 'disk_usage' && (
-          <DiskUsageModal theme={currentTheme} lang={lang} drives={drives} onClose={() => setActiveModal(null)} />
+          <DiskUsageModal
+            theme={currentTheme}
+            lang={lang}
+            drives={drives}
+            driveId={currentActiveTab.driveId}
+            rootPath={currentActiveTab.currentPath}
+            onClose={() => setActiveModal(null)}
+          />
         )}
 
         {activeModal === 'properties' && selectedFileForModal && (
