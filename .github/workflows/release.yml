@@ -1,16 +1,48 @@
-name: Release Electron App
+name: CI and Release
 
 on:
   push:
+    branches:
+      - master
     tags:
       - 'v*'
+  pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  build:
+  # The matrix has to install a concrete version, and repeating the floor by hand
+  # is exactly how it drifts from the declaration it is supposed to test.
+  engines:
+    name: Node floor from package.json
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      floor: ${{ steps.read.outputs.floor }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # `node` ships with the hosted runner and this only reads a string, so the
+      # job needs neither setup-node nor the dependency tree.
+      - name: Read engines.node
+        id: read
+        run: echo "floor=$(node scripts/engines-floor.cjs)" >> "$GITHUB_OUTPUT"
+
+  verify:
+    name: Typecheck, lint, format and tests (Node ${{ matrix.node-version }})
+    needs: engines
     runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      # Both legs report even when one fails, so a red floor is not hidden by a
+      # green latest.
+      fail-fast: false
+      matrix:
+        # The floor read from engines.node, plus the newest 22.x, which is what
+        # the release job runs on ('22' means the latest 22.x).
+        node-version: ['${{ needs.engines.outputs.floor }}', '22']
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -18,11 +50,51 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      # npm only warns when the runner's Node misses engines.node, so the flag
+      # makes that mismatch a failed install (it also holds dependencies' claims).
+      - name: Install dependencies
+        run: npm ci --engine-strict
+
+      # .gitattributes checks text files out with LF, so this gate compares the
+      # same bytes on the Windows runner as it does locally.
+      - name: Formatting
+        run: npm run format:check
+
+      - name: Typecheck
+        run: npm run lint
+
+      - name: Lint
+        run: npm run lint:eslint
+
+      # The default worker count is flaky on the CI runner; the suite is stable
+      # with an explicit cap.
+      - name: Unit tests
+        run: npm test -- --maxWorkers=2
+
+  build:
+    name: Build and publish
+    needs: verify
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # '22' means the latest 22.x, which must keep satisfying engines.node
+          # in package.json (the floor comes from jsdom, not from our own code).
           node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --engine-strict
 
       - name: Build Electron app
         run: npm run build:electron
