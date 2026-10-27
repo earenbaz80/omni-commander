@@ -14,14 +14,7 @@ interface HoverPreviewTooltipProps {
   showThumbnail: boolean;
 }
 
-export const HoverPreviewTooltip: React.FC<HoverPreviewTooltipProps> = ({
-  theme,
-  lang,
-  item,
-  x,
-  y,
-  showThumbnail
-}) => {
+export const HoverPreviewTooltip: React.FC<HoverPreviewTooltipProps> = ({ theme, lang, item, x, y, showThumbnail }) => {
   const t = getTranslations(lang);
 
   if (!item) return null;
@@ -31,7 +24,8 @@ export const HoverPreviewTooltip: React.FC<HoverPreviewTooltipProps> = ({
 
   const formatSize = (bytes: number): string => {
     if (item.isDirectory) return t.markerDirectory;
-    if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB (${bytes.toLocaleString()} bytes)`;
+    if (bytes >= 1024 * 1024 * 1024)
+      return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB (${bytes.toLocaleString()} bytes)`;
     if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB (${bytes.toLocaleString()} bytes)`;
     if (bytes >= 1024) return `${(bytes / 1024).toFixed(2)} KB (${bytes.toLocaleString()} bytes)`;
     return `${bytes} bytes`;
@@ -53,18 +47,21 @@ export const HoverPreviewTooltip: React.FC<HoverPreviewTooltipProps> = ({
         width: `${tooltipWidth}px`,
         backgroundColor: theme.modalBg,
         borderColor: theme.borderFocus,
-        color: theme.itemText
+        color: theme.itemText,
       }}
     >
       {/* Header bar */}
-      <div 
+      <div
         className="px-[var(--space-3)] py-[var(--space-1)] border-b font-bold flex items-center justify-between truncate text-[11px]"
         style={{
           backgroundColor: theme.modalHeaderBg,
-          color: theme.modalHeaderText
+          color: theme.modalHeaderText,
         }}
       >
-        <span className="truncate">{item.name}{item.ext ? `.${item.ext}` : ''}</span>
+        <span className="truncate">
+          {item.name}
+          {item.ext ? `.${item.ext}` : ''}
+        </span>
       </div>
 
       {/* Floating Image Thumbnail Preview if image and enabled */}
@@ -100,19 +97,28 @@ export const HoverPreviewTooltip: React.FC<HoverPreviewTooltipProps> = ({
       {/* Item Metadata Details */}
       <div className="p-[var(--space-2)] space-y-[var(--space-1)] text-[10px] bg-black/30">
         <div className="flex items-center justify-between">
-          <span className="opacity-60 flex items-center gap-[var(--space-1)]"><HardDrive className="w-2.5 h-2.5" /> {t.sizeLabel}</span>
+          <span className="opacity-60 flex items-center gap-[var(--space-1)]">
+            <HardDrive className="w-2.5 h-2.5" /> {t.sizeLabel}
+          </span>
           <span className="font-bold text-white tabular-nums">{formatSize(item.size)}</span>
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="opacity-60 flex items-center gap-[var(--space-1)]"><Calendar className="w-2.5 h-2.5" /> {t.modifiedLabel}</span>
+          <span className="opacity-60 flex items-center gap-[var(--space-1)]">
+            <Calendar className="w-2.5 h-2.5" /> {t.modifiedLabel}
+          </span>
           <span className="text-white tabular-nums">{item.modifiedAt.substring(0, 16)}</span>
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="opacity-60 flex items-center gap-[var(--space-1)]"><Shield className="w-2.5 h-2.5" /> {t.attributesLabel}</span>
+          <span className="opacity-60 flex items-center gap-[var(--space-1)]">
+            <Shield className="w-2.5 h-2.5" /> {t.attributesLabel}
+          </span>
           <span className="text-amber-300 tracking-widest font-bold">
-            {item.attributes.readOnly ? 'R' : '-'}{item.attributes.hidden ? 'H' : '-'}{item.attributes.archive ? 'A' : '-'}{item.attributes.system ? 'S' : '-'}
+            {item.attributes.readOnly ? 'R' : '-'}
+            {item.attributes.hidden ? 'H' : '-'}
+            {item.attributes.archive ? 'A' : '-'}
+            {item.attributes.system ? 'S' : '-'}
           </span>
         </div>
       </div>

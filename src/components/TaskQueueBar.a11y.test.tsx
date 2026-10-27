@@ -20,7 +20,7 @@ describe('TaskQueueBar accessibility', () => {
     // Newest row last, which is how the engine reports them.
     taskQueue.updateTaskFiles(id, [
       { path: 'C:\\dst\\a.bin', name: 'a.bin', size: 1024, copied: 1024, status: 'done' },
-      { path: 'C:\\dst\\b.bin', name: 'b.bin', size: 1024, copied: 512, status: 'copying' }
+      { path: 'C:\\dst\\b.bin', name: 'b.bin', size: 1024, copied: 512, status: 'copying' },
     ]);
 
     render(<TaskQueueBar onOpenTasksModal={vi.fn()} lang="en" theme={themes.classic_blue} />);

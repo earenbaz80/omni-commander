@@ -19,10 +19,7 @@ export const MODAL_FOCUSABLE_SELECTOR = [
  * Escape is intentionally not handled here: App owns the global keyboard
  * engine and already closes the active modal.
  */
-export function useModalDialog<T extends HTMLElement>(
-  label: string,
-  externalRef?: React.RefObject<T>
-) {
+export function useModalDialog<T extends HTMLElement>(label: string, externalRef?: React.RefObject<T>) {
   const internalRef = useRef<T>(null);
   const ref = externalRef ?? internalRef;
 
@@ -55,9 +52,7 @@ export function useModalDialog<T extends HTMLElement>(
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Tab') return;
 
-      const focusables = Array.from(
-        panel.querySelectorAll<HTMLElement>(MODAL_FOCUSABLE_SELECTOR)
-      );
+      const focusables = Array.from(panel.querySelectorAll<HTMLElement>(MODAL_FOCUSABLE_SELECTOR));
       if (focusables.length === 0) {
         event.preventDefault();
         panel.focus();

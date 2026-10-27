@@ -90,11 +90,10 @@ test('every modal control has an accessible name', async ({ page }) => {
   // elements in the app carrying aria-pressed, so this hook is structural
   // (no style classes) and language independent. polling keeps it alive even
   // when requestAnimationFrame is throttled.
-  await page.waitForFunction(
-    () => document.querySelectorAll('button[aria-pressed]').length > 20,
-    undefined,
-    { timeout: 60000, polling: 500 }
-  );
+  await page.waitForFunction(() => document.querySelectorAll('button[aria-pressed]').length > 20, undefined, {
+    timeout: 60000,
+    polling: 500,
+  });
 
   const problems: Array<{ modal: string; nameless: Array<{ cls: string; html: string }> }> = [];
 

@@ -17,9 +17,7 @@ import { render, cleanup, act } from '@testing-library/react';
  * that the drop contract does not depend on.
  */
 
-let capturedOnDropItems:
-  | ((items: any[], path: string, driveId: string, op: 'copy' | 'move') => void)
-  | null = null;
+let capturedOnDropItems: ((items: any[], path: string, driveId: string, op: 'copy' | 'move') => void) | null = null;
 
 vi.mock('./components/PanelView', () => ({
   PanelView: (props: any) => {
@@ -88,7 +86,10 @@ describe('App handleDropItems', () => {
 
     let resolveMove: () => void = () => {};
     vi.spyOn(fsEngine, 'transferPaths').mockImplementationOnce(
-      () => new Promise<void>((resolve) => { resolveMove = () => resolve(); })
+      () =>
+        new Promise<void>((resolve) => {
+          resolveMove = () => resolve();
+        }),
     );
 
     await act(async () => {

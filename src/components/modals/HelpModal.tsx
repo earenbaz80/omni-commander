@@ -14,13 +14,11 @@ interface HelpModalProps {
   onClose: () => void;
 }
 
-export const HelpModal: React.FC<HelpModalProps> = ({
-  theme,
-  lang,
-  onClose
-}) => {
+export const HelpModal: React.FC<HelpModalProps> = ({ theme, lang, onClose }) => {
   const t = getTranslations(lang);
-  const [activeTab, setActiveTab] = useState<'shortcuts' | 'dual_panel' | 'commands' | 'tools' | 'storybook'>('shortcuts');
+  const [activeTab, setActiveTab] = useState<'shortcuts' | 'dual_panel' | 'commands' | 'tools' | 'storybook'>(
+    'shortcuts',
+  );
 
   const shortcutGroups = [
     {
@@ -36,7 +34,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
         { key: 'F8 / Del', desc: t.helpScF8 },
         { key: 'F9', desc: t.helpScF9 },
         { key: 'F10', desc: t.helpScF10 },
-      ]
+      ],
     },
     {
       title: t.helpGroupNavigation,
@@ -50,7 +48,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
         { key: 'Alt + F2', desc: t.helpScAltF2 },
         { key: 'Ctrl + R', desc: t.helpScCtrlR },
         { key: 'Ctrl + Q', desc: t.helpScCtrlQ },
-      ]
+      ],
     },
     {
       title: t.helpGroupSelection,
@@ -64,8 +62,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({
         { key: 'Ctrl + M', desc: t.helpScCtrlM },
         { key: 'Alt + F7', desc: t.helpScAltF7 },
         { key: 'Ctrl + H', desc: t.helpScCtrlH },
-      ]
-    }
+      ],
+    },
   ];
 
   const dialogRef = useModalDialog<HTMLDivElement>(t.helpDialogLabel);
@@ -73,7 +71,6 @@ export const HelpModal: React.FC<HelpModalProps> = ({
   return (
     <ModalShell title={t.helpManualTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
-
         {/* Tab Navigation */}
         <div className="flex items-center gap-[var(--space-1)] px-[var(--space-3)] py-[var(--space-2)] bg-black/40 border-b border-white/10 shrink-0 overflow-x-auto no-scrollbar">
           <button
@@ -149,7 +146,10 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--space-2)]">
                     {group.shortcuts.map((sc, sIdx) => (
-                      <div key={sIdx} className="p-[var(--space-2)] bg-black/30 rounded border border-white/10 flex items-start gap-[var(--space-2)]">
+                      <div
+                        key={sIdx}
+                        className="p-[var(--space-2)] bg-black/30 rounded border border-white/10 flex items-start gap-[var(--space-2)]"
+                      >
                         <span className="px-[var(--space-1)].5 py-[var(--space-1)] bg-black/60 border border-amber-400/40 text-amber-300 font-bold rounded text-[var(--fs-8)] shrink-0">
                           {sc.key}
                         </span>
@@ -167,22 +167,26 @@ export const HelpModal: React.FC<HelpModalProps> = ({
             <div className="space-y-[var(--space-3)] leading-relaxed text-[var(--fs-sm)]">
               <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-2)]">
                 <h4 className="text-amber-300 font-bold text-xs uppercase">{t.helpDualPane}</h4>
-                <p>
-                  {t.helpDualPaneDesc}
-                </p>
+                <p>{t.helpDualPaneDesc}</p>
               </div>
 
               <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-2)]">
                 <h4 className="text-cyan-300 font-bold text-xs uppercase">{t.helpTabs}</h4>
                 <p>
-                  {t.helpTabsDescPart1}<kbd className="px-[var(--space-1)] py-[var(--space-1)] bg-white/10 rounded">Ctrl + T</kbd>{t.helpTabsDescPart2}<kbd className="px-[var(--space-1)] py-[var(--space-1)] bg-white/10 rounded">Ctrl + W</kbd>{t.helpTabsDescPart3}
+                  {t.helpTabsDescPart1}
+                  <kbd className="px-[var(--space-1)] py-[var(--space-1)] bg-white/10 rounded">Ctrl + T</kbd>
+                  {t.helpTabsDescPart2}
+                  <kbd className="px-[var(--space-1)] py-[var(--space-1)] bg-white/10 rounded">Ctrl + W</kbd>
+                  {t.helpTabsDescPart3}
                 </p>
               </div>
 
               <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-2)]">
                 <h4 className="text-emerald-300 font-bold text-xs uppercase">{t.helpQuickView}</h4>
                 <p>
-                  {t.helpQuickViewDescPart1}<kbd className="px-[var(--space-1)] py-[var(--space-1)] bg-white/10 rounded">Ctrl + Q</kbd>{t.helpQuickViewDescPart2}
+                  {t.helpQuickViewDescPart1}
+                  <kbd className="px-[var(--space-1)] py-[var(--space-1)] bg-white/10 rounded">Ctrl + Q</kbd>
+                  {t.helpQuickViewDescPart2}
                 </p>
               </div>
             </div>
@@ -191,9 +195,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           {/* 3. Commands Tab */}
           {activeTab === 'commands' && (
             <div className="space-y-[var(--space-3)] leading-relaxed text-[var(--fs-sm)]">
-              <p className="opacity-90">
-                {t.helpCommandsIntro}
-              </p>
+              <p className="opacity-90">{t.helpCommandsIntro}</p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--space-2)]">
                 {[
@@ -227,36 +229,28 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                   <h4 className="font-bold text-amber-300 flex items-center gap-[var(--space-2)]">
                     <FileText className="w-3.5 h-3.5" /> {t.helpToolRenameTitle}
                   </h4>
-                  <p className="opacity-80 text-[var(--fs-sm)]">
-                    {t.helpToolRenameDesc}
-                  </p>
+                  <p className="opacity-80 text-[var(--fs-sm)]">{t.helpToolRenameDesc}</p>
                 </div>
 
                 <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-1)]">
                   <h4 className="font-bold text-cyan-300 flex items-center gap-[var(--space-2)]">
                     <GitCompare className="w-3.5 h-3.5" /> {t.helpToolDiffTitle}
                   </h4>
-                  <p className="opacity-80 text-[var(--fs-sm)]">
-                    {t.helpToolDiffDesc}
-                  </p>
+                  <p className="opacity-80 text-[var(--fs-sm)]">{t.helpToolDiffDesc}</p>
                 </div>
 
                 <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-1)]">
                   <h4 className="font-bold text-emerald-300 flex items-center gap-[var(--space-2)]">
                     <Search className="w-3.5 h-3.5" /> {t.helpToolSearchTitle}
                   </h4>
-                  <p className="opacity-80 text-[var(--fs-sm)]">
-                    {t.helpToolSearchDesc}
-                  </p>
+                  <p className="opacity-80 text-[var(--fs-sm)]">{t.helpToolSearchDesc}</p>
                 </div>
 
                 <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-1)]">
                   <h4 className="font-bold text-fuchsia-300 flex items-center gap-[var(--space-2)]">
                     <Hash className="w-3.5 h-3.5" /> {t.helpToolChecksumTitle}
                   </h4>
-                  <p className="opacity-80 text-[var(--fs-sm)]">
-                    {t.helpToolChecksumDesc}
-                  </p>
+                  <p className="opacity-80 text-[var(--fs-sm)]">{t.helpToolChecksumDesc}</p>
                 </div>
               </div>
             </div>
@@ -269,7 +263,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                 <BookOpen className="w-5 h-5" /> Storybook — Component Catalog
               </h3>
               <p className="opacity-80">
-                Storybook is an isolated development environment for UI components. It lets you view, test, and document each component independently without running the full app.
+                Storybook is an isolated development environment for UI components. It lets you view, test, and document
+                each component independently without running the full app.
               </p>
 
               <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-2)]">
@@ -283,35 +278,69 @@ export const HelpModal: React.FC<HelpModalProps> = ({
               <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-2)]">
                 <h4 className="font-bold text-emerald-300">Available Stories</h4>
                 <ul className="list-disc list-inside space-y-[var(--space-1)] opacity-80">
-                  <li><strong>ModalShell</strong> — Unified modal backdrop, panel, header, and close button</li>
-                  <li><strong>FunctionBar</strong> — F1-F10 function bar with disabled/hidden states</li>
-                  <li><strong>KeybindingsTable</strong> — Searchable keybindings table with category/preset filters</li>
-                  <li><strong>SettingsModal</strong> — Full settings panel with vertical tabs</li>
-                  <li><strong>FileListStatusBar</strong> — File/dir/selection counts bar</li>
-                  <li><strong>FunctionKeyBar</strong> — Function key bar with Alt/Ctrl state</li>
-                  <li><strong>SectionCard</strong> — Reusable settings section card</li>
-                  <li><strong>SettingsTabButton</strong> — Active/inactive tab button</li>
-                  <li><strong>ThemePreview</strong> — Visual preview of theme colors</li>
+                  <li>
+                    <strong>ModalShell</strong> — Unified modal backdrop, panel, header, and close button
+                  </li>
+                  <li>
+                    <strong>FunctionBar</strong> — F1-F10 function bar with disabled/hidden states
+                  </li>
+                  <li>
+                    <strong>KeybindingsTable</strong> — Searchable keybindings table with category/preset filters
+                  </li>
+                  <li>
+                    <strong>SettingsModal</strong> — Full settings panel with vertical tabs
+                  </li>
+                  <li>
+                    <strong>FileListStatusBar</strong> — File/dir/selection counts bar
+                  </li>
+                  <li>
+                    <strong>FunctionKeyBar</strong> — Function key bar with Alt/Ctrl state
+                  </li>
+                  <li>
+                    <strong>SectionCard</strong> — Reusable settings section card
+                  </li>
+                  <li>
+                    <strong>SettingsTabButton</strong> — Active/inactive tab button
+                  </li>
+                  <li>
+                    <strong>ThemePreview</strong> — Visual preview of theme colors
+                  </li>
                 </ul>
               </div>
 
               <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-2)]">
                 <h4 className="font-bold text-fuchsia-300">How to add a new Story</h4>
                 <ol className="list-decimal list-inside space-y-[var(--space-1)] opacity-80">
-                  <li>Create a file in <code className="bg-black/60 px-1 rounded">src/stories/YourComponent.stories.tsx</code></li>
-                  <li>Import your component and create a <code className="bg-black/60 px-1 rounded">meta</code> object with title, component, and args</li>
+                  <li>
+                    Create a file in{' '}
+                    <code className="bg-black/60 px-1 rounded">src/stories/YourComponent.stories.tsx</code>
+                  </li>
+                  <li>
+                    Import your component and create a <code className="bg-black/60 px-1 rounded">meta</code> object
+                    with title, component, and args
+                  </li>
                   <li>Export the meta as default and named exports for each story variant</li>
-                  <li>Run <code className="bg-black/60 px-1 rounded">npm run storybook</code> to see it live</li>
+                  <li>
+                    Run <code className="bg-black/60 px-1 rounded">npm run storybook</code> to see it live
+                  </li>
                 </ol>
               </div>
 
               <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-2)]">
                 <h4 className="font-bold text-amber-300">Storybook Addons</h4>
                 <ul className="list-disc list-inside space-y-[var(--space-1)] opacity-80">
-                  <li><strong>Docs</strong> — Auto-generated documentation from props and JSDoc</li>
-                  <li><strong>A11y</strong> — Accessibility checks (contrast, ARIA, keyboard nav)</li>
-                  <li><strong>Vitest</strong> — Run component tests inside Storybook</li>
-                  <li><strong>Chromatic</strong> — Visual regression testing in CI</li>
+                  <li>
+                    <strong>Docs</strong> — Auto-generated documentation from props and JSDoc
+                  </li>
+                  <li>
+                    <strong>A11y</strong> — Accessibility checks (contrast, ARIA, keyboard nav)
+                  </li>
+                  <li>
+                    <strong>Vitest</strong> — Run component tests inside Storybook
+                  </li>
+                  <li>
+                    <strong>Chromatic</strong> — Visual regression testing in CI
+                  </li>
                 </ul>
               </div>
             </div>
@@ -319,11 +348,11 @@ export const HelpModal: React.FC<HelpModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div 
+        <div
           className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-t text-xs shrink-0"
           style={{
             backgroundColor: theme.modalBg,
-            borderColor: theme.modalBorder
+            borderColor: theme.modalBorder,
           }}
         >
           <span className="opacity-70 text-[var(--fs-sm)]">{t.helpFooter}</span>

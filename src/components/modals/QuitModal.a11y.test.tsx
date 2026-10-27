@@ -5,14 +5,7 @@ import { themes } from '../../services/themeManager';
 
 describe('QuitModal accessibility', () => {
   it('is a labelled modal dialog with trapped focus', () => {
-    render(
-      <QuitModal
-        theme={themes.classic_blue}
-        lang="es"
-        onConfirmQuit={vi.fn()}
-        onClose={vi.fn()}
-      />
-    );
+    render(<QuitModal theme={themes.classic_blue} lang="es" onConfirmQuit={vi.fn()} onClose={vi.fn()} />);
 
     const dialog = screen.getByRole('dialog');
     expect(dialog.getAttribute('aria-modal')).toBe('true');

@@ -10,20 +10,15 @@ import { FileProgressEntry, TransferPlan } from '../types';
  * files.
  */
 
-const row = (
-  path: string,
-  status: FileProgressEntry['status'],
-  copied = 0,
-  size = 100
-): FileProgressEntry => ({
+const row = (path: string, status: FileProgressEntry['status'], copied = 0, size = 100): FileProgressEntry => ({
   path,
   name: path.split('\\').pop() || path,
   size,
   copied,
-  status
+  status,
 });
 
-const taskById = (id: string) => taskQueue.getTasks().find(t => t.id === id)!;
+const taskById = (id: string) => taskQueue.getTasks().find((t) => t.id === id)!;
 
 describe('taskQueue per-file progress', () => {
   beforeEach(() => {
@@ -36,7 +31,7 @@ describe('taskQueue per-file progress', () => {
     taskQueue.updateTaskFiles(id, [row('T:\\dest\\a.txt', 'copying')]);
     taskQueue.updateTaskFiles(id, [row('T:\\dest\\b.txt', 'copying')]);
 
-    expect(taskById(id).files!.map(f => f.name)).toEqual(['a.txt', 'b.txt']);
+    expect(taskById(id).files!.map((f) => f.name)).toEqual(['a.txt', 'b.txt']);
   });
 
   it('merges by destination path instead of duplicating a row', () => {
@@ -82,7 +77,7 @@ describe('taskQueue per-file progress', () => {
       overwrite: true,
       collision: 'overwrite',
       throttleBps: 0,
-      entries: [{ path: 'T:\\a.txt', name: 'a', isDirectory: false, size: 1 }]
+      entries: [{ path: 'T:\\a.txt', name: 'a', isDirectory: false, size: 1 }],
     };
     const movePlan: TransferPlan = { ...copyPlan, op: 'move', targetDir: 'T:\\otro' };
 
@@ -109,14 +104,14 @@ describe('taskQueue per-file progress', () => {
       overwrite: true,
       collision: 'overwrite',
       throttleBps: 0,
-      entries: [{ path: 'T:\\a.txt', name: 'a', isDirectory: false, size: 1 }]
+      entries: [{ path: 'T:\\a.txt', name: 'a', isDirectory: false, size: 1 }],
     };
     const id = taskQueue.addTask('copy', 'Copy 1', undefined, 1, undefined, copyPlan);
 
     // The transfer window appends a picked file while the job is in flight.
     const extended: TransferPlan = {
       ...copyPlan,
-      entries: [...copyPlan.entries, { path: 'T:\\b.txt', name: 'b', isDirectory: false, size: 2 }]
+      entries: [...copyPlan.entries, { path: 'T:\\b.txt', name: 'b', isDirectory: false, size: 2 }],
     };
     taskQueue.updateTaskMeta(id, { plan: extended });
 

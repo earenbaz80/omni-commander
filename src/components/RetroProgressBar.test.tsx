@@ -22,9 +22,7 @@ describe('RetroProgressBar', () => {
   });
 
   it('reserves a blinking head cell while queued', () => {
-    const { container } = render(
-      <RetroProgressBar percent={0} status="queued" theme={theme} cells={10} />
-    );
+    const { container } = render(<RetroProgressBar percent={0} status="queued" theme={theme} cells={10} />);
     expect(container.querySelector('[role="progressbar"]')?.textContent).toBe('█░░░░░░░░░');
   });
 

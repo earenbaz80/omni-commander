@@ -23,7 +23,7 @@ export const UnlockFolderModal: React.FC<UnlockFolderModalProps> = ({
   folderPath,
   expectedPassword,
   onSuccess,
-  onClose
+  onClose,
 }) => {
   const t = getTranslations(lang);
   const [passwordInput, setPasswordInput] = useState('');
@@ -63,7 +63,9 @@ export const UnlockFolderModal: React.FC<UnlockFolderModalProps> = ({
           )}
 
           <div>
-            <label className="block text-[var(--fs-sm)] font-bold mb-[var(--space-1)] opacity-80">{t.unlockEnterPass}</label>
+            <label className="block text-[var(--fs-sm)] font-bold mb-[var(--space-1)] opacity-80">
+              {t.unlockEnterPass}
+            </label>
             <input
               type="password"
               value={passwordInput}

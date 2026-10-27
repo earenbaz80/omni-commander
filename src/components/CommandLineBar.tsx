@@ -19,11 +19,43 @@ interface CommandLineBarProps {
 }
 
 const BUILTIN_COMMANDS = [
-  'cd', 'dir', 'copy', 'xcopy', 'robocopy', 'move', 'ren', 'rename',
-  'del', 'delete', 'mkdir', 'md', 'rmdir', 'rd', 'cls', 'clear',
-  'help', 'type', 'attrib', 'tree', 'sfc', 'tasklist', 'taskkill',
-  'ipconfig', 'ping', 'tracert', 'netstat', 'nslookup', 'systeminfo',
-  'chkdsk', 'diskpart', 'winget', 'cipher', 'echo', 'calc', 'date', 'time'
+  'cd',
+  'dir',
+  'copy',
+  'xcopy',
+  'robocopy',
+  'move',
+  'ren',
+  'rename',
+  'del',
+  'delete',
+  'mkdir',
+  'md',
+  'rmdir',
+  'rd',
+  'cls',
+  'clear',
+  'help',
+  'type',
+  'attrib',
+  'tree',
+  'sfc',
+  'tasklist',
+  'taskkill',
+  'ipconfig',
+  'ping',
+  'tracert',
+  'netstat',
+  'nslookup',
+  'systeminfo',
+  'chkdsk',
+  'diskpart',
+  'winget',
+  'cipher',
+  'echo',
+  'calc',
+  'date',
+  'time',
 ];
 
 interface AutocompleteSuggestion {
@@ -43,7 +75,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
   isAdminMode = false,
   onToggleAdminMode,
   availableItems,
-  availableFileNames
+  availableFileNames,
 }) => {
   const t = getTranslations(lang);
   const [inputVal, setInputVal] = useState('');
@@ -86,7 +118,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
           text: cmdText,
           source: 'history',
           timestamp: item.timestamp,
-          status: item.status
+          status: item.status,
         });
       }
     }
@@ -98,7 +130,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
         seenTexts.add(lowerCmd);
         result.push({
           text: cmd,
-          source: 'builtin'
+          source: 'builtin',
         });
       }
     }
@@ -106,7 +138,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
     // 3. Third priority: Files and directories in active folder
     const fileNames: string[] = [];
     if (availableItems && availableItems.length > 0) {
-      availableItems.forEach(item => {
+      availableItems.forEach((item) => {
         if (item.name) fileNames.push(item.name);
         if (item.ext && !item.isDirectory && !item.name.toLowerCase().endsWith(`.${item.ext.toLowerCase()}`)) {
           fileNames.push(`${item.name}.${item.ext}`);
@@ -122,21 +154,23 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
         seenTexts.add(lowerF);
         result.push({
           text: f,
-          source: 'file'
+          source: 'file',
         });
       }
     }
 
     // Sort: Prefix matches first, then shorter commands first
-    return result.sort((a, b) => {
-      const aStarts = a.text.toLowerCase().startsWith(lowerQuery);
-      const bStarts = b.text.toLowerCase().startsWith(lowerQuery);
-      if (aStarts && !bStarts) return -1;
-      if (!aStarts && bStarts) return 1;
-      if (a.source === 'history' && b.source !== 'history') return -1;
-      if (a.source !== 'history' && b.source === 'history') return 1;
-      return a.text.length - b.text.length;
-    }).slice(0, 7); // Max 7 suggestions
+    return result
+      .sort((a, b) => {
+        const aStarts = a.text.toLowerCase().startsWith(lowerQuery);
+        const bStarts = b.text.toLowerCase().startsWith(lowerQuery);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+        if (a.source === 'history' && b.source !== 'history') return -1;
+        if (a.source !== 'history' && b.source === 'history') return 1;
+        return a.text.length - b.text.length;
+      })
+      .slice(0, 7); // Max 7 suggestions
   }, [inputVal, commandHistory, availableItems, availableFileNames]);
 
   // Compute ghost suggestion text (inline gray completion preview)
@@ -245,7 +279,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
       // Fallback to standard token-based Tab completion
       const fileNames: string[] = [];
       if (availableItems && availableItems.length > 0) {
-        availableItems.forEach(item => {
+        availableItems.forEach((item) => {
           if (item.name) fileNames.push(item.name);
           if (item.ext && !item.isDirectory && !item.name.toLowerCase().endsWith(`.${item.ext.toLowerCase()}`)) {
             fileNames.push(`${item.name}.${item.ext}`);
@@ -266,7 +300,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
         setTabState({
           ...tabState,
           currentIndex: nextIndex,
-          expectedInputValue: nextInputVal
+          expectedInputValue: nextInputVal,
         });
         soundManager.playKeyTick();
         return;
@@ -286,9 +320,9 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
       const cleanToken = token.replace(/^["']|["']$/g, '');
       const candidates: string[] = isCommandPos ? Array.from(new Set([...BUILTIN_COMMANDS, ...fileNames])) : fileNames;
 
-      let matches = candidates.filter(c => c.toLowerCase().startsWith(cleanToken.toLowerCase()));
+      let matches = candidates.filter((c) => c.toLowerCase().startsWith(cleanToken.toLowerCase()));
       if (matches.length === 0 && cleanToken.length > 0) {
-        matches = candidates.filter(c => c.toLowerCase().includes(cleanToken.toLowerCase()));
+        matches = candidates.filter((c) => c.toLowerCase().includes(cleanToken.toLowerCase()));
       }
 
       if (matches.length > 0) {
@@ -302,7 +336,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
           token: cleanToken,
           matches,
           currentIndex: 0,
-          expectedInputValue: nextInputVal
+          expectedInputValue: nextInputVal,
         });
         soundManager.playKeyTick();
       }
@@ -330,7 +364,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
       // If suggestions are open and user is typing
       if (isSuggestionsOpen && suggestions.length > 0) {
         soundManager.playKeyTick();
-        setSelectedSuggestionIndex(prev => (prev <= 0 ? suggestions.length - 1 : prev - 1));
+        setSelectedSuggestionIndex((prev) => (prev <= 0 ? suggestions.length - 1 : prev - 1));
         return;
       }
 
@@ -347,7 +381,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
       // If suggestions are open and user is typing
       if (isSuggestionsOpen && suggestions.length > 0) {
         soundManager.playKeyTick();
-        setSelectedSuggestionIndex(prev => (prev + 1 >= suggestions.length ? 0 : prev + 1));
+        setSelectedSuggestionIndex((prev) => (prev + 1 >= suggestions.length ? 0 : prev + 1));
         return;
       }
 
@@ -383,17 +417,17 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
   };
 
   return (
-    <div 
+    <div
       className="flex flex-col border-t shrink-0 select-none font-mono text-xs z-20 relative"
       style={{
         backgroundColor: theme.promptBg,
         borderColor: theme.borderPanel,
-        color: theme.promptText
+        color: theme.promptText,
       }}
     >
       {/* Terminal Log Output Drawer */}
       {isLogOpen && (
-        <div 
+        <div
           ref={logContainerRef}
           className="max-h-44 overflow-y-auto p-[var(--space-2)] bg-black/90 border-b border-white/20 select-text font-mono text-[11px] space-y-[var(--space-2)]"
         >
@@ -412,22 +446,21 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
                   type="button"
                   onClick={onToggleAdminMode}
                   className={`text-[10px] font-bold px-[var(--space-1)].5 py-[var(--space-1)] rounded border cursor-pointer ${
-                    isAdminMode ? 'bg-amber-400 text-black border-amber-300' : 'bg-black/40 text-slate-300 border-white/20 hover:bg-white/10'
+                    isAdminMode
+                      ? 'bg-amber-400 text-black border-amber-300'
+                      : 'bg-black/40 text-slate-300 border-white/20 hover:bg-white/10'
                   }`}
                 >
                   {isAdminMode ? 'Elevated (ADMIN)' : 'User Shell'}
                 </button>
               )}
-              <button 
+              <button
                 onClick={onClearHistory}
                 className="hover:text-red-400 cursor-pointer flex items-center gap-[var(--space-1)] text-[10px]"
               >
                 <Trash2 className="w-3 h-3" /> {t.clearLabel}
               </button>
-              <button 
-                onClick={() => setIsLogOpen(false)}
-                className="hover:text-white cursor-pointer text-[10px]"
-              >
+              <button onClick={() => setIsLogOpen(false)} className="hover:text-white cursor-pointer text-[10px]">
                 ✕ {t.hideLabel}
               </button>
             </div>
@@ -443,7 +476,9 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
                   <span className="text-white">{item.command}</span>
                 </div>
                 {item.output && (
-                  <pre className={`whitespace-pre-wrap pl-2 ${item.status === 'error' ? 'text-red-400' : 'text-emerald-400'}`}>
+                  <pre
+                    className={`whitespace-pre-wrap pl-2 ${item.status === 'error' ? 'text-red-400' : 'text-emerald-400'}`}
+                  >
                     {item.output}
                   </pre>
                 )}
@@ -456,7 +491,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
       {/* Real-Time Command History Autocomplete Popup */}
       {isSuggestionsOpen && suggestions.length > 0 && (
         <div className="absolute bottom-full left-0 right-0 z-50 mb-0.5 px-[var(--space-2)] pointer-events-auto">
-          <div 
+          <div
             className="w-full max-w-2xl bg-neutral-950/95 border-2 border-amber-400/80 rounded shadow-2xl overflow-hidden backdrop-blur font-mono text-[11px] animate-fadeIn"
             style={{ color: theme.itemText }}
           >
@@ -475,7 +510,10 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
             </div>
 
             {/* Suggestions List */}
-            <div ref={suggestionsContainerRef} className="max-h-48 overflow-y-auto divide-y divide-white/5 p-[var(--space-1)] space-y-0.5">
+            <div
+              ref={suggestionsContainerRef}
+              className="max-h-48 overflow-y-auto divide-y divide-white/5 p-[var(--space-1)] space-y-0.5"
+            >
               {suggestions.map((sug, idx) => {
                 const isSelected = selectedSuggestionIndex === idx;
                 const isHistory = sug.source === 'history';
@@ -488,29 +526,39 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
                     onDoubleClick={() => applySuggestion(sug.text, true)}
                     onMouseEnter={() => setSelectedSuggestionIndex(idx)}
                     className={`flex items-center justify-between px-[var(--space-2)] py-[var(--space-1)] rounded cursor-pointer transition-colors ${
-                      isSelected
-                        ? 'bg-amber-400 text-black font-bold shadow'
-                        : 'hover:bg-white/10 text-white/90'
+                      isSelected ? 'bg-amber-400 text-black font-bold shadow' : 'hover:bg-white/10 text-white/90'
                     }`}
                   >
                     <div className="flex items-center gap-[var(--space-2)] min-w-0 flex-1">
                       <div className="shrink-0 flex items-center">
                         {isHistory ? (
-                          <span className={`px-[var(--space-1)] py-0.2 rounded text-[9px] font-bold uppercase flex items-center gap-[var(--space-1)] ${
-                            isSelected ? 'bg-black text-amber-300' : 'bg-amber-950/90 text-amber-400 border border-amber-500/40'
-                          }`}>
+                          <span
+                            className={`px-[var(--space-1)] py-0.2 rounded text-[9px] font-bold uppercase flex items-center gap-[var(--space-1)] ${
+                              isSelected
+                                ? 'bg-black text-amber-300'
+                                : 'bg-amber-950/90 text-amber-400 border border-amber-500/40'
+                            }`}
+                          >
                             <History className="w-2.5 h-2.5" /> {t.historyShort}
                           </span>
                         ) : isBuiltin ? (
-                          <span className={`px-[var(--space-1)] py-0.2 rounded text-[9px] font-bold uppercase ${
-                            isSelected ? 'bg-black text-cyan-300' : 'bg-cyan-950/90 text-cyan-400 border border-cyan-500/40'
-                          }`}>
+                          <span
+                            className={`px-[var(--space-1)] py-0.2 rounded text-[9px] font-bold uppercase ${
+                              isSelected
+                                ? 'bg-black text-cyan-300'
+                                : 'bg-cyan-950/90 text-cyan-400 border border-cyan-500/40'
+                            }`}
+                          >
                             DOS
                           </span>
                         ) : (
-                          <span className={`px-[var(--space-1)] py-0.2 rounded text-[9px] font-bold uppercase ${
-                            isSelected ? 'bg-black text-emerald-300' : 'bg-emerald-950/90 text-emerald-400 border border-emerald-500/40'
-                          }`}>
+                          <span
+                            className={`px-[var(--space-1)] py-0.2 rounded text-[9px] font-bold uppercase ${
+                              isSelected
+                                ? 'bg-black text-emerald-300'
+                                : 'bg-emerald-950/90 text-emerald-400 border border-emerald-500/40'
+                            }`}
+                          >
                             {t.file}
                           </span>
                         )}
@@ -522,9 +570,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
                     </div>
 
                     <div className="flex items-center gap-[var(--space-2)] text-[10px] shrink-0 opacity-80 pl-2">
-                      {sug.timestamp && (
-                        <span className="text-[9px] opacity-60 hidden sm:inline">{sug.timestamp}</span>
-                      )}
+                      {sug.timestamp && <span className="text-[9px] opacity-60 hidden sm:inline">{sug.timestamp}</span>}
                       {isSelected ? (
                         <span className="flex items-center gap-[var(--space-1)] font-bold text-black text-[9px] bg-amber-300 px-[var(--space-1)] rounded">
                           <CornerDownLeft className="w-2.5 h-2.5" /> Enter
@@ -545,7 +591,9 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
       {tabState && tabState.matches.length > 0 && !isSuggestionsOpen && (
         <div className="flex flex-wrap items-center gap-[var(--space-2)] px-[var(--space-2)] py-[var(--space-1)] bg-black/80 border-b border-amber-400/30 font-mono text-[11px] select-none text-amber-300">
           <span className="text-white/70 font-bold flex items-center gap-[var(--space-1)] text-[10px]">
-            <kbd className="px-[var(--space-1)] py-0.2 bg-amber-400/20 border border-amber-400/40 rounded text-amber-300 font-extrabold text-[9px]">TAB</kbd>
+            <kbd className="px-[var(--space-1)] py-0.2 bg-amber-400/20 border border-amber-400/40 rounded text-amber-300 font-extrabold text-[9px]">
+              TAB
+            </kbd>
             <span>Coincidencias ({tabState.matches.length}):</span>
           </span>
           <div className="flex items-center gap-[var(--space-1)] overflow-x-auto max-w-full no-scrollbar py-[var(--space-1)]">
@@ -562,7 +610,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
                     setTabState({
                       ...tabState,
                       currentIndex: idx,
-                      expectedInputValue: nextVal
+                      expectedInputValue: nextVal,
                     });
                     inputRef.current?.focus();
                   }}
@@ -581,7 +629,10 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
       )}
 
       {/* Main Command Input Row */}
-      <form onSubmit={handleSubmit} className="flex items-center px-[var(--space-2)] py-[var(--space-1)] gap-[var(--space-1)] relative">
+      <form
+        onSubmit={handleSubmit}
+        className="flex items-center px-[var(--space-2)] py-[var(--space-1)] gap-[var(--space-1)] relative"
+      >
         <button
           type="button"
           onClick={() => setIsLogOpen(!isLogOpen)}
@@ -591,7 +642,9 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
           {isLogOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
         </button>
 
-        <span className={`font-bold shrink-0 select-none ${isAdminMode ? 'text-red-400 font-extrabold' : 'text-amber-400'}`}>
+        <span
+          className={`font-bold shrink-0 select-none ${isAdminMode ? 'text-red-400 font-extrabold' : 'text-amber-400'}`}
+        >
           {isAdminMode ? `[ADMIN] ${currentPath}>` : `${currentPath}>`}
         </span>
 
@@ -612,8 +665,8 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
 
           {/* Ghost text overlay behind real input */}
           {ghostSuffix && (
-            <div 
-              aria-hidden="true" 
+            <div
+              aria-hidden="true"
               className="absolute inset-0 flex items-center pointer-events-none font-mono text-xs select-none overflow-hidden"
             >
               <span className="opacity-0">{inputVal}</span>
@@ -629,7 +682,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
               type="button"
               onClick={() => {
                 soundManager.playKeyTick();
-                setIsSuggestionsOpen(prev => !prev);
+                setIsSuggestionsOpen((prev) => !prev);
               }}
               title={t.commandHistory}
               className={`p-[var(--space-1)] rounded text-[11px] font-bold flex items-center gap-[var(--space-1)] cursor-pointer transition ${

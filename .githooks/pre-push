@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+#
+# Blocks a push that would fail the CI `verify` job: types first, then the test
+# suite. Formatting stays in pre-commit, which is fast; this one is allowed to
+# take a minute. `git push --no-verify` skips it when that is what you want.
+set -eo pipefail
+
+cd "$(git rev-parse --show-toplevel)" || exit 0
+
+# Git writes one line per ref on stdin: local ref, local sha, remote ref, remote
+# sha. A branch deletion is all zero shas and has nothing of ours to verify.
+only_deletes=true
+if [ -t 0 ]; then
+  # Run by hand in a terminal: there is no ref list to read, so just do the work.
+  only_deletes=false
+else
+  while read -r _local_ref local_sha _remote_ref _remote_sha; do
+    [ "$local_sha" = "0000000000000000000000000000000000000000" ] || only_deletes=false
+  done
+fi
+
+if [ "$only_deletes" = true ]; then
+  exit 0
+fi
+
+# Same reasoning as pre-commit: a clone without `npm install` cannot verify
+# anything, and CI still gates the branch.
+if [ ! -f node_modules/typescript/bin/tsc ]; then
+  echo "pre-push: dependencies are not installed, skipping types and tests (run npm install)"
+  exit 0
+fi
+
+echo "pre-push: typechecking (npm run lint)..."
+npm run --silent lint
+
+echo "pre-push: running the test suite (npm test)..."
+npm test
+
+echo "pre-push: types and tests passed."

@@ -85,8 +85,7 @@ function realDriveFile(): FileItem {
   };
 }
 
-const expected = (algorithm: string) =>
-  createHash(algorithm).update(fixtureBytes).digest('hex');
+const expected = (algorithm: string) => createHash(algorithm).update(fixtureBytes).digest('hex');
 
 describe('calculateFileHashes', () => {
   beforeEach(() => {
@@ -109,11 +108,7 @@ describe('calculateFileHashes', () => {
     expect(result.sha256).toBe(expected('sha256'));
     // The old fallback hashed `name.ext_size_modifiedAt` and never matched the
     // file. Any lingering fabricated value would fail the assertions above.
-    expect(result.sha256).not.toBe(
-      createHash('sha256')
-        .update('fixture.bin.42_2026-01-01 00:00:00')
-        .digest('hex')
-    );
+    expect(result.sha256).not.toBe(createHash('sha256').update('fixture.bin.42_2026-01-01 00:00:00').digest('hex'));
   });
 
   it('hashes in-memory content locally without a server call', async () => {
@@ -169,21 +164,13 @@ describe('loopback API origin and token enforcement (S1)', () => {
   });
 
   it('accepts a mutating request that carries the correct session token', async () => {
-    const res = await post(
-      '/api/fs/mkdir',
-      { path: path.join(scratchDir, 'allowed') },
-      { 'x-omni-token': TOKEN },
-    );
+    const res = await post('/api/fs/mkdir', { path: path.join(scratchDir, 'allowed') }, { 'x-omni-token': TOKEN });
     expect(res.status).not.toBe(403);
     expect(res.ok).toBe(true);
   });
 
   it('rejects the opaque "null" origin used by sandboxed iframes (no token)', async () => {
-    const res = await post(
-      '/api/fs/mkdir',
-      { path: path.join(scratchDir, 'evil') },
-      { origin: 'null' },
-    );
+    const res = await post('/api/fs/mkdir', { path: path.join(scratchDir, 'evil') }, { origin: 'null' });
     expect(res.status).toBe(403);
   });
 

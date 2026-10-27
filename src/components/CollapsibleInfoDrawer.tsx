@@ -1,5 +1,17 @@
 import React, { useState } from 'react';
-import { ChevronUp, ChevronDown, Cpu, HardDrive, ShieldCheck, Lock, Info, FileText, Server, TerminalSquare, Clock } from 'lucide-react';
+import {
+  ChevronUp,
+  ChevronDown,
+  Cpu,
+  HardDrive,
+  ShieldCheck,
+  Lock,
+  Info,
+  FileText,
+  Server,
+  TerminalSquare,
+  Clock,
+} from 'lucide-react';
 import { ThemeConfig } from '../services/themeManager';
 import { FileItem, Drive, LanguageCode } from '../types';
 import { getTranslations } from '../i18n/translations';
@@ -37,7 +49,7 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
   isFolderProtected,
   onProtectFolder,
   showClock = true,
-  clockPosition = 'header'
+  clockPosition = 'header',
 }) => {
   const t = getTranslations(lang);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -61,21 +73,21 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
   const usedPercent = Math.min(100, Math.round((usedBytes / activeDrive.totalBytes) * 100));
 
   return (
-    <div 
+    <div
       className="border-t shrink-0 font-mono text-xs select-none transition-all duration-200 z-20"
       style={{
         backgroundColor: theme.statusBg,
         borderColor: theme.borderPanel,
-        color: theme.statusText
+        color: theme.statusText,
       }}
     >
       {/* Drawer Header Toggle Bar */}
-      <div 
+      <div
         className="px-[var(--space-2)] py-[var(--space-1)] flex items-center justify-between cursor-pointer bg-black/30 hover:bg-black/50 text-[11px]"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center gap-[var(--space-3)] truncate">
-          <button 
+          <button
             className="flex items-center gap-[var(--space-1)] font-bold text-amber-400 hover:text-amber-300"
             title={t.collapseInfoPanel}
           >
@@ -90,11 +102,13 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
           <div className="flex items-center gap-[var(--space-2)] text-[10px]">
             <HardDrive className="w-3 h-3 text-cyan-400 shrink-0" />
             <span className="font-bold">{activeDrive.letter}</span>
-            <span className="opacity-80 font-mono">{formatSize(activeDrive.freeBytes)} {t.freeLabel} ({100 - usedPercent}%)</span>
+            <span className="opacity-80 font-mono">
+              {formatSize(activeDrive.freeBytes)} {t.freeLabel} ({100 - usedPercent}%)
+            </span>
             <div className="w-16 h-2 bg-black/60 rounded-full overflow-hidden border border-white/20">
-              <div 
-                className={`h-full ${usedPercent > 85 ? 'bg-red-500' : 'bg-cyan-400'}`} 
-                style={{ width: `${usedPercent}%` }} 
+              <div
+                className={`h-full ${usedPercent > 85 ? 'bg-red-500' : 'bg-cyan-400'}`}
+                style={{ width: `${usedPercent}%` }}
               />
             </div>
           </div>
@@ -104,9 +118,13 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
           {/* Quick Selection Summary */}
           <span className="text-[10px] opacity-90 truncate">
             {selectedCount > 0 ? (
-              <strong className="text-yellow-300">{selectedCount} {t.selectedShort} ({formatSize(totalSelectedBytes)})</strong>
+              <strong className="text-yellow-300">
+                {selectedCount} {t.selectedShort} ({formatSize(totalSelectedBytes)})
+              </strong>
             ) : (
-              <span>{totalItemsCount} {t.itemsIn} {activePath}</span>
+              <span>
+                {totalItemsCount} {t.itemsIn} {activePath}
+              </span>
             )}
           </span>
         </div>
@@ -124,8 +142,8 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
           <button
             onClick={onProtectFolder}
             className={`px-[var(--space-2)] py-[var(--space-1)] rounded font-bold border flex items-center gap-[var(--space-1)] cursor-pointer transition-colors ${
-              isFolderProtected 
-                ? 'bg-red-950/80 border-red-500 text-red-300 hover:bg-red-900' 
+              isFolderProtected
+                ? 'bg-red-950/80 border-red-500 text-red-300 hover:bg-red-900'
                 : 'bg-black/40 border-white/20 text-white/70 hover:bg-white/10'
             }`}
             title={isFolderProtected ? t.folderProtectedTitle : t.protectFolderWithPassTitle}
@@ -138,8 +156,8 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
           <button
             onClick={onToggleAdminMode}
             className={`px-[var(--space-2)] py-[var(--space-1)] rounded font-bold border flex items-center gap-[var(--space-1)] cursor-pointer transition-colors ${
-              isAdminMode 
-                ? 'bg-amber-500/20 border-amber-400 text-amber-300 hover:bg-amber-500/30' 
+              isAdminMode
+                ? 'bg-amber-500/20 border-amber-400 text-amber-300 hover:bg-amber-500/30'
                 : 'bg-black/40 border-white/20 text-white/60 hover:bg-white/10'
             }`}
             title={t.adminMode}
@@ -199,7 +217,9 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
               </div>
               <div className="flex justify-between">
                 <span className="opacity-70">{t.spaceUsed}</span>
-                <span className="font-bold text-amber-300">{formatSize(usedBytes)} ({usedPercent}%)</span>
+                <span className="font-bold text-amber-300">
+                  {formatSize(usedBytes)} ({usedPercent}%)
+                </span>
               </div>
             </div>
           </div>
@@ -211,12 +231,19 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
             </h5>
             {focusedItem ? (
               <div className="space-y-[var(--space-1)] text-[10px] truncate">
-                <div className="truncate font-bold text-white">{focusedItem.name}{focusedItem.ext ? `.${focusedItem.ext}` : ''}</div>
+                <div className="truncate font-bold text-white">
+                  {focusedItem.name}
+                  {focusedItem.ext ? `.${focusedItem.ext}` : ''}
+                </div>
                 <div className="flex justify-between opacity-80">
-                  <span>{t.typeLabel} {focusedItem.isDirectory ? t.folder : focusedItem.ext || t.file}</span>
+                  <span>
+                    {t.typeLabel} {focusedItem.isDirectory ? t.folder : focusedItem.ext || t.file}
+                  </span>
                   <span>{focusedItem.isDirectory ? '-' : formatSize(focusedItem.size)}</span>
                 </div>
-                <div className="opacity-60 text-[9px]">{t.modifiedLabel} {focusedItem.modifiedAt}</div>
+                <div className="opacity-60 text-[9px]">
+                  {t.modifiedLabel} {focusedItem.modifiedAt}
+                </div>
               </div>
             ) : (
               <span className="text-[10px] opacity-50 italic">{t.noItemFocused}</span>

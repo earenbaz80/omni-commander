@@ -1,26 +1,26 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
 dev-dist/
-coverage/
 release/
+storybook-static/
+
+# Test artifacts
+coverage/
+test-results/
+.playwright/
+
+# OS files
 .DS_Store
+
+# Logs
 *.log
+
+# Local environment (never commit secrets; .env.example is the template)
 .env*
 !.env.example
 
-# Temporary build/debug files
-*.txt
-ebuild*.txt
-be*.txt
-eb_lines.txt
-app_electron.txt
-asar.txt
-builder_cfg.txt
-cors.txt
-dirname.txt
-test-results/
-.playwright/
-"
-
-*storybook.log
-storybook-static
+# Debug dumps dropped in the repo root while debugging locally
+/*.txt

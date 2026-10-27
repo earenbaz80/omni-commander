@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
 import { X } from 'lucide-react';
 import { ThemeConfig } from '../services/themeManager';
 import { useModalDialog } from '../hooks/useModalDialog';
@@ -10,7 +10,6 @@ interface ModalShellProps {
   children: React.ReactNode;
   onClose?: () => void;
   overlay?: boolean;
-  autoFocusOnOpen?: boolean;
   closeButtonLabel?: string;
 }
 
@@ -29,7 +28,6 @@ function ModalShell({
   children,
   onClose,
   overlay = true,
-  autoFocusOnOpen = false,
   closeButtonLabel = 'Cerrar modal',
 }: ModalShellProps): React.JSX.Element {
   const modalRef = useRef<HTMLDivElement>(null);
@@ -62,10 +60,7 @@ function ModalShell({
             borderColor: theme.modalBorder,
           }}
         >
-          <h3
-            className="text-sm font-bold text-left"
-            style={{ color: theme.modalHeaderText }}
-          >
+          <h3 className="text-sm font-bold text-left" style={{ color: theme.modalHeaderText }}>
             {title || label}
           </h3>
           {onClose && (

@@ -21,7 +21,6 @@ interface KeybindingsTableProps {
 }
 
 export const KeybindingsTable: React.FC<KeybindingsTableProps> = ({
-  theme,
   lang,
   keybindings,
   categories,
@@ -34,9 +33,10 @@ export const KeybindingsTable: React.FC<KeybindingsTableProps> = ({
   const [activeCategory, setActiveCategory] = useState<string>('all');
 
   const filtered = useMemo(() => {
-    return keybindings.filter(kb => {
+    return keybindings.filter((kb) => {
       const matchesCategory = activeCategory === 'all' || kb.category === activeCategory;
-      const matchesSearch = !search ||
+      const matchesSearch =
+        !search ||
         kb.key.toLowerCase().includes(search.toLowerCase()) ||
         kb.description.toLowerCase().includes(search.toLowerCase());
       const matchesPreset = !filterPreset || !kb.preset || kb.preset === filterPreset;
@@ -46,7 +46,7 @@ export const KeybindingsTable: React.FC<KeybindingsTableProps> = ({
 
   const grouped = useMemo(() => {
     const groups: Record<string, Keybinding[]> = {};
-    filtered.forEach(kb => {
+    filtered.forEach((kb) => {
       if (!groups[kb.category]) groups[kb.category] = [];
       groups[kb.category].push(kb);
     });
@@ -63,30 +63,34 @@ export const KeybindingsTable: React.FC<KeybindingsTableProps> = ({
             type="text"
             placeholder={t.keybindingsSearchPlaceholder || 'Buscar atajo...'}
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
             className="w-full px-[var(--space-2)] py-[var(--space-1)] pl-[var(--space-8)] bg-black/50 border border-white/20 rounded text-xs text-white font-mono outline-none focus:border-amber-400"
             aria-label={t.keybindingsSearchAria || 'Buscar atajos'}
           />
         </div>
         <select
           value={activeCategory}
-          onChange={e => setActiveCategory(e.target.value)}
+          onChange={(e) => setActiveCategory(e.target.value)}
           className="px-[var(--space-2)] py-[var(--space-1)] bg-black/50 border border-white/20 rounded text-xs text-amber-300 font-mono font-bold"
         >
           <option value="all">{t.keybindingsAllCategories || 'Todas las categorías'}</option>
-          {categories.map(cat => (
-            <option key={cat} value={cat}>{cat}</option>
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
           ))}
         </select>
         {presets.length > 0 && onFilterChange && (
           <select
             value={filterPreset || 'all'}
-            onChange={e => onFilterChange(e.target.value)}
+            onChange={(e) => onFilterChange(e.target.value)}
             className="px-[var(--space-2)] py-[var(--space-1)] bg-black/50 border border-white/20 rounded text-xs text-amber-300 font-mono font-bold"
           >
             <option value="all">{t.keybindingsAllPresets || 'Todos los presets'}</option>
-            {presets.map(p => (
-              <option key={p} value={p}>{p}</option>
+            {presets.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
             ))}
           </select>
         )}

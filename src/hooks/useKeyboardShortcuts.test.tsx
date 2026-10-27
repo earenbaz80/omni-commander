@@ -77,7 +77,7 @@ function renderKeyboardHook(deps: Partial<KeyboardShortcutDeps>) {
       handleOpenItem: vi.fn(),
       handleGoParent: vi.fn(),
       ...deps,
-    })
+    }),
   );
   return { view, handleSelectDrive, setActiveModal };
 }

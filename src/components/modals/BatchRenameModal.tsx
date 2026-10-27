@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Type } from 'lucide-react';
 import { FileItem, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
@@ -16,13 +15,7 @@ interface BatchRenameModalProps {
   onClose: () => void;
 }
 
-export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
-  theme,
-  lang,
-  items,
-  onApplyRename,
-  onClose
-}) => {
+export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({ theme, lang, items, onApplyRename, onClose }) => {
   const t = getTranslations(lang);
   const [patternType, setPatternType] = useState<'replace' | 'prefix' | 'counter' | 'case'>('replace');
   const [findStr, setFindStr] = useState('');
@@ -70,15 +63,23 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
   const handleApply = (e: React.FormEvent) => {
     e.preventDefault();
     soundManager.playSuccess();
-    onApplyRename(previewList.map(p => ({ id: p.id, newName: p.newName })));
+    onApplyRename(previewList.map((p) => ({ id: p.id, newName: p.newName })));
   };
 
   const dialogRef = useModalDialog<HTMLDivElement>(t.batchRenameModalTitle);
 
   return (
-    <ModalShell title={`${t.batchRenameTitle} (${items.length} ${t.files})`} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
+    <ModalShell
+      title={`${t.batchRenameTitle} (${items.length} ${t.files})`}
+      theme={theme}
+      onClose={onClose}
+      closeButtonLabel={t.btnCancel}
+    >
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
-        <form onSubmit={handleApply} className="flex-1 flex flex-col p-[var(--space-4)] space-y-[var(--space-3)] overflow-hidden">
+        <form
+          onSubmit={handleApply}
+          className="flex-1 flex flex-col p-[var(--space-4)] space-y-[var(--space-3)] overflow-hidden"
+        >
           {/* Mode Selector Tabs */}
           <div className="flex items-center gap-[var(--space-1)] bg-black/40 p-[var(--space-1)] rounded border border-white/10 shrink-0">
             <button

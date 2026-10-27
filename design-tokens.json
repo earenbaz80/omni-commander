@@ -6,10 +6,32 @@
       "transparent": "transparent"
     },
     "semantic": {
-      "accent": { "base": "{theme.accent}", "warn": "{theme.accentWarn}", "danger": "{theme.accentDanger}", "ok": "{theme.accentOk}" },
-      "background": { "app": "{theme.bgApp}", "panel": "{theme.bgPanel}", "panelInactive": "{theme.bgPanelInactive}", "modal": "{theme.modalBg}", "header": "{theme.headerBg}" },
+      "accent": {
+        "base": "{theme.accent}",
+        "warn": "{theme.accentWarn}",
+        "danger": "{theme.accentDanger}",
+        "ok": "{theme.accentOk}"
+      },
+      "background": {
+        "app": "{theme.bgApp}",
+        "panel": "{theme.bgPanel}",
+        "panelInactive": "{theme.bgPanelInactive}",
+        "modal": "{theme.modalBg}",
+        "header": "{theme.headerBg}"
+      },
       "border": { "panel": "{theme.borderPanel}", "focus": "{theme.borderFocus}", "modal": "{theme.modalBorder}" },
-      "text": { "primary": "{theme.itemText}", "header": "{theme.headerText}", "modalHeader": "{theme.modalHeaderText}", "dir": "{theme.dirText}", "exe": "{theme.exeText}", "zip": "{theme.zipText}", "doc": "{theme.docText}", "media": "{theme.mediaText}", "selected": "{theme.selectedText}", "status": "{theme.statusText}" },
+      "text": {
+        "primary": "{theme.itemText}",
+        "header": "{theme.headerText}",
+        "modalHeader": "{theme.modalHeaderText}",
+        "dir": "{theme.dirText}",
+        "exe": "{theme.exeText}",
+        "zip": "{theme.zipText}",
+        "doc": "{theme.docText}",
+        "media": "{theme.mediaText}",
+        "selected": "{theme.selectedText}",
+        "status": "{theme.statusText}"
+      },
       "overlay": "{theme.overlay}"
     }
   },

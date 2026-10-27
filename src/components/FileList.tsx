@@ -1,6 +1,22 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Folder, FileText, FileCode, FileArchive, FolderArchive, Package, Archive, Image as ImageIcon, Music, Film, Terminal, Check, File, Copy, Scissors } from 'lucide-react';
+import {
+  Folder,
+  FileText,
+  FileCode,
+  FileArchive,
+  FolderArchive,
+  Package,
+  Archive,
+  Image as ImageIcon,
+  Music,
+  Film,
+  Terminal,
+  Check,
+  File,
+  Copy,
+  Scissors,
+} from 'lucide-react';
 import { FileItem, SortField, SortDirection, ViewMode, LanguageCode } from '../types';
 import { ThemeConfig } from '../services/themeManager';
 import { getTranslations } from '../i18n/translations';
@@ -38,10 +54,10 @@ interface FileListProps {
   onActivate: () => void;
   panelSide: 'left' | 'right';
   onDropItems: (
-    draggedItems: FileItem[], 
-    targetPath: string, 
-    targetDriveId: string, 
-    operation: 'copy' | 'move'
+    draggedItems: FileItem[],
+    targetPath: string,
+    targetDriveId: string,
+    operation: 'copy' | 'move',
   ) => void;
   onDropNativeFiles?: (files: globalThis.FileList, targetPath: string, targetDriveId: string) => void;
   blinkingCursorEnabled?: boolean;
@@ -307,7 +323,8 @@ const FileListComponent: React.FC<FileListProps> = ({
     if (['MP4', 'AVI', 'MKV', 'MOV', 'WMV', 'WEBM'].includes(ext)) return t.typeVideo;
     if (['TXT', 'MD', 'RTF', 'LOG', 'INI'].includes(ext)) return t.typeText;
     if (['DOC', 'DOCX', 'PDF', 'XLS', 'XLSX', 'PPT', 'PPTX'].includes(ext)) return t.typeDocument;
-    if (['JS', 'TS', 'TSX', 'JSX', 'HTML', 'CSS', 'JSON', 'PY', 'C', 'CPP', 'RS', 'GO', 'SQL', 'JAVA'].includes(ext)) return t.typeCode;
+    if (['JS', 'TS', 'TSX', 'JSX', 'HTML', 'CSS', 'JSON', 'PY', 'C', 'CPP', 'RS', 'GO', 'SQL', 'JAVA'].includes(ext))
+      return t.typeCode;
     return t.file;
   };
 
@@ -319,23 +336,21 @@ const FileListComponent: React.FC<FileListProps> = ({
   // --- HTML5 Drag & Drop Implementation ---
   const handleDragStart = (e: React.DragEvent, item: FileItem, idx: number) => {
     const isItemSelected = selectedIdSet.has(item.id);
-    const dragPayload = isItemSelected 
-      ? items.filter(i => selectedIds.includes(i.id))
-      : [item];
-    
+    const dragPayload = isItemSelected ? items.filter((i) => selectedIds.includes(i.id)) : [item];
+
     // Auto-focus dragged item if not selected
     if (!isItemSelected) {
       onSelectIndex(idx);
     }
-    
+
     const payload = {
       items: dragPayload,
       sourceSide: panelSide,
       sourceDriveId: currentDriveId,
-      sourcePath: currentPath
+      sourcePath: currentPath,
     };
 
-    setDraggedIds(dragPayload.map(i => i.id));
+    setDraggedIds(dragPayload.map((i) => i.id));
 
     // Custom retro drag preview badge
     try {
@@ -354,9 +369,10 @@ const FileListComponent: React.FC<FileListProps> = ({
       dragBadge.style.boxShadow = '0 6px 16px rgba(0,0,0,0.6)';
       dragBadge.style.pointerEvents = 'none';
       dragBadge.style.zIndex = '99999';
-      dragBadge.innerText = dragPayload.length === 1 
-        ? `📄 ${dragPayload[0].name}${dragPayload[0].ext ? '.' + dragPayload[0].ext : ''}` 
-        : `${dragPayload.length} ${t.elementsSuffix}`;
+      dragBadge.innerText =
+        dragPayload.length === 1
+          ? `📄 ${dragPayload[0].name}${dragPayload[0].ext ? '.' + dragPayload[0].ext : ''}`
+          : `${dragPayload.length} ${t.elementsSuffix}`;
       document.body.appendChild(dragBadge);
       e.dataTransfer.setDragImage(dragBadge, 15, 15);
       setTimeout(() => {
@@ -369,7 +385,7 @@ const FileListComponent: React.FC<FileListProps> = ({
     }
 
     e.dataTransfer.setData('application/json', JSON.stringify(payload));
-    e.dataTransfer.setData('text/plain', dragPayload.map(i => `${i.name}${i.ext ? '.' + i.ext : ''}`).join('\n'));
+    e.dataTransfer.setData('text/plain', dragPayload.map((i) => `${i.name}${i.ext ? '.' + i.ext : ''}`).join('\n'));
     e.dataTransfer.effectAllowed = 'copyMove';
 
     soundManager.playKeyTick();
@@ -437,9 +453,7 @@ const FileListComponent: React.FC<FileListProps> = ({
     const operation: 'copy' | 'move' = isMove ? 'move' : 'copy';
 
     // Target folder path
-    const destPath = targetFolder && targetFolder.isDirectory
-      ? `${currentPath}\\${targetFolder.name}`
-      : currentPath;
+    const destPath = targetFolder && targetFolder.isDirectory ? `${currentPath}\\${targetFolder.name}` : currentPath;
 
     // 1. Check if internal items dropped
     try {
@@ -500,7 +514,7 @@ const FileListComponent: React.FC<FileListProps> = ({
   }, [items, selectedIdSet]);
 
   return (
-    <div 
+    <div
       className={`flex-1 flex flex-col min-h-0 relative select-none font-mono text-xs overflow-hidden transition-all ${
         isDragOverPanel ? 'ring-2 ring-inset ring-amber-400 bg-amber-400/5' : ''
       }`}
@@ -510,43 +524,39 @@ const FileListComponent: React.FC<FileListProps> = ({
       onDrop={(e) => handleDrop(e)}
       style={{
         backgroundColor: isActive ? theme.bgPanel : theme.bgPanelInactive,
-        color: theme.itemText
+        color: theme.itemText,
       }}
     >
       {/* Table Header Columns (Norton / Total Commander style) */}
-      <div 
+      <div
         className="flex items-center min-w-full px-[var(--space-2)] py-[var(--space-1)] border-b select-none font-bold text-[11px] shrink-0 uppercase tracking-wider gap-0 whitespace-nowrap flex-nowrap"
         style={{
           backgroundColor: theme.headerBg,
           color: theme.headerText,
-          borderColor: theme.borderPanel
+          borderColor: theme.borderPanel,
         }}
       >
-        <div 
+        <div
           onClick={() => onSort('name')}
           onDoubleClick={() => autoSizeColumn('name')}
           className="flex items-center cursor-pointer hover:opacity-80 transition-opacity shrink-0 relative pr-1"
           style={{ width: `${colWidths.name}px`, minWidth: '44px' }}
         >
           <span className="truncate">{t.name}</span>
-          {sortField === 'name' && (
-            <span className="ml-1 text-[10px]">{sortDirection === 'asc' ? '▲' : '▼'}</span>
-          )}
+          {sortField === 'name' && <span className="ml-1 text-[10px]">{sortDirection === 'asc' ? '▲' : '▼'}</span>}
           {viewMode === 'full' && renderResizer('name', t.name)}
         </div>
 
         {viewMode === 'full' && (
           <>
-            <div 
+            <div
               onClick={() => onSort('ext')}
               onDoubleClick={() => autoSizeColumn('ext')}
               className="text-center cursor-pointer hover:opacity-80 transition-opacity shrink-0 relative"
               style={{ width: `${colWidths.ext}px`, minWidth: '44px' }}
             >
               <span>{t.ext}</span>
-              {sortField === 'ext' && (
-                <span className="ml-0.5 text-[10px]">{sortDirection === 'asc' ? '▲' : '▼'}</span>
-              )}
+              {sortField === 'ext' && <span className="ml-0.5 text-[10px]">{sortDirection === 'asc' ? '▲' : '▼'}</span>}
               {renderResizer('ext', t.ext)}
             </div>
             <div
@@ -558,7 +568,7 @@ const FileListComponent: React.FC<FileListProps> = ({
               {renderResizer('type', t.colType)}
             </div>
 
-            <div 
+            <div
               onClick={() => onSort('size')}
               onDoubleClick={() => autoSizeColumn('size')}
               className="text-right cursor-pointer hover:opacity-80 transition-opacity shrink-0 px-1 relative"
@@ -571,7 +581,7 @@ const FileListComponent: React.FC<FileListProps> = ({
               {renderResizer('size', t.size)}
             </div>
 
-            <div 
+            <div
               onClick={() => onSort('modifiedAt')}
               onDoubleClick={() => autoSizeColumn('date')}
               className="text-center cursor-pointer hover:opacity-80 transition-opacity shrink-0 relative"
@@ -596,33 +606,38 @@ const FileListComponent: React.FC<FileListProps> = ({
         )}
 
         <div className="flex-1" />
-
       </div>
 
-        <div
-          ref={listContainerRef}
-          className="flex-1 min-h-0 min-w-full overflow-y-auto overflow-x-auto focus:outline-none p-0.5 space-y-[1px]"
-          tabIndex={0}
-          onContextMenu={(e) => onContextMenu(e, null)}
-          onDragOver={handleDragOverContainer}
-          onDragLeave={handleDragLeaveContainer}
-          onDrop={(e) => handleDrop(e)}
-        >
-          {!isRoot && (
-            <div
-              onClick={() => { soundManager.playDiskAccess(); onGoParent(); }}
-              onDoubleClick={() => { soundManager.playDiskAccess(); onGoParent(); }}
-              className={`flex items-center justify-between px-[var(--space-2)] py-[var(--space-1)] cursor-pointer hover:bg-white/10 transition-colors group text-yellow-300 font-bold ${dragOverFolderId === 'parent_dir' ? 'ring-2 ring-amber-400 bg-amber-400/25 shadow' : ''}`}
-            >
-              <div className="flex items-center gap-[var(--space-2)] flex-1 min-w-0">
-                <Folder className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-                <span className="tracking-wider">..</span>
-                <span className="opacity-50 text-[10px]">&lt;UP--DIR&gt;</span>
-              </div>
+      <div
+        ref={listContainerRef}
+        className="flex-1 min-h-0 min-w-full overflow-y-auto overflow-x-auto focus:outline-none p-0.5 space-y-[1px]"
+        tabIndex={0}
+        onContextMenu={(e) => onContextMenu(e, null)}
+        onDragOver={handleDragOverContainer}
+        onDragLeave={handleDragLeaveContainer}
+        onDrop={(e) => handleDrop(e)}
+      >
+        {!isRoot && (
+          <div
+            onClick={() => {
+              soundManager.playDiskAccess();
+              onGoParent();
+            }}
+            onDoubleClick={() => {
+              soundManager.playDiskAccess();
+              onGoParent();
+            }}
+            className={`flex items-center justify-between px-[var(--space-2)] py-[var(--space-1)] cursor-pointer hover:bg-white/10 transition-colors group text-yellow-300 font-bold ${dragOverFolderId === 'parent_dir' ? 'ring-2 ring-amber-400 bg-amber-400/25 shadow' : ''}`}
+          >
+            <div className="flex items-center gap-[var(--space-2)] flex-1 min-w-0">
+              <Folder className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+              <span className="tracking-wider">..</span>
+              <span className="opacity-50 text-[10px]">&lt;UP--DIR&gt;</span>
             </div>
-          )}
+          </div>
+        )}
 
-                {viewMode === 'full' && (
+        {viewMode === 'full' && (
           <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}>
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
               const item = items[virtualRow.index];
@@ -669,12 +684,12 @@ const FileListComponent: React.FC<FileListProps> = ({
                     isBeingDragged
                       ? 'opacity-40 ring-1 ring-dashed ring-amber-400'
                       : isHoveredTarget
-                      ? 'ring-2 ring-amber-400 bg-amber-400/30 font-bold text-amber-200 shadow-md'
-                      : isFocused
-                      ? 'font-bold'
-                      : isSelected
-                      ? 'bg-amber-900/30'
-                      : 'hover:bg-white/5'
+                        ? 'ring-2 ring-amber-400 bg-amber-400/30 font-bold text-amber-200 shadow-md'
+                        : isFocused
+                          ? 'font-bold'
+                          : isSelected
+                            ? 'bg-amber-900/30'
+                            : 'hover:bg-white/5'
                   }`}
                   style={{
                     position: 'absolute',
@@ -682,11 +697,20 @@ const FileListComponent: React.FC<FileListProps> = ({
                     left: 0,
                     width: '100%',
                     transform: `translateY(${virtualRow.start}px)`,
-                    backgroundColor: isHoveredTarget ? undefined : isFocused ? theme.cursorBg : isSelected ? theme.selectedBg : undefined,
-                    color: isHoveredTarget ? '#ffff55' : isFocused ? theme.cursorText : textColor
+                    backgroundColor: isHoveredTarget
+                      ? undefined
+                      : isFocused
+                        ? theme.cursorBg
+                        : isSelected
+                          ? theme.selectedBg
+                          : undefined,
+                    color: isHoveredTarget ? '#ffff55' : isFocused ? theme.cursorText : textColor,
                   }}
                 >
-                  <div className="flex items-center gap-[var(--space-2)] shrink-0 min-w-0 pr-2" style={{ width: `${colWidths.name}px`, minWidth: '44px' }}>
+                  <div
+                    className="flex items-center gap-[var(--space-2)] shrink-0 min-w-0 pr-2"
+                    style={{ width: `${colWidths.name}px`, minWidth: '44px' }}
+                  >
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -696,14 +720,18 @@ const FileListComponent: React.FC<FileListProps> = ({
                       aria-label={`${isSelected ? t.deselectItem : t.selectItem} ${item.name}`}
                       aria-pressed={isSelected}
                       className={`w-3 h-3 flex items-center justify-center rounded-[2px] border text-[9px] shrink-0 cursor-pointer ${
-                        isSelected ? 'bg-amber-400 text-black border-amber-300 font-extrabold' : 'border-white/30 opacity-40 hover:opacity-100'
+                        isSelected
+                          ? 'bg-amber-400 text-black border-amber-300 font-extrabold'
+                          : 'border-white/30 opacity-40 hover:opacity-100'
                       }`}
                     >
                       {isSelected ? '✓' : ''}
                     </button>
 
                     {isFocused && blinkingCursorEnabled && (
-             <span className={`nc-blink ${blinkingCursorColor === 'amber' ? 'text-amber-300' : blinkingCursorColor === 'green' ? 'text-emerald-300' : blinkingCursorColor === 'red' ? 'text-red-300' : blinkingCursorColor === 'white' ? 'text-white' : 'text-cyan-300'} font-bold shrink-0 font-mono text-[11px] select-none`}>
+                      <span
+                        className={`nc-blink ${blinkingCursorColor === 'amber' ? 'text-amber-300' : blinkingCursorColor === 'green' ? 'text-emerald-300' : blinkingCursorColor === 'red' ? 'text-red-300' : blinkingCursorColor === 'white' ? 'text-white' : 'text-cyan-300'} font-bold shrink-0 font-mono text-[11px] select-none`}
+                      >
                         █
                       </span>
                     )}
@@ -721,22 +749,37 @@ const FileListComponent: React.FC<FileListProps> = ({
                     )}
                   </div>
 
-                  <div className="text-center shrink-0 uppercase opacity-90 truncate font-semibold" style={{ width: `${colWidths.ext}px`, minWidth: '44px' }}>
+                  <div
+                    className="text-center shrink-0 uppercase opacity-90 truncate font-semibold"
+                    style={{ width: `${colWidths.ext}px`, minWidth: '44px' }}
+                  >
                     {item.isDirectory ? '' : item.ext}
                   </div>
-                  <div className="text-left shrink-0 truncate opacity-90 text-[11px] px-1" style={{ width: `${colWidths.type}px`, minWidth: '72px' }}>
+                  <div
+                    className="text-left shrink-0 truncate opacity-90 text-[11px] px-1"
+                    style={{ width: `${colWidths.type}px`, minWidth: '72px' }}
+                  >
                     {getItemType(item)}
                   </div>
 
-                  <div className="text-right shrink-0 tabular-nums px-1" style={{ width: `${colWidths.size}px`, minWidth: '64px' }}>
+                  <div
+                    className="text-right shrink-0 tabular-nums px-1"
+                    style={{ width: `${colWidths.size}px`, minWidth: '64px' }}
+                  >
                     {formatSize(item)}
                   </div>
 
-                  <div className="text-center shrink-0 opacity-80 text-[11px] tabular-nums" style={{ width: `${colWidths.date}px`, minWidth: '96px' }}>
+                  <div
+                    className="text-center shrink-0 opacity-80 text-[11px] tabular-nums"
+                    style={{ width: `${colWidths.date}px`, minWidth: '96px' }}
+                  >
                     {item.modifiedAt.substring(0, 16)}
                   </div>
 
-                  <div className="text-center shrink-0 opacity-70 text-[10px] hidden sm:block tracking-widest" style={{ width: `${colWidths.attr}px`, minWidth: '44px' }}>
+                  <div
+                    className="text-center shrink-0 opacity-70 text-[10px] hidden sm:block tracking-widest"
+                    style={{ width: `${colWidths.attr}px`, minWidth: '44px' }}
+                  >
                     {formatAttributes(item)}
                   </div>
                   <div className="flex-1" />
@@ -746,7 +789,7 @@ const FileListComponent: React.FC<FileListProps> = ({
           </div>
         )}
 
-{/* Brief Multi-Column Mode (virtualized) */}
+        {/* Brief Multi-Column Mode (virtualized) */}
         {viewMode === 'brief' && (
           <div style={{ height: `${gridRowVirtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}>
             {gridRowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -757,7 +800,17 @@ const FileListComponent: React.FC<FileListProps> = ({
                   key={virtualRow.key}
                   data-index={virtualRow.index}
                   ref={gridRowVirtualizer.measureElement}
-                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${virtualRow.start}px)`, display: 'grid', gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`, gap: '2px', padding: '4px' }}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`,
+                    gap: '2px',
+                    padding: '4px',
+                  }}
                   className="cv-auto"
                 >
                   {rowItems.map((item, offset) => {
@@ -795,26 +848,28 @@ const FileListComponent: React.FC<FileListProps> = ({
                           isBeingDragged
                             ? 'opacity-40 ring-1 ring-dashed ring-amber-400'
                             : isHoveredTarget
-                            ? 'ring-2 ring-amber-400 bg-amber-400/30 font-bold text-amber-200'
-                            : isFocused 
-                            ? 'font-bold shadow ring-1 ring-amber-300' 
-                            : isSelected 
-                            ? 'bg-amber-900/40' 
-                            : 'hover:bg-white/10'
+                              ? 'ring-2 ring-amber-400 bg-amber-400/30 font-bold text-amber-200'
+                              : isFocused
+                                ? 'font-bold shadow ring-1 ring-amber-300'
+                                : isSelected
+                                  ? 'bg-amber-900/40'
+                                  : 'hover:bg-white/10'
                         }`}
                         style={{
                           backgroundColor: isHoveredTarget ? undefined : isFocused ? theme.cursorBg : undefined,
-                          color: isHoveredTarget ? '#ffff55' : isFocused ? theme.cursorText : textColor
+                          color: isHoveredTarget ? '#ffff55' : isFocused ? theme.cursorText : textColor,
                         }}
                       >
                         {getFileIcon(item, '', { width: thumbSize * 0.4, height: thumbSize * 0.4 })}
-                        <span className="truncate font-medium flex-1" title={item.name + (item.ext ? '.' + item.ext : '')}>
-                          {item.name}{item.ext ? `.${item.ext}` : ''}
+                        <span
+                          className="truncate font-medium flex-1"
+                          title={item.name + (item.ext ? '.' + item.ext : '')}
+                        >
+                          {item.name}
+                          {item.ext ? `.${item.ext}` : ''}
                         </span>
                         {isHoveredTarget && item.isDirectory && (
-                          <span className="text-[8px] bg-amber-400 text-black px-1 rounded font-bold shrink-0">
-                            ↵
-                          </span>
+                          <span className="text-[8px] bg-amber-400 text-black px-1 rounded font-bold shrink-0">↵</span>
                         )}
                       </div>
                     );
@@ -831,66 +886,84 @@ const FileListComponent: React.FC<FileListProps> = ({
               const base = virtualRow.index * thumbColumns;
               const rowItems = items.slice(base, base + thumbColumns);
               return (
-                <div key={virtualRow.key} data-index={virtualRow.index} ref={gridRowVirtualizer.measureElement} style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${virtualRow.start}px)`, display: 'grid', gridTemplateColumns: `repeat(${thumbColumns}, minmax(0, 1fr))`, gap: '8px', padding: '8px' }} className="cv-auto">
+                <div
+                  key={virtualRow.key}
+                  data-index={virtualRow.index}
+                  ref={gridRowVirtualizer.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(${thumbColumns}, minmax(0, 1fr))`,
+                    gap: '8px',
+                    padding: '8px',
+                  }}
+                  className="cv-auto"
+                >
                   {rowItems.map((item, offset) => {
                     const idx = base + offset;
-              const isFocused = idx === focusedIndex && isActive;
-              const isSelected = selectedIdSet.has(item.id);
-              const isHoveredTarget = dragOverFolderId === item.id;
-              const isBeingDragged = draggedIds.includes(item.id);
-              const textColor = getItemTextColor(item, isSelected);
+                    const isFocused = idx === focusedIndex && isActive;
+                    const isSelected = selectedIdSet.has(item.id);
+                    const isHoveredTarget = dragOverFolderId === item.id;
+                    const isBeingDragged = draggedIds.includes(item.id);
+                    const textColor = getItemTextColor(item, isSelected);
 
-              return (
-                <div
-                  key={item.id}
-                  data-focused={isFocused}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, item, idx)}
-                  onDragEnd={handleDragEnd}
-                  onDragOver={(e) => handleDragOverItem(e, item)}
-                  onDragLeave={(e) => handleDragLeaveItem(e, item)}
-                  onDrop={(e) => handleDropItem(e, item)}
-                  onClick={() => {
-                    soundManager.playKeyTick();
-                    onSelectIndex(idx);
-                  }}
-                  onDoubleClick={() => {
-                    soundManager.playDiskAccess();
-                    onOpenItem(item);
-                  }}
-                  onContextMenu={(e) => {
-                    e.stopPropagation();
-                    onSelectIndex(idx);
-                    onContextMenu(e, item);
-                  }}
-                  className={`flex flex-col items-center justify-center p-[var(--space-2)] rounded border cursor-pointer text-center transition-all cv-auto ${
-                    isBeingDragged
-                      ? 'opacity-40 ring-1 ring-dashed ring-amber-400'
-                      : isHoveredTarget
-                      ? 'ring-2 ring-amber-400 bg-amber-400/30 border-amber-300'
-                      : isFocused 
-                      ? 'ring-2 ring-amber-400 bg-white/20' 
-                      : isSelected 
-                      ? 'bg-amber-900/30 border-amber-400' 
-                      : 'border-white/10 hover:bg-white/5'
-                  }`}
-                >
-                  <div className="flex items-center justify-center mb-1" style={{ width: thumbSize, height: thumbSize }}>
-                    {getFileIcon(item, '', { width: thumbSize, height: thumbSize })}
-                  </div>
-                  <span className="truncate w-full text-[11px] font-medium" style={{ color: textColor }}>
-                    {item.name}{item.ext ? `.${item.ext}` : ''}
-                  </span>
-                  <span className="text-[10px] opacity-60 tabular-nums">
-                    {formatSize(item)}
-                  </span>
-                  {isHoveredTarget && item.isDirectory && (
-                    <span className="text-[9px] bg-amber-400 text-black px-1 rounded font-bold mt-1">
-                      {t.dropHere}
-                    </span>
-                  )}
-                </div>
-              );
+                    return (
+                      <div
+                        key={item.id}
+                        data-focused={isFocused}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, item, idx)}
+                        onDragEnd={handleDragEnd}
+                        onDragOver={(e) => handleDragOverItem(e, item)}
+                        onDragLeave={(e) => handleDragLeaveItem(e, item)}
+                        onDrop={(e) => handleDropItem(e, item)}
+                        onClick={() => {
+                          soundManager.playKeyTick();
+                          onSelectIndex(idx);
+                        }}
+                        onDoubleClick={() => {
+                          soundManager.playDiskAccess();
+                          onOpenItem(item);
+                        }}
+                        onContextMenu={(e) => {
+                          e.stopPropagation();
+                          onSelectIndex(idx);
+                          onContextMenu(e, item);
+                        }}
+                        className={`flex flex-col items-center justify-center p-[var(--space-2)] rounded border cursor-pointer text-center transition-all cv-auto ${
+                          isBeingDragged
+                            ? 'opacity-40 ring-1 ring-dashed ring-amber-400'
+                            : isHoveredTarget
+                              ? 'ring-2 ring-amber-400 bg-amber-400/30 border-amber-300'
+                              : isFocused
+                                ? 'ring-2 ring-amber-400 bg-white/20'
+                                : isSelected
+                                  ? 'bg-amber-900/30 border-amber-400'
+                                  : 'border-white/10 hover:bg-white/5'
+                        }`}
+                      >
+                        <div
+                          className="flex items-center justify-center mb-1"
+                          style={{ width: thumbSize, height: thumbSize }}
+                        >
+                          {getFileIcon(item, '', { width: thumbSize, height: thumbSize })}
+                        </div>
+                        <span className="truncate w-full text-[11px] font-medium" style={{ color: textColor }}>
+                          {item.name}
+                          {item.ext ? `.${item.ext}` : ''}
+                        </span>
+                        <span className="text-[10px] opacity-60 tabular-nums">{formatSize(item)}</span>
+                        {isHoveredTarget && item.isDirectory && (
+                          <span className="text-[9px] bg-amber-400 text-black px-1 rounded font-bold mt-1">
+                            {t.dropHere}
+                          </span>
+                        )}
+                      </div>
+                    );
                   })}
                 </div>
               );
@@ -905,105 +978,126 @@ const FileListComponent: React.FC<FileListProps> = ({
               const base = virtualRow.index * thumbColumns;
               const rowItems = items.slice(base, base + thumbColumns);
               return (
-                <div key={virtualRow.key} data-index={virtualRow.index} ref={gridRowVirtualizer.measureElement} style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${virtualRow.start}px)`, display: 'grid', gridTemplateColumns: `repeat(${thumbColumns}, minmax(0, 1fr))`, gap: '10px', padding: '8px' }} className="cv-auto">
+                <div
+                  key={virtualRow.key}
+                  data-index={virtualRow.index}
+                  ref={gridRowVirtualizer.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(${thumbColumns}, minmax(0, 1fr))`,
+                    gap: '10px',
+                    padding: '8px',
+                  }}
+                  className="cv-auto"
+                >
                   {rowItems.map((item, offset) => {
                     const idx = base + offset;
-              const isFocused = idx === focusedIndex && isActive;
-              const isSelected = selectedIdSet.has(item.id);
-              const isHoveredTarget = dragOverFolderId === item.id;
-              const isBeingDragged = draggedIds.includes(item.id);
-              const textColor = getItemTextColor(item, isSelected);
-              const ext = item.ext.toLowerCase();
-              const isImage = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext);
-              const isAudio = ['mp3', 'wav', 'ogg', 'aac', 'flac'].includes(ext);
-              const isVideo = ['mp4', 'webm', 'mkv', 'avi'].includes(ext);
+                    const isFocused = idx === focusedIndex && isActive;
+                    const isSelected = selectedIdSet.has(item.id);
+                    const isHoveredTarget = dragOverFolderId === item.id;
+                    const isBeingDragged = draggedIds.includes(item.id);
+                    const textColor = getItemTextColor(item, isSelected);
+                    const ext = item.ext.toLowerCase();
+                    const isImage = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext);
+                    const isAudio = ['mp3', 'wav', 'ogg', 'aac', 'flac'].includes(ext);
+                    const isVideo = ['mp4', 'webm', 'mkv', 'avi'].includes(ext);
 
-              return (
-                <div
-                  key={item.id}
-                  data-focused={isFocused}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, item, idx)}
-                  onDragEnd={handleDragEnd}
-                  onDragOver={(e) => handleDragOverItem(e, item)}
-                  onDragLeave={(e) => handleDragLeaveItem(e, item)}
-                  onDrop={(e) => handleDropItem(e, item)}
-                  onClick={() => {
-                    soundManager.playKeyTick();
-                    onSelectIndex(idx);
-                  }}
-                  onDoubleClick={() => {
-                    soundManager.playDiskAccess();
-                    onOpenItem(item);
-                  }}
-                  onContextMenu={(e) => {
-                    e.stopPropagation();
-                    onSelectIndex(idx);
-                    onContextMenu(e, item);
-                  }}
-                  className={`group relative flex flex-col rounded-md border p-2 cursor-pointer transition-all overflow-hidden cv-auto ${
-                    isBeingDragged
-                      ? 'opacity-40 ring-1 ring-dashed ring-amber-400'
-                      : isHoveredTarget
-                      ? 'ring-2 ring-amber-400 bg-amber-400/20 border-amber-300 shadow-xl'
-                      : isFocused 
-                      ? 'ring-2 ring-amber-400 bg-amber-400/10 border-amber-400 shadow-lg' 
-                      : isSelected 
-                      ? 'bg-amber-900/40 border-amber-400' 
-                      : 'border-white/15 bg-black/40 hover:bg-white/10 hover:border-white/30'
-                  }`}
-                >
-                  {/* Card Thumbnail Box */}
-                  <div className="w-full h-24 rounded bg-black/60 border border-white/10 flex items-center justify-center overflow-hidden relative mb-1.5">
-                    {isImage && item.content?.startsWith('data:image') ? (
-                      <img src={item.content} alt={item.name} className="w-full h-full object-cover" />
-                    ) : isImage ? (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-indigo-950 to-purple-950 text-indigo-300">
-                        <ImageIcon className="w-8 h-8 opacity-80" />
-                        <span className="text-[9px] font-bold mt-1 uppercase">{ext} IMAGE</span>
-                      </div>
-                    ) : isAudio ? (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-amber-950 to-orange-950 text-amber-300">
-                        <Music className="w-8 h-8 animate-pulse" />
-                        <span className="text-[9px] font-bold mt-1 uppercase">AUDIO TRACK</span>
-                      </div>
-                    ) : isVideo ? (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-cyan-950 to-blue-950 text-cyan-300">
-                        <Film className="w-8 h-8" />
-                        <span className="text-[9px] font-bold mt-1 uppercase">VIDEO CLIP</span>
-                      </div>
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-400">
-                        {getFileIcon(item, '', { width: thumbSize, height: thumbSize })}
-                      </div>
-                    )}
+                    return (
+                      <div
+                        key={item.id}
+                        data-focused={isFocused}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, item, idx)}
+                        onDragEnd={handleDragEnd}
+                        onDragOver={(e) => handleDragOverItem(e, item)}
+                        onDragLeave={(e) => handleDragLeaveItem(e, item)}
+                        onDrop={(e) => handleDropItem(e, item)}
+                        onClick={() => {
+                          soundManager.playKeyTick();
+                          onSelectIndex(idx);
+                        }}
+                        onDoubleClick={() => {
+                          soundManager.playDiskAccess();
+                          onOpenItem(item);
+                        }}
+                        onContextMenu={(e) => {
+                          e.stopPropagation();
+                          onSelectIndex(idx);
+                          onContextMenu(e, item);
+                        }}
+                        className={`group relative flex flex-col rounded-md border p-2 cursor-pointer transition-all overflow-hidden cv-auto ${
+                          isBeingDragged
+                            ? 'opacity-40 ring-1 ring-dashed ring-amber-400'
+                            : isHoveredTarget
+                              ? 'ring-2 ring-amber-400 bg-amber-400/20 border-amber-300 shadow-xl'
+                              : isFocused
+                                ? 'ring-2 ring-amber-400 bg-amber-400/10 border-amber-400 shadow-lg'
+                                : isSelected
+                                  ? 'bg-amber-900/40 border-amber-400'
+                                  : 'border-white/15 bg-black/40 hover:bg-white/10 hover:border-white/30'
+                        }`}
+                      >
+                        {/* Card Thumbnail Box */}
+                        <div className="w-full h-24 rounded bg-black/60 border border-white/10 flex items-center justify-center overflow-hidden relative mb-1.5">
+                          {isImage && item.content?.startsWith('data:image') ? (
+                            <img src={item.content} alt={item.name} className="w-full h-full object-cover" />
+                          ) : isImage ? (
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-indigo-950 to-purple-950 text-indigo-300">
+                              <ImageIcon className="w-8 h-8 opacity-80" />
+                              <span className="text-[9px] font-bold mt-1 uppercase">{ext} IMAGE</span>
+                            </div>
+                          ) : isAudio ? (
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-amber-950 to-orange-950 text-amber-300">
+                              <Music className="w-8 h-8 animate-pulse" />
+                              <span className="text-[9px] font-bold mt-1 uppercase">AUDIO TRACK</span>
+                            </div>
+                          ) : isVideo ? (
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-cyan-950 to-blue-950 text-cyan-300">
+                              <Film className="w-8 h-8" />
+                              <span className="text-[9px] font-bold mt-1 uppercase">VIDEO CLIP</span>
+                            </div>
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-400">
+                              {getFileIcon(item, '', { width: thumbSize, height: thumbSize })}
+                            </div>
+                          )}
 
-                    {/* Selection Indicator Badge */}
-                    {isSelected && (
-                      <div className="absolute top-1 right-1 bg-amber-400 text-black p-0.5 rounded-full shadow">
-                        <Check className="w-3 h-3 stroke-[3]" />
-                      </div>
-                    )}
+                          {/* Selection Indicator Badge */}
+                          {isSelected && (
+                            <div className="absolute top-1 right-1 bg-amber-400 text-black p-0.5 rounded-full shadow">
+                              <Check className="w-3 h-3 stroke-[3]" />
+                            </div>
+                          )}
 
-                    {isHoveredTarget && item.isDirectory && (
-                      <div className="absolute inset-0 bg-amber-400/80 text-black font-extrabold flex items-center justify-center text-xs uppercase shadow">
-                        {t.dropHere}
-                      </div>
-                    )}
-                  </div>
+                          {isHoveredTarget && item.isDirectory && (
+                            <div className="absolute inset-0 bg-amber-400/80 text-black font-extrabold flex items-center justify-center text-xs uppercase shadow">
+                              {t.dropHere}
+                            </div>
+                          )}
+                        </div>
 
-                  {/* Card Footer Meta */}
-                  <div className="flex items-center justify-between text-[11px] font-semibold truncate">
-                    <span className="truncate" title={item.name + (item.ext ? "." + item.ext : "")} style={{ color: textColor }}>
-                      {item.name}{item.ext ? `.${item.ext}` : ''}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] opacity-60 mt-[var(--space-1)] tabular-nums">
-                    <span>{formatSize(item)}</span>
-                    <span>{item.modifiedAt?.substring(0, 10)}</span>
-                  </div>
-                </div>
-              );
+                        {/* Card Footer Meta */}
+                        <div className="flex items-center justify-between text-[11px] font-semibold truncate">
+                          <span
+                            className="truncate"
+                            title={item.name + (item.ext ? '.' + item.ext : '')}
+                            style={{ color: textColor }}
+                          >
+                            {item.name}
+                            {item.ext ? `.${item.ext}` : ''}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] opacity-60 mt-[var(--space-1)] tabular-nums">
+                          <span>{formatSize(item)}</span>
+                          <span>{item.modifiedAt?.substring(0, 10)}</span>
+                        </div>
+                      </div>
+                    );
                   })}
                 </div>
               );
@@ -1012,7 +1106,7 @@ const FileListComponent: React.FC<FileListProps> = ({
         )}
 
         {items.length === 0 && (
-          <div 
+          <div
             onDragOver={handleDragOverContainer}
             onDragLeave={handleDragLeaveContainer}
             onDrop={(e) => handleDrop(e)}
@@ -1020,13 +1114,10 @@ const FileListComponent: React.FC<FileListProps> = ({
           >
             <Folder className="w-8 h-8 opacity-40 mb-2 text-amber-300" />
             <div className="text-xs opacity-70 font-semibold mb-1">&lt;{t.emptyFolder}&gt;</div>
-            <div className="text-[11px] opacity-40">
-              {t.emptyFolderDropHint}
-            </div>
+            <div className="text-[11px] opacity-40">{t.emptyFolderDropHint}</div>
           </div>
         )}
       </div>
-
 
       {/* Floating Drag & Drop Operation HUD Indicator */}
       {isDragOverPanel && (
@@ -1046,11 +1137,11 @@ const FileListComponent: React.FC<FileListProps> = ({
                 {dragOperation === 'move' ? t.moveTo : t.copyTo}
               </span>
               <span className="text-white max-w-[260px] truncate">
-                {dragOverFolderId === 'parent_dir' 
+                {dragOverFolderId === 'parent_dir'
                   ? t.parentDirectory
-                  : dragOverFolderId 
-                  ? `${t.folder}: ${items.find(i => i.id === dragOverFolderId)?.name || t.selectedFallback}`
-                  : currentPath}
+                  : dragOverFolderId
+                    ? `${t.folder}: ${items.find((i) => i.id === dragOverFolderId)?.name || t.selectedFallback}`
+                    : currentPath}
               </span>
             </div>
             <span className="text-[10px] text-amber-200/70 font-normal">

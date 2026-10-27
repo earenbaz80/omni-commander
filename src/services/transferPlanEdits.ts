@@ -9,7 +9,10 @@ import { TransferPlan, TransferPlanEntry } from '../types';
  * twice under two spellings.
  */
 export function planEntryKey(path: string): string {
-  return path.trim().replace(/[\\/]+$/, '').toLowerCase();
+  return path
+    .trim()
+    .replace(/[\\/]+$/, '')
+    .toLowerCase();
 }
 
 export interface PlanMerge {
@@ -25,7 +28,7 @@ export interface PlanMerge {
  * picker that returns the same files twice cannot churn the task list.
  */
 export function addEntriesToPlan(plan: TransferPlan, entries: TransferPlanEntry[]): PlanMerge {
-  const seen = new Set(plan.entries.map(entry => planEntryKey(entry.path)));
+  const seen = new Set(plan.entries.map((entry) => planEntryKey(entry.path)));
   const added: TransferPlanEntry[] = [];
   let skipped = 0;
 
@@ -42,7 +45,7 @@ export function addEntriesToPlan(plan: TransferPlan, entries: TransferPlanEntry[
   return {
     plan: added.length > 0 ? { ...plan, entries: [...plan.entries, ...added] } : plan,
     added,
-    skipped
+    skipped,
   };
 }
 

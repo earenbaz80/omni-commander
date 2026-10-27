@@ -35,7 +35,7 @@ function apiBase(): string {
 
 const toHex = (buffer: ArrayBuffer): string =>
   Array.from(new Uint8Array(buffer))
-    .map(b => b.toString(16).padStart(2, '0'))
+    .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 
 /** True when the item is a real-drive file whose bytes only the server can read. */
@@ -54,7 +54,9 @@ async function hashRealFile(file: FileItem): Promise<FileHashes> {
     try {
       const body = await response.json();
       if (body && body.error) message = String(body.error);
-    } catch { /* keep the generic message */ }
+    } catch {
+      /* keep the generic message */
+    }
     throw new Error(message);
   }
   const data = await response.json();
@@ -83,10 +85,11 @@ async function hashContent(content: string): Promise<FileHashes> {
  * implemented directly. Returns lowercase hex, 32 chars.
  */
 function md5Hex(bytes: Uint8Array): string {
-  const s = [7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
-    5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
-    4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
-    6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21];
+  const s = [
+    7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
+    4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15,
+    21,
+  ];
   const K = new Uint32Array(64);
   for (let i = 0; i < 64; i++) K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 0x100000000);
 
@@ -100,19 +103,34 @@ function md5Hex(bytes: Uint8Array): string {
   view.setUint32(withPaddingLength - 8, bitLength >>> 0, true);
   view.setUint32(withPaddingLength - 4, Math.floor(bitLength / 0x100000000), true);
 
-  let a0 = 0x67452301, b0 = 0xefcdab89, c0 = 0x98badcfe, d0 = 0x10325476;
+  let a0 = 0x67452301,
+    b0 = 0xefcdab89,
+    c0 = 0x98badcfe,
+    d0 = 0x10325476;
 
   for (let offset = 0; offset < withPaddingLength; offset += 64) {
     const M = new Uint32Array(16);
     for (let i = 0; i < 16; i++) M[i] = view.getUint32(offset + i * 4, true);
 
-    let A = a0, B = b0, C = c0, D = d0;
+    let A = a0,
+      B = b0,
+      C = c0,
+      D = d0;
     for (let i = 0; i < 64; i++) {
       let F: number, g: number;
-      if (i < 16) { F = (B & C) | (~B & D); g = i; }
-      else if (i < 32) { F = (D & B) | (~D & C); g = (5 * i + 1) % 16; }
-      else if (i < 48) { F = B ^ C ^ D; g = (3 * i + 5) % 16; }
-      else { F = C ^ (B | ~D); g = (7 * i) % 16; }
+      if (i < 16) {
+        F = (B & C) | (~B & D);
+        g = i;
+      } else if (i < 32) {
+        F = (D & B) | (~D & C);
+        g = (5 * i + 1) % 16;
+      } else if (i < 48) {
+        F = B ^ C ^ D;
+        g = (3 * i + 5) % 16;
+      } else {
+        F = C ^ (B | ~D);
+        g = (7 * i) % 16;
+      }
       F = (F + A + K[i] + M[g]) >>> 0;
       A = D;
       D = C;
@@ -131,7 +149,9 @@ function md5Hex(bytes: Uint8Array): string {
   outView.setUint32(4, b0, true);
   outView.setUint32(8, c0, true);
   outView.setUint32(12, d0, true);
-  return Array.from(out).map(b => b.toString(16).padStart(2, '0')).join('');
+  return Array.from(out)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 export async function calculateFileHashes(file: FileItem): Promise<FileHashes> {
