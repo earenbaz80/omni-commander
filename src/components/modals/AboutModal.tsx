@@ -1,5 +1,5 @@
 import React from 'react';
-import { Info, User, Calendar, Cpu, Sparkles } from 'lucide-react';
+import { User, Calendar, Cpu, Sparkles } from 'lucide-react';
 import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';

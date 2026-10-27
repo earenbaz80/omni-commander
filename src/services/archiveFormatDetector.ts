@@ -1,5 +1,3 @@
-import { FileItem } from '../types';
-
 export interface ArchiveFormatInfo {
   format: string;
   encrypted?: boolean;

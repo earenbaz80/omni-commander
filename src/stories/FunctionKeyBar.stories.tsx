@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import React from 'react';
 import { FunctionKeyBar } from '../components/FunctionKeyBar';
 import { ThemeConfig } from '../services/themeManager';
 

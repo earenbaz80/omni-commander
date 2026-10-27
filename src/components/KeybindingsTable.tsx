@@ -21,7 +21,6 @@ interface KeybindingsTableProps {
 }
 
 export const KeybindingsTable: React.FC<KeybindingsTableProps> = ({
-  theme,
   lang,
   keybindings,
   categories,

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Search, Terminal, Copy, Check, Play, Sparkles } from 'lucide-react';
+import { Search, Copy, Check, Play, Sparkles } from 'lucide-react';
 import { ThemeConfig } from '../../services/themeManager';
 import { LanguageCode } from '../../types';
 

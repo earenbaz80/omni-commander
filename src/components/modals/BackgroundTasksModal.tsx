@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Play, Pause, XCircle, Trash2, Save, FolderOpen } from 'lucide-react';
+import { Play, Pause, XCircle, Trash2, Save, FolderOpen } from 'lucide-react';
 import { BackgroundTask, LanguageCode, TransferPlan } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { taskQueue } from '../../services/taskQueueManager';

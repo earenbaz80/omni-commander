@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Hash, Copy, Check, ShieldCheck } from 'lucide-react';
+import { Copy, Check, ShieldCheck } from 'lucide-react';
 import { FileItem, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Type } from 'lucide-react';
 import { FileItem, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';

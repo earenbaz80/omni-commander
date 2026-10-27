@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { FolderPlus, FilePlus } from 'lucide-react';
 import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';

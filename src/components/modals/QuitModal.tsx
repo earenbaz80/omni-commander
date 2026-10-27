@@ -1,5 +1,4 @@
 import React from 'react';
-import { Power } from 'lucide-react';
 import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { soundManager } from '../../services/soundEffects';

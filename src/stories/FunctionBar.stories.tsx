@@ -1,8 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import React from 'react';
 import { FunctionBar } from '../components/FunctionBar';
 import { ThemeConfig } from '../services/themeManager';
-import { getTranslations } from '../i18n/translations';
 
 const mockTheme: ThemeConfig = {
   id: 'classic_blue',
@@ -45,8 +43,6 @@ const mockTheme: ThemeConfig = {
   shadow: 'none',
   isRetro: true,
 };
-
-const t = getTranslations('en');
 
 const defaultKeys = [
   { key: 'F1', label: 'helpF1', action: () => console.log('F1') },

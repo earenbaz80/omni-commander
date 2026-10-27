@@ -3,7 +3,7 @@ import { ArchiveReader } from './archive-reader.js';
 export { ArchiveCompression, ArchiveFormat } from './formats.js';
 export type ArchiveOptions = {
   workerUrl?: string | URL;
-  getWorker?: Function;
+  getWorker?: (...args: unknown[]) => unknown;
   createClient?: (worker: any) => any;
 };
 export type ArchiveEntryFile = {
