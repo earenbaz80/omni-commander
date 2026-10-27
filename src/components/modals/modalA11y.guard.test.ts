@@ -4,9 +4,7 @@ import path from 'node:path';
 
 const dir = path.resolve('src/components/modals');
 
-const modalFiles = fs
-  .readdirSync(dir)
-  .filter((f) => /Modal\.tsx$/.test(f) && !f.includes('.test.'));
+const modalFiles = fs.readdirSync(dir).filter((f) => /Modal\.tsx$/.test(f) && !f.includes('.test.'));
 
 describe('modal accessibility guard', () => {
   it('finds the modal components', () => {

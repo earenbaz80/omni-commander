@@ -15,18 +15,13 @@ interface DiskUsageModalProps {
   onClose: () => void;
 }
 
-export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({
-  theme,
-  lang,
-  drives,
-  onClose
-}) => {
+export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({ theme, lang, drives, onClose }) => {
   const t = getTranslations(lang);
   const allFiles = (fsEngine as any).files as FileItem[];
 
   // Top largest files
   const topFiles = [...allFiles]
-    .filter(f => !f.isDirectory)
+    .filter((f) => !f.isDirectory)
     .sort((a, b) => b.size - a.size)
     .slice(0, 10);
 
@@ -49,38 +44,50 @@ export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({
               {t.diskConnectedDrives}
             </h3>
             <div className="space-y-[var(--space-2)].5">
-              {drives.filter(d => d.isMounted).map(drive => {
-                const used = drive.totalBytes - drive.freeBytes;
-                const percent = Math.round((used / drive.totalBytes) * 100);
+              {drives
+                .filter((d) => d.isMounted)
+                .map((drive) => {
+                  const used = drive.totalBytes - drive.freeBytes;
+                  const percent = Math.round((used / drive.totalBytes) * 100);
 
-                return (
-                  <div key={drive.id} className="p-[var(--space-2)].5 bg-black/40 rounded border border-white/10 space-y-[var(--space-2)]">
-                    <div className="flex items-center justify-between font-bold">
-                      <span className="flex items-center gap-[var(--space-2)] text-white">
-                        <HardDrive className="w-3.5 h-3.5 text-amber-400" />
-                        <span>[{drive.letter}] {drive.name}</span>
-                      </span>
-                      <span className="tabular-nums opacity-80 text-[var(--fs-sm)]">
-                        {t.diskUsedOf.replace('{size}', formatBytes(used)).replace('{total}', formatBytes(drive.totalBytes)).replace('{n}', String(percent))}
-                      </span>
-                    </div>
+                  return (
+                    <div
+                      key={drive.id}
+                      className="p-[var(--space-2)].5 bg-black/40 rounded border border-white/10 space-y-[var(--space-2)]"
+                    >
+                      <div className="flex items-center justify-between font-bold">
+                        <span className="flex items-center gap-[var(--space-2)] text-white">
+                          <HardDrive className="w-3.5 h-3.5 text-amber-400" />
+                          <span>
+                            [{drive.letter}] {drive.name}
+                          </span>
+                        </span>
+                        <span className="tabular-nums opacity-80 text-[var(--fs-sm)]">
+                          {t.diskUsedOf
+                            .replace('{size}', formatBytes(used))
+                            .replace('{total}', formatBytes(drive.totalBytes))
+                            .replace('{n}', String(percent))}
+                        </span>
+                      </div>
 
-                    {/* Progress bar */}
-                    <div className="w-full h-2.5 bg-black/60 rounded-full overflow-hidden border border-white/20">
-                      <div 
-                        className={`h-full transition-all ${percent > 85 ? 'bg-red-500' : percent > 60 ? 'bg-amber-400' : 'bg-emerald-400'}`}
-                        style={{ width: `${percent}%` }}
-                      />
+                      {/* Progress bar */}
+                      <div className="w-full h-2.5 bg-black/60 rounded-full overflow-hidden border border-white/20">
+                        <div
+                          className={`h-full transition-all ${percent > 85 ? 'bg-red-500' : percent > 60 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           </div>
 
           {/* TreeSize-style folder hierarchy */}
           <div>
-            <h3 className="font-bold text-amber-300 mb-[var(--space-2)] uppercase tracking-wider text-[var(--fs-sm)]">TreeSize — Folder Hierarchy</h3>
+            <h3 className="font-bold text-amber-300 mb-[var(--space-2)] uppercase tracking-wider text-[var(--fs-sm)]">
+              TreeSize — Folder Hierarchy
+            </h3>
             <div className="border border-white/10 rounded overflow-hidden bg-black/40 space-y-1 p-2 text-xs">
               {(fsEngine as any).getFolderSizes ? (
                 (() => {
@@ -89,14 +96,18 @@ export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({
                     <div key={item.path} style={{ paddingLeft: depth * 12 }}>
                       <div className="flex justify-between text-white truncate hover:bg-white/10">
                         <span>📁 {item.name}</span>
-                        <span className="tabular-nums text-amber-300">{(item.sizeBytes / (1024 * 1024)).toFixed(1)} MB / {item.fileCount} files</span>
+                        <span className="tabular-nums text-amber-300">
+                          {(item.sizeBytes / (1024 * 1024)).toFixed(1)} MB / {item.fileCount} files
+                        </span>
                       </div>
                       {item.subFolders?.map((sub: any) => renderTree(sub, depth + 1))}
                     </div>
                   );
                   return root ? renderTree(root) : <div className="opacity-50">No data</div>;
                 })()
-              ) : <div className="opacity-50">Method not available</div>}
+              ) : (
+                <div className="opacity-50">Method not available</div>
+              )}
             </div>
           </div>
 
@@ -119,10 +130,14 @@ export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({
                     <tr key={file.id} className="border-b border-white/5 hover:bg-white/5">
                       <td className="p-[var(--space-2)] font-bold truncate text-white flex items-center gap-[var(--space-2)]">
                         <span className="text-[var(--fs-8)] opacity-40 tabular-nums">#{idx + 1}</span>
-                        <span>{file.name}.{file.ext}</span>
+                        <span>
+                          {file.name}.{file.ext}
+                        </span>
                       </td>
                       <td className="p-[var(--space-2)] truncate opacity-70 text-[var(--fs-sm)]">{file.path}</td>
-                      <td className="p-[var(--space-2)] text-right font-bold text-amber-300 tabular-nums">{formatBytes(file.size)}</td>
+                      <td className="p-[var(--space-2)] text-right font-bold text-amber-300 tabular-nums">
+                        {formatBytes(file.size)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

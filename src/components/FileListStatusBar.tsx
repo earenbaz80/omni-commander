@@ -33,9 +33,13 @@ export const FileListStatusBar: React.FC<FileListStatusBarProps> = ({
     }}
   >
     <div className="flex items-center gap-[var(--space-2)] truncate">
-      <span>{totalFiles} {filesCountLabel}</span>
+      <span>
+        {totalFiles} {filesCountLabel}
+      </span>
       <span className="opacity-50">|</span>
-      <span>{totalDirs} {dirsCountLabel}</span>
+      <span>
+        {totalDirs} {dirsCountLabel}
+      </span>
       {selectedCount > 0 && (
         <>
           <span className="opacity-50">|</span>
@@ -45,8 +49,6 @@ export const FileListStatusBar: React.FC<FileListStatusBarProps> = ({
         </>
       )}
     </div>
-    <div className="tabular-nums font-bold">
-      {Math.round(totalBytes / 1024)} kB total
-    </div>
+    <div className="tabular-nums font-bold">{Math.round(totalBytes / 1024)} kB total</div>
   </div>
 );

@@ -62,10 +62,7 @@ function ModalShell({
             borderColor: theme.modalBorder,
           }}
         >
-          <h3
-            className="text-sm font-bold text-left"
-            style={{ color: theme.modalHeaderText }}
-          >
+          <h3 className="text-sm font-bold text-left" style={{ color: theme.modalHeaderText }}>
             {title || label}
           </h3>
           {onClose && (

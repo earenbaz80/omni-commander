@@ -20,7 +20,7 @@ describe('ErrorBoundary', () => {
     render(
       <ErrorBoundary>
         <p>contenido-ok</p>
-      </ErrorBoundary>
+      </ErrorBoundary>,
     );
     expect(screen.getByText('contenido-ok')).toBeTruthy();
   });
@@ -29,7 +29,7 @@ describe('ErrorBoundary', () => {
     render(
       <ErrorBoundary>
         <Boom />
-      </ErrorBoundary>
+      </ErrorBoundary>,
     );
     expect(screen.getByRole('alert')).toBeTruthy();
     expect(screen.getByText(/boom render/)).toBeTruthy();
@@ -40,14 +40,14 @@ describe('ErrorBoundary', () => {
     const { rerender } = render(
       <ErrorBoundary>
         <Boom shouldThrow />
-      </ErrorBoundary>
+      </ErrorBoundary>,
     );
     expect(screen.getByRole('alert')).toBeTruthy();
 
     rerender(
       <ErrorBoundary>
         <Boom shouldThrow={false} />
-      </ErrorBoundary>
+      </ErrorBoundary>,
     );
     expect(screen.getByRole('alert')).toBeTruthy();
 
@@ -60,7 +60,7 @@ describe('ErrorBoundary', () => {
     render(
       <ErrorBoundary>
         <Boom />
-      </ErrorBoundary>
+      </ErrorBoundary>,
     );
     expect(screen.getByRole('button', { name: /recargar/i })).toBeTruthy();
   });

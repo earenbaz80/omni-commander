@@ -20,7 +20,7 @@ export const DriveBar: React.FC<DriveBarProps> = ({
   currentDriveId,
   onSelectDrive,
   panelSide,
-  isActive
+  isActive,
 }) => {
   if (!drives.length) {
     return (
@@ -29,7 +29,7 @@ export const DriveBar: React.FC<DriveBarProps> = ({
       </div>
     );
   }
-  const currentDrive = drives.find(d => d.id === currentDriveId) || drives[0];
+  const currentDrive = drives.find((d) => d.id === currentDriveId) || drives[0];
 
   const formatBytes = (bytes: number): string => {
     if (bytes >= 1024 * 1024 * 1024 * 1024) {
@@ -58,17 +58,17 @@ export const DriveBar: React.FC<DriveBarProps> = ({
     }
   };
 
-  const usedPercent = currentDrive 
-    ? Math.round(((currentDrive.totalBytes - currentDrive.freeBytes) / currentDrive.totalBytes) * 100) 
+  const usedPercent = currentDrive
+    ? Math.round(((currentDrive.totalBytes - currentDrive.freeBytes) / currentDrive.totalBytes) * 100)
     : 50;
 
   return (
-    <div 
+    <div
       className="flex items-center justify-between px-[var(--space-2)] py-[var(--space-1)] text-xs border-b shrink-0 font-mono select-none"
       style={{
         backgroundColor: isActive ? theme.bgPanel : theme.bgPanelInactive,
         borderColor: theme.borderPanel,
-        color: theme.itemText
+        color: theme.itemText,
       }}
     >
       {/* Drive Selector Buttons */}
@@ -77,34 +77,36 @@ export const DriveBar: React.FC<DriveBarProps> = ({
           {panelSide === 'left' ? 'Alt+F1' : 'Alt+F2'}:
         </span>
 
-        {drives.filter(d => d.isMounted).map((drive) => {
-          const isSelected = drive.id === currentDriveId;
-          return (
-            <button
-              key={drive.id}
-              onClick={() => {
-                soundManager.playDiskAccess();
-                onSelectDrive(drive.id);
-              }}
-              title={`${drive.letter} ${drive.name}${drive.fileSystem ? ` [${drive.fileSystem}]` : ''}${drive.driveKind ? ` (${drive.driveKind})` : ''} - ${formatBytes(drive.freeBytes)} free`}
-              className={`px-[var(--space-1)].5 py-[var(--space-1)] text-xs font-bold transition-all rounded flex items-center gap-[var(--space-1)] shrink-0 cursor-pointer ${
-                isSelected
-                  ? 'bg-amber-400 text-black shadow-inner font-extrabold ring-1 ring-amber-300'
-                  : 'bg-black/30 hover:bg-black/50 text-white/90 border border-white/20'
-              }`}
-            >
-              {getDriveIcon(drive.type, isSelected)}
-              <span>[{drive.letter}]</span>
-            </button>
-          );
-        })}
+        {drives
+          .filter((d) => d.isMounted)
+          .map((drive) => {
+            const isSelected = drive.id === currentDriveId;
+            return (
+              <button
+                key={drive.id}
+                onClick={() => {
+                  soundManager.playDiskAccess();
+                  onSelectDrive(drive.id);
+                }}
+                title={`${drive.letter} ${drive.name}${drive.fileSystem ? ` [${drive.fileSystem}]` : ''}${drive.driveKind ? ` (${drive.driveKind})` : ''} - ${formatBytes(drive.freeBytes)} free`}
+                className={`px-[var(--space-1)].5 py-[var(--space-1)] text-xs font-bold transition-all rounded flex items-center gap-[var(--space-1)] shrink-0 cursor-pointer ${
+                  isSelected
+                    ? 'bg-amber-400 text-black shadow-inner font-extrabold ring-1 ring-amber-300'
+                    : 'bg-black/30 hover:bg-black/50 text-white/90 border border-white/20'
+                }`}
+              >
+                {getDriveIcon(drive.type, isSelected)}
+                <span>[{drive.letter}]</span>
+              </button>
+            );
+          })}
       </div>
 
       {/* Disk Space Meter */}
       {currentDrive && (
         <div className="hidden lg:flex items-center gap-[var(--space-2)] text-[11px] opacity-90 shrink-0 pl-2">
           <div className="w-16 h-2 bg-black/40 rounded-full overflow-hidden border border-white/20">
-            <div 
+            <div
               className={`h-full ${usedPercent > 85 ? 'bg-red-500' : usedPercent > 60 ? 'bg-amber-400' : 'bg-emerald-400'}`}
               style={{ width: `${usedPercent}%` }}
             />

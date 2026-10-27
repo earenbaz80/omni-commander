@@ -37,7 +37,7 @@ interface PanelViewProps {
     draggedItems: FileItem[],
     targetPath: string,
     targetDriveId: string,
-    operation: 'copy' | 'move'
+    operation: 'copy' | 'move',
   ) => void;
   onDropNativeFiles?: (files: globalThis.FileList, targetPath: string, targetDriveId: string) => void;
   onNavigate: (path: string) => void;

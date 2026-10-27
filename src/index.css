@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @layer utilities {
   /* Hide scrollbar for Chrome, Safari and Opera */
@@ -7,8 +7,8 @@
   }
   /* Hide scrollbar for IE, Edge and Firefox */
   .no-scrollbar {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
   }
 }
 
@@ -34,19 +34,19 @@
 @layer base {
   :root {
     /* Tipografía escalable con pasos robustos (11/13/15px) */
-    --fs-8:  8px;   /* Meta, no UI visible */
-    --fs-9:  9px;   /* Mini labels, meta */
-    --fs-10: 10px;  /* Fallback legacy, a eliminar gradualmente */
-    --fs-11: 11px;  /* DOS mini-text (file list) */
-    --fs-12: 12px;  /* Body default en sans */
-    --fs-13: 13px;  /* Compact mono (file list, logs) */
-    --fs-14: 14px;  /* Normal body (sans) */
-    --fs-15: 15px;  /* Large heading/body */
-    
+    --fs-8: 8px; /* Meta, no UI visible */
+    --fs-9: 9px; /* Mini labels, meta */
+    --fs-10: 10px; /* Fallback legacy, a eliminar gradualmente */
+    --fs-11: 11px; /* DOS mini-text (file list) */
+    --fs-12: 12px; /* Body default en sans */
+    --fs-13: 13px; /* Compact mono (file list, logs) */
+    --fs-14: 14px; /* Normal body (sans) */
+    --fs-15: 15px; /* Large heading/body */
+
     /* Escala tipográfica escalable con pasos-base de 10px y multiplicador 1.25 */
-    --fs-sm: var(--fs-11);   /* Mini-text (file list, DOS) */
+    --fs-sm: var(--fs-11); /* Mini-text (file list, DOS) */
     --fs-base: var(--fs-13); /* Compact body (mono) */
-    --fs-lg: var(--fs-15);   /* Large body/heading */
+    --fs-lg: var(--fs-15); /* Large body/heading */
 
     /* Espaciado sistemático (base 2px) */
     --space-0: 0;
@@ -73,10 +73,10 @@
 
     /* Sombras */
     --shadow-none: none;
-    --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
-    --shadow-md: 0 4px 6px rgba(0,0,0,0.4);
-    --shadow-lg: 0 10px 15px rgba(0,0,0,0.5);
-    --shadow-xl: 0 20px 25px rgba(0,0,0,0.6);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+    --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.6);
 
     /* Transiciones */
     --duration-fast: 100ms;
@@ -93,22 +93,30 @@
     --z-tooltip: 80;
   }
 
-  html { font-size: 125%; } /* Default Windows zoom level */
-  
-  *, *::before, *::after { box-sizing: border-box; }
+  html {
+    font-size: 125%;
+  } /* Default Windows zoom level */
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
 }
 
 body {
   margin: 0;
   padding: 0;
   user-select: none;
-  font-family: Consolas, "Cascadia Mono", "Segoe UI Mono", "Courier New", monospace;
+  font-family: Consolas, 'Cascadia Mono', 'Segoe UI Mono', 'Courier New', monospace;
   font-size: var(--fs-base); /* Usa el tamaño escalable por defecto */
 }
 
 /* Generic subtle elevation for every interactive button on hover */
 button {
-  transition: transform 120ms ease, box-shadow 120ms ease;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
 }
 
 button:hover:not(:disabled) {
@@ -122,8 +130,14 @@ button:active:not(:disabled) {
 
 /* Retro blinking cursor for the focused file selector */
 @keyframes nc-blink {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0; }
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
 }
 
 .nc-blink {
@@ -132,45 +146,33 @@ button:active:not(:disabled) {
 
 /* --- RETRO CRT MONITOR OVERLAY STYLES (Ultra-soft & Readable) --- */
 .crt-overlay-subtle {
-  background: linear-gradient(
-    rgba(18, 16, 16, 0) 50%, 
-    rgba(0, 0, 0, 0.08) 50%
-  ), linear-gradient(
-    90deg,
-    rgba(255, 0, 0, 0.015),
-    rgba(0, 255, 0, 0.005),
-    rgba(0, 0, 255, 0.015)
-  );
-  background-size: 100% 3px, 6px 100%;
+  background:
+    linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.08) 50%),
+    linear-gradient(90deg, rgba(255, 0, 0, 0.015), rgba(0, 255, 0, 0.005), rgba(0, 0, 255, 0.015));
+  background-size:
+    100% 3px,
+    6px 100%;
   box-shadow: inset 0 0 35px rgba(0, 0, 0, 0.3);
 }
 
 .crt-overlay-classic {
-  background: linear-gradient(
-    rgba(18, 16, 16, 0) 50%, 
-    rgba(0, 0, 0, 0.15) 50%
-  ), linear-gradient(
-    90deg,
-    rgba(255, 0, 0, 0.025),
-    rgba(0, 255, 0, 0.01),
-    rgba(0, 0, 255, 0.025)
-  );
-  background-size: 100% 4px, 6px 100%;
+  background:
+    linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%),
+    linear-gradient(90deg, rgba(255, 0, 0, 0.025), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.025));
+  background-size:
+    100% 4px,
+    6px 100%;
   box-shadow: inset 0 0 55px rgba(0, 0, 0, 0.45);
   animation: crtFlicker 0.25s infinite;
 }
 
 .crt-overlay-intense {
-  background: linear-gradient(
-    rgba(18, 16, 16, 0) 50%, 
-    rgba(0, 0, 0, 0.28) 50%
-  ), linear-gradient(
-    90deg,
-    rgba(255, 0, 0, 0.04),
-    rgba(0, 255, 0, 0.015),
-    rgba(0, 0, 255, 0.04)
-  );
-  background-size: 100% 4px, 4px 100%;
+  background:
+    linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.28) 50%),
+    linear-gradient(90deg, rgba(255, 0, 0, 0.04), rgba(0, 255, 0, 0.015), rgba(0, 0, 255, 0.04));
+  background-size:
+    100% 4px,
+    4px 100%;
   box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.6);
   animation: crtFlicker 0.15s infinite;
 }
@@ -183,9 +185,15 @@ button:active:not(:disabled) {
 }
 
 @keyframes crtFlicker {
-  0% { opacity: 0.99; }
-  50% { opacity: 1; }
-  100% { opacity: 0.995; }
+  0% {
+    opacity: 0.99;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.995;
+  }
 }
 
 /* --- BLINKING RETRO FILE CURSOR --- */
@@ -194,7 +202,7 @@ button:active:not(:disabled) {
 }
 
 .retro-file-cursor::before {
-  content: "█";
+  content: '█';
   display: inline-block;
   margin-right: 4px;
   animation: retroCursorBlink 0.8s infinite steps(2, start);
@@ -203,13 +211,20 @@ button:active:not(:disabled) {
 }
 
 @keyframes retroCursorBlink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
-
 /* Off-screen rendering optimization for grid views */
-.cv-auto { content-visibility: auto; contain-intrinsic-size: 0 120px; }
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 120px;
+}
 
 /* Electron frameless window: drag the title bar, keep controls clickable */
 .nc-drag {
@@ -221,7 +236,7 @@ button:active:not(:disabled) {
 .nc-drag input,
 .nc-drag select,
 .nc-drag textarea,
-.nc-drag [role="button"] {
+.nc-drag [role='button'] {
   -webkit-app-region: no-drag;
 }
 
@@ -235,7 +250,9 @@ button:active:not(:disabled) {
   width: 8px;
   cursor: col-resize;
   border-right: 1px solid rgba(255, 255, 255, 0.28);
-  transition: border-color 0.12s ease, background-color 0.12s ease;
+  transition:
+    border-color 0.12s ease,
+    background-color 0.12s ease;
   touch-action: none;
   z-index: 1;
 }

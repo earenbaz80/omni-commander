@@ -2,13 +2,7 @@ import { describe, expect, it, afterEach } from 'vitest';
 import { BackgroundTask } from '../types';
 import { getTranslations } from '../i18n/translations';
 import { taskQueue } from './taskQueueManager';
-import {
-  resolveTrayAction,
-  selectTrayTask,
-  startTrayBridge,
-  TrayCommand,
-  TraySnapshot,
-} from './trayBridge';
+import { resolveTrayAction, selectTrayTask, startTrayBridge, TrayCommand, TraySnapshot } from './trayBridge';
 
 function task(id: string, status: BackgroundTask['status'], title = id): BackgroundTask {
   return {
@@ -93,13 +87,7 @@ describe('tray bridge', () => {
     };
 
     // A task whose executor never settles stays running for the whole test.
-    runningId = taskQueue.addTask(
-      'copy',
-      'Copy 2 items',
-      'C:\\dest',
-      2048,
-      () => new Promise<void>(() => {}),
-    );
+    runningId = taskQueue.addTask('copy', 'Copy 2 items', 'C:\\dest', 2048, () => new Promise<void>(() => {}));
 
     const stop = startTrayBridge('es');
     stopBridge = stop;
@@ -112,11 +100,11 @@ describe('tray bridge', () => {
     expect(first.labels.cancel).toBe(es.btnCancel);
 
     handler?.('pause');
-    expect(taskQueue.getTasks().find(t => t.id === runningId)?.status).toBe('paused');
+    expect(taskQueue.getTasks().find((t) => t.id === runningId)?.status).toBe('paused');
     expect(snapshots[snapshots.length - 1].task?.status).toBe('paused');
 
     handler?.('resume');
-    expect(taskQueue.getTasks().find(t => t.id === runningId)?.status).toBe('running');
+    expect(taskQueue.getTasks().find((t) => t.id === runningId)?.status).toBe('running');
 
     stop();
     expect(handler).toBeUndefined();

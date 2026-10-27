@@ -27,14 +27,16 @@ export const BookmarksHotlistModal: React.FC<BookmarksHotlistModalProps> = ({
   currentPath,
   currentDriveId,
   onNavigate,
-  onClose
+  onClose,
 }) => {
   const t = getTranslations(lang);
   const [bookmarks, setBookmarks] = useState<BookmarkItem[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) return JSON.parse(saved);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     return defaultBookmarks;
   });
 
@@ -45,7 +47,9 @@ export const BookmarksHotlistModal: React.FC<BookmarksHotlistModalProps> = ({
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(bookmarks));
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, [bookmarks]);
 
   const handleAddCurrent = (e: React.FormEvent) => {
@@ -57,10 +61,10 @@ export const BookmarksHotlistModal: React.FC<BookmarksHotlistModalProps> = ({
       title: newTitle.trim(),
       path: currentPath,
       driveId: currentDriveId,
-      isFavorite: true
+      isFavorite: true,
     };
 
-    setBookmarks(prev => [newBm, ...prev]);
+    setBookmarks((prev) => [newBm, ...prev]);
     setNewTitle('');
     setIsAdding(false);
     soundManager.playSuccess();
@@ -68,7 +72,7 @@ export const BookmarksHotlistModal: React.FC<BookmarksHotlistModalProps> = ({
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setBookmarks(prev => prev.filter(b => b.id !== id));
+    setBookmarks((prev) => prev.filter((b) => b.id !== id));
     soundManager.playKeyTick();
   };
 
@@ -107,7 +111,7 @@ export const BookmarksHotlistModal: React.FC<BookmarksHotlistModalProps> = ({
                 <input
                   type="text"
                   value={newTitle}
-                  onChange={e => setNewTitle(e.target.value)}
+                  onChange={(e) => setNewTitle(e.target.value)}
                   placeholder={t.hotlistNamePlaceholder}
                   autoFocus
                   className="flex-1 bg-black/80 border border-amber-400 px-[var(--space-2)] py-[var(--space-1)] text-white rounded outline-none text-xs"
@@ -139,8 +143,8 @@ export const BookmarksHotlistModal: React.FC<BookmarksHotlistModalProps> = ({
                   onClick={() => handleSelect(bm)}
                   onMouseEnter={() => setSelectedIndex(index)}
                   className={`flex items-center justify-between p-[var(--space-2)] rounded cursor-pointer transition border ${
-                    isSelected 
-                      ? 'bg-amber-500/20 border-amber-400 text-white font-bold' 
+                    isSelected
+                      ? 'bg-amber-500/20 border-amber-400 text-white font-bold'
                       : 'bg-black/30 border-transparent hover:bg-white/5 opacity-90'
                   }`}
                 >
@@ -166,11 +170,7 @@ export const BookmarksHotlistModal: React.FC<BookmarksHotlistModalProps> = ({
               );
             })}
 
-            {bookmarks.length === 0 && (
-              <div className="py-8 text-center opacity-50 italic">
-                {t.hotlistEmpty}
-              </div>
-            )}
+            {bookmarks.length === 0 && <div className="py-8 text-center opacity-50 italic">{t.hotlistEmpty}</div>}
           </div>
 
           {/* Footer */}

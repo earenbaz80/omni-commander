@@ -16,10 +16,15 @@ interface TreeNavigationPaneProps {
   onNavigate: (path: string) => void;
   onSelectDrive: (driveId: string) => void;
   onClose?: () => void;
-  onDropItems?: (draggedItems: FileItem[], targetPath: string, targetDriveId: string, operation: 'copy' | 'move') => void;
+  onDropItems?: (
+    draggedItems: FileItem[],
+    targetPath: string,
+    targetDriveId: string,
+    operation: 'copy' | 'move',
+  ) => void;
   // Virtual archive navigation
-  archiveRoot?: string;      // Absolute path of the archive file on disk
-  virtualPath?: string;      // Current path inside the archive (relative to archive root)
+  archiveRoot?: string; // Absolute path of the archive file on disk
+  virtualPath?: string; // Current path inside the archive (relative to archive root)
 }
 
 interface TreeNodeItemProps {
@@ -32,7 +37,12 @@ interface TreeNodeItemProps {
   expandedPaths: Record<string, boolean>;
   onToggleExpand: (path: string) => void;
   onSelectNode: (driveId: string, path: string) => void;
-  onDropItems?: (draggedItems: FileItem[], targetPath: string, targetDriveId: string, operation: 'copy' | 'move') => void;
+  onDropItems?: (
+    draggedItems: FileItem[],
+    targetPath: string,
+    targetDriveId: string,
+    operation: 'copy' | 'move',
+  ) => void;
   searchFilter?: string;
 }
 
@@ -47,7 +57,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
   onToggleExpand,
   onSelectNode,
   onDropItems,
-  searchFilter = ''
+  searchFilter = '',
 }) => {
   const [subdirs, setSubdirs] = useState<FileItem[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -58,7 +68,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
   // Query subdirectories when expanded
   useEffect(() => {
     if (isExpanded) {
-      const dirs = fsEngine.getFiles(driveId, dirPath).filter(f => f.isDirectory);
+      const dirs = fsEngine.getFiles(driveId, dirPath).filter((f) => f.isDirectory);
       setSubdirs(dirs);
     }
   }, [isExpanded, driveId, dirPath]);
@@ -67,7 +77,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
   useEffect(() => {
     if (!isExpanded) return;
     const unsub = fsEngine.subscribe(() => {
-      const dirs = fsEngine.getFiles(driveId, dirPath).filter(f => f.isDirectory);
+      const dirs = fsEngine.getFiles(driveId, dirPath).filter((f) => f.isDirectory);
       setSubdirs(dirs);
     });
     return unsub;
@@ -75,7 +85,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
 
   // Filter children
   const filteredSubdirs = searchFilter
-    ? subdirs.filter(s => s.name.toLowerCase().includes(searchFilter.toLowerCase()))
+    ? subdirs.filter((s) => s.name.toLowerCase().includes(searchFilter.toLowerCase()))
     : subdirs;
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -119,10 +129,10 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
           isDragOver
             ? 'ring-2 ring-amber-400 bg-amber-400/30 text-amber-200 font-bold'
             : isActive
-            ? 'bg-amber-400 text-black font-extrabold shadow'
-            : isAncestor
-            ? 'bg-white/10 text-amber-300 font-semibold'
-            : 'hover:bg-white/10 text-white/90'
+              ? 'bg-amber-400 text-black font-extrabold shadow'
+              : isAncestor
+                ? 'bg-white/10 text-amber-300 font-semibold'
+                : 'hover:bg-white/10 text-white/90'
         }`}
         style={{ paddingLeft: `${Math.max(4, depth * 12)}px` }}
         onClick={() => {
@@ -159,7 +169,9 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
         </div>
 
         {subdirs.length > 0 && (
-          <span className={`text-[9px] px-[var(--space-1)] rounded opacity-60 tabular-nums shrink-0 ml-[var(--space-1)] ${isActive ? 'text-black font-bold' : ''}`}>
+          <span
+            className={`text-[9px] px-[var(--space-1)] rounded opacity-60 tabular-nums shrink-0 ml-[var(--space-1)] ${isActive ? 'text-black font-bold' : ''}`}
+          >
             {subdirs.length}
           </span>
         )}
@@ -186,7 +198,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
           ))}
 
           {filteredSubdirs.length === 0 && (
-            <div 
+            <div
               className="text-[10px] opacity-40 italic py-[var(--space-1)]"
               style={{ paddingLeft: `${Math.max(4, (depth + 1) * 12)}px` }}
             >
@@ -210,7 +222,7 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
   onClose,
   onDropItems,
   archiveRoot,
-  virtualPath
+  virtualPath,
 }) => {
   const t = getTranslations(lang);
   const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({});
@@ -218,7 +230,7 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
   const [searchFilter, setSearchFilter] = useState('');
 
   const toggleExpand = (path: string) => {
-    setExpandedPaths(prev => ({ ...prev, [path]: !prev[path] }));
+    setExpandedPaths((prev) => ({ ...prev, [path]: !prev[path] }));
   };
 
   const handleSelectNode = (driveId: string, path: string) => {
@@ -235,33 +247,33 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
     const allItems = fsEngine.getFiles(currentDriveId, archiveRoot);
     const prefix = virtualPath ? `${archiveRoot}\\${virtualPath}` : archiveRoot;
     return allItems
-      .filter(f => f.isDirectory && f.path === prefix)
-      .map(f => ({ ...f, displayPath: f.path.slice(archiveRoot.length + 1) }));
+      .filter((f) => f.isDirectory && f.path === prefix)
+      .map((f) => ({ ...f, displayPath: f.path.slice(archiveRoot.length + 1) }));
   }, [archiveRoot, virtualPath, currentDriveId]);
 
   return (
-    <div 
+    <div
       className="w-60 md:w-64 flex flex-col h-full border-r shrink-0 font-mono text-xs select-none bg-black/50 overflow-hidden transition-all shadow-inner"
       style={{
         borderColor: theme.borderPanel,
-        color: theme.itemText
+        color: theme.itemText,
       }}
     >
       {/* Pane Header */}
-      <div 
+      <div
         className="px-[var(--space-3)] py-[var(--space-2)] font-bold flex items-center justify-between border-b shrink-0 text-[11px]"
         style={{
           backgroundColor: theme.headerBg,
           color: theme.headerText,
-          borderColor: theme.borderPanel
+          borderColor: theme.borderPanel,
         }}
       >
         <span className="flex items-center gap-[var(--space-2)] font-extrabold uppercase tracking-wide">
           <FolderTree className="w-3.5 h-3.5" /> Árbol de Carpetas
         </span>
         {onClose && (
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             title={t.hideTreePanel}
             className="hover:bg-black/20 px-[var(--space-1)] py-[var(--space-1)] rounded cursor-pointer font-bold text-xs"
           >
@@ -293,7 +305,7 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
       <div className="flex-1 overflow-y-auto p-[var(--space-2)] space-y-[var(--space-3)]">
         {/* Section 1: Main Libraries / Shortcuts */}
         <div className="space-y-[var(--space-1)]">
-          <div 
+          <div
             className="flex items-center justify-between font-bold text-[10px] uppercase text-amber-300 opacity-90 cursor-pointer hover:opacity-100 px-[var(--space-1)]"
             onClick={() => toggleExpand('LIBRARIES')}
           >
@@ -335,12 +347,12 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
             <div className="font-bold text-[10px] uppercase text-emerald-300 opacity-90 pb-1 border-b border-white/10 flex items-center justify-between px-[var(--space-1)]">
               <span className="flex items-center gap-[var(--space-1)]">
                 <FolderTree className="w-3 h-3" /> Archive: {archiveRoot?.split('\\').pop()}
-                <span className="text-[9px] bg-emerald-900/50 px-1 rounded border border-emerald-400/30">{archiveRoot?.split('.').pop()?.toUpperCase()}</span>
+                <span className="text-[9px] bg-emerald-900/50 px-1 rounded border border-emerald-400/30">
+                  {archiveRoot?.split('.').pop()?.toUpperCase()}
+                </span>
               </span>
               {virtualPath && (
-                <span className="text-[9px] opacity-60">
-                  {virtualPath.split('\\').length} level(s) deep
-                </span>
+                <span className="text-[9px] opacity-60">{virtualPath.split('\\').length} level(s) deep</span>
               )}
             </div>
             <div className="space-y-0.5 pt-0.5">
@@ -373,91 +385,89 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
             <span className="flex items-center gap-[var(--space-1)]">
               <HardDrive className="w-3 h-3" /> Unidades de Disco
             </span>
-            <span className="text-[9px] opacity-60 tabular-nums">({drives.filter(d => d.isMounted).length})</span>
+            <span className="text-[9px] opacity-60 tabular-nums">({drives.filter((d) => d.isMounted).length})</span>
           </div>
 
           <div className="space-y-[var(--space-1)] pt-0.5">
-            {drives.filter(d => d.isMounted).map(drive => {
-              const driveLetter = drive.letter;
-              const isDriveExpanded = !!expandedPaths[driveLetter];
-              const isDriveActive = currentPath === driveLetter;
+            {drives
+              .filter((d) => d.isMounted)
+              .map((drive) => {
+                const driveLetter = drive.letter;
+                const isDriveExpanded = !!expandedPaths[driveLetter];
+                const isDriveActive = currentPath === driveLetter;
 
-              // Read top-level directories of this drive
-              const rootDirs = fsEngine.getFiles(drive.id, driveLetter).filter(f => f.isDirectory);
-              const filteredRootDirs = searchFilter
-                ? rootDirs.filter(r => r.name.toLowerCase().includes(searchFilter.toLowerCase()))
-                : rootDirs;
+                // Read top-level directories of this drive
+                const rootDirs = fsEngine.getFiles(drive.id, driveLetter).filter((f) => f.isDirectory);
+                const filteredRootDirs = searchFilter
+                  ? rootDirs.filter((r) => r.name.toLowerCase().includes(searchFilter.toLowerCase()))
+                  : rootDirs;
 
-              return (
-                <div key={drive.id} className="space-y-0.5">
-                  <div
-                    onClick={() => {
-                      soundManager.playDiskAccess();
-                      handleSelectNode(drive.id, driveLetter);
-                    }}
-                    className={`flex items-center justify-between px-[var(--space-1)].5 py-[var(--space-1)] rounded cursor-pointer text-[11px] font-bold transition-all ${
-                      isDriveActive 
-                        ? 'bg-sky-950 border border-sky-400 text-sky-200' 
-                        : 'hover:bg-white/10 text-white/90'
-                    }`}
-                  >
-                    <div className="flex items-center gap-[var(--space-2)] min-w-0 truncate">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          soundManager.playKeyTick();
-                          toggleExpand(driveLetter);
-                        }}
-                        className="w-3.5 h-3.5 flex items-center justify-center hover:bg-black/30 rounded cursor-pointer shrink-0 opacity-70 hover:opacity-100"
-                      >
-                        {isDriveExpanded ? (
-                          <ChevronDown className="w-3 h-3" />
-                        ) : (
-                          <ChevronRight className="w-3 h-3" />
-                        )}
-                      </button>
-                      <HardDrive className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                      <span className="font-black text-amber-300">[{driveLetter}]</span>
-                      <span className="opacity-75 text-[10px] truncate">{drive.name}</span>
-                    </div>
+                return (
+                  <div key={drive.id} className="space-y-0.5">
+                    <div
+                      onClick={() => {
+                        soundManager.playDiskAccess();
+                        handleSelectNode(drive.id, driveLetter);
+                      }}
+                      className={`flex items-center justify-between px-[var(--space-1)].5 py-[var(--space-1)] rounded cursor-pointer text-[11px] font-bold transition-all ${
+                        isDriveActive
+                          ? 'bg-sky-950 border border-sky-400 text-sky-200'
+                          : 'hover:bg-white/10 text-white/90'
+                      }`}
+                    >
+                      <div className="flex items-center gap-[var(--space-2)] min-w-0 truncate">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            soundManager.playKeyTick();
+                            toggleExpand(driveLetter);
+                          }}
+                          className="w-3.5 h-3.5 flex items-center justify-center hover:bg-black/30 rounded cursor-pointer shrink-0 opacity-70 hover:opacity-100"
+                        >
+                          {isDriveExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                        </button>
+                        <HardDrive className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                        <span className="font-black text-amber-300">[{driveLetter}]</span>
+                        <span className="opacity-75 text-[10px] truncate">{drive.name}</span>
+                      </div>
 
-                    {rootDirs.length > 0 && (
-                      <span className="text-[9px] opacity-60 tabular-nums shrink-0 ml-[var(--space-1)]">
-                        {rootDirs.length}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Subdirectories for this drive */}
-                  {isDriveExpanded && (
-                    <div className="border-l border-white/10 ml-[var(--space-2)].5">
-                      {filteredRootDirs.map((sub) => (
-                        <TreeNodeItem
-                          key={sub.id}
-                          theme={theme}
-                          driveId={drive.id}
-                          dirPath={`${driveLetter}\\${sub.name}`}
-                          dirName={sub.name}
-                          depth={1}
-                          currentPath={currentPath}
-                          expandedPaths={expandedPaths}
-                          onToggleExpand={toggleExpand}
-                          onSelectNode={handleSelectNode}
-                          onDropItems={onDropItems}
-                          searchFilter={searchFilter}
-                        />
-                      ))}
-
-                      {filteredRootDirs.length === 0 && (
-                        <div className="text-[10px] opacity-40 italic pl-4 py-[var(--space-1)]">
-                          {t.treeEmptyDisk}
-                        </div>
+                      {rootDirs.length > 0 && (
+                        <span className="text-[9px] opacity-60 tabular-nums shrink-0 ml-[var(--space-1)]">
+                          {rootDirs.length}
+                        </span>
                       )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
+
+                    {/* Subdirectories for this drive */}
+                    {isDriveExpanded && (
+                      <div className="border-l border-white/10 ml-[var(--space-2)].5">
+                        {filteredRootDirs.map((sub) => (
+                          <TreeNodeItem
+                            key={sub.id}
+                            theme={theme}
+                            driveId={drive.id}
+                            dirPath={`${driveLetter}\\${sub.name}`}
+                            dirName={sub.name}
+                            depth={1}
+                            currentPath={currentPath}
+                            expandedPaths={expandedPaths}
+                            onToggleExpand={toggleExpand}
+                            onSelectNode={handleSelectNode}
+                            onDropItems={onDropItems}
+                            searchFilter={searchFilter}
+                          />
+                        ))}
+
+                        {filteredRootDirs.length === 0 && (
+                          <div className="text-[10px] opacity-40 italic pl-4 py-[var(--space-1)]">
+                            {t.treeEmptyDisk}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
           </div>
         </div>
       </div>

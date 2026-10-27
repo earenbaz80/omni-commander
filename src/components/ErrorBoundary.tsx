@@ -40,9 +40,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
   private handleCopyDetails = () => {
     const { error, componentStack } = this.state;
-    const details = [error?.message ?? 'unknown error', componentStack]
-      .filter(Boolean)
-      .join('\n');
+    const details = [error?.message ?? 'unknown error', componentStack].filter(Boolean).join('\n');
     navigator.clipboard?.writeText(details).catch(() => {});
   };
 
@@ -52,21 +50,14 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     if (!error) return this.props.children;
 
     return (
-      <div
-        role="alert"
-        className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-neutral-950/95"
-      >
+      <div role="alert" className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-neutral-950/95">
         <div className="w-full max-w-2xl border-2 border-red-500/60 bg-neutral-900 shadow-2xl">
           <div className="flex items-center gap-[var(--space-2)] border-b-2 border-red-500/60 bg-red-600/80 px-[var(--space-4)] py-[var(--space-2)]">
-            <span className="text-sm font-bold uppercase tracking-wider text-white">
-              {tGlobal('ebTitle')}
-            </span>
+            <span className="text-sm font-bold uppercase tracking-wider text-white">{tGlobal('ebTitle')}</span>
           </div>
 
           <div className="space-y-[var(--space-4)] p-[var(--space-4)] font-mono text-sm text-neutral-100">
-            <p className="text-red-300">
-              {tGlobal('ebMessage')}
-            </p>
+            <p className="text-red-300">{tGlobal('ebMessage')}</p>
 
             <div className="border border-neutral-700 bg-black/40 p-[var(--space-3)]">
               <div className="mb-[var(--space-1)] text-xs uppercase tracking-wide text-neutral-400">

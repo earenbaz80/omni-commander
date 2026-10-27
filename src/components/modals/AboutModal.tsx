@@ -14,12 +14,7 @@ interface AboutModalProps {
   onClose: () => void;
 }
 
-export const AboutModal: React.FC<AboutModalProps> = ({
-  theme,
-  lang,
-  authorName,
-  onClose
-}) => {
+export const AboutModal: React.FC<AboutModalProps> = ({ theme, lang, authorName, onClose }) => {
   const t = getTranslations(lang);
 
   const creationDate = t.aboutCreationDate;
@@ -60,33 +55,25 @@ export const AboutModal: React.FC<AboutModalProps> = ({
             <span className="flex items-center gap-[var(--space-2)] opacity-70">
               <Sparkles className="w-3.5 h-3.5 text-cyan-400" /> {t.aboutVersionLabel}
             </span>
-            <span className="font-semibold text-cyan-300">
-              {buildVersion}
-            </span>
+            <span className="font-semibold text-cyan-300">{buildVersion}</span>
           </div>
 
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-[var(--space-2)] opacity-70">
               <Calendar className="w-3.5 h-3.5 text-emerald-400" /> {t.aboutCreationDateLabel}
             </span>
-            <span className="font-medium text-emerald-300">
-              {creationDate}
-            </span>
+            <span className="font-medium text-emerald-300">{creationDate}</span>
           </div>
 
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-[var(--space-2)] opacity-70">
               <Cpu className="w-3.5 h-3.5 text-purple-400" /> {t.aboutArchitectureLabel}
             </span>
-            <span className="text-slate-200">
-              Dual-Pane Orthodox Engine + HTML5 Host FS Access
-            </span>
+            <span className="text-slate-200">Dual-Pane Orthodox Engine + HTML5 Host FS Access</span>
           </div>
         </div>
 
-        <p className="text-[var(--fs-sm)] opacity-75 text-center leading-relaxed">
-          {t.aboutDescription}
-        </p>
+        <p className="text-[var(--fs-sm)] opacity-75 text-center leading-relaxed">{t.aboutDescription}</p>
 
         {/* Footer buttons */}
         <div className="flex items-center justify-end gap-[var(--space-2)] pt-2 border-t border-white/10">

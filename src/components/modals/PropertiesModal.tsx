@@ -16,16 +16,10 @@ interface PropertiesModalProps {
   onClose: () => void;
 }
 
-export const PropertiesModal: React.FC<PropertiesModalProps> = ({
-  theme,
-  lang,
-  file,
-  onUpdateAttributes,
-  onClose
-}) => {
+export const PropertiesModal: React.FC<PropertiesModalProps> = ({ theme, lang, file, onUpdateAttributes, onClose }) => {
   const t = getTranslations(lang);
   const [attributes, setAttributes] = useState(
-    file?.attributes || { readOnly: false, hidden: false, system: false, archive: true }
+    file?.attributes || { readOnly: false, hidden: false, system: false, archive: true },
   );
 
   if (!file) return null;
@@ -38,7 +32,8 @@ export const PropertiesModal: React.FC<PropertiesModalProps> = ({
   };
 
   const formatBytes = (bytes: number): string => {
-    if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB (${bytes.toLocaleString()} bytes)`;
+    if (bytes >= 1024 * 1024 * 1024)
+      return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB (${bytes.toLocaleString()} bytes)`;
     if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB (${bytes.toLocaleString()} bytes)`;
     if (bytes >= 1024) return `${(bytes / 1024).toFixed(2)} KB (${bytes.toLocaleString()} bytes)`;
     return `${bytes.toLocaleString()} bytes`;
@@ -47,27 +42,56 @@ export const PropertiesModal: React.FC<PropertiesModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.properties);
 
   return (
-    <ModalShell title={`${t.properties}: ${file.name}.${file.ext}`} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
+    <ModalShell
+      title={`${t.properties}: ${file.name}.${file.ext}`}
+      theme={theme}
+      onClose={onClose}
+      closeButtonLabel={t.btnCancel}
+    >
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
         <div className="p-[var(--space-4)] space-y-[var(--space-4)] font-mono text-[var(--fs-sm)]">
           {/* Header Icon + Name */}
           <div className="flex items-center gap-[var(--space-3)] pb-3 border-b border-white/10">
             <div className="w-10 h-10 rounded bg-black/40 border border-white/20 flex items-center justify-center">
-              {file.isDirectory ? <Folder className="w-6 h-6 text-amber-400" /> : <FileText className="w-6 h-6 text-sky-400" />}
+              {file.isDirectory ? (
+                <Folder className="w-6 h-6 text-amber-400" />
+              ) : (
+                <FileText className="w-6 h-6 text-sky-400" />
+              )}
             </div>
             <div className="truncate">
-              <span className="font-bold text-white text-sm block truncate">{file.name}{file.ext ? `.${file.ext}` : ''}</span>
-              <span className="opacity-60 text-[var(--fs-sm)]">{file.isDirectory ? t.propFolderDirectory : `${t.file} .${file.ext || 'DAT'}`}</span>
+              <span className="font-bold text-white text-sm block truncate">
+                {file.name}
+                {file.ext ? `.${file.ext}` : ''}
+              </span>
+              <span className="opacity-60 text-[var(--fs-sm)]">
+                {file.isDirectory ? t.propFolderDirectory : `${t.file} .${file.ext || 'DAT'}`}
+              </span>
             </div>
           </div>
 
           {/* Details Table */}
           <div className="space-y-[var(--space-2)] opacity-90 text-[var(--fs-sm)]">
-            <div className="flex"><span className="w-28 opacity-60">{t.propLocation}</span> <span className="text-white truncate">{file.path}</span></div>
-            <div className="flex"><span className="w-28 opacity-60">{t.sizeLabel}</span> <span className="text-white">{formatBytes(file.size)}</span></div>
-            <div className="flex"><span className="w-28 opacity-60">{t.propSizeOnDisk}</span> <span className="text-white">{formatBytes(Math.ceil(Math.max(file.size, 4096) / 4096) * 4096)}</span></div>
-            <div className="flex"><span className="w-28 opacity-60">{t.createdLabel}</span> <span className="text-white">{file.createdAt}</span></div>
-            <div className="flex"><span className="w-28 opacity-60">{t.modifiedLabel}</span> <span className="text-white">{file.modifiedAt}</span></div>
+            <div className="flex">
+              <span className="w-28 opacity-60">{t.propLocation}</span>{' '}
+              <span className="text-white truncate">{file.path}</span>
+            </div>
+            <div className="flex">
+              <span className="w-28 opacity-60">{t.sizeLabel}</span>{' '}
+              <span className="text-white">{formatBytes(file.size)}</span>
+            </div>
+            <div className="flex">
+              <span className="w-28 opacity-60">{t.propSizeOnDisk}</span>{' '}
+              <span className="text-white">{formatBytes(Math.ceil(Math.max(file.size, 4096) / 4096) * 4096)}</span>
+            </div>
+            <div className="flex">
+              <span className="w-28 opacity-60">{t.createdLabel}</span>{' '}
+              <span className="text-white">{file.createdAt}</span>
+            </div>
+            <div className="flex">
+              <span className="w-28 opacity-60">{t.modifiedLabel}</span>{' '}
+              <span className="text-white">{file.modifiedAt}</span>
+            </div>
           </div>
 
           {/* Attributes Checkboxes */}
@@ -75,38 +99,22 @@ export const PropertiesModal: React.FC<PropertiesModalProps> = ({
             <span className="font-bold text-amber-300 block mb-[var(--space-2)]">{t.propAttributesNtfs}</span>
             <div className="grid grid-cols-2 gap-[var(--space-2)]">
               <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={attributes.readOnly}
-                  onChange={() => handleToggle('readOnly')}
-                />
+                <input type="checkbox" checked={attributes.readOnly} onChange={() => handleToggle('readOnly')} />
                 <span>{t.propReadOnly}</span>
               </label>
 
               <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={attributes.hidden}
-                  onChange={() => handleToggle('hidden')}
-                />
+                <input type="checkbox" checked={attributes.hidden} onChange={() => handleToggle('hidden')} />
                 <span>{t.propHidden}</span>
               </label>
 
               <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={attributes.archive}
-                  onChange={() => handleToggle('archive')}
-                />
+                <input type="checkbox" checked={attributes.archive} onChange={() => handleToggle('archive')} />
                 <span>{t.propArchive}</span>
               </label>
 
               <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={attributes.system}
-                  onChange={() => handleToggle('system')}
-                />
+                <input type="checkbox" checked={attributes.system} onChange={() => handleToggle('system')} />
                 <span>{t.propSystem}</span>
               </label>
             </div>

@@ -16,12 +16,7 @@ interface RecycleBinModalProps {
   onClose: () => void;
 }
 
-export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({
-  theme,
-  lang,
-  onRefresh,
-  onClose
-}) => {
+export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({ theme, lang, onRefresh, onClose }) => {
   const t = getTranslations(lang);
   const [items, setItems] = useState<RecycleBinItem[]>(() => fsEngine.getRecycleBinItems());
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -40,7 +35,7 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({
   };
 
   const handleRestoreAll = () => {
-    items.forEach(i => fsEngine.restoreFromRecycleBin(i.id));
+    items.forEach((i) => fsEngine.restoreFromRecycleBin(i.id));
     soundManager.playSuccess();
     refreshList();
   };
@@ -68,7 +63,6 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({
   return (
     <ModalShell title={t.binTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
-
         {/* Action Controls */}
         <div className="p-[var(--space-3)] bg-black/40 border-b border-white/10 flex flex-wrap items-center justify-between gap-[var(--space-2)]">
           <div className="flex items-center gap-[var(--space-2)] text-xs">
@@ -107,8 +101,8 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({
                 key={binItem.id}
                 onClick={() => setSelectedId(binItem.id)}
                 className={`flex items-center justify-between p-[var(--space-2)] rounded transition border ${
-                  isSelected 
-                    ? 'bg-amber-500/20 border-amber-400 text-white' 
+                  isSelected
+                    ? 'bg-amber-500/20 border-amber-400 text-white'
                     : 'bg-black/30 border-transparent hover:bg-white/5 opacity-90'
                 }`}
               >
@@ -119,8 +113,13 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({
                     <FileText className="w-4 h-4 text-sky-300 shrink-0" />
                   )}
                   <div className="flex flex-col truncate">
-                    <span className="font-bold text-xs truncate">{binItem.item.name}{binItem.item.ext ? `.${binItem.item.ext}` : ''}</span>
-                    <span className="text-[var(--fs-8)] opacity-60 truncate">{t.recycleBinOriginalLocation.replace('{path}', binItem.originalPath)}</span>
+                    <span className="font-bold text-xs truncate">
+                      {binItem.item.name}
+                      {binItem.item.ext ? `.${binItem.item.ext}` : ''}
+                    </span>
+                    <span className="text-[var(--fs-8)] opacity-60 truncate">
+                      {t.recycleBinOriginalLocation.replace('{path}', binItem.originalPath)}
+                    </span>
                   </div>
                 </div>
 

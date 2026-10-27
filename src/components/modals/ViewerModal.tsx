@@ -19,14 +19,7 @@ interface ViewerModalProps {
   onSave?: () => void;
 }
 
-export const ViewerModal: React.FC<ViewerModalProps> = ({
-  theme,
-  lang,
-  file,
-  onClose,
-  onEdit,
-  onSave
-}) => {
+export const ViewerModal: React.FC<ViewerModalProps> = ({ theme, lang, file, onClose, onEdit, onSave }) => {
   const t = getTranslations(lang);
   const [activeTab, setActiveTab] = useState<'text' | 'hex' | 'csv' | 'preview'>('text');
   const [copied, setCopied] = useState(false);
@@ -60,12 +53,10 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
       const offset = i.toString(16).padStart(8, '0').toUpperCase();
       const chunk = byteBuffer.slice(i, i + 16);
       const hex = chunk
-        .map(b => b.toString(16).padStart(2, '0').toUpperCase())
+        .map((b) => b.toString(16).padStart(2, '0').toUpperCase())
         .join(' ')
         .padEnd(48, ' ');
-      const ascii = chunk
-        .map(b => (b >= 32 && b <= 126 ? String.fromCharCode(b) : '.'))
-        .join('');
+      const ascii = chunk.map((b) => (b >= 32 && b <= 126 ? String.fromCharCode(b) : '.')).join('');
       lines.push(`${offset}  ${hex} |${ascii}|`);
     }
     return lines.join('\n');
@@ -81,7 +72,7 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
   };
 
   const handleSaveHexChanges = () => {
-    const newContent = byteBuffer.map(b => String.fromCharCode(b)).join('');
+    const newContent = byteBuffer.map((b) => String.fromCharCode(b)).join('');
     fsEngine.saveFileContent(file.id, newContent);
     soundManager.playSuccess();
     setHexSavedNotice(true);
@@ -91,7 +82,7 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
 
   // CSV table parser
   const renderCsvTable = () => {
-    const rows = content.split('\n').filter(r => r.trim());
+    const rows = content.split('\n').filter((r) => r.trim());
     if (rows.length === 0) return <div>{t.viewerCsvEmpty}</div>;
     const header = rows[0].split(',');
     const dataRows = rows.slice(1);
@@ -140,11 +131,15 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
     <ModalShell title={t.viewerModalTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
         {/* Header bar */}
-        <div className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-b font-bold shrink-0"
-          style={{ backgroundColor: theme.modalHeaderBg, color: theme.modalHeaderText, borderColor: theme.modalBorder }}>
+        <div
+          className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-b font-bold shrink-0"
+          style={{ backgroundColor: theme.modalHeaderBg, color: theme.modalHeaderText, borderColor: theme.modalBorder }}
+        >
           <div className="flex items-center gap-[var(--space-2)] truncate">
             <Eye className="w-4 h-4" />
-            <span className="truncate">{t.viewerLabel} {file.path}\{file.name}.{file.ext} ({file.size.toLocaleString()} bytes)</span>
+            <span className="truncate">
+              {t.viewerLabel} {file.path}\{file.name}.{file.ext} ({file.size.toLocaleString()} bytes)
+            </span>
           </div>
 
           <div className="flex items-center gap-[var(--space-2)]">
@@ -225,9 +220,7 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
         {/* Content Viewport */}
         <div className="flex-1 overflow-auto p-[var(--space-4)] bg-black/50 select-text">
           {activeTab === 'text' && (
-            <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-slate-100">
-              {content}
-            </pre>
+            <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-slate-100">{content}</pre>
           )}
 
           {activeTab === 'hex' && (
@@ -235,7 +228,9 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
               <div className="flex items-center justify-between pb-2 border-b border-white/10 text-xs">
                 <div className="flex items-center gap-[var(--space-2)]">
                   <span className="font-bold text-emerald-400">{t.viewerHexEditorTitle}</span>
-                  <span className="opacity-60 text-[10px]">({t.viewerBytesTotal.replace('{n}', String(byteBuffer.length))})</span>
+                  <span className="opacity-60 text-[10px]">
+                    ({t.viewerBytesTotal.replace('{n}', String(byteBuffer.length))})
+                  </span>
                 </div>
 
                 <div className="flex items-center gap-[var(--space-2)]">
@@ -273,9 +268,7 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
 
               {hexEditMode ? (
                 <div className="p-[var(--space-2)] bg-black/60 rounded border border-white/15 space-y-[var(--space-2)]">
-                  <div className="text-[10px] text-amber-300 opacity-90">
-                    {t.viewerHexClickHint}
-                  </div>
+                  <div className="text-[10px] text-amber-300 opacity-90">{t.viewerHexClickHint}</div>
                   <div className="grid grid-cols-16 gap-[var(--space-1)] font-mono text-[11px]">
                     {byteBuffer.slice(0, 256).map((byte, idx) => {
                       const isSelected = selectedByteIndex === idx;
@@ -302,9 +295,7 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
                     })}
                   </div>
                   {byteBuffer.length > 256 && (
-                    <div className="text-[10px] opacity-60 italic text-center pt-1">
-                      {t.viewerHexGridHint}
-                    </div>
+                    <div className="text-[10px] opacity-60 italic text-center pt-1">{t.viewerHexGridHint}</div>
                   )}
                 </div>
               ) : (
@@ -332,7 +323,9 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
               {isAudio && (
                 <div className="text-center space-y-[var(--space-3)]">
                   <Music className="w-16 h-16 text-violet-400 mx-auto animate-pulse" />
-                  <p className="font-bold text-base">{file.name}.{file.ext}</p>
+                  <p className="font-bold text-base">
+                    {file.name}.{file.ext}
+                  </p>
                   <button
                     onClick={() => soundManager.playSuccess()}
                     className="px-[var(--space-4)] py-[var(--space-2)] bg-amber-400 text-black font-bold rounded hover:bg-amber-300 cursor-pointer shadow"
@@ -346,14 +339,18 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div 
+        <div
           className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-t text-xs shrink-0"
           style={{
             backgroundColor: theme.modalBg,
-            borderColor: theme.modalBorder
+            borderColor: theme.modalBorder,
           }}
         >
-          <span className="opacity-75">{t.viewerLinesChars.replace('{n}', String(content.split('\n').length)).replace('{total}', String(content.length))}</span>
+          <span className="opacity-75">
+            {t.viewerLinesChars
+              .replace('{n}', String(content.split('\n').length))
+              .replace('{total}', String(content.length))}
+          </span>
           <button
             onClick={onClose}
             className="px-[var(--space-4)] py-[var(--space-1)] bg-amber-400 hover:bg-amber-300 text-black font-bold rounded cursor-pointer"

@@ -61,7 +61,7 @@ describe('SettingsModal accessibility', () => {
         settings={settings}
         onUpdateSettings={vi.fn()}
         onClose={vi.fn()}
-      />
+      />,
     );
 
     const dialog = screen.getByRole('dialog');
@@ -77,13 +77,11 @@ describe('SettingsModal accessibility', () => {
         settings={settings}
         onUpdateSettings={vi.fn()}
         onClose={vi.fn()}
-      />
+      />,
     );
 
     const dialog = screen.getByRole('dialog');
-    const focusables = Array.from(
-      dialog.querySelectorAll<HTMLElement>('button, input, select, textarea, a[href]')
-    );
+    const focusables = Array.from(dialog.querySelectorAll<HTMLElement>('button, input, select, textarea, a[href]'));
     expect(focusables.length).toBeGreaterThan(2);
 
     const first = focusables[0];
@@ -106,7 +104,7 @@ describe('SettingsModal accessibility', () => {
         settings={settings}
         onUpdateSettings={vi.fn()}
         onClose={vi.fn()}
-      />
+      />,
     );
 
     // Header close button (X icon) has aria-label="Cancelar"

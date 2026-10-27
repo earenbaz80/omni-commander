@@ -13,10 +13,20 @@ interface PanelDeps {
   setQuickSearchQuery: React.Dispatch<React.SetStateAction<string>>;
   quickSearchTimerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
   setSelectedFileForModal: React.Dispatch<React.SetStateAction<FileItem | null>>;
-  setUnlockTarget: React.Dispatch<React.SetStateAction<{ side: 'left' | 'right'; path: string; expectedPass: string } | null>>;
+  setUnlockTarget: React.Dispatch<
+    React.SetStateAction<{ side: 'left' | 'right'; path: string; expectedPass: string } | null>
+  >;
   setHoveredItem: React.Dispatch<React.SetStateAction<FileItem | null>>;
   setHoverPos: React.Dispatch<React.SetStateAction<{ x: number; y: number }>>;
-  setContextMenuState: React.Dispatch<React.SetStateAction<{ visible: boolean; x: number; y: number; targetItem: FileItem | null; panelSide: 'left' | 'right' }>>;
+  setContextMenuState: React.Dispatch<
+    React.SetStateAction<{
+      visible: boolean;
+      x: number;
+      y: number;
+      targetItem: FileItem | null;
+      panelSide: 'left' | 'right';
+    }>
+  >;
   fsTick: number;
   setFsTick: React.Dispatch<React.SetStateAction<number>>;
   requestArchivePassword?: (fileName: string, invalid?: boolean) => Promise<string | null>;
@@ -29,21 +39,21 @@ interface PanelDeps {
  */
 export function usePanels(deps: PanelDeps) {
   const {
-  drives,
-  settings,
-  activePanel,
-  activeModal,
-  setActiveModal,
-  setQuickSearchQuery,
-  quickSearchTimerRef,
-  setSelectedFileForModal,
-  setUnlockTarget,
-  setHoveredItem,
-  setHoverPos,
-  setContextMenuState,
-  fsTick,
-  setFsTick,
-  requestArchivePassword,
+    drives,
+    settings,
+    activePanel,
+    activeModal,
+    setActiveModal,
+    setQuickSearchQuery,
+    quickSearchTimerRef,
+    setSelectedFileForModal,
+    setUnlockTarget,
+    setHoveredItem,
+    setHoverPos,
+    setContextMenuState,
+    fsTick,
+    setFsTick,
+    requestArchivePassword,
   } = deps;
 
   // Left & Right Panels State
@@ -63,11 +73,11 @@ export function usePanels(deps: PanelDeps) {
         sortDirection: 'asc',
         filterText: '',
         selectedIds: [],
-        focusedIndex: 0
-      }
+        focusedIndex: 0,
+      },
     ],
     isTreeVisible: false,
-    isQuickView: false
+    isQuickView: false,
   });
 
   const [rightPanel, setRightPanel] = useState<PanelState>({
@@ -86,11 +96,11 @@ export function usePanels(deps: PanelDeps) {
         sortDirection: 'asc',
         filterText: '',
         selectedIds: [],
-        focusedIndex: 0
-      }
+        focusedIndex: 0,
+      },
     ],
     isTreeVisible: false,
-    isQuickView: false
+    isQuickView: false,
   });
 
   // Quick live filter bar states (Ctrl+F)
@@ -102,16 +112,16 @@ export function usePanels(deps: PanelDeps) {
     const tempLeftTabs = [...leftPanel.tabs];
     const tempLeftActive = leftPanel.activeTabId;
 
-    setLeftPanel(prev => ({
+    setLeftPanel((prev) => ({
       ...prev,
-      tabs: rightPanel.tabs.map(t => ({ ...t, id: t.id.replace('right', 'left_swapped') })),
-      activeTabId: rightPanel.activeTabId.replace('right', 'left_swapped')
+      tabs: rightPanel.tabs.map((t) => ({ ...t, id: t.id.replace('right', 'left_swapped') })),
+      activeTabId: rightPanel.activeTabId.replace('right', 'left_swapped'),
     }));
 
-    setRightPanel(prev => ({
+    setRightPanel((prev) => ({
       ...prev,
-      tabs: tempLeftTabs.map(t => ({ ...t, id: t.id.replace('left', 'right_swapped') })),
-      activeTabId: tempLeftActive.replace('left', 'right_swapped')
+      tabs: tempLeftTabs.map((t) => ({ ...t, id: t.id.replace('left', 'right_swapped') })),
+      activeTabId: tempLeftActive.replace('left', 'right_swapped'),
     }));
   };
   // Auto-open the first real detected drive in each panel instead of showing a mount onboarding.
@@ -124,15 +134,18 @@ export function usePanels(deps: PanelDeps) {
       return {
         ...prev,
         tabs: prev.tabs.map((tab) =>
-          tab.driveId === '' ? {
-            ...tab,
-            driveId: firstDrive.id,
-            currentPath: firstDrive.letter,
-            history: [firstDrive.letter],
-            historyIndex: 0,
-            selectedIds: [],
-            focusedIndex: 0
-          } : tab)
+          tab.driveId === ''
+            ? {
+                ...tab,
+                driveId: firstDrive.id,
+                currentPath: firstDrive.letter,
+                history: [firstDrive.letter],
+                historyIndex: 0,
+                selectedIds: [],
+                focusedIndex: 0,
+              }
+            : tab,
+        ),
       };
     };
     setLeftPanel(hydrateEmptyDrive);
@@ -142,8 +155,10 @@ export function usePanels(deps: PanelDeps) {
   const activePanelState = activePanel === 'left' ? leftPanel : rightPanel;
   const inactivePanelState = activePanel === 'left' ? rightPanel : leftPanel;
 
-  const currentActiveTab = activePanelState.tabs.find(t => t.id === activePanelState.activeTabId) || activePanelState.tabs[0];
-  const currentInactiveTab = inactivePanelState.tabs.find(t => t.id === inactivePanelState.activeTabId) || inactivePanelState.tabs[0];
+  const currentActiveTab =
+    activePanelState.tabs.find((t) => t.id === activePanelState.activeTabId) || activePanelState.tabs[0];
+  const currentInactiveTab =
+    inactivePanelState.tabs.find((t) => t.id === inactivePanelState.activeTabId) || inactivePanelState.tabs[0];
 
   const emptyDrive: Drive = {
     id: '',
@@ -153,61 +168,70 @@ export function usePanels(deps: PanelDeps) {
     totalBytes: 0,
     freeBytes: 0,
     description: tGlobal('panelNoRealDrivesDesc'),
-    isMounted: false
+    isMounted: false,
   };
-  const currentActiveDrive = drives.find(d => d.id === currentActiveTab.driveId) || emptyDrive;
-  const currentInactiveDrive = drives.find(d => d.id === currentInactiveTab.driveId) || emptyDrive;
+  const currentActiveDrive = drives.find((d) => d.id === currentActiveTab.driveId) || emptyDrive;
+  const currentInactiveDrive = drives.find((d) => d.id === currentInactiveTab.driveId) || emptyDrive;
 
   // Retrieve files for active/inactive panels
-  const getPanelItems = useCallback((tab: PanelTab) => {
-    let items = fsEngine.getFiles(tab.driveId, tab.currentPath);
+  const getPanelItems = useCallback(
+    (tab: PanelTab) => {
+      let items = fsEngine.getFiles(tab.driveId, tab.currentPath);
 
-    if (!settings.showHiddenFiles) {
-      items = items.filter(i => !i.attributes.hidden);
-    }
-
-    if (!settings.showSystemFiles) {
-      items = items.filter(i => !i.attributes.system);
-    }
-
-    if (tab.filterText.trim()) {
-      const q = tab.filterText.trim();
-      let matchesFilter = (item: FileItem) => item.name.toLowerCase().includes(q.toLowerCase());
-      try {
-        const pattern = new RegExp('^' + q.replace(/\./g, '\\.').replace(/\*/g, '.*').replace(/\?/g, '.') + '$', 'i');
-        matchesFilter = (item: FileItem) => pattern.test(item.name) || pattern.test(`${item.name}.${item.ext}`) || item.name.toLowerCase().includes(q.toLowerCase());
-      } catch {
-        // Fall back to literal filtering if the transformed expression is invalid.
+      if (!settings.showHiddenFiles) {
+        items = items.filter((i) => !i.attributes.hidden);
       }
-      items = items.filter(matchesFilter);
-    }
 
-    return [...items].sort((a, b) => {
-      if (a.isDirectory && !b.isDirectory) return -1;
-      if (!a.isDirectory && b.isDirectory) return 1;
-
-      const valA: any = a[tab.sortField];
-      const valB: any = b[tab.sortField];
-
-      if (typeof valA === 'string') {
-        const cmp = valA.localeCompare(valB);
-        return tab.sortDirection === 'asc' ? cmp : -cmp;
+      if (!settings.showSystemFiles) {
+        items = items.filter((i) => !i.attributes.system);
       }
-      if (typeof valA === 'number') {
-        return tab.sortDirection === 'asc' ? valA - valB : valB - valA;
-      }
-      return 0;
-    });
-  }, [settings.showHiddenFiles, settings.showSystemFiles]);
 
-  const leftTab = leftPanel.tabs.find(t => t.id === leftPanel.activeTabId) || leftPanel.tabs[0];
-  const rightTab = rightPanel.tabs.find(t => t.id === rightPanel.activeTabId) || rightPanel.tabs[0];
+      if (tab.filterText.trim()) {
+        const q = tab.filterText.trim();
+        let matchesFilter = (item: FileItem) => item.name.toLowerCase().includes(q.toLowerCase());
+        try {
+          const pattern = new RegExp('^' + q.replace(/\./g, '\\.').replace(/\*/g, '.*').replace(/\?/g, '.') + '$', 'i');
+          matchesFilter = (item: FileItem) =>
+            pattern.test(item.name) ||
+            pattern.test(`${item.name}.${item.ext}`) ||
+            item.name.toLowerCase().includes(q.toLowerCase());
+        } catch {
+          // Fall back to literal filtering if the transformed expression is invalid.
+        }
+        items = items.filter(matchesFilter);
+      }
+
+      return [...items].sort((a, b) => {
+        if (a.isDirectory && !b.isDirectory) return -1;
+        if (!a.isDirectory && b.isDirectory) return 1;
+
+        const valA: any = a[tab.sortField];
+        const valB: any = b[tab.sortField];
+
+        if (typeof valA === 'string') {
+          const cmp = valA.localeCompare(valB);
+          return tab.sortDirection === 'asc' ? cmp : -cmp;
+        }
+        if (typeof valA === 'number') {
+          return tab.sortDirection === 'asc' ? valA - valB : valB - valA;
+        }
+        return 0;
+      });
+    },
+    [settings.showHiddenFiles, settings.showSystemFiles],
+  );
+
+  const leftTab = leftPanel.tabs.find((t) => t.id === leftPanel.activeTabId) || leftPanel.tabs[0];
+  const rightTab = rightPanel.tabs.find((t) => t.id === rightPanel.activeTabId) || rightPanel.tabs[0];
 
   const leftItems = useMemo(() => getPanelItems(leftTab), [getPanelItems, leftTab, fsTick]);
   const rightItems = useMemo(() => getPanelItems(rightTab), [getPanelItems, rightTab, fsTick]);
 
   const activeItems = activePanel === 'left' ? leftItems : rightItems;
-  const activeFocusedItem = useMemo(() => activeItems[currentActiveTab.focusedIndex] || null, [activeItems, currentActiveTab.focusedIndex]);
+  const activeFocusedItem = useMemo(
+    () => activeItems[currentActiveTab.focusedIndex] || null,
+    [activeItems, currentActiveTab.focusedIndex],
+  );
 
   // Trigger host filesystem sync on navigation instead of during render/getFiles
   useEffect(() => {
@@ -220,78 +244,84 @@ export function usePanels(deps: PanelDeps) {
   }, [leftTab.driveId, leftTab.currentPath, rightTab.driveId, rightTab.currentPath]);
 
   // Selected stats for CollapsibleInfoDrawer
-  const activeSelectedItems = activeItems.filter(i => currentActiveTab.selectedIds.includes(i.id));
+  const activeSelectedItems = activeItems.filter((i) => currentActiveTab.selectedIds.includes(i.id));
   const activeSelectedBytes = activeSelectedItems.reduce((sum, item) => sum + item.size, 0);
 
   // Protected Folder Check
-  const checkFolderPasswordProtection = useCallback((panelSide: 'left' | 'right', targetPath: string): boolean => {
-    const protectedMap = settings.protectedFolders || {};
-    const pass = protectedMap[targetPath];
-    if (pass) {
-      setUnlockTarget({ side: panelSide, path: targetPath, expectedPass: pass });
-      setActiveModal('unlock_folder');
-      return true; // Is protected and intercepted
-    }
-    return false; // Not protected
-  }, [settings.protectedFolders, setUnlockTarget, setActiveModal]);
-  // Navigation & Path operations
-  const handleNavigate = useCallback((panelSide: 'left' | 'right', newPath: string) => {
-    if (checkFolderPasswordProtection(panelSide, newPath)) {
-      return;
-    }
-
-    // Detect if we're entering/leaving a virtual archive
-    const targetPanel = panelSide === 'left' ? leftPanel : rightPanel;
-    const activeTab = targetPanel.tabs.find(t => t.id === targetPanel.activeTabId);
-    const currentArchiveRoot = activeTab?.archiveRoot;
-    
-    // Check if newPath is inside an archive
-    let newArchiveRoot: string | undefined;
-    let newVirtualPath: string | undefined;
-    
-    if (currentArchiveRoot && newPath.startsWith(currentArchiveRoot + '\\')) {
-      // Staying inside the same archive - update virtual path
-      newArchiveRoot = currentArchiveRoot;
-      newVirtualPath = newPath.slice(currentArchiveRoot.length + 1);
-    } else if (!currentArchiveRoot) {
-      // Check if new path is an archive root (from openZipArchive)
-      const mount = fsEngine.getArchiveSource(activeTab?.driveId || '', newPath);
-      if (mount) {
-        // Entering an archive
-        newArchiveRoot = newPath;
-        newVirtualPath = '';
+  const checkFolderPasswordProtection = useCallback(
+    (panelSide: 'left' | 'right', targetPath: string): boolean => {
+      const protectedMap = settings.protectedFolders || {};
+      const pass = protectedMap[targetPath];
+      if (pass) {
+        setUnlockTarget({ side: panelSide, path: targetPath, expectedPass: pass });
+        setActiveModal('unlock_folder');
+        return true; // Is protected and intercepted
       }
-    }
-    // If we have currentArchiveRoot but newPath doesn't start with it, we're leaving the archive
-    // newArchiveRoot and newVirtualPath remain undefined (clearing archive state)
+      return false; // Not protected
+    },
+    [settings.protectedFolders, setUnlockTarget, setActiveModal],
+  );
+  // Navigation & Path operations
+  const handleNavigate = useCallback(
+    (panelSide: 'left' | 'right', newPath: string) => {
+      if (checkFolderPasswordProtection(panelSide, newPath)) {
+        return;
+      }
 
-    const targetSet = panelSide === 'left' ? setLeftPanel : setRightPanel;
-    targetSet(p => ({
-      ...p,
-      tabs: p.tabs.map(tab => {
-        if (tab.id !== p.activeTabId) return tab;
-        const newHistory = [...tab.history.slice(0, tab.historyIndex + 1), newPath];
-        return {
-          ...tab,
-          currentPath: newPath,
-          history: newHistory,
-          historyIndex: newHistory.length - 1,
-          selectedIds: [],
-          focusedIndex: 0,
-          filterText: '',
-          archiveRoot: newArchiveRoot ?? (newVirtualPath === undefined ? undefined : tab.archiveRoot),
-          virtualPath: newVirtualPath ?? (newArchiveRoot === undefined ? undefined : tab.virtualPath),
-        };
-      })
-    }));
-  }, [checkFolderPasswordProtection, setLeftPanel, setRightPanel, leftPanel, rightPanel]);
+      // Detect if we're entering/leaving a virtual archive
+      const targetPanel = panelSide === 'left' ? leftPanel : rightPanel;
+      const activeTab = targetPanel.tabs.find((t) => t.id === targetPanel.activeTabId);
+      const currentArchiveRoot = activeTab?.archiveRoot;
+
+      // Check if newPath is inside an archive
+      let newArchiveRoot: string | undefined;
+      let newVirtualPath: string | undefined;
+
+      if (currentArchiveRoot && newPath.startsWith(currentArchiveRoot + '\\')) {
+        // Staying inside the same archive - update virtual path
+        newArchiveRoot = currentArchiveRoot;
+        newVirtualPath = newPath.slice(currentArchiveRoot.length + 1);
+      } else if (!currentArchiveRoot) {
+        // Check if new path is an archive root (from openZipArchive)
+        const mount = fsEngine.getArchiveSource(activeTab?.driveId || '', newPath);
+        if (mount) {
+          // Entering an archive
+          newArchiveRoot = newPath;
+          newVirtualPath = '';
+        }
+      }
+      // If we have currentArchiveRoot but newPath doesn't start with it, we're leaving the archive
+      // newArchiveRoot and newVirtualPath remain undefined (clearing archive state)
+
+      const targetSet = panelSide === 'left' ? setLeftPanel : setRightPanel;
+      targetSet((p) => ({
+        ...p,
+        tabs: p.tabs.map((tab) => {
+          if (tab.id !== p.activeTabId) return tab;
+          const newHistory = [...tab.history.slice(0, tab.historyIndex + 1), newPath];
+          return {
+            ...tab,
+            currentPath: newPath,
+            history: newHistory,
+            historyIndex: newHistory.length - 1,
+            selectedIds: [],
+            focusedIndex: 0,
+            filterText: '',
+            archiveRoot: newArchiveRoot ?? (newVirtualPath === undefined ? undefined : tab.archiveRoot),
+            virtualPath: newVirtualPath ?? (newArchiveRoot === undefined ? undefined : tab.virtualPath),
+          };
+        }),
+      }));
+    },
+    [checkFolderPasswordProtection, setLeftPanel, setRightPanel, leftPanel, rightPanel],
+  );
 
   // Multi-Tab management
   const handleSelectTab = (panelSide: 'left' | 'right', tabId: string) => {
     if (panelSide === 'left') {
-      setLeftPanel(p => ({ ...p, activeTabId: tabId }));
+      setLeftPanel((p) => ({ ...p, activeTabId: tabId }));
     } else {
-      setRightPanel(p => ({ ...p, activeTabId: tabId }));
+      setRightPanel((p) => ({ ...p, activeTabId: tabId }));
     }
   };
 
@@ -318,18 +348,18 @@ export function usePanels(deps: PanelDeps) {
       virtualPath: currentTab.virtualPath,
     };
 
-    targetSet(p => ({
+    targetSet((p) => ({
       ...p,
       tabs: [...p.tabs, newTab],
-      activeTabId: newTab.id
+      activeTabId: newTab.id,
     }));
   };
 
   const handleCloseTab = (panelSide: 'left' | 'right', tabId: string) => {
     const targetSet = panelSide === 'left' ? setLeftPanel : setRightPanel;
-    targetSet(p => {
+    targetSet((p) => {
       if (p.tabs.length <= 1) return p;
-      const filtered = p.tabs.filter(t => t.id !== tabId);
+      const filtered = p.tabs.filter((t) => t.id !== tabId);
       const newActive = p.activeTabId === tabId ? filtered[filtered.length - 1].id : p.activeTabId;
       return { ...p, tabs: filtered, activeTabId: newActive };
     });
@@ -337,55 +367,65 @@ export function usePanels(deps: PanelDeps) {
 
   const handleToggleLockTab = (panelSide: 'left' | 'right', tabId: string) => {
     const targetSet = panelSide === 'left' ? setLeftPanel : setRightPanel;
-    targetSet(p => ({
+    targetSet((p) => ({
       ...p,
-      tabs: p.tabs.map(t => t.id === tabId ? { ...t, isLocked: !t.isLocked } : t)
+      tabs: p.tabs.map((t) => (t.id === tabId ? { ...t, isLocked: !t.isLocked } : t)),
     }));
   };
 
   const handleDuplicateTab = (panelSide: 'left' | 'right', tabId: string) => {
     const targetSet = panelSide === 'left' ? setLeftPanel : setRightPanel;
     const currentTabs = panelSide === 'left' ? leftPanel.tabs : rightPanel.tabs;
-    const srcTab = currentTabs.find(t => t.id === tabId);
+    const srcTab = currentTabs.find((t) => t.id === tabId);
     if (!srcTab) return;
 
     const newTab: PanelTab = {
       ...srcTab,
       id: `tab_${panelSide}_${Date.now()}`,
-      isLocked: false
+      isLocked: false,
     };
 
-    targetSet(p => ({
+    targetSet((p) => ({
       ...p,
       tabs: [...p.tabs, newTab],
-      activeTabId: newTab.id
+      activeTabId: newTab.id,
     }));
   };
 
-  const handleGoParent = useCallback((panelSide: 'left' | 'right') => {
-    const tab = panelSide === 'left' ? leftTab : rightTab;
-    const parent = fsEngine.getParentPath(tab.currentPath);
-    if (parent && parent !== tab.currentPath) {
-      handleNavigate(panelSide, parent);
-    }
-  }, [leftTab, rightTab, handleNavigate]);
+  const handleGoParent = useCallback(
+    (panelSide: 'left' | 'right') => {
+      const tab = panelSide === 'left' ? leftTab : rightTab;
+      const parent = fsEngine.getParentPath(tab.currentPath);
+      if (parent && parent !== tab.currentPath) {
+        handleNavigate(panelSide, parent);
+      }
+    },
+    [leftTab, rightTab, handleNavigate],
+  );
 
-  const handleRefresh = useCallback(async (panelSide: 'left' | 'right') => {
-    const tab = panelSide === 'left' ? leftTab : rightTab;
-    if (tab.driveId.startsWith('real_')) {
-      await fsEngine.loadSystemDriveDirectory(tab.driveId, tab.currentPath);
-    }
-    setFsTick(t => t + 1);
-  }, [leftTab, rightTab, setFsTick]);
+  const handleRefresh = useCallback(
+    async (panelSide: 'left' | 'right') => {
+      const tab = panelSide === 'left' ? leftTab : rightTab;
+      if (tab.driveId.startsWith('real_')) {
+        await fsEngine.loadSystemDriveDirectory(tab.driveId, tab.currentPath);
+      }
+      setFsTick((t) => t + 1);
+    },
+    [leftTab, rightTab, setFsTick],
+  );
 
-  const handleLeftRefresh = useCallback(() => { void handleRefresh('left'); }, [handleRefresh]);
-  const handleRightRefresh = useCallback(() => { void handleRefresh('right'); }, [handleRefresh]);
+  const handleLeftRefresh = useCallback(() => {
+    void handleRefresh('left');
+  }, [handleRefresh]);
+  const handleRightRefresh = useCallback(() => {
+    void handleRefresh('right');
+  }, [handleRefresh]);
 
   const handleGoBack = useCallback((panelSide: 'left' | 'right') => {
     const targetSet = panelSide === 'left' ? setLeftPanel : setRightPanel;
-    targetSet(p => ({
+    targetSet((p) => ({
       ...p,
-      tabs: p.tabs.map(tab => {
+      tabs: p.tabs.map((tab) => {
         if (tab.id !== p.activeTabId || tab.historyIndex <= 0) return tab;
         const newIdx = tab.historyIndex - 1;
         return {
@@ -393,17 +433,17 @@ export function usePanels(deps: PanelDeps) {
           currentPath: tab.history[newIdx],
           historyIndex: newIdx,
           selectedIds: [],
-          focusedIndex: 0
+          focusedIndex: 0,
         };
-      })
+      }),
     }));
   }, []);
 
   const handleGoForward = useCallback((panelSide: 'left' | 'right') => {
     const targetSet = panelSide === 'left' ? setLeftPanel : setRightPanel;
-    targetSet(p => ({
+    targetSet((p) => ({
       ...p,
-      tabs: p.tabs.map(tab => {
+      tabs: p.tabs.map((tab) => {
         if (tab.id !== p.activeTabId || tab.historyIndex >= tab.history.length - 1) return tab;
         const newIdx = tab.historyIndex + 1;
         return {
@@ -411,136 +451,146 @@ export function usePanels(deps: PanelDeps) {
           currentPath: tab.history[newIdx],
           historyIndex: newIdx,
           selectedIds: [],
-          focusedIndex: 0
+          focusedIndex: 0,
         };
-      })
+      }),
     }));
   }, []);
 
-  const handleSelectDrive = useCallback(async (panelSide: 'left' | 'right', driveId: string) => {
-    const drive = drives.find(d => d.id === driveId);
-    if (!drive) return;
+  const handleSelectDrive = useCallback(
+    async (panelSide: 'left' | 'right', driveId: string) => {
+      const drive = drives.find((d) => d.id === driveId);
+      if (!drive) return;
 
-    const targetSet = panelSide === 'left' ? setLeftPanel : setRightPanel;
-    targetSet(p => ({
-      ...p,
-      tabs: p.tabs.map(tab => {
-        if (tab.id !== p.activeTabId) return tab;
-        return {
-          ...tab,
-          driveId: drive.id,
-          currentPath: drive.letter,
-          history: [drive.letter],
-          historyIndex: 0,
-          selectedIds: [],
-          focusedIndex: 0,
-          filterText: ''
-        };
-      })
-    }));
-    void fsEngine.loadSystemDriveDirectory(drive.id, drive.letter);
-  }, [drives]);
+      const targetSet = panelSide === 'left' ? setLeftPanel : setRightPanel;
+      targetSet((p) => ({
+        ...p,
+        tabs: p.tabs.map((tab) => {
+          if (tab.id !== p.activeTabId) return tab;
+          return {
+            ...tab,
+            driveId: drive.id,
+            currentPath: drive.letter,
+            history: [drive.letter],
+            historyIndex: 0,
+            selectedIds: [],
+            focusedIndex: 0,
+            filterText: '',
+          };
+        }),
+      }));
+      void fsEngine.loadSystemDriveDirectory(drive.id, drive.letter);
+    },
+    [drives],
+  );
 
   const handleSort = useCallback((panelSide: 'left' | 'right', field: SortField) => {
     soundManager.playKeyTick();
     const targetSet = panelSide === 'left' ? setLeftPanel : setRightPanel;
-    targetSet(p => ({
+    targetSet((p) => ({
       ...p,
-      tabs: p.tabs.map(tab => {
+      tabs: p.tabs.map((tab) => {
         if (tab.id !== p.activeTabId) return tab;
         const isSame = tab.sortField === field;
         return {
           ...tab,
           sortField: field,
-          sortDirection: isSame && tab.sortDirection === 'asc' ? 'desc' : 'asc'
+          sortDirection: isSame && tab.sortDirection === 'asc' ? 'desc' : 'asc',
         };
-      })
+      }),
     }));
   }, []);
 
   const handleSelectIndex = useCallback((panelSide: 'left' | 'right', index: number) => {
     const targetSet = panelSide === 'left' ? setLeftPanel : setRightPanel;
-    targetSet(p => ({
+    targetSet((p) => ({
       ...p,
-      tabs: p.tabs.map(tab => tab.id === p.activeTabId ? { ...tab, focusedIndex: index } : tab)
+      tabs: p.tabs.map((tab) => (tab.id === p.activeTabId ? { ...tab, focusedIndex: index } : tab)),
     }));
   }, []);
 
   const handleToggleSelect = useCallback((panelSide: 'left' | 'right', id: string) => {
     const targetSet = panelSide === 'left' ? setLeftPanel : setRightPanel;
-    targetSet(p => ({
+    targetSet((p) => ({
       ...p,
-      tabs: p.tabs.map(tab => {
+      tabs: p.tabs.map((tab) => {
         if (tab.id !== p.activeTabId) return tab;
         const isSelected = tab.selectedIds.includes(id);
-        const nextSelected = isSelected 
-          ? tab.selectedIds.filter(i => i !== id) 
-          : [...tab.selectedIds, id];
+        const nextSelected = isSelected ? tab.selectedIds.filter((i) => i !== id) : [...tab.selectedIds, id];
         return { ...tab, selectedIds: nextSelected };
-      })
+      }),
     }));
   }, []);
 
   const handleSelectAll = useCallback(() => {
     soundManager.playSelectSound();
     const targetSet = activePanel === 'left' ? setLeftPanel : setRightPanel;
-    targetSet(p => ({
+    targetSet((p) => ({
       ...p,
-      tabs: p.tabs.map(tab => {
+      tabs: p.tabs.map((tab) => {
         if (tab.id !== p.activeTabId) return tab;
-        return { ...tab, selectedIds: activeItems.map(i => i.id) };
-      })
+        return { ...tab, selectedIds: activeItems.map((i) => i.id) };
+      }),
     }));
   }, [activeItems]);
 
   const handleInvertSelection = useCallback(() => {
     soundManager.playSelectSound();
     const targetSet = activePanel === 'left' ? setLeftPanel : setRightPanel;
-    targetSet(p => ({
+    targetSet((p) => ({
       ...p,
-      tabs: p.tabs.map(tab => {
+      tabs: p.tabs.map((tab) => {
         if (tab.id !== p.activeTabId) return tab;
-        const inverted = activeItems
-          .map(i => i.id)
-          .filter(id => !tab.selectedIds.includes(id));
+        const inverted = activeItems.map((i) => i.id).filter((id) => !tab.selectedIds.includes(id));
         return { ...tab, selectedIds: inverted };
-      })
+      }),
     }));
   }, [activeItems]);
 
   // Open item
-  const handleOpenItem = useCallback(async (item: FileItem) => {
-    try {
-      if (item.isDirectory) {
-        const newPath = `${item.path}\\${item.name}`;
-        handleNavigate(activePanel, newPath);
-      } else if ((['ZIP','RAR','7Z','TAR','GZ','TGZ'].includes(item.ext.toUpperCase())) && !item.archiveRoot) {
-        let password: string | undefined;
-        for (;;) {
-          try {
-            handleNavigate(activePanel, await fsEngine.openZipArchive(item, password));
-            return;
-          } catch (e) {
-            if (e instanceof Error && e.name === 'ArchivePasswordError') {
-              const next = requestArchivePassword ? await requestArchivePassword(item.name, (e as any).reason === 'invalid') : null;
-              if (!next) return;
-              password = next;
-            } else if (['RAR','7Z','TAR','GZ','TGZ'].includes(item.ext.toUpperCase()) && (e instanceof Error) && (e.message?.includes('ZIP') || e.message?.includes('password'))) {
-              handleNavigate(activePanel, await fsEngine.openZipArchive(item));
+  const handleOpenItem = useCallback(
+    async (item: FileItem) => {
+      try {
+        if (item.isDirectory) {
+          const newPath = `${item.path}\\${item.name}`;
+          handleNavigate(activePanel, newPath);
+        } else if (['ZIP', 'RAR', '7Z', 'TAR', 'GZ', 'TGZ'].includes(item.ext.toUpperCase()) && !item.archiveRoot) {
+          let password: string | undefined;
+          for (;;) {
+            try {
+              handleNavigate(activePanel, await fsEngine.openZipArchive(item, password));
               return;
-            } else throw e;
+            } catch (e) {
+              if (e instanceof Error && e.name === 'ArchivePasswordError') {
+                const next = requestArchivePassword
+                  ? await requestArchivePassword(item.name, (e as any).reason === 'invalid')
+                  : null;
+                if (!next) return;
+                password = next;
+              } else if (
+                ['RAR', '7Z', 'TAR', 'GZ', 'TGZ'].includes(item.ext.toUpperCase()) &&
+                e instanceof Error &&
+                (e.message?.includes('ZIP') || e.message?.includes('password'))
+              ) {
+                handleNavigate(activePanel, await fsEngine.openZipArchive(item));
+                return;
+              } else throw e;
+            }
           }
+        } else {
+          const content =
+            item.archiveRoot || item.contentEncoding === 'base64'
+              ? new TextDecoder().decode(await fsEngine.readFileBytes(item))
+              : item.content;
+          setSelectedFileForModal({ ...item, content });
+          setActiveModal('viewer');
         }
-      } else {
-        const content = item.archiveRoot || item.contentEncoding === 'base64'
-          ? new TextDecoder().decode(await fsEngine.readFileBytes(item)) : item.content;
-        setSelectedFileForModal({ ...item, content });
-        setActiveModal('viewer');
+      } catch (error) {
+        alert(error instanceof Error ? error.message : String(error));
       }
-    } catch (error) {
-      alert(error instanceof Error ? error.message : String(error));
-    }
-  }, [activePanel, handleNavigate]);
+    },
+    [activePanel, handleNavigate],
+  );
 
   // Reset quick search on active panel, path, or modal change
   useEffect(() => {

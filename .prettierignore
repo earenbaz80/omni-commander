@@ -1,0 +1,20 @@
+# Dependencies and build output
+node_modules/
+dist/
+dev-dist/
+build/
+release/
+coverage/
+test-results/
+storybook-static/
+.playwright/
+.freebuff/
+
+# Vendored third-party bundle, minified on purpose
+public/worker-bundle.js
+
+# npm owns its lockfile layout
+package-lock.json
+
+# Documentation and working notes are prose, not code
+*.md

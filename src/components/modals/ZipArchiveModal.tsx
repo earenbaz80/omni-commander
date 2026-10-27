@@ -28,19 +28,24 @@ export const ZipArchiveModal: React.FC<ZipArchiveModalProps> = ({
   targetPath,
   onCompress,
   onExtract,
-  onClose
+  onClose,
 }) => {
   const t = getTranslations(lang);
-  const isArchiveSelected = selectedItems.length === 1 && ['ZIP', 'TAR', 'GZ', 'TGZ', '7Z', 'RAR'].includes(selectedItems[0].ext.toUpperCase());
+  const isArchiveSelected =
+    selectedItems.length === 1 && ['ZIP', 'TAR', 'GZ', 'TGZ', '7Z', 'RAR'].includes(selectedItems[0].ext.toUpperCase());
   const [mode, setMode] = useState<'pack' | 'unpack'>(isArchiveSelected ? 'unpack' : 'pack');
   const [format, setFormat] = useState<ArchiveFormat>('ZIP');
 
   const getExtensionForFormat = (fmt: ArchiveFormat) => {
     switch (fmt) {
-      case 'TAR': return 'tar';
-      case 'TAR.GZ': return 'tar.gz';
-      case '7Z': return '7z';
-      default: return 'zip';
+      case 'TAR':
+        return 'tar';
+      case 'TAR.GZ':
+        return 'tar.gz';
+      case '7Z':
+        return '7z';
+      default:
+        return 'zip';
     }
   };
 
@@ -98,8 +103,11 @@ export const ZipArchiveModal: React.FC<ZipArchiveModalProps> = ({
                   {t.zipSelectedItems.replace('{n}', String(selectedItems.length))}
                 </span>
                 <div className="max-h-20 overflow-y-auto bg-black/50 p-[var(--space-2)] rounded border border-white/10 text-[11px] mb-[var(--space-2)] text-amber-300">
-                  {selectedItems.map(i => (
-                    <div key={i.id} className="truncate">• {i.name}{i.ext ? `.${i.ext}` : ''}</div>
+                  {selectedItems.map((i) => (
+                    <div key={i.id} className="truncate">
+                      • {i.name}
+                      {i.ext ? `.${i.ext}` : ''}
+                    </div>
                   ))}
                 </div>
               </div>
@@ -147,7 +155,11 @@ export const ZipArchiveModal: React.FC<ZipArchiveModalProps> = ({
           ) : (
             <div className="space-y-[var(--space-2)]">
               <p className="opacity-90">
-                {t.zipExtractLead} <strong className="text-amber-300">{selectedItems[0]?.name}.{selectedItems[0]?.ext}</strong> {t.zipExtractInto.replace('{path}', targetPath)}
+                {t.zipExtractLead}{' '}
+                <strong className="text-amber-300">
+                  {selectedItems[0]?.name}.{selectedItems[0]?.ext}
+                </strong>{' '}
+                {t.zipExtractInto.replace('{path}', targetPath)}
               </p>
             </div>
           )}

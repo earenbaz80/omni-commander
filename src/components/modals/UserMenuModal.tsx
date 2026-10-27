@@ -15,12 +15,7 @@ interface UserMenuModalProps {
   onClose: () => void;
 }
 
-export const UserMenuModal: React.FC<UserMenuModalProps> = ({
-  theme,
-  lang,
-  onOpenModal,
-  onClose
-}) => {
+export const UserMenuModal: React.FC<UserMenuModalProps> = ({ theme, lang, onOpenModal, onClose }) => {
   const t = getTranslations(lang);
 
   const actions = [

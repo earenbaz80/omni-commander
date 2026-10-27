@@ -16,12 +16,7 @@ interface ChecksumModalProps {
   onClose: () => void;
 }
 
-export const ChecksumModal: React.FC<ChecksumModalProps> = ({
-  theme,
-  lang,
-  file,
-  onClose
-}) => {
+export const ChecksumModal: React.FC<ChecksumModalProps> = ({ theme, lang, file, onClose }) => {
   const t = getTranslations(lang);
   const [hashes, setHashes] = useState<{ md5: string; sha1: string; sha256: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -32,14 +27,19 @@ export const ChecksumModal: React.FC<ChecksumModalProps> = ({
     let cancelled = false;
     setHashes(null);
     setError(null);
-    fsEngine.calculateFileHashes(file)
-      .then(res => { if (!cancelled) setHashes(res); })
-      .catch(err => {
+    fsEngine
+      .calculateFileHashes(file)
+      .then((res) => {
+        if (!cancelled) setHashes(res);
+      })
+      .catch((err) => {
         if (cancelled) return;
         // Never render a fake digest: show why the real one is unavailable.
         setError(err && err.message ? String(err.message) : 'Could not read the file bytes');
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [file]);
 
   if (!file) return null;
@@ -60,8 +60,12 @@ export const ChecksumModal: React.FC<ChecksumModalProps> = ({
           <div className="p-[var(--space-2)].5 bg-black/40 rounded border border-white/10 flex items-center gap-[var(--space-3)]">
             <ShieldCheck className="w-8 h-8 text-emerald-400 shrink-0" />
             <div className="truncate">
-              <span className="font-bold text-white block truncate">{file.name}.{file.ext}</span>
-              <span className="opacity-60 text-[var(--fs-sm)]">{file.size.toLocaleString()} bytes • {file.modifiedAt}</span>
+              <span className="font-bold text-white block truncate">
+                {file.name}.{file.ext}
+              </span>
+              <span className="opacity-60 text-[var(--fs-sm)]">
+                {file.size.toLocaleString()} bytes • {file.modifiedAt}
+              </span>
             </div>
           </div>
 
@@ -110,7 +114,11 @@ export const ChecksumModal: React.FC<ChecksumModalProps> = ({
                   onClick={() => hashes && handleCopy('sha256', hashes.sha256)}
                   className="px-[var(--space-2)] py-[var(--space-1)] bg-white/10 hover:bg-white/20 rounded flex items-center gap-[var(--space-1)] cursor-pointer"
                 >
-                  {copiedKey === 'sha256' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  {copiedKey === 'sha256' ? (
+                    <Check className="w-3 h-3 text-emerald-400" />
+                  ) : (
+                    <Copy className="w-3 h-3" />
+                  )}
                   <span>{copiedKey === 'sha256' ? t.copiedLabel : t.copyBtn}</span>
                 </button>
               </div>

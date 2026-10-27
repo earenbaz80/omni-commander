@@ -16,13 +16,7 @@ interface DeleteModalProps {
   onClose: () => void;
 }
 
-export const DeleteModal: React.FC<DeleteModalProps> = ({
-  theme,
-  lang,
-  items,
-  onConfirm,
-  onClose
-}) => {
+export const DeleteModal: React.FC<DeleteModalProps> = ({ theme, lang, items, onConfirm, onClose }) => {
   const t = getTranslations(lang);
   const totalSize = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
 
@@ -36,8 +30,7 @@ export const DeleteModal: React.FC<DeleteModalProps> = ({
   return (
     <ModalShell title={t.deleteDialogLabel} theme={theme} onClose={onClose}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
-
-        <div 
+        <div
           className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-b font-bold shrink-0 bg-red-900/60 text-white"
           style={{ borderColor: theme.modalBorder }}
         >
@@ -45,7 +38,12 @@ export const DeleteModal: React.FC<DeleteModalProps> = ({
             <Trash2 className="w-4 h-4 text-red-300" />
             <span>{t.deleteTitle} (F8 / Supr)</span>
           </div>
-          <button onClick={onClose} className="px-[var(--space-2)] py-[var(--space-1)] bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer">✕</button>
+          <button
+            onClick={onClose}
+            className="px-[var(--space-2)] py-[var(--space-1)] bg-black/20 hover:bg-black/40 rounded text-xs cursor-pointer"
+          >
+            ✕
+          </button>
         </div>
 
         <div className="p-[var(--space-4)] space-y-[var(--space-4)]">
@@ -60,9 +58,10 @@ export const DeleteModal: React.FC<DeleteModalProps> = ({
           </div>
 
           <div className="max-h-32 overflow-y-auto bg-black/40 p-[var(--space-2)] rounded border border-white/10 text-[var(--fs-sm)] space-y-0.5">
-            {items.map(i => (
+            {items.map((i) => (
               <div key={i.id} className="truncate text-red-300">
-                • {i.name}{i.ext ? `.${i.ext}` : ''} {i.isDirectory ? t.markerFolder : ''}
+                • {i.name}
+                {i.ext ? `.${i.ext}` : ''} {i.isDirectory ? t.markerFolder : ''}
               </div>
             ))}
           </div>

@@ -26,7 +26,8 @@ export default defineConfig(({ mode }) => {
                 id: '/',
                 name: 'OmniCommander Pro for Windows',
                 short_name: 'OmniCmd',
-                description: 'Potente administrador de archivos de doble panel con pestañas, multi-nube y herramientas DOS.',
+                description:
+                  'Potente administrador de archivos de doble panel con pestañas, multi-nube y herramientas DOS.',
                 theme_color: '#000080',
                 background_color: '#0c101c',
                 display: 'standalone',
@@ -37,21 +38,21 @@ export default defineConfig(({ mode }) => {
                     src: '/icon.svg',
                     sizes: '512x512',
                     type: 'image/svg+xml',
-                    purpose: 'any'
+                    purpose: 'any',
                   },
                   {
                     src: '/icon-512.png',
                     sizes: '512x512',
                     type: 'image/png',
-                    purpose: 'any'
-                  }
-                ]
+                    purpose: 'any',
+                  },
+                ],
               },
               devOptions: {
-                enabled: false
-              }
-            })
-          ])
+                enabled: false,
+              },
+            }),
+          ]),
     ],
     resolve: {
       alias: {

@@ -20,7 +20,7 @@ const plan: TransferPlan = {
   overwrite: false,
   collision: 'overwrite',
   throttleBps: 0,
-  entries: [{ path: 'T:\\a.txt', name: 'a.txt', isDirectory: false, size: 10 }]
+  entries: [{ path: 'T:\\a.txt', name: 'a.txt', isDirectory: false, size: 10 }],
 };
 
 let runningId = '';
@@ -40,11 +40,11 @@ describe('CopyMoveModal native picker', () => {
     runningId = taskQueue.addTask('copy', 'Copy 1', 'to T:\\dest', 10, () => new Promise<void>(() => {}), plan);
 
     (window as unknown as { electronAPI?: unknown }).electronAPI = {
-      pickPaths: async (mode: string) => (mode === 'files' ? ['T:\\picked.txt'] : [])
+      pickPaths: async (mode: string) => (mode === 'files' ? ['T:\\picked.txt'] : []),
     };
     const inspect = vi.spyOn(fsEngine, 'inspectPaths').mockResolvedValue({
       entries: [{ path: 'T:\\picked.txt', name: 'picked.txt', isDirectory: false, size: 55 }],
-      missing: []
+      missing: [],
     });
 
     render(
@@ -56,16 +56,16 @@ describe('CopyMoveModal native picker', () => {
         targetPath="T:\\dest"
         onConfirm={() => undefined}
         onClose={() => undefined}
-      />
+      />,
     );
 
     screen.getByText('Add files').click();
 
     await waitFor(() => {
-      expect(taskQueue.getPlan(runningId)?.entries.map(entry => entry.name)).toEqual(['a.txt', 'picked.txt']);
+      expect(taskQueue.getPlan(runningId)?.entries.map((entry) => entry.name)).toEqual(['a.txt', 'picked.txt']);
     });
     expect(inspect).toHaveBeenCalledWith(['T:\\picked.txt']);
-    expect(taskQueue.getTasks().find(task => task.id === runningId)?.totalBytes).toBe(65);
+    expect(taskQueue.getTasks().find((task) => task.id === runningId)?.totalBytes).toBe(65);
     expect(await screen.findByText('Add files: +1')).toBeTruthy();
   });
 });

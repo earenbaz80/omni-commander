@@ -13,12 +13,7 @@ interface QuickViewPaneProps {
   onClose: () => void;
 }
 
-export const QuickViewPane: React.FC<QuickViewPaneProps> = ({
-  theme,
-  lang,
-  targetItem,
-  onClose
-}) => {
+export const QuickViewPane: React.FC<QuickViewPaneProps> = ({ theme, lang, targetItem, onClose }) => {
   const t = getTranslations(lang);
   const [viewTab, setViewTab] = useState<'text' | 'hex' | 'info' | 'media'>('text');
   const [isPlaying, setIsPlaying] = useState(false);
@@ -40,7 +35,7 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({
 
   if (!targetItem) {
     return (
-      <div 
+      <div
         className="flex-1 flex flex-col items-center justify-center p-[var(--space-4)] text-center font-mono text-xs opacity-60"
         style={{ backgroundColor: theme.bgPanel, color: theme.itemText }}
       >
@@ -70,11 +65,11 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({
       const offset = i.toString(16).padStart(8, '0').toUpperCase();
       const chunk = content.slice(i, i + 16);
       const hex = Array.from(chunk)
-        .map(c => c.charCodeAt(0).toString(16).padStart(2, '0').toUpperCase())
+        .map((c) => c.charCodeAt(0).toString(16).padStart(2, '0').toUpperCase())
         .join(' ')
         .padEnd(48, ' ');
       const ascii = Array.from(chunk)
-        .map(c => {
+        .map((c) => {
           const code = c.charCodeAt(0);
           return code >= 32 && code <= 126 ? c : '.';
         })
@@ -85,18 +80,20 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({
   };
 
   return (
-    <div 
+    <div
       className="flex-1 flex flex-col min-h-0 font-mono text-xs overflow-hidden border-l"
       style={{ backgroundColor: theme.bgPanel, borderColor: theme.borderPanel, color: theme.itemText }}
     >
       {/* Header bar */}
-      <div 
+      <div
         className="flex items-center justify-between px-[var(--space-2)] py-[var(--space-1)] border-b font-bold text-xs shrink-0"
         style={{ backgroundColor: theme.headerBg, color: theme.headerText, borderColor: theme.borderPanel }}
       >
         <div className="flex items-center gap-[var(--space-1)] truncate">
           <Eye className="w-3.5 h-3.5" />
-          <span className="truncate">{targetItem.name}.{targetItem.ext}</span>
+          <span className="truncate">
+            {targetItem.name}.{targetItem.ext}
+          </span>
         </div>
 
         <div className="flex items-center gap-[var(--space-1)]">
@@ -148,7 +145,9 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({
                   <Film className="w-5 h-5 text-cyan-300 shrink-0" />
                 )}
                 <div className="truncate">
-                  <p className="font-extrabold text-white text-xs truncate">{targetItem.name}.{targetItem.ext}</p>
+                  <p className="font-extrabold text-white text-xs truncate">
+                    {targetItem.name}.{targetItem.ext}
+                  </p>
                   <p className="text-[10px] opacity-60 uppercase">{isAudio ? t.qvAudioTrack : t.qvVideoClip}</p>
                 </div>
               </div>
@@ -211,7 +210,11 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({
                   onClick={togglePlay}
                   className="px-[var(--space-3)] py-[var(--space-1)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded flex items-center gap-[var(--space-1)] cursor-pointer shadow"
                 >
-                  {isPlaying ? <Pause className="w-3.5 h-3.5 fill-black" /> : <Play className="w-3.5 h-3.5 fill-black" />}
+                  {isPlaying ? (
+                    <Pause className="w-3.5 h-3.5 fill-black" />
+                  ) : (
+                    <Play className="w-3.5 h-3.5 fill-black" />
+                  )}
                   <span>{isPlaying ? t.qvPause : t.qvPlay}</span>
                 </button>
 
@@ -227,7 +230,11 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({
               {/* Volume Slider */}
               <div className="flex items-center gap-[var(--space-2)] bg-black/40 px-[var(--space-2)] py-[var(--space-1)] rounded border border-white/10">
                 <button onClick={() => setIsMuted(!isMuted)} className="hover:text-amber-300 cursor-pointer">
-                  {isMuted || volume === 0 ? <VolumeX className="w-3.5 h-3.5 text-red-400" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
+                  {isMuted || volume === 0 ? (
+                    <VolumeX className="w-3.5 h-3.5 text-red-400" />
+                  ) : (
+                    <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                  )}
                 </button>
                 <input
                   type="range"
@@ -273,11 +280,21 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({
         {viewTab === 'info' && (
           <div className="space-y-[var(--space-2)] select-text">
             <div className="p-[var(--space-2)] bg-black/30 rounded border border-white/10 space-y-[var(--space-1)]">
-              <div><span className="opacity-60">{t.pathLabel}</span> {targetItem.path}\{targetItem.name}.{targetItem.ext}</div>
-              <div><span className="opacity-60">{t.sizeLabel}</span> {targetItem.size.toLocaleString()} bytes</div>
-              <div><span className="opacity-60">{t.modifiedLabel}</span> {targetItem.modifiedAt}</div>
-              <div><span className="opacity-60">{t.createdLabel}</span> {targetItem.createdAt}</div>
-              <div><span className="opacity-60">{t.attributesLabel}</span> {JSON.stringify(targetItem.attributes)}</div>
+              <div>
+                <span className="opacity-60">{t.pathLabel}</span> {targetItem.path}\{targetItem.name}.{targetItem.ext}
+              </div>
+              <div>
+                <span className="opacity-60">{t.sizeLabel}</span> {targetItem.size.toLocaleString()} bytes
+              </div>
+              <div>
+                <span className="opacity-60">{t.modifiedLabel}</span> {targetItem.modifiedAt}
+              </div>
+              <div>
+                <span className="opacity-60">{t.createdLabel}</span> {targetItem.createdAt}
+              </div>
+              <div>
+                <span className="opacity-60">{t.attributesLabel}</span> {JSON.stringify(targetItem.attributes)}
+              </div>
             </div>
           </div>
         )}
@@ -285,4 +302,3 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({
     </div>
   );
 };
-

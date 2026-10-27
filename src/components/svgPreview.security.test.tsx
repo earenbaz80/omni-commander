@@ -41,7 +41,7 @@ const expectSafeSvgRender = (container: HTMLElement) => {
 describe('SVG preview renders safely (no script execution)', () => {
   it('ViewerModal preview tab uses an <img> and never injects raw markup', () => {
     const { container } = render(
-      <ViewerModal theme={theme} lang="es" file={makeSvgFile()} onClose={() => {}} onEdit={() => {}} />
+      <ViewerModal theme={theme} lang="es" file={makeSvgFile()} onClose={() => {}} onEdit={() => {}} />,
     );
 
     fireEvent.click(screen.getByText(/Previsualización/i));
@@ -50,14 +50,16 @@ describe('SVG preview renders safely (no script execution)', () => {
   });
 
   it('QuickViewPane uses an <img> and never injects raw markup', () => {
-    const { container } = render(<QuickViewPane theme={theme} lang="es" targetItem={makeSvgFile()} onClose={() => {}} />);
+    const { container } = render(
+      <QuickViewPane theme={theme} lang="es" targetItem={makeSvgFile()} onClose={() => {}} />,
+    );
 
     expectSafeSvgRender(container);
   });
 
   it('HoverPreviewTooltip thumbnail uses an <img> and never injects raw markup', () => {
     const { container } = render(
-      <HoverPreviewTooltip theme={theme} lang="es" item={makeSvgFile()} x={10} y={10} showThumbnail={true} />
+      <HoverPreviewTooltip theme={theme} lang="es" item={makeSvgFile()} x={10} y={10} showThumbnail={true} />,
     );
 
     expectSafeSvgRender(container);

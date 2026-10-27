@@ -67,8 +67,8 @@ export interface PanelTab {
   focusedIndex: number;
   isLocked?: boolean;
   // Virtual archive navigation state
-  archiveRoot?: string;      // Absolute path of the archive file on disk
-  virtualPath?: string;      // Current path inside the archive (relative to archive root)
+  archiveRoot?: string; // Absolute path of the archive file on disk
+  virtualPath?: string; // Current path inside the archive (relative to archive root)
 }
 
 export interface PanelState {
@@ -180,10 +180,12 @@ export interface TransferPlan {
 }
 
 /** What to do when the destination entry already exists. 'ask' prompts per entry. */
-export type CollisionPolicy = 'overwrite' | 'skip' | 'rename' | 'ask' | 'cancel' | 'overwrite-if-different' | 'rename-old' | 'resume';
+export type CollisionPolicy =
+  'overwrite' | 'skip' | 'rename' | 'ask' | 'cancel' | 'overwrite-if-different' | 'rename-old' | 'resume';
 
 /** Answer given to a single collision prompt raised by the transfer engine. */
-export type ConflictResolution = 'overwrite' | 'skip' | 'rename' | 'overwrite-if-different' | 'rename-old' | 'resume' | 'cancel';
+export type ConflictResolution =
+  'overwrite' | 'skip' | 'rename' | 'overwrite-if-different' | 'rename-old' | 'resume' | 'cancel';
 
 /** A destination the running transfer cannot resolve without a human answer. */
 export interface PendingConflict {

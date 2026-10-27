@@ -10,10 +10,7 @@ import { UserSettings } from '../types';
  * once, on release. Writing settings on every mousemove re-rendered the whole
  * app and persisted the full settings object to localStorage once per pixel.
  */
-export function useSplitter(
-  setSettings: React.Dispatch<React.SetStateAction<UserSettings>>,
-  committedRatio: number,
-) {
+export function useSplitter(setSettings: React.Dispatch<React.SetStateAction<UserSettings>>, committedRatio: number) {
   const [isDraggingSplitter, setIsDraggingSplitter] = useState(false);
   const [dragRatio, setDragRatio] = useState<number | null>(null);
   // Read the latest ratio inside the release handler without re-subscribing.
