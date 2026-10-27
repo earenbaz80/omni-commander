@@ -121,6 +121,18 @@ export default function App() {
     setIsAppLocked(!!settings.appPasswordHash);
   }, [settings.appPasswordHash]);
 
+  // Enabling the lock in Settings takes effect at once: the transition to
+  // enabled re-locks the session, so the user does not have to relaunch to get
+  // the lock they just asked for. `lockApp` still refuses without a stored hash.
+  const lockWasEnabledRef = useRef(settings.appLockEnabled);
+  useEffect(() => {
+    const wasEnabled = lockWasEnabledRef.current;
+    lockWasEnabledRef.current = settings.appLockEnabled;
+    if (settings.appLockEnabled && !wasEnabled) {
+      lockApp();
+    }
+  }, [settings.appLockEnabled, lockApp]);
+
   // Active Modals & Operations
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [modalData, setModalData] = useState<any>(null);
@@ -1033,16 +1045,21 @@ export default function App() {
           }`}
         />
       )}
-      {/* App Lock Overlay if app lock active */}
+      {/* App Lock Overlay if app lock active. It sits above the modal layer
+          (ModalShell renders at z-[60] and Settings is mounted later in the tree)
+          because enabling the lock from Settings leaves that dialog open: the
+          lock has to cover it, not hide underneath it. */}
       {isAppLocked && (
-        <AppLockModal
-          theme={currentTheme}
-          lang={lang}
-          expectedUser={settings.appUsername || 'admin'}
-          expectedPassHash={settings.appPasswordHash}
-          expectedPassSalt={settings.appPasswordSalt}
-          onUnlockSuccess={() => setIsAppLocked(false)}
-        />
+        <div className="fixed inset-0 z-[70]">
+          <AppLockModal
+            theme={currentTheme}
+            lang={lang}
+            expectedUser={settings.appUsername || 'admin'}
+            expectedPassHash={settings.appPasswordHash}
+            expectedPassSalt={settings.appPasswordSalt}
+            onUnlockSuccess={() => setIsAppLocked(false)}
+          />
+        </div>
       )}
 
       {/* 1. Retro Pull-down Menu Bar */}
