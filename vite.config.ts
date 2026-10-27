@@ -1,10 +1,19 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
+  // Vite does not populate process.env from .env on its own, so a PORT set there
+  // would be ignored here and the dev proxy would keep pointing at 3001 while the
+  // API server listens somewhere else. Load the same file that `npm run server`
+  // reads, letting the real environment win, which is what dotenv-style loading
+  // does too.
+  for (const [key, value] of Object.entries(loadEnv(mode, process.cwd(), ''))) {
+    if (process.env[key] === undefined) process.env[key] = value;
+  }
+
   // Inside Electron the app is already installed locally, so the PWA service
   // worker adds nothing and can serve stale cached assets. Skip it there.
   const isElectronBuild = mode === 'electron';
@@ -67,8 +76,9 @@ export default defineConfig(({ mode }) => {
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
       proxy: {
         // Follows the same port the local server binds. Override with OMNI_API_PORT
-        // when the server had to walk past a busy 3001.
-        '/api': `http://127.0.0.1:${process.env.OMNI_API_PORT || process.env.PORT || 3001}`,
+        // when the server had to walk past a busy 3001. The numeric coercion keeps
+        // "0" and garbage out: server.cjs reads them as 3001, so the proxy must too.
+        '/api': `http://127.0.0.1:${Number(process.env.OMNI_API_PORT || process.env.PORT) || 3001}`,
       },
     },
     build: {

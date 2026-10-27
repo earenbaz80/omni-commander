@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+#
+# Formats only the files this commit touches, so the CI formatting gate has
+# almost nothing to reject. Wired through `core.hooksPath` by
+# `npm run prepare` (scripts/install-git-hooks.cjs).
+set -eo pipefail
+
+cd "$(git rev-parse --show-toplevel)" || exit 0
+
+# A fresh clone can be committed to before `npm install`; skipping is kinder
+# than blocking the commit on a tool that is not there yet.
+if [ ! -f node_modules/prettier/bin/prettier.cjs ]; then
+  echo "pre-commit: prettier is not installed, skipping formatting (run npm install)"
+  exit 0
+fi
+
+# Added/copied/modified/renamed files: deletions have no content to format.
+staged=()
+while IFS= read -r -d '' file; do
+  staged+=("$file")
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+
+if [ ${#staged[@]} -eq 0 ]; then
+  exit 0
+fi
+
+# A file with unstaged edits as well would have its working-tree version staged
+# wholesale by the `git add` below, silently pulling work in progress into this
+# commit. Leave those alone and let the developer decide.
+dirty=()
+while IFS= read -r -d '' file; do
+  dirty+=("$file")
+done < <(git diff --name-only -z)
+
+formattable=()
+for file in "${staged[@]}"; do
+  skip=false
+  for changed in "${dirty[@]}"; do
+    if [ "$file" = "$changed" ]; then
+      skip=true
+      break
+    fi
+  done
+  if [ "$skip" = true ]; then
+    echo "pre-commit: skipping $file (it also has unstaged changes)"
+  else
+    formattable+=("$file")
+  fi
+done
+
+if [ ${#formattable[@]} -eq 0 ]; then
+  exit 0
+fi
+
+# `--ignore-unknown` makes files Prettier has no parser for (assets, shell
+# scripts, the lockfile) a no-op instead of a failure; `.prettierignore` still
+# applies. Calling the local binary avoids an `npx` lookup on every commit.
+node node_modules/prettier/bin/prettier.cjs --ignore-unknown --write -- "${formattable[@]}"
+
+# Re-stage what Prettier rewrote, so the formatted bytes are what gets committed.
+git add -- "${formattable[@]}"
