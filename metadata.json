@@ -1,6 +1,0 @@
-{
-  "name": "Norton Commander Pro for Windows",
-  "description": "Potente administrador de archivos de doble panel estilo Norton Commander y Total Commander para Windows con soporte de pestañas, integración con servicios en la nube, atajos de teclado avanzados, visor/editor integrado y personalización completa.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
