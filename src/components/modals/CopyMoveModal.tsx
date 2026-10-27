@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronUp, Copy, Minus, Scissors, ShieldAlert } from 'lucide-react';
+import { Copy, Scissors, ShieldAlert } from 'lucide-react';
 import { BackgroundTask, CollisionPolicy, FileItem, LanguageCode, TransferOptions, TransferPlan } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
@@ -122,7 +122,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
 
   // Tabbed monitor state (SuperCopier shape): list / errors / options, plus fold.
   const [tab, setTab] = useState<Tab>('list');
-  const [folded, setFolded] = useState(false);
+  const [folded] = useState(false);
   const [log, setLog] = useState<LogEntry[]>([]);
   const dismissed = useRef<Set<string>>(new Set());
 

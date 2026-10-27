@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import React from 'react';
 import { FileListStatusBar } from '../components/FileListStatusBar';
 import { ThemeConfig } from '../services/themeManager';
 

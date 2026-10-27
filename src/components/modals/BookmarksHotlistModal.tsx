@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Star, Plus, Trash2, ArrowRight, Folder } from 'lucide-react';
+import { Plus, Trash2, ArrowRight, Folder } from 'lucide-react';
 import { BookmarkItem, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { soundManager } from '../../services/soundEffects';

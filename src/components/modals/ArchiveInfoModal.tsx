@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { FileArchive, FolderOpen, Package, Copy, X } from 'lucide-react';
+import React from 'react';
+import { FileArchive, FolderOpen, Package, Copy } from 'lucide-react';
 import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';

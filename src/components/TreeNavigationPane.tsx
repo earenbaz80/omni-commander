@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Folder, FolderOpen, ChevronRight, ChevronDown, HardDrive, Library, X, Search, FolderTree } from 'lucide-react';
 import { ThemeConfig } from '../services/themeManager';
 import { Drive, FileItem, LanguageCode } from '../types';

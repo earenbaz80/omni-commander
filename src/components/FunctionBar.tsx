@@ -31,7 +31,7 @@ export const FunctionBar: React.FC<FunctionBarProps> = ({ theme, lang, keys, cla
       role="toolbar"
       aria-label={t.functionBarAriaLabel || 'Barra de funciones'}
     >
-      {keys.map((fn, i) => (
+      {keys.map((fn) => (
         <button
           key={fn.key}
           type="button"

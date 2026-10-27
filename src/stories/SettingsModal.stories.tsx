@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import React from 'react';
 import { UserSettings } from '../types';
 import { ThemeConfig } from '../services/themeManager';
 import { SettingsModal } from '../components/modals/SettingsModal';

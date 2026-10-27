@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronUp, Copy, Minus, Scissors, Trash2 } from 'lucide-react';
+import { Copy, Scissors, Trash2 } from 'lucide-react';
 import { BackgroundTask, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
@@ -75,7 +75,7 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({ them
   const t = getTranslations(lang);
   const [tasks, setTasks] = useState<BackgroundTask[]>(() => taskQueue.getTasks());
   const [tab, setTab] = useState<Tab>('list');
-  const [folded, setFolded] = useState(false);
+  const [folded] = useState(false);
   const [log, setLog] = useState<LogEntry[]>([]);
   const [afterFinish, setAfterFinish] = useState<AfterFinish>(readAfterFinish);
   const dismissed = useRef<Set<string>>(new Set());

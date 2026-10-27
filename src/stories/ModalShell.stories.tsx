@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import React from 'react';
 import ModalShell from '../components/ModalShell';
 import { ThemeConfig } from '../services/themeManager';
-import { getTranslations } from '../i18n/translations';
 
 const mockTheme: ThemeConfig = {
   id: 'classic_blue',
