@@ -171,12 +171,11 @@ export default function App() {
   // Sync with FileSystem changes
   const [fsTick, setFsTick] = useState(0);
 
-  const requestArchivePassword = useCallback(async (fileName: string, invalid?: boolean): Promise<string | null> => {
-    setActiveModal('zipPassword');
-    return new Promise((resolve) => {
-      // Simple stub: in full app this would open ZipPasswordModal with promise
-      setTimeout(() => resolve(null), 0);
-    });
+  const requestArchivePassword = useCallback(async (): Promise<string | null> => {
+    // Encrypted archives are not supported yet (JSZip cannot decrypt), so there
+    // is no password to collect. Returning null refuses the open cleanly instead
+    // of leaving a password modal on screen that can never succeed.
+    return null;
   }, []);
 
   const {
