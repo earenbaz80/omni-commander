@@ -13,7 +13,7 @@ const entry = (path: string, isDirectory = false, size = 10): TransferPlanEntry 
   path,
   name: path.split('\\').pop() || path,
   isDirectory,
-  size
+  size,
 });
 
 const plan = (entries: TransferPlanEntry[]): TransferPlan => ({
@@ -24,7 +24,7 @@ const plan = (entries: TransferPlanEntry[]): TransferPlan => ({
   overwrite: false,
   collision: 'overwrite',
   throttleBps: 0,
-  entries
+  entries,
 });
 
 describe('plan entry identity', () => {
@@ -39,8 +39,8 @@ describe('appending picked entries', () => {
     const base = plan([entry('T:\\a.txt')]);
     const result = addEntriesToPlan(base, [entry('T:\\b.txt'), entry('T:\\folder', true, 0)]);
 
-    expect(result.added.map(e => e.name)).toEqual(['b.txt', 'folder']);
-    expect(result.plan.entries.map(e => e.name)).toEqual(['a.txt', 'b.txt', 'folder']);
+    expect(result.added.map((e) => e.name)).toEqual(['b.txt', 'folder']);
+    expect(result.plan.entries.map((e) => e.name)).toEqual(['a.txt', 'b.txt', 'folder']);
     expect(base.entries).toHaveLength(1);
   });
 
@@ -50,7 +50,7 @@ describe('appending picked entries', () => {
 
     expect(result.added).toHaveLength(1);
     expect(result.skipped).toBe(1);
-    expect(result.plan.entries.map(e => e.path)).toEqual(['T:\\Temp\\a.txt', 'T:\\b.txt']);
+    expect(result.plan.entries.map((e) => e.path)).toEqual(['T:\\Temp\\a.txt', 'T:\\b.txt']);
   });
 
   it('returns the same plan when nothing new arrived', () => {
@@ -64,6 +64,8 @@ describe('appending picked entries', () => {
 
 describe('plan byte total', () => {
   it('counts files only, because folders are measured by the job', () => {
-    expect(planFileBytes(plan([entry('T:\\a.txt', false, 30), entry('T:\\b.txt', false, 12), entry('T:\\dir', true, 0)]))).toBe(42);
+    expect(
+      planFileBytes(plan([entry('T:\\a.txt', false, 30), entry('T:\\b.txt', false, 12), entry('T:\\dir', true, 0)])),
+    ).toBe(42);
   });
 });

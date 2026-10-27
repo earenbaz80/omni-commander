@@ -43,7 +43,7 @@ export function useSettings() {
       protectedFolders: {},
       customShortcuts: {},
       keybindingPreset: 'norton',
-      useRecycleBin: true
+      useRecycleBin: true,
     };
 
     if (typeof window !== 'undefined') {
@@ -54,10 +54,12 @@ export function useSettings() {
           return {
             ...defaultSettings,
             ...parsed,
-            protectedFolders: parsed?.protectedFolders || {}
+            protectedFolders: parsed?.protectedFolders || {},
           };
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
     return defaultSettings;
   });
@@ -66,7 +68,9 @@ export function useSettings() {
   useEffect(() => {
     try {
       localStorage.setItem('nc_settings_v1', JSON.stringify(settings));
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, [settings]);
 
   return { settings, setSettings };

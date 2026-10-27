@@ -49,9 +49,9 @@ export function isLiveTask(task: BackgroundTask): boolean {
  */
 export function selectTrayTask(tasks: BackgroundTask[]): BackgroundTask | null {
   return (
-    tasks.find(task => task.status === 'running') ??
-    tasks.find(task => task.status === 'paused') ??
-    tasks.find(task => task.status === 'queued') ??
+    tasks.find((task) => task.status === 'running') ??
+    tasks.find((task) => task.status === 'paused') ??
+    tasks.find((task) => task.status === 'queued') ??
     null
   );
 }
@@ -61,10 +61,7 @@ export function selectTrayTask(tasks: BackgroundTask[]): BackgroundTask | null {
  * task, so a stale menu (a click that lands after the transfer moved on) does
  * nothing instead of, say, "resuming" a task that is already running.
  */
-export function resolveTrayAction(
-  task: BackgroundTask | null,
-  command: TrayCommand
-): TrayAction | null {
+export function resolveTrayAction(task: BackgroundTask | null, command: TrayCommand): TrayAction | null {
   if (!task) return null;
   if (command === 'pause') return task.status === 'running' ? 'pause' : null;
   if (command === 'resume') return task.status === 'paused' ? 'resume' : null;

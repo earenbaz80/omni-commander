@@ -32,13 +32,7 @@ function formatBytes(bytes: number | null | undefined): string {
  * (a move deletes as it goes, a temporary file disappears), and refusing
  * outright would take that decision away from the user.
  */
-export const FreeSpaceModal: React.FC<FreeSpaceModalProps> = ({
-  volumes,
-  theme,
-  lang,
-  onForce,
-  onCancel
-}) => {
+export const FreeSpaceModal: React.FC<FreeSpaceModalProps> = ({ volumes, theme, lang, onForce, onCancel }) => {
   const t = getTranslations(lang);
   const dialogRef = useModalDialog<HTMLDivElement>(t.freeSpaceTitle);
 
@@ -53,7 +47,7 @@ export const FreeSpaceModal: React.FC<FreeSpaceModalProps> = ({
           borderColor: theme.modalBorder,
           color: theme.itemText,
           width: '38rem',
-          maxWidth: '100%'
+          maxWidth: '100%',
         }}
       >
         <div
@@ -61,7 +55,7 @@ export const FreeSpaceModal: React.FC<FreeSpaceModalProps> = ({
           style={{
             backgroundColor: theme.modalHeaderBg,
             color: theme.modalHeaderText,
-            borderColor: theme.modalBorder
+            borderColor: theme.modalBorder,
           }}
         >
           <div className="flex items-center gap-[var(--space-2)] min-w-0">
@@ -91,14 +85,21 @@ export const FreeSpaceModal: React.FC<FreeSpaceModalProps> = ({
               </tr>
             </thead>
             <tbody>
-              {volumes.map(volume => (
+              {volumes.map((volume) => (
                 <tr key={volume.volume} className="border-t border-white/10">
                   <td className="px-[var(--space-2)] py-[var(--space-1)] font-bold">{volume.volume}</td>
-                  <td className="px-[var(--space-2)] py-[var(--space-1)] text-right tabular-nums">{formatBytes(volume.size)}</td>
-                  <td className="px-[var(--space-2)] py-[var(--space-1)] text-right tabular-nums">{formatBytes(volume.free)}</td>
+                  <td className="px-[var(--space-2)] py-[var(--space-1)] text-right tabular-nums">
+                    {formatBytes(volume.size)}
+                  </td>
+                  <td className="px-[var(--space-2)] py-[var(--space-1)] text-right tabular-nums">
+                    {formatBytes(volume.free)}
+                  </td>
                   <td
-                    className={`px-[var(--space-2)] py-[var(--space-1)] text-right tabular-nums font-bold ${volume.lacking > 0 ? 'opacity-50' : ''}`}>
-                    <span style={{ color: volume.lacking > 0 ? theme.accentDanger : 'inherit' }}>{volume.lacking > 0 ? formatBytes(volume.lacking) : '0 B'}</span>
+                    className={`px-[var(--space-2)] py-[var(--space-1)] text-right tabular-nums font-bold ${volume.lacking > 0 ? 'opacity-50' : ''}`}
+                  >
+                    <span style={{ color: volume.lacking > 0 ? theme.accentDanger : 'inherit' }}>
+                      {volume.lacking > 0 ? formatBytes(volume.lacking) : '0 B'}
+                    </span>
                   </td>
                 </tr>
               ))}

@@ -23,7 +23,7 @@ const renderLock = (props: Partial<React.ComponentProps<typeof AppLockModal>> = 
       expectedPassHash="admin123"
       onUnlockSuccess={vi.fn()}
       {...props}
-    />
+    />,
   );
 
 describe('AppLockModal', () => {

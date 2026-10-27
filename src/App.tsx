@@ -1,5 +1,18 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { FileItem, Drive, ActiveModal, CommandHistoryItem, ConflictResolution, FileProgressEntry, FreeSpaceVolume, LanguageCode, PendingConflict, ThemeId, TransferOptions, TransferPlan } from './types';
+import {
+  FileItem,
+  Drive,
+  ActiveModal,
+  CommandHistoryItem,
+  ConflictResolution,
+  FileProgressEntry,
+  FreeSpaceVolume,
+  LanguageCode,
+  PendingConflict,
+  ThemeId,
+  TransferOptions,
+  TransferPlan,
+} from './types';
 import { fsEngine } from './services/fileSystem';
 import { themes, ThemeConfig } from './services/themeManager';
 import { soundManager } from './services/soundEffects';
@@ -19,7 +32,9 @@ import { useSplitter } from './hooks/useSplitter';
 import { usePanels } from './hooks/usePanels';
 import { useCommandExecution } from './hooks/useCommandExecution';
 
-const AppLockModal = React.lazy(() => import('./components/modals/AppLockModal').then(m => ({ default: m.AppLockModal })));
+const AppLockModal = React.lazy(() =>
+  import('./components/modals/AppLockModal').then((m) => ({ default: m.AppLockModal })),
+);
 import { CommandLineBar } from './components/CommandLineBar';
 import { FunctionKeyBar } from './components/FunctionKeyBar';
 import { ContextMenu } from './components/ContextMenu';
@@ -47,10 +62,14 @@ export default function App() {
     cyan: { cursor: '#06b6d4', selected: '#155e75' },
     green: { cursor: '#22c55e', selected: '#14532d' },
     red: { cursor: '#ef4444', selected: '#7f1d1d' },
-    purple: { cursor: '#a855f7', selected: '#581c87' }
+    purple: { cursor: '#a855f7', selected: '#581c87' },
   };
   const selectedSelectorPalette = fileSelectorPalette[settings.fileSelectorColor || 'blue'] || fileSelectorPalette.blue;
-  const themeForFileList = { ...currentTheme, cursorBg: selectedSelectorPalette.cursor, selectedBg: selectedSelectorPalette.selected };
+  const themeForFileList = {
+    ...currentTheme,
+    cursorBg: selectedSelectorPalette.cursor,
+    selectedBg: selectedSelectorPalette.selected,
+  };
   const lang: LanguageCode = settings.language;
   const t = getTranslations(lang);
 
@@ -86,9 +105,7 @@ export default function App() {
   // App Lock state. The lock only activates when a password hash exists:
   // engaging it without one would either unlock with the removed public default
   // or trap the user behind a lock no credential can open.
-  const [isAppLocked, setIsAppLocked] = useState<boolean>(
-    () => settings.appLockEnabled && !!settings.appPasswordHash
-  );
+  const [isAppLocked, setIsAppLocked] = useState<boolean>(() => settings.appLockEnabled && !!settings.appPasswordHash);
 
   // Password Unlock Flow state
   const [unlockTarget, setUnlockTarget] = useState<{
@@ -103,8 +120,6 @@ export default function App() {
   const lockApp = useCallback(() => {
     setIsAppLocked(!!settings.appPasswordHash);
   }, [settings.appPasswordHash]);
-
-
 
   // Active Modals & Operations
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
@@ -123,14 +138,18 @@ export default function App() {
     x: 0,
     y: 0,
     targetItem: null,
-    panelSide: 'left'
+    panelSide: 'left',
   });
 
   // MS-DOS Command History
   const [commandHistory, setCommandHistory] = useState<CommandHistoryItem[]>([]);
 
   // Manual Panel Width Resizing State
-  const { isDraggingSplitter, setIsDraggingSplitter, ratio: dualPaneRatio } = useSplitter(setSettings, settings.dualPaneRatio || 50);
+  const {
+    isDraggingSplitter,
+    setIsDraggingSplitter,
+    ratio: dualPaneRatio,
+  } = useSplitter(setSettings, settings.dualPaneRatio || 50);
 
   // Load real OS drives when a local drive API is available, then keep the
   // list fresh so removable devices can be plugged in and unplugged live.
@@ -148,7 +167,6 @@ export default function App() {
       if (timer) clearTimeout(timer);
     };
   }, []);
-
 
   // Sync with FileSystem changes
   const [fsTick, setFsTick] = useState(0);
@@ -246,7 +264,7 @@ export default function App() {
   useEffect(() => {
     return fsEngine.subscribe(() => {
       setDrives(fsEngine.getDrives());
-      setFsTick(t => t + 1);
+      setFsTick((t) => t + 1);
     });
   }, []);
 
@@ -254,7 +272,6 @@ export default function App() {
   // pause/resume/cancel the in-window bar calls. Restarting on a language change
   // relabels the menu; the subscription itself is cheap either way.
   useEffect(() => startTrayBridge(lang), [lang]);
-
 
   // One-time migration: replace any legacy plaintext password with a salted
   // PBKDF2 hash so it is never persisted in clear. The removed `admin123`
@@ -270,19 +287,14 @@ export default function App() {
     }
     if (settings.appPasswordHash && !settings.appPasswordSalt) {
       createPasswordRecord(settings.appPasswordHash)
-        .then((record) =>
-          setSettings((s) => ({ ...s, appPasswordHash: record.hash, appPasswordSalt: record.salt }))
-        )
+        .then((record) => setSettings((s) => ({ ...s, appPasswordHash: record.hash, appPasswordSalt: record.salt })))
         .catch(() => {});
     }
   }, []);
 
-
-
-
   // Triggers
   const getSelectedOrFocusedItems = (): FileItem[] => {
-    const selected = activeItems.filter(i => currentActiveTab.selectedIds.includes(i.id));
+    const selected = activeItems.filter((i) => currentActiveTab.selectedIds.includes(i.id));
     if (selected.length > 0) return selected;
     if (activeFocusedItem) return [activeFocusedItem];
     return [];
@@ -292,9 +304,7 @@ export default function App() {
   // confirm handlers, so what the dialog previews is exactly what gets copied.
   // Falling back to the current selection guarantees a transfer can never run
   // against zero sources, even when an entry point forgets to snapshot.
-  const transferItems: FileItem[] = modalData?.items?.length
-    ? modalData.items
-    : getSelectedOrFocusedItems();
+  const transferItems: FileItem[] = modalData?.items?.length ? modalData.items : getSelectedOrFocusedItems();
 
   // Single funnel for the copy/move/delete dialogs. Child components reach it
   // through setActiveModal, so the toolbar, menu bar, user menu and F-key bar
@@ -383,7 +393,7 @@ export default function App() {
       conflictSignalRef.current = signal;
       setConflictPrompt(conflict);
     },
-    []
+    [],
   );
 
   const handleResolveConflict = (action: ConflictResolution, applyToAll: boolean) => {
@@ -411,12 +421,12 @@ export default function App() {
     op: 'copy' | 'move',
     items: FileItem[] | null,
     targetPath: string,
-    options: TransferOptions
+    options: TransferOptions,
   ): TransferPlan | undefined => {
     // Guardrail: Handle null/undefined items gracefully
     const normalizedItems = (items ?? []) as FileItem[];
-    
-    if (normalizedItems.length === 0 || !normalizedItems.every(item => fsEngine.isRealFile(item))) return undefined;
+
+    if (normalizedItems.length === 0 || !normalizedItems.every((item) => fsEngine.isRealFile(item))) return undefined;
     return {
       op,
       sourceDriveId: currentActiveTab.driveId,
@@ -425,12 +435,12 @@ export default function App() {
       overwrite: options.collision === 'overwrite',
       collision: options.collision,
       throttleBps: options.throttleBps,
-      entries: items.map(item => ({
+      entries: items.map((item) => ({
         path: fsEngine.absolutePathOf(item),
         name: item.name,
         isDirectory: !!item.isDirectory,
-        size: item.size
-      }))
+        size: item.size,
+      })),
     };
   };
 
@@ -448,8 +458,7 @@ export default function App() {
     // Reading the task's plan on every step is what makes those additions real
     // instead of decorative, and the byte total grows with them.
     const livePlan = () => taskQueue.getPlan(taskId) ?? plan;
-    const plannedBytes = () =>
-      livePlan().entries.reduce((acc, entry) => acc + (entry.isDirectory ? 0 : entry.size), 0);
+    const plannedBytes = () => livePlan().entries.reduce((acc, entry) => acc + (entry.isDirectory ? 0 : entry.size), 0);
 
     const reportMeta = (done: number, currentFile: string) => {
       const elapsed = (Date.now() - startedAt) / 1000;
@@ -457,13 +466,13 @@ export default function App() {
       taskQueue.updateTaskMeta(taskId, {
         speed: rate > 0 ? `${(rate / (1024 * 1024)).toFixed(1)} MB/s` : undefined,
         etaSeconds: rate > 0 && totalBytes > done ? Math.round((totalBytes - done) / rate) : 0,
-        currentFile
+        currentFile,
       });
     };
 
     const executor = async (
       onProgress: (transferred: number, total: number) => void,
-      signal: { paused: boolean; cancelled: boolean }
+      signal: { paused: boolean; cancelled: boolean },
     ) => {
       let transferred = 0;
       let promptedJobId = '';
@@ -484,7 +493,7 @@ export default function App() {
           // leaving it at 100% while bytes are still queued.
           totalBytes = Math.max(totalBytes, plannedBytes());
           while (signal.paused && !signal.cancelled) {
-            await new Promise(resolve => setTimeout(resolve, 120));
+            await new Promise((resolve) => setTimeout(resolve, 120));
           }
           if (signal.cancelled) return;
 
@@ -509,7 +518,7 @@ export default function App() {
             reportMeta(transferred + copied, entry.name);
             taskQueue.updateTaskMeta(taskId, {
               currentFileBytes: copied,
-              currentFileTotal: typeof serverTotal === 'number' && serverTotal > 0 ? serverTotal : (entry.size || 0)
+              currentFileTotal: typeof serverTotal === 'number' && serverTotal > 0 ? serverTotal : entry.size || 0,
             });
           };
           const onFiles = (files: FileProgressEntry[]) => taskQueue.updateTaskFiles(taskId, files);
@@ -544,11 +553,12 @@ export default function App() {
                 // Keep the server job id so the progress window can retune
                 // the speed limit while the transfer is still running.
                 taskQueue.updateTaskMeta(taskId, { serverJobId: info.jobId });
-              }
+              },
             );
           } catch (e) {
             console.error(`${replay ? 'Queued transfer' : failureLabel} failed for`, entry.name, e);
-            const reason = e instanceof Error ? e.message : `${replay ? 'Transfer' : failureLabel} failed: ${entry.name}`;
+            const reason =
+              e instanceof Error ? e.message : `${replay ? 'Transfer' : failureLabel} failed: ${entry.name}`;
             taskQueue.updateTaskMeta(taskId, { error: reason });
             if (!firstFailure) firstFailure = new Error(reason);
           }
@@ -557,7 +567,7 @@ export default function App() {
         if (firstFailure) throw firstFailure;
       } finally {
         // A cancelled or failed transfer must not leave its prompt on screen.
-        setConflictPrompt(current => (current && current.jobId === promptedJobId ? null : current));
+        setConflictPrompt((current) => (current && current.jobId === promptedJobId ? null : current));
         // Every transfer writes to disk behind the panels' back. Refreshing only
         // replayed batches meant a normal copy stayed invisible until the user
         // hit refresh, so the destination looked empty right after it finished.
@@ -570,7 +580,7 @@ export default function App() {
         } catch (error) {
           console.error('[transfer] directory reload failed', error);
         }
-        setFsTick(t => t + 1);
+        setFsTick((t) => t + 1);
       }
     };
 
@@ -581,7 +591,7 @@ export default function App() {
       t.appDest.replace('{path}', plan.targetDir),
       totalBytes,
       executor,
-      plan
+      plan,
     );
     return taskId;
   };
@@ -593,7 +603,7 @@ export default function App() {
   const spaceLacking = async (plans: TransferPlan[]): Promise<FreeSpaceVolume[] | null> => {
     const report = await fsEngine.checkFreeSpace(plans);
     if (!report) return null;
-    const lacking = report.volumes.filter(volume => volume.lacking > 0);
+    const lacking = report.volumes.filter((volume) => volume.lacking > 0);
     return lacking.length > 0 ? lacking : null;
   };
 
@@ -622,11 +632,7 @@ export default function App() {
   // is why the copy used to disappear right after the restart.
   const ELEVATED_PLAN_KEY = 'omnicommander.pendingElevatedTransfer';
 
-  const handleElevateTransfer = async (
-    op: 'copy' | 'move',
-    targetPath: string,
-    options: TransferOptions
-  ) => {
+  const handleElevateTransfer = async (op: 'copy' | 'move', targetPath: string, options: TransferOptions) => {
     if (!targetPath.trim()) return { ok: false as const, reason: 'empty destination' };
     const plan = buildTransferPlan(op, transferItems, targetPath.trim(), options);
     if (plan) {
@@ -658,12 +664,13 @@ export default function App() {
   const runConfirmedTransfer = async (
     op: 'copy' | 'move',
     targetPath: string,
-    options: TransferOptions
+    options: TransferOptions,
   ): Promise<string | undefined> => {
     const items: FileItem[] = transferItems;
-    if (items.some(item => item.archiveRoot) || fsEngine.getArchiveSource(currentInactiveTab.driveId, targetPath)) {
+    if (items.some((item) => item.archiveRoot) || fsEngine.getArchiveSource(currentInactiveTab.driveId, targetPath)) {
       return taskQueue.addTask('extract', t.unzipExtract, t.appDest.replace('{path}', targetPath), 0, async () => {
-        if (op !== 'copy' || fsEngine.getArchiveSource(currentInactiveTab.driveId, targetPath)) throw new Error(t.zipReadOnly);
+        if (op !== 'copy' || fsEngine.getArchiveSource(currentInactiveTab.driveId, targetPath))
+          throw new Error(t.zipReadOnly);
         for (const item of items) {
           const source = fsEngine.getArchiveSource(item.driveId, item.path);
           if (!source) throw new Error(t.zipErrEmpty);
@@ -690,19 +697,11 @@ export default function App() {
     // and finished without writing a single byte. Report the block instead of
     // pretending the copy happened.
     if (fsEngine.isSystemDrive(currentInactiveTab.driveId)) {
-      const unknown = items.filter(item => !fsEngine.isRealFile(item)).map(item => item.name);
+      const unknown = items.filter((item) => !fsEngine.isRealFile(item)).map((item) => item.name);
       const detail = unknown.length > 0 ? unknown.join(', ') : items.length + ' selected item(s)';
-      return taskQueue.addTask(
-        op,
-        op === 'move' ? 'Move blocked' : 'Copy blocked',
-        detail,
-        0,
-        async () => {
-          throw new Error(
-            `${detail} was not read from a physical drive, so the real transfer cannot address it.`
-          );
-        }
-      );
+      return taskQueue.addTask(op, op === 'move' ? 'Move blocked' : 'Copy blocked', detail, 0, async () => {
+        throw new Error(`${detail} was not read from a physical drive, so the real transfer cannot address it.`);
+      });
     }
 
     const totalBytes = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
@@ -718,11 +717,14 @@ export default function App() {
       taskQueue.updateTaskMeta(taskId, {
         speed: rate > 0 ? `${(rate / (1024 * 1024)).toFixed(1)} MB/s` : undefined,
         etaSeconds: rate > 0 && totalBytes > done ? Math.round((totalBytes - done) / rate) : 0,
-        currentFile
+        currentFile,
       });
     };
 
-    const executor = async (onProgress: (transferred: number, total: number) => void, signal: { paused: boolean; cancelled: boolean }) => {
+    const executor = async (
+      onProgress: (transferred: number, total: number) => void,
+      signal: { paused: boolean; cancelled: boolean },
+    ) => {
       let transferred = 0;
       let promptedJobId = '';
       const askConflict = (conflict: PendingConflict) => {
@@ -737,24 +739,43 @@ export default function App() {
         for (const item of items) {
           if (signal.cancelled) return;
           while (signal.paused && !signal.cancelled) {
-            await new Promise(resolve => setTimeout(resolve, 120));
+            await new Promise((resolve) => setTimeout(resolve, 120));
           }
           if (signal.cancelled) return;
 
           let current = 0;
           try {
             if (op === 'move') {
-              await fsEngine.moveItem(item.id, currentInactiveTab.driveId, targetPath, (t) => {
-                current = t;
-                onProgress(transferred + t, totalBytes);
-                reportMeta(transferred + t, item.name);
-              }, signal, options, askConflict, files => taskQueue.updateTaskFiles(taskId, files));
+              await fsEngine.moveItem(
+                item.id,
+                currentInactiveTab.driveId,
+                targetPath,
+                (t) => {
+                  current = t;
+                  onProgress(transferred + t, totalBytes);
+                  reportMeta(transferred + t, item.name);
+                },
+                signal,
+                options,
+                askConflict,
+                (files) => taskQueue.updateTaskFiles(taskId, files),
+              );
             } else {
-              await fsEngine.copyItem(item.id, currentInactiveTab.driveId, targetPath, overwrite, (t) => {
-                current = t;
-                onProgress(transferred + t, totalBytes);
-                reportMeta(transferred + t, item.name);
-              }, signal, options, askConflict, files => taskQueue.updateTaskFiles(taskId, files));
+              await fsEngine.copyItem(
+                item.id,
+                currentInactiveTab.driveId,
+                targetPath,
+                overwrite,
+                (t) => {
+                  current = t;
+                  onProgress(transferred + t, totalBytes);
+                  reportMeta(transferred + t, item.name);
+                },
+                signal,
+                options,
+                askConflict,
+                (files) => taskQueue.updateTaskFiles(taskId, files),
+              );
             }
           } catch (e) {
             console.error(`${failureLabel} failed for`, item.name, e);
@@ -767,12 +788,19 @@ export default function App() {
         if (firstFailure) throw firstFailure;
       } finally {
         // A cancelled or failed transfer must not leave its prompt on screen.
-        setConflictPrompt(current => (current && current.jobId === promptedJobId ? null : current));
+        setConflictPrompt((current) => (current && current.jobId === promptedJobId ? null : current));
       }
     };
 
     const verb = op === 'move' ? t.appMoving : t.appCopying;
-    taskId = taskQueue.addTask(op, verb.replace('{n}', String(items.length)), t.appDest.replace('{path}', targetPath), totalBytes, executor, plan);
+    taskId = taskQueue.addTask(
+      op,
+      verb.replace('{n}', String(items.length)),
+      t.appDest.replace('{path}', targetPath),
+      totalBytes,
+      executor,
+      plan,
+    );
     return taskId;
   };
 
@@ -795,17 +823,23 @@ export default function App() {
     // derived from the entry rate instead of a byte throughput.
     const executor = async (
       onProgress: (transferred: number, total: number) => void,
-      signal: { paused: boolean; cancelled: boolean }
+      signal: { paused: boolean; cancelled: boolean },
     ) => {
       try {
-        await fsEngine.deleteItems(items, useTrash, (done, total) => {
-          onProgress(done, total);
-          const elapsed = (Date.now() - startedAt) / 1000;
-          const rate = elapsed > 0 ? done / elapsed : 0;
-          taskQueue.updateTaskMeta(taskId, {
-            etaSeconds: rate > 0 && total > done ? Math.round((total - done) / rate) : 0
-          });
-        }, signal, files => taskQueue.updateTaskFiles(taskId, files));
+        await fsEngine.deleteItems(
+          items,
+          useTrash,
+          (done, total) => {
+            onProgress(done, total);
+            const elapsed = (Date.now() - startedAt) / 1000;
+            const rate = elapsed > 0 ? done / elapsed : 0;
+            taskQueue.updateTaskMeta(taskId, {
+              etaSeconds: rate > 0 && total > done ? Math.round((total - done) / rate) : 0,
+            });
+          },
+          signal,
+          (files) => taskQueue.updateTaskFiles(taskId, files),
+        );
       } catch (e) {
         console.error('Delete failed', e);
         const reason = e instanceof Error ? e.message : 'Delete failed';
@@ -821,7 +855,7 @@ export default function App() {
       `${useTrash ? t.appSendingTrash : t.appDeleting} ${t.appItemsCount.replace('{n}', String(items.length))}`,
       undefined,
       totalEntries,
-      executor
+      executor,
     );
     // A delete has no byte throughput, so clear the misleading "0 MB/s" readout.
     taskQueue.updateTaskMeta(taskId, { speed: '' });
@@ -850,7 +884,7 @@ export default function App() {
   };
 
   const handleApplyBatchRename = (renames: { id: string; newName: string }[]) => {
-    renames.forEach(r => {
+    renames.forEach((r) => {
       fsEngine.renameItem(r.id, r.newName);
     });
     setActiveModal(null);
@@ -860,9 +894,15 @@ export default function App() {
     const items = getSelectedOrFocusedItems();
     if (items.length === 0) return;
     const totalBytes = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
-    taskQueue.addTask('archive', t.appPacking.replace('{name}', archiveName), t.appItemsCount.replace('{n}', String(items.length)), totalBytes, async () => {
-      await fsEngine.createZipArchive(items, archiveName, currentActiveTab.driveId, currentActiveTab.currentPath);
-    });
+    taskQueue.addTask(
+      'archive',
+      t.appPacking.replace('{name}', archiveName),
+      t.appItemsCount.replace('{n}', String(items.length)),
+      totalBytes,
+      async () => {
+        await fsEngine.createZipArchive(items, archiveName, currentActiveTab.driveId, currentActiveTab.currentPath);
+      },
+    );
     setActiveModal(null);
   };
 
@@ -870,82 +910,86 @@ export default function App() {
     const mounted = fsEngine.getArchiveSource(currentActiveTab.driveId, currentActiveTab.currentPath);
     const source = mounted || zipFile;
     const destination = mounted ? currentInactiveTab : currentActiveTab;
-    taskQueue.addTask('extract', t.appUnpacking.replace('{name}', `${source.name}.${source.ext}`), t.appDest.replace('{path}', destination.currentPath), source.size, async () => {
-      await fsEngine.extractZipArchive(source, destination.driveId, destination.currentPath);
-    });
+    taskQueue.addTask(
+      'extract',
+      t.appUnpacking.replace('{name}', `${source.name}.${source.ext}`),
+      t.appDest.replace('{path}', destination.currentPath),
+      source.size,
+      async () => {
+        await fsEngine.extractZipArchive(source, destination.driveId, destination.currentPath);
+      },
+    );
     setActiveModal(null);
   };
 
-  const handleDropItems = useCallback((
-    draggedItems: FileItem[],
-    targetPath: string,
-    targetDriveId: string,
-    operation: 'copy' | 'move' = 'copy'
-  ) => {
-    soundManager.playDiskAccess();
-    const totalBytes = draggedItems.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
-    taskQueue.addTask(
-      operation === 'move' ? 'move' : 'copy',
-      (operation === 'move' ? t.appMovingDrag : t.appCopyingDrag).replace('{n}', String(draggedItems.length)),
-      t.appDest.replace('{path}', targetPath),
-      totalBytes,
-      async () => {
-        if (fsEngine.getArchiveSource(targetDriveId, targetPath)) throw new Error(t.zipReadOnly);
-        const movedIds = new Set(draggedItems.map(i => i.id));
-        for (const item of draggedItems) {
-          // Real-drive entries are written by the server and addressed by
-          // absolute path. The catalogue id is only needed for simulated items,
-          // and a listing refresh mid-drag can invalidate it.
-          if (fsEngine.isRealFile(item)) {
-            const isSameDir = item.driveId === targetDriveId && item.path === targetPath;
-            await fsEngine.transferPaths(operation, [fsEngine.absolutePathOf(item)], targetPath, !isSameDir);
-          } else if (operation === 'move') {
-            await fsEngine.moveItem(item.id, targetDriveId, targetPath);
-          } else {
-            const isSameDir = item.driveId === targetDriveId && item.path === targetPath;
-            await fsEngine.copyItem(item.id, targetDriveId, targetPath, !isSameDir);
+  const handleDropItems = useCallback(
+    (draggedItems: FileItem[], targetPath: string, targetDriveId: string, operation: 'copy' | 'move' = 'copy') => {
+      soundManager.playDiskAccess();
+      const totalBytes = draggedItems.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
+      taskQueue.addTask(
+        operation === 'move' ? 'move' : 'copy',
+        (operation === 'move' ? t.appMovingDrag : t.appCopyingDrag).replace('{n}', String(draggedItems.length)),
+        t.appDest.replace('{path}', targetPath),
+        totalBytes,
+        async () => {
+          if (fsEngine.getArchiveSource(targetDriveId, targetPath)) throw new Error(t.zipReadOnly);
+          const movedIds = new Set(draggedItems.map((i) => i.id));
+          for (const item of draggedItems) {
+            // Real-drive entries are written by the server and addressed by
+            // absolute path. The catalogue id is only needed for simulated items,
+            // and a listing refresh mid-drag can invalidate it.
+            if (fsEngine.isRealFile(item)) {
+              const isSameDir = item.driveId === targetDriveId && item.path === targetPath;
+              await fsEngine.transferPaths(operation, [fsEngine.absolutePathOf(item)], targetPath, !isSameDir);
+            } else if (operation === 'move') {
+              await fsEngine.moveItem(item.id, targetDriveId, targetPath);
+            } else {
+              const isSameDir = item.driveId === targetDriveId && item.path === targetPath;
+              await fsEngine.copyItem(item.id, targetDriveId, targetPath, !isSameDir);
+            }
           }
-        }
 
-        if (operation === 'move') {
-          setLeftPanel(p => ({
-            ...p,
-            tabs: p.tabs.map(tab => ({
-              ...tab,
-              selectedIds: tab.selectedIds.filter(id => !movedIds.has(id))
-            }))
-          }));
-          setRightPanel(p => ({
-            ...p,
-            tabs: p.tabs.map(tab => ({
-              ...tab,
-              selectedIds: tab.selectedIds.filter(id => !movedIds.has(id))
-            }))
-          }));
-          // Move-success feedback belongs to a completed move only; a copy has its
-          // own completion signal and must not play the move sound.
-          soundManager.playSuccess();
-        }
-        // Both operations refresh the panes once the transfer actually finished.
-        setFsTick(t => t + 1);
-      });
-  }, [t]);
+          if (operation === 'move') {
+            setLeftPanel((p) => ({
+              ...p,
+              tabs: p.tabs.map((tab) => ({
+                ...tab,
+                selectedIds: tab.selectedIds.filter((id) => !movedIds.has(id)),
+              })),
+            }));
+            setRightPanel((p) => ({
+              ...p,
+              tabs: p.tabs.map((tab) => ({
+                ...tab,
+                selectedIds: tab.selectedIds.filter((id) => !movedIds.has(id)),
+              })),
+            }));
+            // Move-success feedback belongs to a completed move only; a copy has its
+            // own completion signal and must not play the move sound.
+            soundManager.playSuccess();
+          }
+          // Both operations refresh the panes once the transfer actually finished.
+          setFsTick((t) => t + 1);
+        },
+      );
+    },
+    [t],
+  );
 
-  const handleDropNativeFiles = useCallback(async (
-    files: globalThis.FileList,
-    targetPath: string,
-    targetDriveId: string
-  ) => {
-    soundManager.playDiskAccess();
-    for (let i = 0; i < files.length; i++) {
-      await fsEngine.importBrowserFile(files[i], targetDriveId, targetPath);
-    }
-    setFsTick(t => t + 1);
-  }, []);
+  const handleDropNativeFiles = useCallback(
+    async (files: globalThis.FileList, targetPath: string, targetDriveId: string) => {
+      soundManager.playDiskAccess();
+      for (let i = 0; i < files.length; i++) {
+        await fsEngine.importBrowserFile(files[i], targetDriveId, targetPath);
+      }
+      setFsTick((t) => t + 1);
+    },
+    [],
+  );
 
   // Password Folder Protection Handler
   const handleSetFolderPassword = (folderPath: string, password: string | null) => {
-    setSettings(prev => {
+    setSettings((prev) => {
       const updated = { ...(prev.protectedFolders || {}) };
       if (password) {
         updated[folderPath] = password;
@@ -956,7 +1000,6 @@ export default function App() {
     });
   };
 
-
   useEffect(() => {
     if (!leftPanel.isTreeVisible) return;
     const onPointerDown = (e: MouseEvent) => {
@@ -965,29 +1008,29 @@ export default function App() {
       if (!target) return;
       if (leftTreePaneRef.current?.contains(target)) return;
       if (leftTreeTabRef.current?.contains(target)) return;
-      setLeftPanel(p => ({ ...p, isTreeVisible: false }));
+      setLeftPanel((p) => ({ ...p, isTreeVisible: false }));
     };
     document.addEventListener('mousedown', onPointerDown);
     return () => document.removeEventListener('mousedown', onPointerDown);
   }, [leftPanel.isTreeVisible, isDraggingSplitter]);
 
   return (
-    <div 
+    <div
       className="flex flex-col h-screen w-screen overflow-hidden font-mono select-none relative"
       style={{
         backgroundColor: currentTheme.bgApp,
-        color: currentTheme.itemText
+        color: currentTheme.itemText,
       }}
     >
       {/* Retro CRT Monitor Scanline & Vignette Overlay */}
       {settings.crtEffectEnabled && (
-        <div 
+        <div
           className={`fixed inset-0 pointer-events-none z-[9999] ${
-            settings.crtIntensity === 'subtle' 
-              ? 'crt-overlay-subtle' 
-              : settings.crtIntensity === 'intense' 
-              ? 'crt-overlay-intense' 
-              : 'crt-overlay-classic'
+            settings.crtIntensity === 'subtle'
+              ? 'crt-overlay-subtle'
+              : settings.crtIntensity === 'intense'
+                ? 'crt-overlay-intense'
+                : 'crt-overlay-classic'
           }`}
         />
       )}
@@ -1010,7 +1053,7 @@ export default function App() {
         showClock={settings.showClock}
         clockPosition={settings.clockPosition}
         crtEffectEnabled={settings.crtEffectEnabled}
-        onToggleCrt={() => setSettings(s => ({ ...s, crtEffectEnabled: !s.crtEffectEnabled }))}
+        onToggleCrt={() => setSettings((s) => ({ ...s, crtEffectEnabled: !s.crtEffectEnabled }))}
         onOpenModal={(m) => {
           if (m === 'viewer' || m === 'editor' || m === 'checksum' || m === 'properties') {
             if (activeFocusedItem) setSelectedFileForModal(activeFocusedItem);
@@ -1023,19 +1066,19 @@ export default function App() {
         }}
         onRefresh={() => {
           soundManager.playKeyTick();
-          setFsTick(t => t + 1);
+          setFsTick((t) => t + 1);
         }}
         onSelectAll={handleSelectAll}
         onInvertSelection={handleInvertSelection}
         onToggleQuickView={() => {
           soundManager.playKeyTick();
           const targetSet = activePanel === 'left' ? setRightPanel : setLeftPanel;
-          targetSet(p => ({ ...p, isQuickView: !p.isQuickView }));
+          targetSet((p) => ({ ...p, isQuickView: !p.isQuickView }));
         }}
         onToggleTree={() => {
           soundManager.playKeyTick();
           const targetSet = activePanel === 'left' ? setLeftPanel : setRightPanel;
-          targetSet(p => ({ ...p, isTreeVisible: !p.isTreeVisible }));
+          targetSet((p) => ({ ...p, isTreeVisible: !p.isTreeVisible }));
         }}
         onSwapPanels={handleSwapPanels}
         onNewTab={(side) => handleNewTab(side)}
@@ -1043,8 +1086,8 @@ export default function App() {
         activePanel={activePanel}
         isQuickView={inactivePanelState.isQuickView}
         isTreeVisible={activePanelState.isTreeVisible}
-        onSetTheme={(themeId: ThemeId) => setSettings(s => ({ ...s, theme: themeId }))}
-        onSetLang={(newLang: LanguageCode) => setSettings(s => ({ ...s, language: newLang }))}
+        onSetTheme={(themeId: ThemeId) => setSettings((s) => ({ ...s, theme: themeId }))}
+        onSetLang={(newLang: LanguageCode) => setSettings((s) => ({ ...s, language: newLang }))}
         onResetDefaults={() => {
           if (confirm(t.appResetConfirm)) {
             fsEngine.resetToDefaults();
@@ -1105,7 +1148,7 @@ export default function App() {
           setIsFilterOpen={setIsLeftFilterOpen}
           treePaneRef={leftTreePaneRef}
           isTreeVisible={leftPanel.isTreeVisible}
-          onToggleTree={() => setLeftPanel(p => ({ ...p, isTreeVisible: !p.isTreeVisible }))}
+          onToggleTree={() => setLeftPanel((p) => ({ ...p, isTreeVisible: !p.isTreeVisible }))}
           onDropItems={handleDropItems}
           onDropNativeFiles={handleDropNativeFiles}
           onNavigate={(p) => handleNavigate('left', p)}
@@ -1198,7 +1241,13 @@ export default function App() {
           isAdminMode={isAdminMode}
           onToggleAdminMode={() => setIsAdminMode(!isAdminMode)}
           onLockApp={lockApp}
-          isFolderProtected={!!(settings.protectedFolders && currentActiveTab?.currentPath && settings.protectedFolders[currentActiveTab.currentPath])}
+          isFolderProtected={
+            !!(
+              settings.protectedFolders &&
+              currentActiveTab?.currentPath &&
+              settings.protectedFolders[currentActiveTab.currentPath]
+            )
+          }
           onProtectFolder={() => setActiveModal('protect_folder')}
           showClock={settings.showClock}
           clockPosition={settings.clockPosition}
@@ -1270,7 +1319,7 @@ export default function App() {
           x={contextMenuState.x}
           y={contextMenuState.y}
           targetItem={contextMenuState.targetItem}
-          onClose={() => setContextMenuState(s => ({ ...s, visible: false }))}
+          onClose={() => setContextMenuState((s) => ({ ...s, visible: false }))}
           onView={() => {
             if (contextMenuState.targetItem) {
               setSelectedFileForModal(contextMenuState.targetItem);
@@ -1328,7 +1377,7 @@ export default function App() {
             };
             input.click();
           }}
-          onRefresh={() => setFsTick(t => t + 1)}
+          onRefresh={() => setFsTick((t) => t + 1)}
           onProtectFolder={() => {
             const target = contextMenuState.targetItem;
             if (target && target.isDirectory) {
@@ -1420,9 +1469,13 @@ export default function App() {
 
       <button
         ref={leftTreeTabRef}
-        onClick={() => setLeftPanel(p => ({ ...p, isTreeVisible: !p.isTreeVisible }))}
+        onClick={() => setLeftPanel((p) => ({ ...p, isTreeVisible: !p.isTreeVisible }))}
         className="fixed left-0 top-1/2 -translate-y-1/2 z-[10000] w-6 h-14 rounded-r-md border border-l-0 text-[11px] font-bold flex items-center justify-center cursor-pointer shadow-lg"
-        style={{ backgroundColor: currentTheme.headerBg, color: currentTheme.headerText, borderColor: currentTheme.borderPanel }}
+        style={{
+          backgroundColor: currentTheme.headerBg,
+          color: currentTheme.headerText,
+          borderColor: currentTheme.borderPanel,
+        }}
         title={t.toggleTreeTooltip}
       >
         {leftPanel.isTreeVisible ? '◁' : '▷'}

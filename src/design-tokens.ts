@@ -4,15 +4,37 @@ export const tokens = {
     primitive: {
       black: '#000000',
       white: '#ffffff',
-      transparent: 'transparent'
+      transparent: 'transparent',
     },
     semantic: {
-      accent: { base: '{theme.accent}', warn: '{theme.accentWarn}', danger: '{theme.accentDanger}', ok: '{theme.accentOk}' },
-      background: { app: '{theme.bgApp}', panel: '{theme.bgPanel}', panelInactive: '{theme.bgPanelInactive}', modal: '{theme.modalBg}', header: '{theme.headerBg}' },
+      accent: {
+        base: '{theme.accent}',
+        warn: '{theme.accentWarn}',
+        danger: '{theme.accentDanger}',
+        ok: '{theme.accentOk}',
+      },
+      background: {
+        app: '{theme.bgApp}',
+        panel: '{theme.bgPanel}',
+        panelInactive: '{theme.bgPanelInactive}',
+        modal: '{theme.modalBg}',
+        header: '{theme.headerBg}',
+      },
       border: { panel: '{theme.borderPanel}', focus: '{theme.borderFocus}', modal: '{theme.modalBorder}' },
-      text: { primary: '{theme.itemText}', header: '{theme.headerText}', modalHeader: '{theme.modalHeaderText}', dir: '{theme.dirText}', exe: '{theme.exeText}', zip: '{theme.zipText}', doc: '{theme.docText}', media: '{theme.mediaText}', selected: '{theme.selectedText}', status: '{theme.statusText}' },
-      overlay: '{theme.overlay}'
-    }
+      text: {
+        primary: '{theme.itemText}',
+        header: '{theme.headerText}',
+        modalHeader: '{theme.modalHeaderText}',
+        dir: '{theme.dirText}',
+        exe: '{theme.exeText}',
+        zip: '{theme.zipText}',
+        doc: '{theme.docText}',
+        media: '{theme.mediaText}',
+        selected: '{theme.selectedText}',
+        status: '{theme.statusText}',
+      },
+      overlay: '{theme.overlay}',
+    },
   },
   spacing: {
     '0': '0',
@@ -27,7 +49,7 @@ export const tokens = {
     '12': '24px',
     '16': '32px',
     '20': '40px',
-    '24': '48px'
+    '24': '48px',
   },
   fontSize: {
     '8': '8px',
@@ -40,12 +62,12 @@ export const tokens = {
     '15': '15px',
     sm: '11px',
     base: '13px',
-    lg: '15px'
+    lg: '15px',
   },
   fontFamily: {
     mono: "'Consolas', 'Monospace'",
     dos: "'IBM Plex Mono', 'Consolas', 'Monospace'",
-    sans: "system-ui, -apple-system, sans-serif"
+    sans: 'system-ui, -apple-system, sans-serif',
   },
   borderRadius: {
     none: '0',
@@ -53,14 +75,14 @@ export const tokens = {
     md: '4px',
     lg: '6px',
     xl: '8px',
-    full: '9999px'
+    full: '9999px',
   },
   shadow: {
     none: 'none',
     sm: '0 1px 2px rgba(0,0,0,0.3)',
     md: '0 4px 6px rgba(0,0,0,0.4)',
     lg: '0 10px 15px rgba(0,0,0,0.5)',
-    xl: '0 20px 25px rgba(0,0,0,0.6)'
+    xl: '0 20px 25px rgba(0,0,0,0.6)',
   },
   zIndex: {
     base: 0,
@@ -68,20 +90,20 @@ export const tokens = {
     sticky: 200,
     modal: 60,
     toast: 70,
-    tooltip: 80
+    tooltip: 80,
   },
   transition: {
     fast: '100ms',
     normal: '150ms',
     slow: '250ms',
-    easing: 'ease-out'
+    easing: 'ease-out',
   },
   breakpoints: {
     sm: '640px',
     md: '768px',
     lg: '1024px',
-    xl: '1280px'
-  }
+    xl: '1280px',
+  },
 } as const;
 
 export type Tokens = typeof tokens;

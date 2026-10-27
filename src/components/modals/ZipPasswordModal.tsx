@@ -24,7 +24,7 @@ export const ZipPasswordModal: React.FC<ZipPasswordModalProps> = ({
   invalid,
   detectFormat,
   onSubmit,
-  onClose
+  onClose,
 }) => {
   const t = getTranslations(lang);
   const [password, setPassword] = useState('');
@@ -44,10 +44,8 @@ export const ZipPasswordModal: React.FC<ZipPasswordModalProps> = ({
             <Lock className="w-4 h-4" />
             <span>Enter password for "{fileName}":</span>
           </div>
-          {invalid && (
-            <div className="text-red-400 text-xs">Invalid password for "{fileName}"</div>
-          )}
-          
+          {invalid && <div className="text-red-400 text-xs">Invalid password for "{fileName}"</div>}
+
           {/* Opción de detectar formato */}
           {detectFormat && (
             <div className="pt-2 border-t border-white/10">
@@ -61,7 +59,7 @@ export const ZipPasswordModal: React.FC<ZipPasswordModalProps> = ({
               </button>
             </div>
           )}
-          
+
           <input
             type="password"
             value={password}

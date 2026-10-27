@@ -12,21 +12,13 @@ import { FreeSpaceVolume } from '../../types';
 
 const volumes: FreeSpaceVolume[] = [
   { volume: 'C:\\', size: 5 * 1024 ** 3, free: 2 * 1024 ** 3, lacking: 3 * 1024 ** 3 },
-  { volume: 'D:\\', size: 1024, free: null, lacking: 0 }
+  { volume: 'D:\\', size: 1024, free: null, lacking: 0 },
 ];
 
 const renderModal = (list: FreeSpaceVolume[] = volumes) => {
   const onForce = vi.fn();
   const onCancel = vi.fn();
-  render(
-    <FreeSpaceModal
-      volumes={list}
-      theme={themes.classic_blue}
-      lang="en"
-      onForce={onForce}
-      onCancel={onCancel}
-    />
-  );
+  render(<FreeSpaceModal volumes={list} theme={themes.classic_blue} lang="en" onForce={onForce} onCancel={onCancel} />);
   return { onForce, onCancel };
 };
 

@@ -4,9 +4,18 @@ import { tGlobal } from '../i18n/translations';
 export function archiveEntryPath(name: string): string {
   const normalized = name.replace(/\\/g, '/').replace(/\/$/, '');
   const parts = normalized.split('/');
-  if (!normalized || parts.some(part => !part || part === '.' || part === '..' ||
-    /[\x00-\x1f:*?"<>|]/.test(part) || /[. ]$/.test(part) ||
-    /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(part))) {
+  if (
+    !normalized ||
+    parts.some(
+      (part) =>
+        !part ||
+        part === '.' ||
+        part === '..' ||
+        /[\x00-\x1f:*?"<>|]/.test(part) ||
+        /[. ]$/.test(part) ||
+        /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(part),
+    )
+  ) {
     throw new Error(tGlobal('zipErrPath').replace('{name}', name));
   }
   return parts.join('\\');
@@ -38,5 +47,5 @@ export function bytesToBase64(bytes: Uint8Array): string {
 }
 
 export function base64ToBytes(content: string): Uint8Array {
-  return Uint8Array.from(atob(content), c => c.charCodeAt(0));
+  return Uint8Array.from(atob(content), (c) => c.charCodeAt(0));
 }

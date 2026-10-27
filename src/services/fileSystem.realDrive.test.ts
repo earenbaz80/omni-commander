@@ -18,7 +18,7 @@ const realDrive: Drive = {
   fileSystem: 'NTFS',
   totalBytes: 1000,
   freeBytes: 500,
-  isMounted: true
+  isMounted: true,
 };
 
 interface RecordedCall {
@@ -39,7 +39,7 @@ const listing = [
     modifiedAt: '2026-01-01 00:00:00',
     createdAt: '2026-01-01 00:00:00',
     attributes: { readOnly: false, hidden: false, system: false, archive: true },
-    content: ''
+    content: '',
   },
   {
     name: 'Python 3.11',
@@ -50,8 +50,8 @@ const listing = [
     modifiedAt: '2026-01-01 00:00:00',
     createdAt: '2026-01-01 00:00:00',
     attributes: { readOnly: false, hidden: false, system: false, archive: false },
-    content: ''
-  }
+    content: '',
+  },
 ];
 
 const job = (id: string, op: string, status: string, copiedBytes = 0) => ({
@@ -66,7 +66,7 @@ const job = (id: string, op: string, status: string, copiedBytes = 0) => ({
   currentFile: '',
   speedBps: 0,
   etaSeconds: 0,
-  errors: [] as Array<{ path: string; message: string }>
+  errors: [] as Array<{ path: string; message: string }>,
 });
 
 function installFetchMock() {
@@ -79,13 +79,16 @@ function installFetchMock() {
     const body = init.body ? JSON.parse(String(init.body)) : undefined;
     calls.push({ url, method, body });
 
-    const reply = (data: unknown) =>
-      ({ ok: true, status: 200, json: async () => data }) as unknown as Response;
+    const reply = (data: unknown) => ({ ok: true, status: 200, json: async () => data }) as unknown as Response;
 
     // The copy-list routes are matched first on purpose: their URLs contain
     // `/api/fs/copy` as a prefix and the transfer check below would swallow them.
     if (url.includes('/api/fs/copylist/save')) {
-      return reply({ ok: true, path: 'C:\\Users\\test\\.omnicommander\\copy-list.json', saved: (body?.list || []).length });
+      return reply({
+        ok: true,
+        path: 'C:\\Users\\test\\.omnicommander\\copy-list.json',
+        saved: (body?.list || []).length,
+      });
     }
     if (url.includes('/api/fs/copylist/load')) {
       const bodyPath = body?.path;
@@ -121,9 +124,9 @@ function installFetchMock() {
           path: p,
           name: p.split('\\').pop(),
           isDirectory: p.endsWith('folder'),
-          size: p.endsWith('folder') ? 0 : 7
+          size: p.endsWith('folder') ? 0 : 7,
         })),
-        missing: [{ path: 'T:\\nope.txt', reason: 'not found' }]
+        missing: [{ path: 'T:\\nope.txt', reason: 'not found' }],
       });
     }
     if (url.includes('/api/fs/job/job_2')) return reply(job('job_2', 'delete', 'done'));
@@ -140,7 +143,7 @@ async function waitFor(predicate: () => boolean, timeoutMs = 2000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     if (predicate()) return true;
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await new Promise((resolve) => setTimeout(resolve, 20));
   }
   return predicate();
 }
@@ -162,8 +165,8 @@ describe('FileSystemEngine real-drive bridge', () => {
 
   it('keeps the exact on-disk name instead of the display split', () => {
     const items = fsEngine.getFiles('real_T', 'T:');
-    const file = items.find(i => i.fullName === 'hola.mundo.txt');
-    const folder = items.find(i => i.fullName === 'Python 3.11');
+    const file = items.find((i) => i.fullName === 'hola.mundo.txt');
+    const folder = items.find((i) => i.fullName === 'Python 3.11');
 
     expect(file).toBeDefined();
     expect(folder).toBeDefined();
@@ -174,11 +177,11 @@ describe('FileSystemEngine real-drive bridge', () => {
   });
 
   it('copies a real file by its full on-disk name through the server', async () => {
-    const file = fsEngine.getFiles('real_T', 'T:').find(i => i.fullName === 'hola.mundo.txt')!;
+    const file = fsEngine.getFiles('real_T', 'T:').find((i) => i.fullName === 'hola.mundo.txt')!;
 
     await fsEngine.copyItem(file.id, 'real_T', 'T:\\dest', true);
 
-    const copyCall = calls.find(c => c.url.includes('/api/fs/copy'));
+    const copyCall = calls.find((c) => c.url.includes('/api/fs/copy'));
     expect(copyCall).toBeDefined();
     expect(copyCall!.method).toBe('POST');
     expect(copyCall!.body.sources).toEqual(['T:\\hola.mundo.txt']);
@@ -186,24 +189,24 @@ describe('FileSystemEngine real-drive bridge', () => {
     expect(copyCall!.body.overwrite).toBe(true);
 
     // The job must actually be followed to completion.
-    expect(calls.some(c => c.url.includes('/api/fs/job/job_1'))).toBe(true);
+    expect(calls.some((c) => c.url.includes('/api/fs/job/job_1'))).toBe(true);
   });
 
   it('addresses a directory by its unsplit name (no data loss on copy)', async () => {
-    const folder = fsEngine.getFiles('real_T', 'T:').find(i => i.fullName === 'Python 3.11')!;
+    const folder = fsEngine.getFiles('real_T', 'T:').find((i) => i.fullName === 'Python 3.11')!;
 
     await fsEngine.copyItem(folder.id, 'real_T', 'T:\\dest', true);
 
-    const copyCall = calls.find(c => c.url.includes('/api/fs/copy'));
+    const copyCall = calls.find((c) => c.url.includes('/api/fs/copy'));
     expect(copyCall!.body.sources).toEqual(['T:\\Python 3.11']);
   });
 
   it('never overwrites when overwrite is false', async () => {
-    const file = fsEngine.getFiles('real_T', 'T:').find(i => i.fullName === 'hola.mundo.txt')!;
+    const file = fsEngine.getFiles('real_T', 'T:').find((i) => i.fullName === 'hola.mundo.txt')!;
 
     await fsEngine.copyItem(file.id, 'real_T', 'T:\\dest', false);
 
-    const copyCall = calls.find(c => c.url.includes('/api/fs/copy'));
+    const copyCall = calls.find((c) => c.url.includes('/api/fs/copy'));
     expect(copyCall!.body.overwrite).toBe(false);
   });
 
@@ -212,11 +215,11 @@ describe('FileSystemEngine real-drive bridge', () => {
     // from the in-memory listing, and the replay still has to address the disk.
     await fsEngine.transferPaths('copy', ['T:\\externa\\gone.txt'], 'T:\\dest', true);
 
-    const copyCall = calls.find(c => c.url.includes('/api/fs/copy'));
+    const copyCall = calls.find((c) => c.url.includes('/api/fs/copy'));
     expect(copyCall).toBeDefined();
     expect(copyCall!.body.sources).toEqual(['T:\\externa\\gone.txt']);
     expect(copyCall!.body.targetDir).toBe('T:\\dest');
-    expect(calls.some(c => c.url.includes('/api/fs/job/job_1'))).toBe(true);
+    expect(calls.some((c) => c.url.includes('/api/fs/job/job_1'))).toBe(true);
   });
 
   it('saves the transfer list to disk through the server', async () => {
@@ -228,12 +231,12 @@ describe('FileSystemEngine real-drive bridge', () => {
       overwrite: false,
       collision: 'skip',
       throttleBps: 1024,
-      entries: [{ path: 'T:\\hola.mundo.txt', name: 'hola.mundo', isDirectory: false, size: 10 }]
+      entries: [{ path: 'T:\\hola.mundo.txt', name: 'hola.mundo', isDirectory: false, size: 10 }],
     };
 
     const result = await fsEngine.saveCopyList([plan]);
 
-    const call = calls.find(c => c.url.includes('/api/fs/copylist/save'));
+    const call = calls.find((c) => c.url.includes('/api/fs/copylist/save'));
     expect(call).toBeDefined();
     expect(call!.method).toBe('POST');
     expect(call!.body.list).toEqual([plan]);
@@ -246,7 +249,7 @@ describe('FileSystemEngine real-drive bridge', () => {
   it('treats a missing copy list file as an empty list, not an error', async () => {
     const result = await fsEngine.loadCopyList();
 
-    const call = calls.find(c => c.url.includes('/api/fs/copylist/load'));
+    const call = calls.find((c) => c.url.includes('/api/fs/copylist/load'));
     expect(call).toBeDefined();
     expect(result?.found).toBe(false);
     expect(result?.list).toEqual([]);
@@ -256,7 +259,7 @@ describe('FileSystemEngine real-drive bridge', () => {
   it('forwards an explicit copy list path when one is given', async () => {
     await fsEngine.loadCopyList('T:\\listas\\backup.json');
 
-    const call = calls.find(c => c.url.includes('/api/fs/copylist/load'));
+    const call = calls.find((c) => c.url.includes('/api/fs/copylist/load'));
     expect(call!.body.path).toBe('T:\\listas\\backup.json');
   });
 
@@ -273,19 +276,17 @@ describe('FileSystemEngine real-drive bridge', () => {
       throttleBps: 0,
       entries: [
         { path: 'T:\\a.txt', name: 'a', isDirectory: false, size: 10 },
-        { path: 'T:\\folder', name: 'folder', isDirectory: true, size: 0 }
-      ]
+        { path: 'T:\\folder', name: 'folder', isDirectory: true, size: 0 },
+      ],
     };
 
     const report = await fsEngine.checkFreeSpace([plan]);
 
-    const call = calls.find(c => c.url.includes('/api/fs/freespace'));
+    const call = calls.find((c) => c.url.includes('/api/fs/freespace'));
     expect(call).toBeDefined();
     expect(call!.method).toBe('POST');
     expect(call!.body).toEqual({
-      plans: [
-        { targetDir: 'T:\\dest', op: 'copy', sources: ['T:\\a.txt', 'T:\\folder'] }
-      ]
+      plans: [{ targetDir: 'T:\\dest', op: 'copy', sources: ['T:\\a.txt', 'T:\\folder'] }],
     });
     expect(report?.volumes).toEqual([{ volume: 'T:\\', size: 200, free: 50, lacking: 150 }]);
   });
@@ -300,12 +301,12 @@ describe('FileSystemEngine real-drive bridge', () => {
         overwrite: false,
         collision: 'ask',
         throttleBps: 0,
-        entries: []
-      }
+        entries: [],
+      },
     ]);
 
     expect(report).toEqual({ volumes: [] });
-    expect(calls.some(c => c.url.includes('/api/fs/freespace'))).toBe(false);
+    expect(calls.some((c) => c.url.includes('/api/fs/freespace'))).toBe(false);
   });
 
   it('reports the operation so a same-volume move is not read as a copy', async () => {
@@ -318,11 +319,11 @@ describe('FileSystemEngine real-drive bridge', () => {
         overwrite: false,
         collision: 'ask',
         throttleBps: 0,
-        entries: [{ path: 'T:\\a.txt', name: 'a', isDirectory: false, size: 10 }]
-      }
+        entries: [{ path: 'T:\\a.txt', name: 'a', isDirectory: false, size: 10 }],
+      },
     ]);
 
-    const call = calls.find(c => c.url.includes('/api/fs/freespace'));
+    const call = calls.find((c) => c.url.includes('/api/fs/freespace'));
     // The server needs the op to know that a rename needs no room at all.
     expect(call!.body.plans[0].op).toBe('move');
   });
@@ -331,10 +332,10 @@ describe('FileSystemEngine real-drive bridge', () => {
     await fsEngine.transferPaths('copy', ['T:\\a.txt'], 'T:\\dest', true, undefined, undefined, {
       collision: 'skip',
       throttleBps: 0,
-      force: true
+      force: true,
     });
 
-    const call = calls.find(c => c.url.includes('/api/fs/copy'));
+    const call = calls.find((c) => c.url.includes('/api/fs/copy'));
     // Without this the server's own space guard would refuse the copy the user
     // already approved in the free-space prompt.
     expect(call!.body.force).toBe(true);
@@ -343,30 +344,30 @@ describe('FileSystemEngine real-drive bridge', () => {
   it('leaves force out of a normal transfer request', async () => {
     await fsEngine.transferPaths('copy', ['T:\\a.txt'], 'T:\\dest', true, undefined, undefined, {
       collision: 'skip',
-      throttleBps: 0
+      throttleBps: 0,
     });
 
-    const call = calls.find(c => c.url.includes('/api/fs/copy'));
+    const call = calls.find((c) => c.url.includes('/api/fs/copy'));
     expect('force' in call!.body).toBe(false);
   });
 
   it('sizes paths picked outside the panels and reports the missing ones', async () => {
     const result = await fsEngine.inspectPaths(['T:\\a.txt', 'T:\\folder']);
 
-    const call = calls.find(c => c.url.includes('/api/fs/stat'));
+    const call = calls.find((c) => c.url.includes('/api/fs/stat'));
     expect(call).toBeDefined();
     expect(call!.method).toBe('POST');
     expect(call!.body).toEqual({ paths: ['T:\\a.txt', 'T:\\folder'] });
     expect(result?.entries).toEqual([
       { path: 'T:\\a.txt', name: 'a.txt', isDirectory: false, size: 7 },
-      { path: 'T:\\folder', name: 'folder', isDirectory: true, size: 0 }
+      { path: 'T:\\folder', name: 'folder', isDirectory: true, size: 0 },
     ]);
     expect(result?.missing).toHaveLength(1);
   });
 
   it('does not ask the server to stat an empty pick', async () => {
     expect(await fsEngine.inspectPaths([])).toEqual({ entries: [], missing: [] });
-    expect(calls.some(c => c.url.includes('/api/fs/stat'))).toBe(false);
+    expect(calls.some((c) => c.url.includes('/api/fs/stat'))).toBe(false);
   });
 
   it('raises one collision prompt per destination and sends the answer back', async () => {
@@ -377,8 +378,7 @@ describe('FileSystemEngine real-drive bridge', () => {
     vi.stubGlobal('fetch', async (input: any, init: any = {}) => {
       const url = String(input);
       const body = init.body ? JSON.parse(String(init.body)) : undefined;
-      const reply = (data: unknown) =>
-        ({ ok: true, status: 200, json: async () => data }) as unknown as Response;
+      const reply = (data: unknown) => ({ ok: true, status: 200, json: async () => data }) as unknown as Response;
 
       if (url.includes('/api/fs/copy')) {
         return reply({ jobId: 'job_conflict', totalBytes: 100, itemsTotal: 1 });
@@ -394,7 +394,7 @@ describe('FileSystemEngine real-drive bridge', () => {
         if (snapshots <= 3) {
           return reply({
             ...job('job_conflict', 'copy', 'waiting', 0),
-            pendingConflict: { source: 'T:\\a.txt', destination: 'T:\\dest\\a.txt' }
+            pendingConflict: { source: 'T:\\a.txt', destination: 'T:\\dest\\a.txt' },
           });
         }
         return reply(job('job_conflict', 'copy', 'done', 100));
@@ -402,7 +402,7 @@ describe('FileSystemEngine real-drive bridge', () => {
       return reply(listing);
     });
 
-    const file = fsEngine.getFiles('real_T', 'T:').find(i => i.fullName === 'hola.mundo.txt')!;
+    const file = fsEngine.getFiles('real_T', 'T:').find((i) => i.fullName === 'hola.mundo.txt')!;
 
     await fsEngine.copyItem(
       file.id,
@@ -412,10 +412,10 @@ describe('FileSystemEngine real-drive bridge', () => {
       undefined,
       undefined,
       { collision: 'ask', throttleBps: 0 },
-      conflict => {
+      (conflict) => {
         prompts.push(conflict);
         void fsEngine.resolveConflict(conflict.jobId, 'overwrite', true);
-      }
+      },
     );
 
     expect(prompts).toHaveLength(1);
@@ -430,80 +430,62 @@ describe('FileSystemEngine real-drive bridge', () => {
 
     vi.stubGlobal('fetch', async (input: any) => {
       const url = String(input);
-      const reply = (data: unknown) =>
-        ({ ok: true, status: 200, json: async () => data }) as unknown as Response;
+      const reply = (data: unknown) => ({ ok: true, status: 200, json: async () => data }) as unknown as Response;
       if (url.includes('/api/fs/copy')) {
         return reply({ jobId: 'job_files', totalBytes: 100, itemsTotal: 2 });
       }
       if (url.includes('/api/fs/job/job_files')) {
-        return reply({ ...job('job_files', 'copy', 'done', 100), recentFiles: [
-          { path: 'T:\\dest\\a.txt', name: 'a.txt', size: 100, copied: 40, status: 'copying' }
-        ] });
+        return reply({
+          ...job('job_files', 'copy', 'done', 100),
+          recentFiles: [{ path: 'T:\\dest\\a.txt', name: 'a.txt', size: 100, copied: 40, status: 'copying' }],
+        });
       }
       return reply(listing);
     });
 
-    const file = fsEngine.getFiles('real_T', 'T:').find(i => i.fullName === 'hola.mundo.txt')!;
+    const file = fsEngine.getFiles('real_T', 'T:').find((i) => i.fullName === 'hola.mundo.txt')!;
 
-    await fsEngine.copyItem(
-      file.id,
-      'real_T',
-      'T:\\dest',
-      true,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      files => batches.push(files)
+    await fsEngine.copyItem(file.id, 'real_T', 'T:\\dest', true, undefined, undefined, undefined, undefined, (files) =>
+      batches.push(files),
     );
 
     expect(batches).toHaveLength(1);
-    expect(batches[0]).toEqual([
-      { path: 'T:\\dest\\a.txt', name: 'a.txt', size: 100, copied: 40, status: 'copying' }
-    ]);
+    expect(batches[0]).toEqual([{ path: 'T:\\dest\\a.txt', name: 'a.txt', size: 100, copied: 40, status: 'copying' }]);
   });
 
   it('tolerates a snapshot without per-file rows instead of crashing', async () => {
     const batches: FileProgressEntry[][] = [];
-    const file = fsEngine.getFiles('real_T', 'T:').find(i => i.fullName === 'hola.mundo.txt')!;
+    const file = fsEngine.getFiles('real_T', 'T:').find((i) => i.fullName === 'hola.mundo.txt')!;
 
     // The shared mock's job() has no `recentFiles`, which is what an older or
     // partial server response looks like.
-    await fsEngine.copyItem(
-      file.id,
-      'real_T',
-      'T:\\dest',
-      true,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      files => batches.push(files)
+    await fsEngine.copyItem(file.id, 'real_T', 'T:\\dest', true, undefined, undefined, undefined, undefined, (files) =>
+      batches.push(files),
     );
 
-    expect(batches.every(batch => Array.isArray(batch))).toBe(true);
+    expect(batches.every((batch) => Array.isArray(batch))).toBe(true);
   });
 
   it('moves a real item through the server instead of rewriting memory', async () => {
-    const file = fsEngine.getFiles('real_T', 'T:').find(i => i.fullName === 'hola.mundo.txt')!;
+    const file = fsEngine.getFiles('real_T', 'T:').find((i) => i.fullName === 'hola.mundo.txt')!;
 
     await fsEngine.moveItem(file.id, 'real_T', 'T:\\dest');
 
-    const moveCall = calls.find(c => c.url.includes('/api/fs/move'));
+    const moveCall = calls.find((c) => c.url.includes('/api/fs/move'));
     expect(moveCall).toBeDefined();
     expect(moveCall!.body.sources).toEqual(['T:\\hola.mundo.txt']);
     expect(moveCall!.body.targetDir).toBe('T:\\dest');
   });
 
   it('deletes a real item through the server, honouring the recycle-bin setting', async () => {
-    const file = fsEngine.getFiles('real_T', 'T:').find(i => i.fullName === 'hola.mundo.txt')!;
+    const file = fsEngine.getFiles('real_T', 'T:').find((i) => i.fullName === 'hola.mundo.txt')!;
 
     fsEngine.deleteItem(file.id, true);
 
-    const found = await waitFor(() => calls.some(c => c.url.includes('/api/fs/delete')));
+    const found = await waitFor(() => calls.some((c) => c.url.includes('/api/fs/delete')));
     expect(found).toBe(true);
 
-    const deleteCall = calls.find(c => c.url.includes('/api/fs/delete'))!;
+    const deleteCall = calls.find((c) => c.url.includes('/api/fs/delete'))!;
     expect(deleteCall.body.targets).toEqual(['T:\\hola.mundo.txt']);
     // Real deletes go to the Windows Recycle Bin, never the virtual one.
     expect(deleteCall.body.useTrash).toBe(true);
@@ -521,8 +503,7 @@ describe('FileSystemEngine real-drive bridge', () => {
       // transfer, leaving a truncated file behind a green 100%.
       vi.stubGlobal('fetch', async (input: any) => {
         const url = String(input);
-        const reply = (data: unknown) =>
-          ({ ok: true, status: 200, json: async () => data }) as unknown as Response;
+        const reply = (data: unknown) => ({ ok: true, status: 200, json: async () => data }) as unknown as Response;
         if (url.includes('/api/fs/copy')) {
           return reply({ jobId: 'job_lost', totalBytes: 100, itemsTotal: 1 });
         }
@@ -532,11 +513,9 @@ describe('FileSystemEngine real-drive bridge', () => {
         return reply(listing);
       });
 
-      const file = fsEngine.getFiles('real_T', 'T:').find(i => i.fullName === 'hola.mundo.txt')!;
+      const file = fsEngine.getFiles('real_T', 'T:').find((i) => i.fullName === 'hola.mundo.txt')!;
 
-      await expect(fsEngine.copyItem(file.id, 'real_T', 'T:\\dest', true)).rejects.toThrow(
-        /Transfer lost/i
-      );
+      await expect(fsEngine.copyItem(file.id, 'real_T', 'T:\\dest', true)).rejects.toThrow(/Transfer lost/i);
     } finally {
       Object.assign(lostJobRetryPolicy, previous);
     }
@@ -553,11 +532,10 @@ describe('FileSystemEngine drive hot-plug refresh', () => {
     fileSystem: 'FAT32',
     totalBytes: 2000,
     freeBytes: 1000,
-    isMounted: true
+    isMounted: true,
   };
 
-  const drivesReply = (drives: unknown) =>
-    ({ ok: true, status: 200, json: async () => drives }) as unknown as Response;
+  const drivesReply = (drives: unknown) => ({ ok: true, status: 200, json: async () => drives }) as unknown as Response;
 
   beforeEach(() => {
     fsEngine.resetToDefaults();
@@ -575,7 +553,7 @@ describe('FileSystemEngine drive hot-plug refresh', () => {
     const ok = await fsEngine.loadRealDrivesFromApi();
 
     expect(ok).toBe(true);
-    expect(fsEngine.getDrives().map(d => d.letter)).toEqual(['T:', 'E:']);
+    expect(fsEngine.getDrives().map((d) => d.letter)).toEqual(['T:', 'E:']);
   });
 
   it('drops a drive that was unplugged', async () => {
@@ -584,14 +562,16 @@ describe('FileSystemEngine drive hot-plug refresh', () => {
     vi.stubGlobal('fetch', async () => drivesReply([realDrive]));
     await fsEngine.loadRealDrivesFromApi();
 
-    expect(fsEngine.getDrives().map(d => d.letter)).toEqual(['T:']);
+    expect(fsEngine.getDrives().map((d) => d.letter)).toEqual(['T:']);
   });
 
   it('does not churn subscribers or storage when the list is unchanged', async () => {
     vi.stubGlobal('fetch', async () => drivesReply([{ ...realDrive }]));
 
     let notified = 0;
-    const unsubscribe = fsEngine.subscribe(() => { notified += 1; });
+    const unsubscribe = fsEngine.subscribe(() => {
+      notified += 1;
+    });
     try {
       const ok = await fsEngine.loadRealDrivesFromApi();
 
@@ -604,11 +584,13 @@ describe('FileSystemEngine drive hot-plug refresh', () => {
   });
 
   it('reports failure without wiping the known drive list', async () => {
-    vi.stubGlobal('fetch', async () => { throw new TypeError('fetch failed'); });
+    vi.stubGlobal('fetch', async () => {
+      throw new TypeError('fetch failed');
+    });
 
     const ok = await fsEngine.loadRealDrivesFromApi();
 
     expect(ok).toBe(false);
-    expect(fsEngine.getDrives().map(d => d.letter)).toEqual(['T:']);
+    expect(fsEngine.getDrives().map((d) => d.letter)).toEqual(['T:']);
   });
 });

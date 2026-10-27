@@ -32,33 +32,32 @@ export const ArchiveInfoModal: React.FC<ArchiveInfoModalProps> = ({
   fileDate,
   onExtractAll,
   onExtractSelected,
-  onClose
+  onClose,
 }) => {
   const t = getTranslations(lang);
   const dialogRef = useModalDialog<HTMLDivElement>(t.zipTitle); // Usar traducción existente
-  
+
   const formatLabel = () => {
     if (!formatInfo?.format) return 'ZIP';
-    
+
     switch (formatInfo.format.toUpperCase()) {
-      case 'ZIP': return 'ZIP Archive';
-      case 'RAR': return formatInfo.format.includes('v5') ? 'RAR v5' : 'RAR v4';
-      case '7Z': return '7-Zip';
-      case 'TAR': return formatInfo.format || 'TAR';
-      default: return formatInfo.format;
+      case 'ZIP':
+        return 'ZIP Archive';
+      case 'RAR':
+        return formatInfo.format.includes('v5') ? 'RAR v5' : 'RAR v4';
+      case '7Z':
+        return '7-Zip';
+      case 'TAR':
+        return formatInfo.format || 'TAR';
+      default:
+        return formatInfo.format;
     }
   };
 
   return (
-    <ModalShell 
-      title={t.zipTitle} 
-      theme={theme} 
-      onClose={onClose} 
-      closeButtonLabel={t.btnCancel}
-    >
+    <ModalShell title={t.zipTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
         <div className="p-[var(--space-5)] space-y-[var(--space-5)]">
-          
           {/* Header */}
           <div className="flex items-start gap-[var(--space-3)] opacity-90">
             <FileArchive className="w-6 h-6 text-purple-400 shrink-0" />
@@ -74,7 +73,7 @@ export const ArchiveInfoModal: React.FC<ArchiveInfoModalProps> = ({
           <div className="grid grid-cols-[auto_1fr] gap-x-[var(--space-4)] gap-y-[var(--space-2)].5 text-xs opacity-80">
             <span>Size:</span>
             <span>{(fileSize / 1024 / 1024).toFixed(2)} MB</span>
-            
+
             <span>Date:</span>
             <span>{fileDate.toLocaleString()}</span>
           </div>
@@ -90,7 +89,7 @@ export const ArchiveInfoModal: React.FC<ArchiveInfoModalProps> = ({
                   <Package className="w-4 h-4" />
                   {t.zipExtractAllBtn} (E)
                 </button>
-                
+
                 <button
                   onClick={onExtractSelected}
                   className="w-full px-4 py-[var(--space-2)] bg-white/10 hover:bg-white/20 text-white font-semibold rounded flex items-center justify-center gap-[var(--space-2)] transition-all"
@@ -112,9 +111,7 @@ export const ArchiveInfoModal: React.FC<ArchiveInfoModalProps> = ({
               <Copy className="w-4 h-4" />
               Copy Path
             </button>
-
           </div>
-
         </div>
       </div>
     </ModalShell>

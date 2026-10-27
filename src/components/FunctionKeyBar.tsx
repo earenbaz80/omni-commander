@@ -25,7 +25,7 @@ export const FunctionKeyBar: React.FC<FunctionKeyBarProps> = ({
   onDelete,
   onMkDir,
   onView,
-  onEdit
+  onEdit,
 }) => {
   const [altPressed, setAltPressed] = useState(false);
   const [ctrlPressed, setCtrlPressed] = useState(false);
@@ -49,7 +49,7 @@ export const FunctionKeyBar: React.FC<FunctionKeyBarProps> = ({
     };
   }, []);
 
-const t = getTranslations(lang);
+  const t = getTranslations(lang);
 
   const getKeys = () => {
     if (altPressed) {
@@ -99,11 +99,11 @@ const t = getTranslations(lang);
   const keys = getKeys();
 
   return (
-    <div 
+    <div
       className="grid grid-cols-5 sm:grid-cols-10 gap-[var(--space-1)] p-[var(--space-1)] border-t shrink-0 select-none font-mono text-[11px] font-bold"
       style={{
         backgroundColor: theme.bgApp,
-        borderColor: theme.borderPanel
+        borderColor: theme.borderPanel,
       }}
     >
       {keys.map((k) => (
@@ -116,14 +116,14 @@ const t = getTranslations(lang);
           className="flex items-center justify-center overflow-hidden rounded-[2px] transition-transform active:scale-95 cursor-pointer shadow-sm"
         >
           {/* Key Number */}
-          <span 
+          <span
             className="px-[var(--space-2)] py-[var(--space-1)]"
             style={{ backgroundColor: theme.fkeyNumBg, color: theme.fkeyNumText }}
           >
             {k.num}
           </span>
           {/* Key Label */}
-          <span 
+          <span
             className="flex-1 py-[var(--space-1)] px-[var(--space-1)] truncate text-center"
             style={{ backgroundColor: theme.fkeyLabelBg, color: theme.fkeyLabelText }}
           >

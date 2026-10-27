@@ -110,7 +110,7 @@ export function useKeyboardShortcuts(d: KeyboardShortcutDeps) {
       if (e.key === 'Tab') {
         e.preventDefault();
         soundManager.playKeyTick();
-        setActivePanel(p => p === 'left' ? 'right' : 'left');
+        setActivePanel((p) => (p === 'left' ? 'right' : 'left'));
         return;
       }
 
@@ -177,14 +177,14 @@ export function useKeyboardShortcuts(d: KeyboardShortcutDeps) {
         // A fresh install starts with no drives; `% drives.length` would be
         // `% 0` (NaN) and index into nothing. Cycling drives is a no-op then.
         if (!drives.length) return;
-        const nextDriveIdx = (drives.findIndex(d => d.id === leftTab.driveId) + 1) % drives.length;
+        const nextDriveIdx = (drives.findIndex((d) => d.id === leftTab.driveId) + 1) % drives.length;
         handleSelectDrive('left', drives[nextDriveIdx].id);
         return;
       }
       if (e.altKey && e.key === 'F2') {
         e.preventDefault();
         if (!drives.length) return;
-        const nextDriveIdx = (drives.findIndex(d => d.id === rightTab.driveId) + 1) % drives.length;
+        const nextDriveIdx = (drives.findIndex((d) => d.id === rightTab.driveId) + 1) % drives.length;
         handleSelectDrive('right', drives[nextDriveIdx].id);
         return;
       }
@@ -211,7 +211,7 @@ export function useKeyboardShortcuts(d: KeyboardShortcutDeps) {
         e.preventDefault();
         soundManager.playKeyTick();
         const targetSet = activePanel === 'left' ? setRightPanel : setLeftPanel;
-        targetSet(p => ({ ...p, isQuickView: !p.isQuickView }));
+        targetSet((p) => ({ ...p, isQuickView: !p.isQuickView }));
         return;
       }
 
@@ -245,9 +245,9 @@ export function useKeyboardShortcuts(d: KeyboardShortcutDeps) {
         e.preventDefault();
         soundManager.playKeyTick();
         if (activePanel === 'left') {
-          setIsLeftFilterOpen(prev => !prev);
+          setIsLeftFilterOpen((prev) => !prev);
         } else {
-          setIsRightFilterOpen(prev => !prev);
+          setIsRightFilterOpen((prev) => !prev);
         }
         return;
       }
@@ -313,13 +313,9 @@ export function useKeyboardShortcuts(d: KeyboardShortcutDeps) {
             setQuickSearchQuery('');
           }, 1800);
 
-          let foundIndex = activeItems.findIndex(item =>
-            item.name.toLowerCase().startsWith(newQuery.toLowerCase())
-          );
+          let foundIndex = activeItems.findIndex((item) => item.name.toLowerCase().startsWith(newQuery.toLowerCase()));
           if (foundIndex === -1) {
-            foundIndex = activeItems.findIndex(item =>
-              item.name.toLowerCase().includes(newQuery.toLowerCase())
-            );
+            foundIndex = activeItems.findIndex((item) => item.name.toLowerCase().includes(newQuery.toLowerCase()));
           }
           if (foundIndex !== -1) {
             handleSelectIndex(activePanel, foundIndex);
@@ -361,13 +357,11 @@ export function useKeyboardShortcuts(d: KeyboardShortcutDeps) {
           if (quickSearchTimerRef.current) clearTimeout(quickSearchTimerRef.current);
           if (newQuery) {
             quickSearchTimerRef.current = setTimeout(() => setQuickSearchQuery(''), 1800);
-            let foundIndex = activeItems.findIndex(item =>
-              item.name.toLowerCase().startsWith(newQuery.toLowerCase())
+            let foundIndex = activeItems.findIndex((item) =>
+              item.name.toLowerCase().startsWith(newQuery.toLowerCase()),
             );
             if (foundIndex === -1) {
-              foundIndex = activeItems.findIndex(item =>
-                item.name.toLowerCase().includes(newQuery.toLowerCase())
-              );
+              foundIndex = activeItems.findIndex((item) => item.name.toLowerCase().includes(newQuery.toLowerCase()));
             }
             if (foundIndex !== -1) {
               handleSelectIndex(activePanel, foundIndex);

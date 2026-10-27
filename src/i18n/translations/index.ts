@@ -26,7 +26,10 @@ export type TranslationKey = keyof (typeof translations)['en'];
  * that only exists in some languages never renders as blank.
  */
 export function getTranslations(lang: LanguageCode): Record<TranslationKey, string> {
-  return { ...(translations.en as Record<TranslationKey, string>), ...(translations[lang] as Record<TranslationKey, string>) };
+  return {
+    ...(translations.en as Record<TranslationKey, string>),
+    ...(translations[lang] as Record<TranslationKey, string>),
+  };
 }
 
 /**

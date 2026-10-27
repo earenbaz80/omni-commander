@@ -37,7 +37,7 @@ const post = async (route: string, body: unknown) => {
   const res = await fetch(`${BASE}/${route}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
   });
   return { status: res.status, body: (await res.json()) as any };
 };
@@ -55,7 +55,7 @@ beforeAll(async () => {
 
   child = spawn(process.execPath, ['server.cjs'], {
     env: { ...process.env, PORT: String(PORT), OMNI_SESSION_TOKEN: '' },
-    stdio: 'ignore'
+    stdio: 'ignore',
   });
   const start = Date.now();
   while (Date.now() - start < 10000) {
@@ -75,7 +75,7 @@ describe('POST /api/fs/freespace', () => {
 
   it('measures a copy on the target volume', async () => {
     const { status, body } = await post('freespace', {
-      plans: [{ targetDir: target, op: 'copy', sources: sources() }]
+      plans: [{ targetDir: target, op: 'copy', sources: sources() }],
     });
 
     expect(status).toBe(200);
@@ -88,7 +88,7 @@ describe('POST /api/fs/freespace', () => {
   it('counts nothing for a move inside the same volume', async () => {
     // Same volume as the target on purpose: this is a rename, not a write.
     const { body } = await post('freespace', {
-      plans: [{ targetDir: target, op: 'move', sources: sources() }]
+      plans: [{ targetDir: target, op: 'move', sources: sources() }],
     });
 
     expect(body.volumes[0].size).toBe(0);
@@ -99,8 +99,8 @@ describe('POST /api/fs/freespace', () => {
     const { body } = await post('freespace', {
       plans: [
         { targetDir: target, op: 'copy', sources: [path.join(source, 'arbol')] },
-        { targetDir: target, op: 'move', sources: sources() }
-      ]
+        { targetDir: target, op: 'move', sources: sources() },
+      ],
     });
 
     expect(body.volumes[0].size).toBe(2000);
@@ -116,7 +116,7 @@ describe('POST /api/fs/freespace', () => {
       sources: [path.join(source, 'grande.bin')],
       targetDir: target,
       collision: 'overwrite',
-      force: true
+      force: true,
     });
     expect(started.status).toBe(200);
 

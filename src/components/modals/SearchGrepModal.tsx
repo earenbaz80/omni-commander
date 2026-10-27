@@ -47,14 +47,18 @@ const loadSearchHistory = (): SearchHistoryItem[] => {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) return parsed.slice(0, 5);
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return [];
 };
 
 const saveSearchHistory = (history: SearchHistoryItem[]) => {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(0, 5)));
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 };
 
 export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
@@ -62,7 +66,7 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
   lang,
   currentDriveId,
   onSelectFile,
-  onClose
+  onClose,
 }) => {
   const t = getTranslations(lang);
   const [filePattern, setFilePattern] = useState('*.*');
@@ -107,13 +111,13 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
       const allFiles = fsEngine.getSearchIndex(searchAllDrives, currentDriveId);
       const patternRegex = new RegExp(
         '^' + filePattern.replace(/\./g, '\\.').replace(/\*/g, '.*').replace(/\?/g, '.') + '$',
-        'i'
+        'i',
       );
 
       const found: SearchResult[] = [];
       const now = new Date();
 
-      allFiles.forEach(file => {
+      allFiles.forEach((file) => {
         if (!searchAllDrives && file.driveId !== currentDriveId) return;
 
         const fullName = file.ext ? `${file.name}.${file.ext}` : file.name;
@@ -147,9 +151,7 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
           const fileMatches: { line: number; text: string }[] = [];
 
           lines.forEach((l, idx) => {
-            const hasMatch = caseSensitive 
-              ? l.includes(grepText) 
-              : l.toLowerCase().includes(grepText.toLowerCase());
+            const hasMatch = caseSensitive ? l.includes(grepText) : l.toLowerCase().includes(grepText.toLowerCase());
             if (hasMatch) {
               fileMatches.push({ line: idx + 1, text: l.trim() });
             }
@@ -180,20 +182,23 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
         filterHidden,
         filterSystem,
         caseSensitive,
-        searchAllDrives
+        searchAllDrives,
       };
 
-      const filteredHistory = searchHistory.filter(item => 
-        !(item.filePattern === filePattern && 
-          item.grepText === grepText && 
-          item.datePreset === datePreset && 
-          item.minSizeKB === minSizeKB && 
-          item.maxSizeKB === maxSizeKB && 
-          item.filterReadOnly === filterReadOnly &&
-          item.filterHidden === filterHidden &&
-          item.filterSystem === filterSystem &&
-          item.caseSensitive === caseSensitive &&
-          item.searchAllDrives === searchAllDrives)
+      const filteredHistory = searchHistory.filter(
+        (item) =>
+          !(
+            item.filePattern === filePattern &&
+            item.grepText === grepText &&
+            item.datePreset === datePreset &&
+            item.minSizeKB === minSizeKB &&
+            item.maxSizeKB === maxSizeKB &&
+            item.filterReadOnly === filterReadOnly &&
+            item.filterHidden === filterHidden &&
+            item.filterSystem === filterSystem &&
+            item.caseSensitive === caseSensitive &&
+            item.searchAllDrives === searchAllDrives
+          ),
       );
 
       const updatedHistory = [newEntry, ...filteredHistory].slice(0, 5);
@@ -207,7 +212,6 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
   return (
     <ModalShell title={t.searchAdvTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
-
         {/* Search History Bar */}
         {searchHistory.length > 0 && (
           <div className="px-[var(--space-3)] py-[var(--space-2)] bg-amber-950/30 border-b border-amber-500/20 flex flex-wrap items-center justify-between gap-[var(--space-2)] text-[11px] shrink-0">
@@ -222,7 +226,10 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
                   type="button"
                   onClick={() => applyHistoryItem(item)}
                   className="px-[var(--space-2)] py-[var(--space-1)] rounded border border-amber-400/30 bg-black/60 hover:bg-amber-400 hover:text-black text-amber-200 transition-colors cursor-pointer flex items-center gap-[var(--space-1)] font-mono text-[10px]"
-                  title={t.searchRecall.replace('{label}', `${item.filePattern}${item.grepText ? ` | "${item.grepText}"` : ''} (${item.datePreset})`)}
+                  title={t.searchRecall.replace(
+                    '{label}',
+                    `${item.filePattern}${item.grepText ? ` | "${item.grepText}"` : ''} (${item.datePreset})`,
+                  )}
                 >
                   <RotateCcw className="w-2.5 h-2.5 shrink-0" />
                   <span className="font-bold">{item.filePattern}</span>
@@ -247,7 +254,10 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
         )}
 
         {/* Search Parameters Form */}
-        <form onSubmit={handleSearch} className="p-[var(--space-3)] bg-black/40 border-b border-white/10 space-y-[var(--space-3)] shrink-0">
+        <form
+          onSubmit={handleSearch}
+          className="p-[var(--space-3)] bg-black/40 border-b border-white/10 space-y-[var(--space-3)] shrink-0"
+        >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--space-2)]">
             <div>
               <label className="block text-[11px] opacity-80 mb-0.5 font-bold">{t.searchNameWildcard}</label>
@@ -276,7 +286,9 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
           <div className="p-[var(--space-2)] bg-black/50 rounded border border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-[var(--space-3)] text-[11px]">
             {/* Date Preset */}
             <div>
-              <span className="text-[10px] font-bold text-amber-300 uppercase block mb-[var(--space-1)]">{t.searchDateRange}</span>
+              <span className="text-[10px] font-bold text-amber-300 uppercase block mb-[var(--space-1)]">
+                {t.searchDateRange}
+              </span>
               <select
                 value={datePreset}
                 onChange={(e) => setDatePreset(e.target.value as any)}
@@ -291,7 +303,9 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
 
             {/* Size Min/Max */}
             <div>
-              <span className="text-[10px] font-bold text-sky-300 uppercase block mb-[var(--space-1)]">{t.searchSizeRange}</span>
+              <span className="text-[10px] font-bold text-sky-300 uppercase block mb-[var(--space-1)]">
+                {t.searchSizeRange}
+              </span>
               <div className="flex items-center gap-[var(--space-1)]">
                 <input
                   type="number"
@@ -313,7 +327,9 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
 
             {/* Attributes Checkboxes */}
             <div>
-              <span className="text-[10px] font-bold text-emerald-300 uppercase block mb-[var(--space-1)]">{t.searchAttrSection}</span>
+              <span className="text-[10px] font-bold text-emerald-300 uppercase block mb-[var(--space-1)]">
+                {t.searchAttrSection}
+              </span>
               <div className="flex items-center gap-[var(--space-2)] pt-0.5">
                 <label className="flex items-center gap-[var(--space-1)] cursor-pointer">
                   <input
@@ -324,19 +340,11 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
                   <span>R/O</span>
                 </label>
                 <label className="flex items-center gap-[var(--space-1)] cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={filterHidden}
-                    onChange={(e) => setFilterHidden(e.target.checked)}
-                  />
+                  <input type="checkbox" checked={filterHidden} onChange={(e) => setFilterHidden(e.target.checked)} />
                   <span>{t.searchAttrHidden}</span>
                 </label>
                 <label className="flex items-center gap-[var(--space-1)] cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={filterSystem}
-                    onChange={(e) => setFilterSystem(e.target.checked)}
-                  />
+                  <input type="checkbox" checked={filterSystem} onChange={(e) => setFilterSystem(e.target.checked)} />
                   <span>{t.searchAttrSystem}</span>
                 </label>
               </div>
@@ -346,11 +354,7 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
           <div className="flex items-center justify-between pt-1">
             <div className="flex items-center gap-[var(--space-4)]">
               <label className="flex items-center gap-[var(--space-1)] cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={caseSensitive}
-                  onChange={(e) => setCaseSensitive(e.target.checked)}
-                />
+                <input type="checkbox" checked={caseSensitive} onChange={(e) => setCaseSensitive(e.target.checked)} />
                 <span>{t.searchCaseSensitive}</span>
               </label>
 
@@ -383,7 +387,7 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
             </div>
           ) : (
             results.map(({ file, matches }) => (
-              <div 
+              <div
                 key={file.id}
                 onClick={() => {
                   soundManager.playDiskAccess();
@@ -395,9 +399,13 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-[var(--space-2)] font-bold text-amber-300">
                     <FileText className="w-3.5 h-3.5" />
-                    <span>{file.path}\{file.name}.{file.ext}</span>
+                    <span>
+                      {file.path}\{file.name}.{file.ext}
+                    </span>
                   </div>
-                  <span className="opacity-60 text-[11px] tabular-nums">{file.size.toLocaleString()} bytes | {file.modifiedAt?.substring(0, 10)}</span>
+                  <span className="opacity-60 text-[11px] tabular-nums">
+                    {file.size.toLocaleString()} bytes | {file.modifiedAt?.substring(0, 10)}
+                  </span>
                 </div>
 
                 {matches.length > 0 && (
@@ -408,7 +416,9 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
                       </div>
                     ))}
                     {matches.length > 3 && (
-                      <div className="opacity-50 text-[10px]">{t.searchMoreMatches.replace('{n}', String(matches.length - 3))}</div>
+                      <div className="opacity-50 text-[10px]">
+                        {t.searchMoreMatches.replace('{n}', String(matches.length - 3))}
+                      </div>
                     )}
                   </div>
                 )}
@@ -418,11 +428,11 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div 
+        <div
           className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-t text-xs shrink-0"
           style={{
             backgroundColor: theme.modalBg,
-            borderColor: theme.modalBorder
+            borderColor: theme.modalBorder,
           }}
         >
           <span className="font-bold text-amber-300">{t.searchFound.replace('{n}', String(results.length))}</span>
@@ -437,4 +447,3 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
     </ModalShell>
   );
 };
-

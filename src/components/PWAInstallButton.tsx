@@ -20,7 +20,9 @@ export const PWAInstallButton: React.FC<{ compact?: boolean; lang: LanguageCode 
       <button
         onClick={install}
         className={`flex items-center gap-[var(--space-2)] rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow cursor-pointer ${
-          compact ? 'px-[var(--space-2)] py-[var(--space-1)] text-[10px]' : 'px-[var(--space-3)] py-[var(--space-1)] text-xs'
+          compact
+            ? 'px-[var(--space-2)] py-[var(--space-1)] text-[10px]'
+            : 'px-[var(--space-3)] py-[var(--space-1)] text-xs'
         }`}
         title={t.installApp}
       >
@@ -37,7 +39,9 @@ export const PWAInstallButton: React.FC<{ compact?: boolean; lang: LanguageCode 
         <button
           onClick={() => setShowIOSGuide(true)}
           className={`flex items-center gap-[var(--space-2)] rounded border border-emerald-500/40 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 font-bold transition cursor-pointer ${
-            compact ? 'px-[var(--space-2)] py-[var(--space-1)] text-[10px]' : 'px-[var(--space-3)] py-[var(--space-1)] text-xs'
+            compact
+              ? 'px-[var(--space-2)] py-[var(--space-1)] text-[10px]'
+              : 'px-[var(--space-3)] py-[var(--space-1)] text-xs'
           }`}
         >
           <Monitor className="w-3 h-3" />
@@ -51,7 +55,8 @@ export const PWAInstallButton: React.FC<{ compact?: boolean; lang: LanguageCode 
                 <Monitor className="w-4 h-4" /> {t.pwaIosHeading}
               </h3>
               <p className="mt-[var(--space-3)] text-neutral-300 leading-relaxed text-[11px]">
-                {t.pwaIosStep1}<br />
+                {t.pwaIosStep1}
+                <br />
                 {t.pwaIosStep2.replace('{addToHome}', t.addToHome)}
               </p>
               <button

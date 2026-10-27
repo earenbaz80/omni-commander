@@ -17,7 +17,8 @@ interface CmdWingetLibraryModalProps {
 interface CommandItem {
   id: string;
   name: string;
-  category: 'cmd_file' | 'cmd_system' | 'cmd_network' | 'cmd_disk' | 'winget_install' | 'winget_manage' | 'winget_config';
+  category:
+    'cmd_file' | 'cmd_system' | 'cmd_network' | 'cmd_disk' | 'winget_install' | 'winget_manage' | 'winget_config';
   categoryLabel: string;
   syntax: string;
   description: string;
@@ -35,7 +36,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     syntax: t.wingetSynSearch,
     description: t.wingetDescSearch,
     example: 'winget search vscode',
-    isWinget: true
+    isWinget: true,
   },
   {
     id: 'wg-install',
@@ -45,7 +46,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     syntax: t.wingetSynInstall,
     description: t.wingetDescInstall,
     example: 'winget install --id Git.Git -e',
-    isWinget: true
+    isWinget: true,
   },
   {
     id: 'wg-upgrade-all',
@@ -55,7 +56,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     syntax: 'winget upgrade --all --include-unknown',
     description: t.wingetDescUpgradeAll,
     example: 'winget upgrade --all',
-    isWinget: true
+    isWinget: true,
   },
   {
     id: 'wg-list',
@@ -65,7 +66,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     syntax: t.wingetSynList,
     description: t.wingetDescList,
     example: 'winget list chrome',
-    isWinget: true
+    isWinget: true,
   },
   {
     id: 'wg-uninstall',
@@ -75,7 +76,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     syntax: t.wingetSynUninstall,
     description: t.wingetDescUninstall,
     example: 'winget uninstall --id Notepad++.Notepad++',
-    isWinget: true
+    isWinget: true,
   },
   {
     id: 'wg-export',
@@ -85,7 +86,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     syntax: t.wingetSynExport,
     description: t.wingetDescExport,
     example: t.wingetExExport,
-    isWinget: true
+    isWinget: true,
   },
   {
     id: 'wg-import',
@@ -95,7 +96,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     syntax: t.wingetSynImport,
     description: t.wingetDescImport,
     example: t.wingetExImport,
-    isWinget: true
+    isWinget: true,
   },
   {
     id: 'wg-pin',
@@ -105,7 +106,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     syntax: t.wingetSynPin,
     description: t.wingetDescPin,
     example: 'winget pin add --id Python.Python.3.11',
-    isWinget: true
+    isWinget: true,
   },
 
   // CMD Files & Directories
@@ -116,7 +117,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     categoryLabel: t.wingetCatFiles,
     syntax: t.wingetSynDir,
     description: t.wingetDescDir,
-    example: 'DIR /B /S *.txt'
+    example: 'DIR /B /S *.txt',
   },
   {
     id: 'cmd-robocopy',
@@ -125,7 +126,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     categoryLabel: t.wingetCatFiles,
     syntax: t.wingetSynRobocopy,
     description: t.wingetDescRobocopy,
-    example: t.wingetExRobocopy
+    example: t.wingetExRobocopy,
   },
   {
     id: 'cmd-copy',
@@ -134,7 +135,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     categoryLabel: t.wingetCatFiles,
     syntax: t.wingetSynCopy,
     description: t.wingetDescCopy,
-    example: 'COPY file.txt C:\\Backup\\'
+    example: 'COPY file.txt C:\\Backup\\',
   },
   {
     id: 'cmd-attrib',
@@ -143,7 +144,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     categoryLabel: t.wingetCatFiles,
     syntax: t.wingetSynAttrib,
     description: t.wingetDescAttrib,
-    example: t.wingetExAttrib
+    example: t.wingetExAttrib,
   },
   {
     id: 'cmd-tree',
@@ -152,7 +153,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     categoryLabel: t.wingetCatFiles,
     syntax: t.wingetSynTree,
     description: t.wingetDescTree,
-    example: t.wingetExTree
+    example: t.wingetExTree,
   },
   {
     id: 'cmd-cipher',
@@ -161,7 +162,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     categoryLabel: t.wingetCatFiles,
     syntax: t.wingetSynCipher,
     description: t.wingetDescCipher,
-    example: 'CIPHER /W:C:\\'
+    example: 'CIPHER /W:C:\\',
   },
 
   // CMD Network & Security
@@ -172,7 +173,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     categoryLabel: t.wingetCatNetwork,
     syntax: 'IPCONFIG [/all] [/flushdns] [/release] [/renew]',
     description: t.wingetDescIpconfig,
-    example: 'IPCONFIG /flushdns'
+    example: 'IPCONFIG /flushdns',
   },
   {
     id: 'cmd-ping',
@@ -181,7 +182,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     categoryLabel: t.wingetCatNetwork,
     syntax: t.wingetSynPing,
     description: t.wingetDescPing,
-    example: 'PING google.com -t'
+    example: 'PING google.com -t',
   },
   {
     id: 'cmd-tracert',
@@ -190,7 +191,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     categoryLabel: t.wingetCatNetwork,
     syntax: t.wingetSynTracert,
     description: t.wingetDescTracert,
-    example: 'TRACERT 8.8.8.8'
+    example: 'TRACERT 8.8.8.8',
   },
   {
     id: 'cmd-netstat',
@@ -199,7 +200,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     categoryLabel: t.wingetCatNetwork,
     syntax: 'NETSTAT -ano',
     description: t.wingetDescNetstat,
-    example: 'NETSTAT -ano'
+    example: 'NETSTAT -ano',
   },
   {
     id: 'cmd-nslookup',
@@ -208,7 +209,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     categoryLabel: t.wingetCatNetwork,
     syntax: t.wingetSynNslookup,
     description: t.wingetDescNslookup,
-    example: 'NSLOOKUP microsoft.com'
+    example: 'NSLOOKUP microsoft.com',
   },
 
   // CMD System & Disk
@@ -219,7 +220,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     categoryLabel: t.wingetCatSystem,
     syntax: 'SFC /SCANNOW',
     description: t.wingetDescSfc,
-    example: 'SFC /SCANNOW'
+    example: 'SFC /SCANNOW',
   },
   {
     id: 'cmd-tasklist',
@@ -228,7 +229,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     categoryLabel: t.wingetCatSystem,
     syntax: 'TASKLIST | TASKKILL /PID <pid> /F /T',
     description: t.wingetDescTasklist,
-    example: 'TASKKILL /IM chrome.exe /F'
+    example: 'TASKKILL /IM chrome.exe /F',
   },
   {
     id: 'cmd-systeminfo',
@@ -237,7 +238,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     categoryLabel: t.wingetCatSystem,
     syntax: 'SYSTEMINFO [/FO {TABLE|LIST|CSV}]',
     description: t.wingetDescSysteminfo,
-    example: 'SYSTEMINFO'
+    example: 'SYSTEMINFO',
   },
   {
     id: 'cmd-chkdsk',
@@ -246,7 +247,7 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     categoryLabel: t.wingetCatDisk,
     syntax: t.wingetSynChkdsk,
     description: t.wingetDescChkdsk,
-    example: 'CHKDSK C: /F /R'
+    example: 'CHKDSK C: /F /R',
   },
   {
     id: 'cmd-diskpart',
@@ -255,15 +256,15 @@ const buildCommandDatabase = (t: Record<string, string>): CommandItem[] => [
     categoryLabel: t.wingetCatDisk,
     syntax: 'DISKPART',
     description: t.wingetDescDiskpart,
-    example: 'DISKPART'
-  }
+    example: 'DISKPART',
+  },
 ];
 
 export const CmdWingetLibraryModal: React.FC<CmdWingetLibraryModalProps> = ({
   theme,
   lang,
   onClose,
-  onRunInTerminal
+  onRunInTerminal,
 }) => {
   const t = getTranslations(lang);
   const COMMAND_DATABASE = buildCommandDatabase(t);
@@ -282,10 +283,11 @@ export const CmdWingetLibraryModal: React.FC<CmdWingetLibraryModalProps> = ({
     { id: 'cmd_disk', label: t.wingetCatDisk },
   ];
 
-  const filteredCommands = COMMAND_DATABASE.filter(cmd => {
+  const filteredCommands = COMMAND_DATABASE.filter((cmd) => {
     const matchesCat = selectedCategory === 'all' || cmd.category === selectedCategory;
     const q = searchQuery.toLowerCase();
-    const matchesQuery = !q || 
+    const matchesQuery =
+      !q ||
       cmd.name.toLowerCase().includes(q) ||
       cmd.syntax.toLowerCase().includes(q) ||
       cmd.description.toLowerCase().includes(q) ||
@@ -305,9 +307,11 @@ export const CmdWingetLibraryModal: React.FC<CmdWingetLibraryModalProps> = ({
   return (
     <ModalShell title={t.cmdLibTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
-
         {/* Filter Bar & Search */}
-        <div className="p-[var(--space-3)] border-b flex flex-col sm:flex-row items-center gap-[var(--space-3)] bg-black/30" style={{ borderColor: theme.borderPanel }}>
+        <div
+          className="p-[var(--space-3)] border-b flex flex-col sm:flex-row items-center gap-[var(--space-3)] bg-black/30"
+          style={{ borderColor: theme.borderPanel }}
+        >
           <div className="relative flex-1 w-full">
             <Search className="w-4 h-4 absolute left-2.5 top-2.5 opacity-50 text-amber-300" />
             <input
@@ -320,7 +324,7 @@ export const CmdWingetLibraryModal: React.FC<CmdWingetLibraryModalProps> = ({
           </div>
 
           <div className="flex items-center gap-[var(--space-1)] overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 no-scrollbar">
-            {categories.map(cat => (
+            {categories.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
@@ -343,8 +347,8 @@ export const CmdWingetLibraryModal: React.FC<CmdWingetLibraryModalProps> = ({
               {t.wingetNoResults.replace('{query}', '"' + searchQuery + '"')}
             </div>
           ) : (
-            filteredCommands.map(cmd => (
-              <div 
+            filteredCommands.map((cmd) => (
+              <div
                 key={cmd.id}
                 className="p-[var(--space-3)] rounded border bg-black/40 hover:bg-black/60 transition-all flex flex-col gap-[var(--space-2)] relative group"
                 style={{ borderColor: theme.borderPanel }}
@@ -352,11 +356,13 @@ export const CmdWingetLibraryModal: React.FC<CmdWingetLibraryModalProps> = ({
                 <div className="flex flex-wrap items-center justify-between gap-[var(--space-2)] border-b border-white/10 pb-2">
                   <div className="flex items-center gap-[var(--space-2)]">
                     <span className="font-bold text-amber-300 text-sm">{cmd.name}</span>
-                    <span className={`text-[10px] px-[var(--space-2)] py-[var(--space-1)] rounded font-sans border ${
-                      cmd.isWinget 
-                        ? 'bg-blue-500/20 text-blue-300 border-blue-400/40' 
-                        : 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
-                    }`}>
+                    <span
+                      className={`text-[10px] px-[var(--space-2)] py-[var(--space-1)] rounded font-sans border ${
+                        cmd.isWinget
+                          ? 'bg-blue-500/20 text-blue-300 border-blue-400/40'
+                          : 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
+                      }`}
+                    >
                       {cmd.categoryLabel}
                     </span>
                   </div>
@@ -399,9 +405,7 @@ export const CmdWingetLibraryModal: React.FC<CmdWingetLibraryModalProps> = ({
                 </div>
 
                 {/* Description */}
-                <p className="text-white/80 font-sans text-xs leading-relaxed">
-                  {cmd.description}
-                </p>
+                <p className="text-white/80 font-sans text-xs leading-relaxed">{cmd.description}</p>
 
                 {/* Syntax & Example */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--space-2)] text-[11px] pt-1">
@@ -425,7 +429,7 @@ export const CmdWingetLibraryModal: React.FC<CmdWingetLibraryModalProps> = ({
         </div>
 
         {/* Footer Info */}
-        <div 
+        <div
           className="px-[var(--space-4)] py-[var(--space-2)] border-t flex flex-wrap items-center justify-between text-[11px] opacity-80"
           style={{ backgroundColor: theme.headerBg, borderColor: theme.borderPanel }}
         >

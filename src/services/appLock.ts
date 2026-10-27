@@ -49,17 +49,13 @@ export async function deriveHash(password: string, salt: string): Promise<string
   if (!subtle) {
     throw new Error(tGlobal('appLockNoWebCrypto'));
   }
-  const keyMaterial = await subtle.importKey(
-    'raw',
-    encoder.encode(password),
-    { name: 'PBKDF2' },
-    false,
-    ['deriveBits']
-  );
+  const keyMaterial = await subtle.importKey('raw', encoder.encode(password), { name: 'PBKDF2' }, false, [
+    'deriveBits',
+  ]);
   const bits = await subtle.deriveBits(
     { name: 'PBKDF2', salt: base64ToBytes(salt) as BufferSource, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
     keyMaterial,
-    KEY_BITS
+    KEY_BITS,
   );
   return bytesToBase64(new Uint8Array(bits));
 }

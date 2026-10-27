@@ -1,38 +1,77 @@
 ﻿import React from 'react';
 import { ThemeConfig } from '../services/themeManager';
-import { ActiveModal, Drive, FileItem, LanguageCode, PanelState, PanelTab, TransferOptions, TransferPlan, UserSettings } from '../types';
+import {
+  ActiveModal,
+  Drive,
+  FileItem,
+  LanguageCode,
+  PanelState,
+  PanelTab,
+  TransferOptions,
+  TransferPlan,
+  UserSettings,
+} from '../types';
 import { fsEngine } from '../services/fileSystem';
 import { TaskQueueBar } from './TaskQueueBar';
 import { OfflineIndicator } from './OfflineIndicator';
 
-const ViewerModal = React.lazy(() => import('./modals/ViewerModal').then(m => ({ default: m.ViewerModal })));
-const EditorModal = React.lazy(() => import('./modals/EditorModal').then(m => ({ default: m.EditorModal })));
-const CopyMoveModal = React.lazy(() => import('./modals/CopyMoveModal').then(m => ({ default: m.CopyMoveModal })));
-const MkDirModal = React.lazy(() => import('./modals/MkDirModal').then(m => ({ default: m.MkDirModal })));
-const DeleteModal = React.lazy(() => import('./modals/DeleteModal').then(m => ({ default: m.DeleteModal })));
-const BatchRenameModal = React.lazy(() => import('./modals/BatchRenameModal').then(m => ({ default: m.BatchRenameModal })));
-const DiffCompareModal = React.lazy(() => import('./modals/DiffCompareModal').then(m => ({ default: m.DiffCompareModal })));
-const SearchGrepModal = React.lazy(() => import('./modals/SearchGrepModal').then(m => ({ default: m.SearchGrepModal })));
-const ChecksumModal = React.lazy(() => import('./modals/ChecksumModal').then(m => ({ default: m.ChecksumModal })));
-const ZipArchiveModal = React.lazy(() => import('./modals/ZipArchiveModal').then(m => ({ default: m.ZipArchiveModal })));
-const DiskUsageModal = React.lazy(() => import('./modals/DiskUsageModal').then(m => ({ default: m.DiskUsageModal })));
-const PropertiesModal = React.lazy(() => import('./modals/PropertiesModal').then(m => ({ default: m.PropertiesModal })));
-const SettingsModal = React.lazy(() => import('./modals/SettingsModal').then(m => ({ default: m.SettingsModal })));
-const HelpModal = React.lazy(() => import('./modals/HelpModal').then(m => ({ default: m.HelpModal })));
-const AboutModal = React.lazy(() => import('./modals/AboutModal').then(m => ({ default: m.AboutModal })));
-const UserMenuModal = React.lazy(() => import('./modals/UserMenuModal').then(m => ({ default: m.UserMenuModal })));
-const QuitModal = React.lazy(() => import('./modals/QuitModal').then(m => ({ default: m.QuitModal })));
-const ProtectFolderModal = React.lazy(() => import('./modals/ProtectFolderModal').then(m => ({ default: m.ProtectFolderModal })));
-const UnlockFolderModal = React.lazy(() => import('./modals/UnlockFolderModal').then(m => ({ default: m.UnlockFolderModal })));
-const SyncFoldersModal = React.lazy(() => import('./modals/SyncFoldersModal').then(m => ({ default: m.SyncFoldersModal })));
-const FTPManagerModal = React.lazy(() => import('./modals/FTPManagerModal').then(m => ({ default: m.FTPManagerModal })));
-const FileSplitterJoinerModal = React.lazy(() => import('./modals/FileSplitterJoinerModal').then(m => ({ default: m.FileSplitterJoinerModal })));
-const CmdWingetLibraryModal = React.lazy(() => import('./modals/CmdWingetLibraryModal').then(m => ({ default: m.CmdWingetLibraryModal })));
-const BookmarksHotlistModal = React.lazy(() => import('./modals/BookmarksHotlistModal').then(m => ({ default: m.BookmarksHotlistModal })));
-const RecycleBinModal = React.lazy(() => import('./modals/RecycleBinModal').then(m => ({ default: m.RecycleBinModal })));
-const BackgroundTasksModal = React.lazy(() => import('./modals/BackgroundTasksModal').then(m => ({ default: m.BackgroundTasksModal })));
-const ArchiveInfoModal = React.lazy(() => import('./modals/ArchiveInfoModal').then(m => ({ default: m.ArchiveInfoModal })));
-
+const ViewerModal = React.lazy(() => import('./modals/ViewerModal').then((m) => ({ default: m.ViewerModal })));
+const EditorModal = React.lazy(() => import('./modals/EditorModal').then((m) => ({ default: m.EditorModal })));
+const CopyMoveModal = React.lazy(() => import('./modals/CopyMoveModal').then((m) => ({ default: m.CopyMoveModal })));
+const MkDirModal = React.lazy(() => import('./modals/MkDirModal').then((m) => ({ default: m.MkDirModal })));
+const DeleteModal = React.lazy(() => import('./modals/DeleteModal').then((m) => ({ default: m.DeleteModal })));
+const BatchRenameModal = React.lazy(() =>
+  import('./modals/BatchRenameModal').then((m) => ({ default: m.BatchRenameModal })),
+);
+const DiffCompareModal = React.lazy(() =>
+  import('./modals/DiffCompareModal').then((m) => ({ default: m.DiffCompareModal })),
+);
+const SearchGrepModal = React.lazy(() =>
+  import('./modals/SearchGrepModal').then((m) => ({ default: m.SearchGrepModal })),
+);
+const ChecksumModal = React.lazy(() => import('./modals/ChecksumModal').then((m) => ({ default: m.ChecksumModal })));
+const ZipArchiveModal = React.lazy(() =>
+  import('./modals/ZipArchiveModal').then((m) => ({ default: m.ZipArchiveModal })),
+);
+const DiskUsageModal = React.lazy(() => import('./modals/DiskUsageModal').then((m) => ({ default: m.DiskUsageModal })));
+const PropertiesModal = React.lazy(() =>
+  import('./modals/PropertiesModal').then((m) => ({ default: m.PropertiesModal })),
+);
+const SettingsModal = React.lazy(() => import('./modals/SettingsModal').then((m) => ({ default: m.SettingsModal })));
+const HelpModal = React.lazy(() => import('./modals/HelpModal').then((m) => ({ default: m.HelpModal })));
+const AboutModal = React.lazy(() => import('./modals/AboutModal').then((m) => ({ default: m.AboutModal })));
+const UserMenuModal = React.lazy(() => import('./modals/UserMenuModal').then((m) => ({ default: m.UserMenuModal })));
+const QuitModal = React.lazy(() => import('./modals/QuitModal').then((m) => ({ default: m.QuitModal })));
+const ProtectFolderModal = React.lazy(() =>
+  import('./modals/ProtectFolderModal').then((m) => ({ default: m.ProtectFolderModal })),
+);
+const UnlockFolderModal = React.lazy(() =>
+  import('./modals/UnlockFolderModal').then((m) => ({ default: m.UnlockFolderModal })),
+);
+const SyncFoldersModal = React.lazy(() =>
+  import('./modals/SyncFoldersModal').then((m) => ({ default: m.SyncFoldersModal })),
+);
+const FTPManagerModal = React.lazy(() =>
+  import('./modals/FTPManagerModal').then((m) => ({ default: m.FTPManagerModal })),
+);
+const FileSplitterJoinerModal = React.lazy(() =>
+  import('./modals/FileSplitterJoinerModal').then((m) => ({ default: m.FileSplitterJoinerModal })),
+);
+const CmdWingetLibraryModal = React.lazy(() =>
+  import('./modals/CmdWingetLibraryModal').then((m) => ({ default: m.CmdWingetLibraryModal })),
+);
+const BookmarksHotlistModal = React.lazy(() =>
+  import('./modals/BookmarksHotlistModal').then((m) => ({ default: m.BookmarksHotlistModal })),
+);
+const RecycleBinModal = React.lazy(() =>
+  import('./modals/RecycleBinModal').then((m) => ({ default: m.RecycleBinModal })),
+);
+const BackgroundTasksModal = React.lazy(() =>
+  import('./modals/BackgroundTasksModal').then((m) => ({ default: m.BackgroundTasksModal })),
+);
+const ArchiveInfoModal = React.lazy(() =>
+  import('./modals/ArchiveInfoModal').then((m) => ({ default: m.ArchiveInfoModal })),
+);
 
 type UnlockTarget = {
   side: 'left' | 'right';
@@ -70,7 +109,7 @@ interface AppModalsProps {
   handleElevateTransfer: (
     op: 'copy' | 'move',
     targetPath: string,
-    options: TransferOptions
+    options: TransferOptions,
   ) => Promise<{ ok: boolean; reason?: string } | undefined>;
   handleConfirmDelete: () => void;
   handleConfirmMkDir: (dirName: string) => void;
@@ -135,8 +174,8 @@ export const AppModals: React.FC<AppModalsProps> = ({
 }) => {
   return (
     <>
-        {/* 8. Modals & Dialogs */}
-        <React.Suspense fallback={null}>
+      {/* 8. Modals & Dialogs */}
+      <React.Suspense fallback={null}>
         {activeModal === 'viewer' && selectedFileForModal && (
           <ViewerModal
             theme={currentTheme}
@@ -257,7 +296,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
             currentPath={currentActiveTab.currentPath}
             onSelectFile={(file) => {
               handleNavigate(activePanel, file.path);
-              const idx = activeItems.findIndex(i => i.id === file.id);
+              const idx = activeItems.findIndex((i) => i.id === file.id);
               if (idx >= 0) handleSelectIndex(activePanel, idx);
             }}
             onClose={() => setActiveModal(null)}
@@ -277,9 +316,17 @@ export const AppModals: React.FC<AppModalsProps> = ({
           <ZipArchiveModal
             theme={currentTheme}
             lang={lang}
-            selectedItems={fsEngine.getArchiveSource(currentActiveTab.driveId, currentActiveTab.currentPath) ? [fsEngine.getArchiveSource(currentActiveTab.driveId, currentActiveTab.currentPath)!] : getSelectedOrFocusedItems()}
+            selectedItems={
+              fsEngine.getArchiveSource(currentActiveTab.driveId, currentActiveTab.currentPath)
+                ? [fsEngine.getArchiveSource(currentActiveTab.driveId, currentActiveTab.currentPath)!]
+                : getSelectedOrFocusedItems()
+            }
             targetDriveId={currentActiveTab.driveId}
-            targetPath={fsEngine.getArchiveSource(currentActiveTab.driveId, currentActiveTab.currentPath) ? currentInactiveTab.currentPath : currentActiveTab.currentPath}
+            targetPath={
+              fsEngine.getArchiveSource(currentActiveTab.driveId, currentActiveTab.currentPath)
+                ? currentInactiveTab.currentPath
+                : currentActiveTab.currentPath
+            }
             onCompress={handleCompressZip}
             onExtract={handleExtractZip}
             onClose={() => setActiveModal(null)}
@@ -287,12 +334,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
         )}
 
         {activeModal === 'disk_usage' && (
-          <DiskUsageModal
-            theme={currentTheme}
-            lang={lang}
-            drives={drives}
-            onClose={() => setActiveModal(null)}
-          />
+          <DiskUsageModal theme={currentTheme} lang={lang} drives={drives} onClose={() => setActiveModal(null)} />
         )}
 
         {activeModal === 'properties' && selectedFileForModal && (
@@ -316,18 +358,12 @@ export const AppModals: React.FC<AppModalsProps> = ({
             theme={currentTheme}
             lang={lang}
             settings={settings}
-            onUpdateSettings={(newS) => setSettings(prev => ({ ...prev, ...newS }))}
+            onUpdateSettings={(newS) => setSettings((prev) => ({ ...prev, ...newS }))}
             onClose={() => setActiveModal(null)}
           />
         )}
 
-        {activeModal === 'help' && (
-          <HelpModal
-            theme={currentTheme}
-            lang={lang}
-            onClose={() => setActiveModal(null)}
-          />
-        )}
+        {activeModal === 'help' && <HelpModal theme={currentTheme} lang={lang} onClose={() => setActiveModal(null)} />}
 
         {activeModal === 'about' && (
           <AboutModal
@@ -352,7 +388,12 @@ export const AppModals: React.FC<AppModalsProps> = ({
             theme={currentTheme}
             lang={lang}
             folderPath={modalData?.targetFolderPath || currentActiveTab.currentPath}
-            isAlreadyProtected={!!(settings.protectedFolders && settings.protectedFolders[modalData?.targetFolderPath || currentActiveTab.currentPath])}
+            isAlreadyProtected={
+              !!(
+                settings.protectedFolders &&
+                settings.protectedFolders[modalData?.targetFolderPath || currentActiveTab.currentPath]
+              )
+            }
             onSetFolderPassword={handleSetFolderPassword}
             onClose={() => {
               setActiveModal(null);
@@ -372,9 +413,9 @@ export const AppModals: React.FC<AppModalsProps> = ({
               const side = unlockTarget.side;
               const targetPath = unlockTarget.path;
               const targetSet = side === 'left' ? setLeftPanel : setRightPanel;
-              targetSet(p => ({
+              targetSet((p) => ({
                 ...p,
-                tabs: p.tabs.map(tab => {
+                tabs: p.tabs.map((tab) => {
                   if (tab.id !== p.activeTabId) return tab;
                   const newHistory = [...tab.history.slice(0, tab.historyIndex + 1), targetPath];
                   return {
@@ -384,9 +425,9 @@ export const AppModals: React.FC<AppModalsProps> = ({
                     historyIndex: newHistory.length - 1,
                     selectedIds: [],
                     focusedIndex: 0,
-                    filterText: ''
+                    filterText: '',
                   };
-                })
+                }),
               }));
               setUnlockTarget(null);
             }}
@@ -408,7 +449,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
             rightPath={rightTab.currentPath}
             rightItems={rightItems}
             onSyncComplete={() => {
-              setFsTick(t => t + 1);
+              setFsTick((t) => t + 1);
             }}
             onClose={() => setActiveModal(null)}
           />
@@ -425,7 +466,10 @@ export const AppModals: React.FC<AppModalsProps> = ({
           />
         )}
 
-        {(activeModal === 'file_splitter' || activeModal === 'fileSplitter' || activeModal === 'file_joiner' || activeModal === 'fileJoiner') && (
+        {(activeModal === 'file_splitter' ||
+          activeModal === 'fileSplitter' ||
+          activeModal === 'file_joiner' ||
+          activeModal === 'fileJoiner') && (
           <FileSplitterJoinerModal
             theme={currentTheme}
             lang={lang}
@@ -434,7 +478,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
             targetDriveId={currentInactiveTab.driveId}
             targetPath={currentInactiveTab.currentPath}
             onComplete={() => {
-              setFsTick(t => t + 1);
+              setFsTick((t) => t + 1);
             }}
             onClose={() => setActiveModal(null)}
           />
@@ -467,7 +511,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
           <RecycleBinModal
             theme={currentTheme}
             lang={lang}
-            onRefresh={() => setFsTick(t => t + 1)}
+            onRefresh={() => setFsTick((t) => t + 1)}
             onClose={() => setActiveModal(null)}
           />
         )}
@@ -487,8 +531,14 @@ export const AppModals: React.FC<AppModalsProps> = ({
             lang={lang}
             fileName={archivePwdFileName || 'archive'}
             invalid={archivePwdInvalid || false}
-            onSubmit={(pwd) => { handleArchivePasswordSubmit?.(pwd); setActiveModal(null); }}
-            onClose={() => { handleArchivePasswordClose?.(); setActiveModal(null); }}
+            onSubmit={(pwd) => {
+              handleArchivePasswordSubmit?.(pwd);
+              setActiveModal(null);
+            }}
+            onClose={() => {
+              handleArchivePasswordClose?.();
+              setActiveModal(null);
+            }}
           />
         )}
 
@@ -528,7 +578,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
 
         {/* Offline Status Indicator */}
         <OfflineIndicator lang={lang} />
-        </React.Suspense>
+      </React.Suspense>
     </>
   );
 };

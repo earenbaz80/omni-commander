@@ -33,7 +33,7 @@ export async function pickPathsFromDisk(mode: PickMode, lang: LanguageCode): Pro
   try {
     const picked = await bridge.pickPaths(mode, title);
     if (!Array.isArray(picked)) return [];
-    return picked.filter(path => typeof path === 'string' && path.trim().length > 0);
+    return picked.filter((path) => typeof path === 'string' && path.trim().length > 0);
   } catch {
     return [];
   }

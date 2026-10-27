@@ -71,12 +71,7 @@ function TaskIcon({ type }: { type: BackgroundTask['type'] }) {
  * out of the way without losing the transfer, which is what minimizing means
  * everywhere else in this app.
  */
-export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({
-  theme,
-  lang,
-  onNewTransfer,
-  onClose
-}) => {
+export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({ theme, lang, onNewTransfer, onClose }) => {
   const t = getTranslations(lang);
   const [tasks, setTasks] = useState<BackgroundTask[]>(() => taskQueue.getTasks());
   const [tab, setTab] = useState<Tab>('list');
@@ -93,19 +88,19 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({
   // A task only keeps its latest error, so the log accumulates failures as they
   // happen. The dismissed set keeps a cleared entry from coming straight back.
   useEffect(() => {
-    setLog(prev => {
+    setLog((prev) => {
       const next = [...prev];
       let changed = false;
       for (const task of tasks) {
         if (!task.error) continue;
         const key = `${task.id}:${task.error}`;
         if (dismissed.current.has(key)) continue;
-        if (next.some(entry => entry.key === key)) continue;
+        if (next.some((entry) => entry.key === key)) continue;
         next.push({
           key,
           time: new Date().toLocaleTimeString(),
           title: task.title,
-          message: task.error
+          message: task.error,
         });
         changed = true;
       }
@@ -115,11 +110,11 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({
 
   const dialogRef = useModalDialog<HTMLDivElement>(t.taskQueueShort);
 
-  const transfers = tasks.filter(entry => TRANSFER_TYPES.includes(entry.type));
+  const transfers = tasks.filter((entry) => TRANSFER_TYPES.includes(entry.type));
   const active =
-    transfers.find(entry => entry.status === 'running') ||
-    transfers.find(entry => entry.status === 'paused') ||
-    transfers.find(entry => entry.status === 'queued');
+    transfers.find((entry) => entry.status === 'running') ||
+    transfers.find((entry) => entry.status === 'paused') ||
+    transfers.find((entry) => entry.status === 'queued');
   const currentSpeedMb = active?.throttleBps ? Math.round(active.throttleBps / (1024 * 1024)) : 0;
 
   const applySpeed = (mb: number) => {
@@ -148,7 +143,6 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({
   return (
     <ModalShell title={t.taskQueueShort} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
-
         {/* Progress of whatever is running right now, always visible. */}
         {active && (
           <div className="px-[var(--space-3)] pt-2 flex flex-col gap-[var(--space-1)] shrink-0">
@@ -174,7 +168,7 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({
                 [
                   ['list', t.transferTabList],
                   ['errors', `${t.transferTabErrors}${log.length > 0 ? ` (${log.length})` : ''}`],
-                  ['options', t.transferTabOptions]
+                  ['options', t.transferTabOptions],
                 ] as Array<[Tab, string]>
               ).map(([value, label]) => (
                 <button
@@ -188,7 +182,7 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({
                   style={{
                     backgroundColor: tab === value ? theme.modalBg : theme.modalHeaderBg,
                     borderColor: theme.modalBorder,
-                    opacity: tab === value ? 1 : 0.65
+                    opacity: tab === value ? 1 : 0.65,
                   }}
                 >
                   {label}
@@ -263,8 +257,12 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({
                   {log.length === 0 && (
                     <div className="text-[11px] opacity-70 py-6 text-center">{t.transferLogEmpty}</div>
                   )}
-                  {log.map(entry => (
-                    <div key={entry.key} className="flex items-start gap-[var(--space-2)] text-[11px]" title={entry.title}>
+                  {log.map((entry) => (
+                    <div
+                      key={entry.key}
+                      className="flex items-start gap-[var(--space-2)] text-[11px]"
+                      title={entry.title}
+                    >
                       <span className="opacity-60 shrink-0 tabular-nums">{entry.time}</span>
                       <span className="flex-1 break-all text-rose-300">{entry.message}</span>
                     </div>
@@ -282,10 +280,10 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({
                       id="monitorSpeed"
                       value={currentSpeedMb}
                       disabled={!canControl}
-                      onChange={e => applySpeed(Number(e.target.value))}
+                      onChange={(e) => applySpeed(Number(e.target.value))}
                       className="w-full bg-black/50 border border-white/30 rounded px-[var(--space-3)] py-[var(--space-2)] font-mono text-xs cursor-pointer disabled:opacity-50 disabled:cursor-default outline-none"
                     >
-                      {SPEED_OPTIONS_MB.map(mb => (
+                      {SPEED_OPTIONS_MB.map((mb) => (
                         <option key={mb} value={mb}>
                           {mb === 0 ? t.speedUnlimited : `${mb} MB/s`}
                         </option>
@@ -299,7 +297,7 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({
                     <select
                       id="monitorAfter"
                       value={afterFinish}
-                      onChange={e => chooseAfterFinish(e.target.value as AfterFinish)}
+                      onChange={(e) => chooseAfterFinish(e.target.value as AfterFinish)}
                       className="w-full bg-black/50 border border-white/30 rounded px-[var(--space-3)] py-[var(--space-2)] font-mono text-xs cursor-pointer outline-none"
                     >
                       <option value="stay">{t.afterFinishStay}</option>

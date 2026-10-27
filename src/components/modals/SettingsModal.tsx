@@ -41,14 +41,7 @@ const LANGUAGES: { code: LanguageCode; label: string }[] = [
   { code: 'ja', label: '日本語' },
 ];
 
-type SettingsTab =
-  | 'theme'
-  | 'language'
-  | 'appearance'
-  | 'behavior'
-  | 'keybindings'
-  | 'sound'
-  | 'security';
+type SettingsTab = 'theme' | 'language' | 'appearance' | 'behavior' | 'keybindings' | 'sound' | 'security';
 
 // Tab labels use translation keys for i18n support
 const TAB_LABEL_KEYS: Record<SettingsTab, string> = {
@@ -98,7 +91,12 @@ const INITIAL_FORM: FormSettings = {
   confirmPassword: '',
 };
 
-export function SettingsTabButton({ active, onClick, icon, label }: {
+export function SettingsTabButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
   active: boolean;
   onClick: () => void;
   icon: React.ReactNode;
@@ -120,10 +118,22 @@ export function SettingsTabButton({ active, onClick, icon, label }: {
   );
 }
 
-export function SectionCard({ title, children, className = '' }: { title: string; children: React.ReactNode; className?: string }) {
+export function SectionCard({
+  title,
+  children,
+  className = '',
+}: {
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <div className={`rounded border border-white/10 bg-black/20 p-[var(--space-2)] space-y-[var(--space-2)] ${className}`}>
-      <h4 className="font-bold text-amber-300 uppercase tracking-wider text-[var(--fs-sm)] mb-[var(--space-1)]">{title}</h4>
+    <div
+      className={`rounded border border-white/10 bg-black/20 p-[var(--space-2)] space-y-[var(--space-2)] ${className}`}
+    >
+      <h4 className="font-bold text-amber-300 uppercase tracking-wider text-[var(--fs-sm)] mb-[var(--space-1)]">
+        {title}
+      </h4>
       <div className="space-y-[var(--space-1)]">{children}</div>
     </div>
   );
@@ -133,28 +143,35 @@ export function ThemePreview({ themeId }: { themeId: ThemeId }) {
   const colors = useThemeColors(themeId);
 
   return (
-    <div className="rounded border p-[var(--space-2)] mt-[var(--space-1)]" style={{ backgroundColor: colors.panel, borderColor: colors.accent }}>
+    <div
+      className="rounded border p-[var(--space-2)] mt-[var(--space-1)]"
+      style={{ backgroundColor: colors.panel, borderColor: colors.accent }}
+    >
       <div className="flex items-center gap-[var(--space-2)] mb-[var(--space-1)]">
         <div className="w-4 h-4 rounded" style={{ backgroundColor: colors.accent }} />
-        <span className="font-bold text-[var(--fs-sm)]" style={{ color: colors.text }}>Vista previa</span>
+        <span className="font-bold text-[var(--fs-sm)]" style={{ color: colors.text }}>
+          Vista previa
+        </span>
       </div>
       <div className="grid grid-cols-2 gap-[var(--space-1)] text-[var(--fs-8)]">
-        <div className="p-[var(--space-1)] rounded" style={{ backgroundColor: colors.bg, color: colors.text }}>Panel</div>
-        <div className="p-[var(--space-1)] rounded" style={{ backgroundColor: colors.accent, color: '#000' }}>Acento</div>
-        <div className="p-[var(--space-1)] rounded" style={{ backgroundColor: colors.panel, color: colors.text }}>Texto</div>
-        <div className="p-[var(--space-1)] rounded" style={{ backgroundColor: colors.bg, color: colors.accent }}>Borde</div>
+        <div className="p-[var(--space-1)] rounded" style={{ backgroundColor: colors.bg, color: colors.text }}>
+          Panel
+        </div>
+        <div className="p-[var(--space-1)] rounded" style={{ backgroundColor: colors.accent, color: '#000' }}>
+          Acento
+        </div>
+        <div className="p-[var(--space-1)] rounded" style={{ backgroundColor: colors.panel, color: colors.text }}>
+          Texto
+        </div>
+        <div className="p-[var(--space-1)] rounded" style={{ backgroundColor: colors.bg, color: colors.accent }}>
+          Borde
+        </div>
       </div>
     </div>
   );
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({
-  theme,
-  lang,
-  settings,
-  onUpdateSettings,
-  onClose,
-}) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, settings, onUpdateSettings, onClose }) => {
   const t = getTranslations(lang);
   const [activeTab, setActiveTab] = useState<SettingsTab>('theme');
   const [formData, setFormData] = useState<FormSettings>({ ...INITIAL_FORM, ...settings });
@@ -162,25 +179,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [touched, setTouched] = useState<Partial<Record<keyof FormSettings, boolean>>>({});
 
   // Validación en tiempo real
-  const validateField = useCallback((name: keyof FormSettings, value: any) => {
-    const newErrors = { ...errors };
-    if (name === 'newPassword' && value && value !== formData.confirmPassword) {
-      newErrors.confirmPassword = (t as any).protectMismatch || 'Passwords do not match';
-    } else if (name === 'confirmPassword' && value && value !== formData.newPassword) {
-      newErrors.confirmPassword = (t as any).protectMismatch || 'Passwords do not match';
-    } else if (name === 'confirmPassword' && value && value === formData.newPassword) {
-      delete newErrors.confirmPassword;
-    }
-    setErrors(newErrors);
-  }, [errors, formData]);
+  const validateField = useCallback(
+    (name: keyof FormSettings, value: any) => {
+      const newErrors = { ...errors };
+      if (name === 'newPassword' && value && value !== formData.confirmPassword) {
+        newErrors.confirmPassword = (t as any).protectMismatch || 'Passwords do not match';
+      } else if (name === 'confirmPassword' && value && value !== formData.newPassword) {
+        newErrors.confirmPassword = (t as any).protectMismatch || 'Passwords do not match';
+      } else if (name === 'confirmPassword' && value && value === formData.newPassword) {
+        delete newErrors.confirmPassword;
+      }
+      setErrors(newErrors);
+    },
+    [errors, formData],
+  );
 
-  const handleChange = useCallback((name: keyof FormSettings, value: any) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
-    validateField(name, value);
-  }, [validateField]);
+  const handleChange = useCallback(
+    (name: keyof FormSettings, value: any) => {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+      validateField(name, value);
+    },
+    [validateField],
+  );
 
   const handleBlur = useCallback((name: keyof FormSettings) => {
-    setTouched(prev => ({ ...prev, [name]: true }));
+    setTouched((prev) => ({ ...prev, [name]: true }));
   }, []);
 
   const handleSave = () => {
@@ -219,7 +242,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 type="button"
                 onClick={() => {
                   soundManager.playKeyTick();
-                  setFormData(prev => ({ ...prev, theme: th.id }));
+                  setFormData((prev) => ({ ...prev, theme: th.id }));
                 }}
                 className={`p-[var(--space-2)] rounded text-left border flex items-center justify-between cursor-pointer transition-all ${
                   isSelected
@@ -247,7 +270,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             type="button"
             onClick={() => {
               soundManager.playKeyTick();
-              setFormData(prev => ({ ...prev, language: l.code }));
+              setFormData((prev) => ({ ...prev, language: l.code }));
             }}
             className={`p-[var(--space-1)] rounded text-center border cursor-pointer ${
               formData.language === l.code
@@ -475,7 +498,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             type="button"
             onClick={() => {
               soundManager.playKeyTick();
-              setFormData(prev => ({ ...prev, keybindingPreset: preset.id as any }));
+              setFormData((prev) => ({ ...prev, keybindingPreset: preset.id as any }));
             }}
             className={`p-[var(--space-2)] rounded border text-left cursor-pointer transition ${
               formData.keybindingPreset === preset.id
@@ -555,13 +578,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 />
                 <button
                   type="button"
-                  onClick={() => setTouched(prev => ({ ...prev, newPassword: !prev.newPassword }))}
+                  onClick={() => setTouched((prev) => ({ ...prev, newPassword: !prev.newPassword }))}
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 text-amber-300 hover:text-amber-100"
                   aria-label="Toggle password visibility"
                 >
                   {touched.newPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
-                {errors.newPassword && <span className="text-[var(--fs-8)] text-rose-300 mt-[var(--space-1)] block">{errors.newPassword}</span>}
+                {errors.newPassword && (
+                  <span className="text-[var(--fs-8)] text-rose-300 mt-[var(--space-1)] block">
+                    {errors.newPassword}
+                  </span>
+                )}
               </div>
             </div>
             <div className="sm:col-span-2">
@@ -577,13 +604,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 />
                 <button
                   type="button"
-                  onClick={() => setTouched(prev => ({ ...prev, confirmPassword: !prev.confirmPassword }))}
+                  onClick={() => setTouched((prev) => ({ ...prev, confirmPassword: !prev.confirmPassword }))}
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 text-amber-300 hover:text-amber-100"
                   aria-label="Toggle password visibility"
                 >
                   {touched.confirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
-                {errors.confirmPassword && <span className="text-[var(--fs-8)] text-rose-300 mt-[var(--space-1)] block">{errors.confirmPassword}</span>}
+                {errors.confirmPassword && (
+                  <span className="text-[var(--fs-8)] text-rose-300 mt-[var(--space-1)] block">
+                    {errors.confirmPassword}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -604,9 +635,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <ModalShell title={t.settingsTitle} theme={theme} onClose={handleCancel} closeButtonLabel={t.btnCancel}>
-      <div className="w-full max-w-3xl max-h-[90vh] flex flex-row rounded shadow-2xl border text-[var(--fs-sm)] overflow-hidden"
-        style={{ backgroundColor: theme.modalBg, borderColor: theme.modalBorder, color: theme.itemText }}>
-        
+      <div
+        className="w-full max-w-3xl max-h-[90vh] flex flex-row rounded shadow-2xl border text-[var(--fs-sm)] overflow-hidden"
+        style={{ backgroundColor: theme.modalBg, borderColor: theme.modalBorder, color: theme.itemText }}
+      >
         {/* Sidebar - Vertical Tabs */}
         <div className="flex flex-col gap-[var(--space-1)] bg-black/30 p-[var(--space-1)] border-r border-white/10 shrink-0 min-w-[140px]">
           {(Object.keys(TAB_ICONS) as SettingsTab[]).map((tabId) => (
@@ -628,8 +660,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-between px-[var(--space-2)] py-[var(--space-2)] border-t text-[var(--fs-sm)] shrink-0"
-            style={{ backgroundColor: theme.modalBg, borderColor: theme.modalBorder }}>
+          <div
+            className="flex items-center justify-between px-[var(--space-2)] py-[var(--space-2)] border-t text-[var(--fs-sm)] shrink-0"
+            style={{ backgroundColor: theme.modalBg, borderColor: theme.modalBorder }}
+          >
             <div className="flex items-center gap-[var(--space-1)]">
               <button
                 onClick={() => {
@@ -656,7 +690,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     if (!file) return;
                     try {
                       const parsed = JSON.parse(await file.text());
-                      setFormData(prev => ({ ...prev, ...parsed }));
+                      setFormData((prev) => ({ ...prev, ...parsed }));
                       soundManager.playSuccess();
                     } catch {
                       alert(t.settingsInvalidConfig);

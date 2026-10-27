@@ -24,12 +24,7 @@ interface SavedFTPServer {
   user: string;
 }
 
-export const FTPManagerModal: React.FC<FTPManagerModalProps> = ({
-  theme,
-  lang,
-  onConnectDrive,
-  onClose
-}) => {
+export const FTPManagerModal: React.FC<FTPManagerModalProps> = ({ theme, lang, onConnectDrive, onClose }) => {
   const t = getTranslations(lang);
 
   const [protocol, setProtocol] = useState<'FTP' | 'SFTP' | 'FTPS'>('SFTP');
@@ -41,15 +36,19 @@ export const FTPManagerModal: React.FC<FTPManagerModalProps> = ({
 
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [logs, setLogs] = useState<string[]>([
-    t.ftpLogBanner,
-    t.ftpLogReady
-  ]);
+  const [logs, setLogs] = useState<string[]>([t.ftpLogBanner, t.ftpLogReady]);
 
   const savedServers: SavedFTPServer[] = [
     { id: 'srv_1', name: t.ftpPresetWeb, protocol: 'SFTP', host: '192.168.1.100', port: 22, user: 'webmaster' },
     { id: 'srv_2', name: t.ftpPresetNas, protocol: 'FTP', host: '192.168.1.250', port: 21, user: 'backup_user' },
-    { id: 'srv_3', name: t.ftpPresetCloud, protocol: 'FTPS', host: 'ftp.companycloud.com', port: 990, user: 'deploy_agent' }
+    {
+      id: 'srv_3',
+      name: t.ftpPresetCloud,
+      protocol: 'FTPS',
+      host: 'ftp.companycloud.com',
+      port: 990,
+      user: 'deploy_agent',
+    },
   ];
 
   const handleConnect = async () => {
@@ -67,12 +66,12 @@ export const FTPManagerModal: React.FC<FTPManagerModalProps> = ({
       `[257] "${remotePath}" is current directory.`,
       `> TYPE I (Binary Image Transfer)`,
       `[200] Type set to I.`,
-      t.ftpLogSuccess
+      t.ftpLogSuccess,
     ];
 
     for (let i = 0; i < newLogs.length; i++) {
-      await new Promise(r => setTimeout(r, 120));
-      setLogs(prev => [...prev, newLogs[i]]);
+      await new Promise((r) => setTimeout(r, 120));
+      setLogs((prev) => [...prev, newLogs[i]]);
     }
 
     setIsConnecting(false);
@@ -99,21 +98,24 @@ export const FTPManagerModal: React.FC<FTPManagerModalProps> = ({
   return (
     <ModalShell title={t.ftpTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
-
         {/* Content Body */}
         <div className="p-[var(--space-4)] space-y-[var(--space-4)] overflow-y-auto max-h-[75vh]">
           {/* Saved Servers Preset Buttons */}
           <div>
-            <span className="text-[10px] uppercase font-bold text-amber-300 block mb-[var(--space-1)]">{t.ftpSaved}</span>
+            <span className="text-[10px] uppercase font-bold text-amber-300 block mb-[var(--space-1)]">
+              {t.ftpSaved}
+            </span>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--space-2)]">
-              {savedServers.map(srv => (
+              {savedServers.map((srv) => (
                 <button
                   key={srv.id}
                   onClick={() => handleSelectPreset(srv)}
                   className="p-[var(--space-2)] bg-black/40 hover:bg-white/10 rounded border border-white/10 text-left cursor-pointer transition-all"
                 >
                   <p className="font-bold text-white text-[11px] truncate">{srv.name}</p>
-                  <p className="text-[9px] opacity-60 font-mono">{srv.protocol}://{srv.host}:{srv.port}</p>
+                  <p className="text-[9px] opacity-60 font-mono">
+                    {srv.protocol}://{srv.host}:{srv.port}
+                  </p>
                 </button>
               ))}
             </div>
@@ -204,18 +206,20 @@ export const FTPManagerModal: React.FC<FTPManagerModalProps> = ({
             </div>
             <div className="h-32 p-[var(--space-2)] bg-black/90 border border-emerald-500/30 rounded font-mono text-[10px] text-emerald-400 overflow-y-auto space-y-[var(--space-1)]">
               {logs.map((log, idx) => (
-                <div key={idx} className="leading-tight truncate">{log}</div>
+                <div key={idx} className="leading-tight truncate">
+                  {log}
+                </div>
               ))}
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div 
+        <div
           className="px-[var(--space-4)] py-[var(--space-3)] border-t shrink-0 flex items-center justify-between"
           style={{
             backgroundColor: theme.modalBg,
-            borderColor: theme.modalBorder
+            borderColor: theme.modalBorder,
           }}
         >
           <div className="flex items-center gap-[var(--space-2)]">

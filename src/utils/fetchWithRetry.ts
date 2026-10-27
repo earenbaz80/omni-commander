@@ -19,7 +19,7 @@ function sessionTokenHeader(): Record<string, string> {
 
 export async function fetchWithRetry(
   url: string,
-  options?: RequestInit & { timeoutMs?: number; retries?: number }
+  options?: RequestInit & { timeoutMs?: number; retries?: number },
 ): Promise<Response> {
   const { timeoutMs = 10000, retries = 2, ...fetchOptions } = options || {};
   let lastError: Error | null = null;
@@ -44,7 +44,7 @@ export async function fetchWithRetry(
       // Retry on server errors (5xx)
       if (response.status >= 500 && attempt < retries) {
         lastError = new Error(`HTTP ${response.status}`);
-        await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+        await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
         continue;
       }
       return response;
@@ -52,7 +52,7 @@ export async function fetchWithRetry(
       clearTimeout(timeoutId);
       lastError = e;
       if (attempt < retries) {
-        await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+        await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
         continue;
       }
     }

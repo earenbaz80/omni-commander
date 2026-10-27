@@ -17,12 +17,7 @@ interface FunctionBarProps {
   className?: string;
 }
 
-export const FunctionBar: React.FC<FunctionBarProps> = ({
-  theme,
-  lang,
-  keys,
-  className = '',
-}) => {
+export const FunctionBar: React.FC<FunctionBarProps> = ({ theme, lang, keys, className = '' }) => {
   const t = getTranslations(lang as any);
 
   return (
@@ -44,9 +39,7 @@ export const FunctionBar: React.FC<FunctionBarProps> = ({
           disabled={fn.disabled}
           style={{ display: fn.visible === false ? 'none' : 'inline-flex' }}
           className={`flex items-center justify-center gap-[var(--space-1)] px-[var(--space-2)] py-[var(--space-1)] rounded text-[var(--fs-8)] font-bold cursor-pointer transition-colors select-none ${
-            fn.disabled
-              ? 'opacity-30 cursor-not-allowed'
-              : 'bg-black/30 hover:bg-white/10 border border-white/10'
+            fn.disabled ? 'opacity-30 cursor-not-allowed' : 'bg-black/30 hover:bg-white/10 border border-white/10'
           }`}
           aria-label={`${fn.key}: ${t[fn.label]}`}
         >

@@ -90,8 +90,8 @@ function logDebug(...args) {
 
 // Timer tuning, in milliseconds. Named so the polling intervals and the WMI
 // timeout can be reasoned about instead of appearing as bare literals.
-const JOB_TICK_MS = 120;       // pause / cancel polling granularity
-const POWERSHELL_TIMEOUT_MS = 60000;  // normal ceiling for one PowerShell query
+const JOB_TICK_MS = 120; // pause / cancel polling granularity
+const POWERSHELL_TIMEOUT_MS = 60000; // normal ceiling for one PowerShell query
 const WMI_TIMEOUT_MS = 300000; // hard ceiling for the slow os/WMI fallback
 
 // The preferred port is only a preference. Another application frequently holds
@@ -127,18 +127,28 @@ function announcePort(port) {
 
 function mapWin32DriveType(value) {
   switch (Number(value)) {
-    case 2: return { type: 'usb', kind: 'removable' };
-    case 3: return { type: 'local', kind: 'fixed' };
-    case 4: return { type: 'network', kind: 'network' };
-    case 5: return { type: 'usb', kind: 'optical' };
-    case 6: return { type: 'ram', kind: 'ram' };
-    default: return { type: 'local', kind: 'unknown' };
+    case 2:
+      return { type: 'usb', kind: 'removable' };
+    case 3:
+      return { type: 'local', kind: 'fixed' };
+    case 4:
+      return { type: 'network', kind: 'network' };
+    case 5:
+      return { type: 'usb', kind: 'optical' };
+    case 6:
+      return { type: 'ram', kind: 'ram' };
+    default:
+      return { type: 'local', kind: 'unknown' };
   }
 }
 
 function makeDrive(info) {
   const mapped = mapWin32DriveType(info.driveType);
-  const letter = String(info.letter || '').trim().endsWith(':') ? String(info.letter).trim() : `${String(info.letter || '').trim()}:`;
+  const letter = String(info.letter || '')
+    .trim()
+    .endsWith(':')
+    ? String(info.letter).trim()
+    : `${String(info.letter || '').trim()}:`;
   const volumeName = String(info.volumeName || '').trim() || `Unidad ${letter}`;
   return {
     id: `real_${letter.replace(/[^a-zA-Z0-9]/g, '')}`,
@@ -151,7 +161,7 @@ function makeDrive(info) {
     totalBytes: Number(info.size) || 0,
     freeBytes: Number(info.free) || 0,
     description: `${volumeName} [${mapped.kind}] ${info.fileSystem ? `(${info.fileSystem})` : 'desconocido'}`.trim(),
-    isMounted: true
+    isMounted: true,
   };
 }
 
@@ -192,8 +202,14 @@ function withTimeout(promise, ms, fallback) {
     const timer = setTimeout(() => resolve(fallback), ms);
     if (timer.unref) timer.unref();
     promise.then(
-      (value) => { clearTimeout(timer); resolve(value); },
-      () => { clearTimeout(timer); resolve(fallback); }
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(fallback);
+      },
     );
   });
 }
@@ -205,38 +221,42 @@ async function probeDriveLetters() {
   for (let code = 67; code <= 90; code++) {
     roots.push(String.fromCharCode(code) + ':\\');
   }
-  const probed = await Promise.all(roots.map(async (root) => {
-    try {
-      const stat = await fs.promises.stat(root);
-      if (!stat.isDirectory()) return null;
-      let totalBytes = 0;
-      let freeBytes = 0;
+  const probed = await Promise.all(
+    roots.map(async (root) => {
       try {
-        const sf = await fs.promises.statfs(root);
-        const blockSize = Number(sf.bsize) || 0;
-        totalBytes = blockSize * (Number(sf.blocks) || 0);
-        freeBytes = blockSize * (Number(sf.bavail != null ? sf.bavail : sf.bfree) || 0);
-      } catch (error) {
-        logDebug('statfs failed for', root, error?.message || error);
+        const stat = await fs.promises.stat(root);
+        if (!stat.isDirectory()) return null;
+        let totalBytes = 0;
+        let freeBytes = 0;
+        try {
+          const sf = await fs.promises.statfs(root);
+          const blockSize = Number(sf.bsize) || 0;
+          totalBytes = blockSize * (Number(sf.blocks) || 0);
+          freeBytes = blockSize * (Number(sf.bavail != null ? sf.bavail : sf.bfree) || 0);
+        } catch (error) {
+          logDebug('statfs failed for', root, error?.message || error);
+        }
+        return { letter: root.slice(0, 2).toUpperCase(), totalBytes, freeBytes };
+      } catch {
+        return null;
       }
-      return { letter: root.slice(0, 2).toUpperCase(), totalBytes, freeBytes };
-    } catch {
-      return null;
-    }
-  }));
+    }),
+  );
   const drives = [];
   for (const found of probed) {
     if (!found) continue;
     const meta = drivesMeta.get(found.letter) || {};
-    drives.push(makeDrive({
-      letter: found.letter,
-      volumeName: meta.volumeName,
-      driveType: meta.driveType != null ? meta.driveType : 3,
-      size: meta.size || found.totalBytes,
-      free: meta.free || found.freeBytes,
-      fileSystem: meta.fileSystem,
-      serialNumber: meta.serialNumber
-    }));
+    drives.push(
+      makeDrive({
+        letter: found.letter,
+        volumeName: meta.volumeName,
+        driveType: meta.driveType != null ? meta.driveType : 3,
+        size: meta.size || found.totalBytes,
+        free: meta.free || found.freeBytes,
+        fileSystem: meta.fileSystem,
+        serialNumber: meta.serialNumber,
+      }),
+    );
   }
   return drives;
 }
@@ -244,15 +264,17 @@ async function probeDriveLetters() {
 function drivesFromMeta(meta) {
   const drives = [];
   for (const [letter, m] of meta) {
-    drives.push(makeDrive({
-      letter,
-      volumeName: m.volumeName,
-      driveType: m.driveType,
-      size: m.size,
-      free: m.free,
-      fileSystem: m.fileSystem,
-      serialNumber: m.serialNumber
-    }));
+    drives.push(
+      makeDrive({
+        letter,
+        volumeName: m.volumeName,
+        driveType: m.driveType,
+        size: m.size,
+        free: m.free,
+        fileSystem: m.fileSystem,
+        serialNumber: m.serialNumber,
+      }),
+    );
   }
   return drives;
 }
@@ -260,17 +282,20 @@ function drivesFromMeta(meta) {
 // Best-effort WMI/CIM query bounded by a timeout, so a cold WMI service can
 // never hang a request. Returns a Map keyed by upper-case drive letter.
 async function queryWmiDriveInfo() {
-  const command = 'Get-CimInstance Win32_LogicalDisk | Select-Object DeviceID,VolumeName,DriveType,Size,FreeSpace,FileSystem,VolumeSerialNumber | ConvertTo-Json -Compress';
+  const command =
+    'Get-CimInstance Win32_LogicalDisk | Select-Object DeviceID,VolumeName,DriveType,Size,FreeSpace,FileSystem,VolumeSerialNumber | ConvertTo-Json -Compress';
   const { stdout: out } = await execFileAsync(
     'powershell',
     ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', command],
-    { encoding: 'utf8', windowsHide: true, maxBuffer: 8 * 1024 * 1024, timeout: POWERSHELL_TIMEOUT_MS }
+    { encoding: 'utf8', windowsHide: true, maxBuffer: 8 * 1024 * 1024, timeout: POWERSHELL_TIMEOUT_MS },
   );
   const parsed = JSON.parse((out || '').trim() || '[]');
-  const entries = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
+  const entries = Array.isArray(parsed) ? parsed : parsed ? [parsed] : [];
   const meta = new Map();
   for (const item of entries) {
-    const letter = String(item.DeviceID || item.DeviceId || '').trim().toUpperCase();
+    const letter = String(item.DeviceID || item.DeviceId || '')
+      .trim()
+      .toUpperCase();
     if (!/^[A-Z]:$/.test(letter)) continue;
     meta.set(letter, {
       volumeName: item.VolumeName || item.Label,
@@ -278,7 +303,7 @@ async function queryWmiDriveInfo() {
       size: item.Size,
       free: item.FreeSpace,
       fileSystem: item.FileSystem,
-      serialNumber: item.VolumeSerialNumber
+      serialNumber: item.VolumeSerialNumber,
     });
   }
   return meta;
@@ -313,7 +338,7 @@ async function enrichDrivesFromWmi() {
 // real volume label and drive type instead of the probe's generic defaults.
 function enrichForNewLetters(letters) {
   if (process.platform !== 'win32') return;
-  const fresh = letters.filter(l => !wmiAttemptedLetters.has(l) && !drivesMeta.has(l));
+  const fresh = letters.filter((l) => !wmiAttemptedLetters.has(l) && !drivesMeta.has(l));
   if (!fresh.length) return;
   for (const letter of letters) wmiAttemptedLetters.add(letter);
   void enrichDrivesFromWmi();
@@ -323,7 +348,7 @@ async function computeRealDrives() {
   if (process.platform === 'win32') {
     const fast = await withTimeout(probeDriveLetters(), 8000, []);
     if (fast.length) {
-      enrichForNewLetters(fast.map(d => d.letter));
+      enrichForNewLetters(fast.map((d) => d.letter));
       return fast;
     }
     // Fall back to WMI only when the filesystem probe found nothing at all.
@@ -350,7 +375,11 @@ async function computeRealDrives() {
   // Unix fallback
   try {
     const { stdout: out } = await execFileAsync('df', ['-kP'], { encoding: 'utf8' });
-    const lines = out.split(/\r?\n/).slice(1).map(l => l.trim()).filter(Boolean);
+    const lines = out
+      .split(/\r?\n/)
+      .slice(1)
+      .map((l) => l.trim())
+      .filter(Boolean);
     const drives = [];
     for (const line of lines) {
       const parts = line.split(/\s+/);
@@ -366,7 +395,7 @@ async function computeRealDrives() {
           totalBytes: Number(parts[1]) * 1024,
           freeBytes: Number(parts[3]) * 1024,
           description: `Unidad [${mapped.kind}]`,
-          isMounted: true
+          isMounted: true,
         });
       }
     }
@@ -396,7 +425,9 @@ async function readDirectoryEntries(safePath) {
     entries.map(async (entry) => {
       const full = path.win32.join(safePath, entry.name);
       let stat = null;
-      try { stat = await fs.promises.stat(full); } catch {}
+      try {
+        stat = await fs.promises.stat(full);
+      } catch {}
       const isDirectory = entry.isDirectory();
       let ext = '';
       let name = entry.name;
@@ -419,10 +450,15 @@ async function readDirectoryEntries(safePath) {
         size: stat && !isDirectory ? stat.size : 0,
         modifiedAt: formatDt(stat && stat.mtime),
         createdAt: formatDt(stat && stat.birthtime),
-        attributes: { readOnly: !!stat && !(stat.mode & 0o200), hidden: entry.name.startsWith('.'), system: false, archive: !isDirectory },
-        content: ''
+        attributes: {
+          readOnly: !!stat && !(stat.mode & 0o200),
+          hidden: entry.name.startsWith('.'),
+          system: false,
+          archive: !isDirectory,
+        },
+        content: '',
       };
-    })
+    }),
   );
 }
 
@@ -440,7 +476,10 @@ function readDirectoryCached(safePath) {
       pruneListCache();
       return data;
     },
-    (err) => { listCache.delete(key); throw err; }
+    (err) => {
+      listCache.delete(key);
+      throw err;
+    },
   );
   listCache.set(key, { at: now, data: null, inflight });
   pruneListCache();
@@ -464,7 +503,7 @@ function pruneListCache() {
 
 async function listDirectory(driveId, requestedPath) {
   const drives = await getRealDrives();
-  const drive = drives.find(d => d.id === driveId);
+  const drive = drives.find((d) => d.id === driveId);
   if (!drive) return { error: 'Unknown drive' };
 
   const root = `${drive.letter}\\`;
@@ -547,18 +586,18 @@ function jobSnapshot(job) {
     itemsSkipped: job.itemsSkipped,
     currentFile: job.currentFile,
     pendingConflict: job.pendingConflict ? { ...job.pendingConflict } : null,
-    recentFiles: (job.recentFiles || []).map(f => ({
+    recentFiles: (job.recentFiles || []).map((f) => ({
       path: f.path,
       name: f.name,
       size: f.size,
       copied: f.copied,
-      status: f.status
+      status: f.status,
     })),
     speedBps: Math.round(rate),
     etaSeconds: rate > 0 && remaining > 0 ? Math.round(remaining / rate) : 0,
     errors: job.errors,
     startedAt: job.startedAt,
-    endedAt: job.endedAt
+    endedAt: job.endedAt,
   };
 }
 
@@ -740,7 +779,7 @@ function noteFile(job, filePath, size) {
     name: path.win32.basename(filePath),
     size: Number(size) || 0,
     copied: 0,
-    status: 'copying'
+    status: 'copying',
   };
   job.recentFiles.push(entry);
   if (job.recentFiles.length > RECENT_FILES_LIMIT) {
@@ -783,7 +822,7 @@ function makeJob(op, label) {
     force: false,
     // Tail of the files this job touched, newest last. Bounded by
     // RECENT_FILES_LIMIT so a huge tree cannot blow up the snapshot.
-    recentFiles: []
+    recentFiles: [],
   };
   jobs.set(id, job);
   // Keep memory bounded: drop the oldest finished jobs until we are back under the
@@ -793,7 +832,11 @@ function makeJob(op, label) {
     let evicted = false;
     for (const [key, value] of jobs) {
       const terminal = value.status !== 'running' && value.status !== 'paused' && value.status !== 'waiting';
-      if (terminal && !value.pendingConflict) { jobs.delete(key); evicted = true; break; }
+      if (terminal && !value.pendingConflict) {
+        jobs.delete(key);
+        evicted = true;
+        break;
+      }
     }
     // Every remaining entry is live: nothing safe to drop, so stop growing the map.
     if (!evicted) break;
@@ -842,10 +885,14 @@ function assertSafePath(value) {
 async function assertArchiveDestination(rootValue, target) {
   const root = assertSafePath(rootValue);
   const relative = path.win32.relative(root, target);
-  if (!relative || relative === '..' || relative.startsWith('..\\') || path.win32.isAbsolute(relative)) throw new Error('Invalid destination');
+  if (!relative || relative === '..' || relative.startsWith('..\\') || path.win32.isAbsolute(relative))
+    throw new Error('Invalid destination');
   let cursor = target;
   while (true) {
-    const stat = await fs.promises.lstat(cursor).catch(err => { if (err.code !== 'ENOENT') throw err; return null; });
+    const stat = await fs.promises.lstat(cursor).catch((err) => {
+      if (err.code !== 'ENOENT') throw err;
+      return null;
+    });
     if (stat?.isSymbolicLink()) throw new Error('Destination contains a symbolic link');
     const parent = path.win32.dirname(cursor);
     if (parent === cursor) break;
@@ -867,22 +914,28 @@ async function measureTree(target) {
 
   while (pending.length > 0) {
     const batch = pending.splice(0, MEASURE_BATCH);
-    const children = await Promise.all(batch.map(async (current) => {
-      let stat;
-      try { stat = await fs.promises.lstat(current); } catch { return []; }
-      if (stat.isSymbolicLink()) return [];
-      if (stat.isDirectory()) {
+    const children = await Promise.all(
+      batch.map(async (current) => {
+        let stat;
         try {
-          const entries = await fs.promises.readdir(current);
-          return entries.map((name) => path.win32.join(current, name));
+          stat = await fs.promises.lstat(current);
         } catch {
           return [];
         }
-      }
-      bytes += stat.size;
-      files += 1;
-      return [];
-    }));
+        if (stat.isSymbolicLink()) return [];
+        if (stat.isDirectory()) {
+          try {
+            const entries = await fs.promises.readdir(current);
+            return entries.map((name) => path.win32.join(current, name));
+          } catch {
+            return [];
+          }
+        }
+        bytes += stat.size;
+        files += 1;
+        return [];
+      }),
+    );
 
     for (const list of children) {
       for (const child of list) pending.push(child);
@@ -893,7 +946,12 @@ async function measureTree(target) {
 }
 
 async function pathExists(target) {
-  try { await fs.promises.access(target); return true; } catch { return false; }
+  try {
+    await fs.promises.access(target);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function uniqueName(dir, name) {
@@ -945,7 +1003,7 @@ async function awaitConflictAnswer(job, src, dest) {
       !sourceFact.isDirectory &&
       !destinationFact.isDirectory &&
       sourceFact.size === destinationFact.size &&
-      sourceFact.modifiedMs === destinationFact.modifiedMs
+      sourceFact.modifiedMs === destinationFact.modifiedMs,
   };
   const deadline = Date.now() + CONFLICT_ANSWER_MS;
   // A UI that died, crashed or simply walked away must not park this job for the
@@ -973,7 +1031,9 @@ async function planDestination(src, dest, job) {
     try {
       const stat = await fs.promises.lstat(src);
       if (stat.isFile()) job.bytesSkipped += stat.size;
-    } catch { /* unreadable source is reported by the copy itself */ }
+    } catch {
+      /* unreadable source is reported by the copy itself */
+    }
     // Recorded here so every skip surfaces as a row, whether it happened at the
     // top level or deep inside a copied tree.
     const skipped = noteFile(job, dest, 0);
@@ -997,7 +1057,9 @@ async function planDestination(src, dest, job) {
         skipped.status = 'skipped';
         return null;
       }
-    } catch { /* fall through to overwrite */ }
+    } catch {
+      /* fall through to overwrite */
+    }
     return dest;
   }
   if (policy === 'rename-old') {
@@ -1006,7 +1068,11 @@ async function planDestination(src, dest, job) {
     const parsed = path.win32.parse(dest);
     let backup = path.win32.join(dir, `${parsed.name} (old)${parsed.ext}`);
     if (await pathExists(backup)) backup = path.win32.join(dir, `${parsed.name} (old) ${Date.now()}${parsed.ext}`);
-    try { await fs.promises.rename(dest, backup); } catch { /* fall through, overwrite anyway */ }
+    try {
+      await fs.promises.rename(dest, backup);
+    } catch {
+      /* fall through, overwrite anyway */
+    }
     return dest;
   }
   if (policy === 'rename') {
@@ -1050,7 +1116,9 @@ async function copyOneFile(src, dest, job) {
   // -- and every sibling job -- down with it. The promise below is the single
   // place a stream error is turned into a rejected job.
   let failTransfer;
-  const transferError = new Promise((_, reject) => { failTransfer = reject; });
+  const transferError = new Promise((_, reject) => {
+    failTransfer = reject;
+  });
   writer.on('error', failTransfer);
   reader.on('error', failTransfer);
   const write = (async () => {
@@ -1097,9 +1165,13 @@ async function copyOneFile(src, dest, job) {
   // Timestamps and the write bit are part of the file, not decoration: an
   // incremental backup compares by date, and losing it would make every copied
   // file look newer than the original. chmod is how Windows expresses read-only.
-  try { await fs.promises.utimes(dest, stat.atime, stat.mtime); } catch {}
+  try {
+    await fs.promises.utimes(dest, stat.atime, stat.mtime);
+  } catch {}
   if (!(stat.mode & 0o200)) {
-    try { await fs.promises.chmod(dest, 0o444); } catch {}
+    try {
+      await fs.promises.chmod(dest, 0o444);
+    } catch {}
   }
 }
 
@@ -1118,7 +1190,10 @@ async function copyTree(src, dest, job, alreadyPlanned = false) {
     return;
   }
   const planned = alreadyPlanned ? dest : await planDestination(src, dest, job);
-  if (!planned) { job.itemsSkipped += 1; return; }
+  if (!planned) {
+    job.itemsSkipped += 1;
+    return;
+  }
   await copyOneFile(src, planned, job);
   job.itemsDone += 1;
 }
@@ -1160,7 +1235,7 @@ function ensureRecycleScript() {
     '  } else {',
     "    [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($t, 'OnlyErrorDialogs', 'SendToRecycleBin')",
     '  }',
-    '}'
+    '}',
   ];
   fs.writeFileSync(scriptPath, lines.join('\r\n'), 'utf8');
   recycleScriptPath = scriptPath;
@@ -1171,7 +1246,7 @@ async function sendToRecycleBin(targets) {
   await execFileAsync(
     'powershell',
     ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ensureRecycleScript(), ...targets],
-    { encoding: 'utf8', windowsHide: true, maxBuffer: 8 * 1024 * 1024, timeout: WMI_TIMEOUT_MS }
+    { encoding: 'utf8', windowsHide: true, maxBuffer: 8 * 1024 * 1024, timeout: WMI_TIMEOUT_MS },
   );
 }
 
@@ -1296,8 +1371,8 @@ function registerFsRoutes() {
       port: activePort ?? PREFERRED_PORT,
       platform: process.platform,
       uptimeSeconds: Math.round(process.uptime()),
-      activeCount: all.filter(j => j.status === 'running' || j.status === 'paused').length,
-      totalCount: all.length
+      activeCount: all.filter((j) => j.status === 'running' || j.status === 'paused').length,
+      totalCount: all.length,
     });
   });
 
@@ -1315,7 +1390,9 @@ function registerFsRoutes() {
       // Answer for one queued collision prompt. `applyToAll` promotes the answer
       // into the job policy so the rest of the transfer stops asking.
       const decision = String((req.body || {}).decision || '').toLowerCase();
-      if (!['overwrite', 'skip', 'rename', 'overwrite-if-different', 'rename-old', 'resume', 'cancel'].includes(decision)) {
+      if (
+        !['overwrite', 'skip', 'rename', 'overwrite-if-different', 'rename-old', 'resume', 'cancel'].includes(decision)
+      ) {
         return res.status(400).json({ error: 'Unknown conflict answer' });
       }
       if (!job.pendingConflict) return res.status(409).json({ error: 'No pending conflict' });
@@ -1326,14 +1403,15 @@ function registerFsRoutes() {
     }
     if (action === 'pause') job.paused = true;
     else if (action === 'resume') job.paused = false;
-    else if (action === 'cancel') { job.cancelled = true; job.paused = false; }
-    else if (action === 'throttle') {
+    else if (action === 'cancel') {
+      job.cancelled = true;
+      job.paused = false;
+    } else if (action === 'throttle') {
       // The copy loop re-reads job.throttleBps before every chunk, so the new
       // limit applies from the next write. 0 or below means unlimited.
       const bps = Number(req.body?.throttleBps);
       job.throttleBps = Number.isFinite(bps) && bps > 0 ? bps : 0;
-    }
-    else return res.status(400).json({ error: 'Unknown action' });
+    } else return res.status(400).json({ error: 'Unknown action' });
     res.json(jobSnapshot(job));
   });
 
@@ -1349,7 +1427,7 @@ function registerFsRoutes() {
       at: new Date().toISOString(),
       route,
       body,
-      error: err && err.message ? err.message : String(err)
+      error: err && err.message ? err.message : String(err),
     });
     fs.promises.appendFile(rejectionLogPath, line + '\n').catch(() => {});
   }
@@ -1376,7 +1454,9 @@ function registerFsRoutes() {
       const requestedPolicy = String(body.collision || '').toLowerCase();
       job.collision = ['overwrite', 'skip', 'rename', 'ask'].includes(requestedPolicy)
         ? requestedPolicy
-        : (body.overwrite === false ? 'rename' : 'overwrite');
+        : body.overwrite === false
+          ? 'rename'
+          : 'overwrite';
       job.throttleBps = Number(body.throttleBps) > 0 ? Number(body.throttleBps) : 0;
       // A forced copy is the user's explicit answer to the numbers the
       // free-space prompt already showed. Carry it into the job so the guard
@@ -1405,24 +1485,27 @@ function registerFsRoutes() {
       if (!targets.length) return res.status(400).json({ error: 'No targets provided' });
       const job = makeJob('delete', `Eliminar ${targets.length} elemento(s)`);
       job.itemsTotal = targets.length;
-      startJob(job, (async () => {
-        for (const target of targets) {
-          await waitWhilePaused(job);
-          let entry = null;
-          try {
-            const stat = await fs.promises.lstat(target).catch(() => null);
-            entry = noteFile(job, target, stat && stat.isFile() ? stat.size : 0);
-            await deleteTarget(target, useTrash);
-            entry.copied = entry.size;
-            entry.status = 'done';
-            job.itemsDone += 1;
-          } catch (err) {
-            if (entry) entry.status = 'error';
-            if (err.message === '__cancelled__') throw err;
-            job.errors.push({ path: target, message: err.message });
+      startJob(
+        job,
+        (async () => {
+          for (const target of targets) {
+            await waitWhilePaused(job);
+            let entry = null;
+            try {
+              const stat = await fs.promises.lstat(target).catch(() => null);
+              entry = noteFile(job, target, stat && stat.isFile() ? stat.size : 0);
+              await deleteTarget(target, useTrash);
+              entry.copied = entry.size;
+              entry.status = 'done';
+              job.itemsDone += 1;
+            } catch (err) {
+              if (entry) entry.status = 'error';
+              if (err.message === '__cancelled__') throw err;
+              job.errors.push({ path: target, message: err.message });
+            }
           }
-        }
-      })());
+        })(),
+      );
       res.json({ jobId: job.id, itemsTotal: targets.length });
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -1469,18 +1552,22 @@ function registerFsRoutes() {
     }
   });
 
-  app.post('/api/fs/write-bytes', express.raw({ type: 'application/octet-stream', limit: '512mb' }), async (req, res) => {
-    try {
-      const target = assertSafePath(req.query.path);
-      await assertArchiveDestination(req.query.root, target);
-      await fs.promises.mkdir(path.win32.dirname(target), { recursive: true });
-      await fs.promises.writeFile(target, req.body, { flag: 'wx' });
-      invalidateListings();
-      res.json({ ok: true, path: target });
-    } catch (err) {
-      res.status(400).json({ error: err.message });
-    }
-  });
+  app.post(
+    '/api/fs/write-bytes',
+    express.raw({ type: 'application/octet-stream', limit: '512mb' }),
+    async (req, res) => {
+      try {
+        const target = assertSafePath(req.query.path);
+        await assertArchiveDestination(req.query.root, target);
+        await fs.promises.mkdir(path.win32.dirname(target), { recursive: true });
+        await fs.promises.writeFile(target, req.body, { flag: 'wx' });
+        invalidateListings();
+        res.json({ ok: true, path: target });
+      } catch (err) {
+        res.status(400).json({ error: err.message });
+      }
+    },
+  );
 
   app.post('/api/fs/write', async (req, res) => {
     try {
@@ -1525,7 +1612,7 @@ function registerFsRoutes() {
         path: target,
         name: path.win32.basename(target),
         isDirectory: stat.isDirectory(),
-        size: stat.isDirectory() ? 0 : stat.size
+        size: stat.isDirectory() ? 0 : stat.size,
       });
     }
 
@@ -1620,7 +1707,7 @@ function registerFsRoutes() {
         size: stat.size,
         md5: md5.digest('hex'),
         sha1: sha1.digest('hex'),
-        sha256: sha256.digest('hex')
+        sha256: sha256.digest('hex'),
       });
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -1642,7 +1729,12 @@ function registerFsRoutes() {
         return res.status(400).json({ error: 'The copy list must be an array' });
       }
       await fs.promises.mkdir(path.dirname(target), { recursive: true });
-      const payload = { version: 1, kind: 'omnicommander-copy-list', savedAt: new Date().toISOString(), list: body.list };
+      const payload = {
+        version: 1,
+        kind: 'omnicommander-copy-list',
+        savedAt: new Date().toISOString(),
+        list: body.list,
+      };
       await fs.promises.writeFile(target, JSON.stringify(payload, null, 2), 'utf8');
       res.json({ ok: true, path: target, saved: body.list.length });
     } catch (err) {
@@ -1661,7 +1753,7 @@ function registerFsRoutes() {
       } catch {
         return res.status(400).json({ error: 'The copy list file is not valid JSON' });
       }
-      const list = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.list) ? parsed.list : null);
+      const list = Array.isArray(parsed) ? parsed : parsed && Array.isArray(parsed.list) ? parsed.list : null;
       if (!list) return res.status(400).json({ error: 'The copy list file has no transfer list' });
       res.json({ ok: true, path: target, list, found: true });
     } catch (err) {
@@ -1686,10 +1778,10 @@ enrichDrivesFromWmi();
  * silent EADDRINUSE never happens, so we ask the port instead of trusting bind().
  */
 function probePortBusy(port) {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     const socket = net.connect({ host: '127.0.0.1', port });
     let settled = false;
-    const settle = busy => {
+    const settle = (busy) => {
       if (settled) return;
       settled = true;
       socket.destroy();
@@ -1706,16 +1798,13 @@ function probePortBusy(port) {
  * A foreign server on the same port answers without our marker header.
  */
 function probeOwned(port) {
-  return new Promise(resolve => {
-    const request = http.get(
-      { host: '127.0.0.1', port, path: '/api/fs/jobs', timeout: 1000 },
-      response => {
-        response.resume();
-        resolve(response.headers['x-omnicmd-server'] === '1');
-      }
-    );
+  return new Promise((resolve) => {
+    const request = http.get({ host: '127.0.0.1', port, path: '/api/fs/jobs', timeout: 1000 }, (response) => {
+      response.resume();
+      resolve(response.headers['x-omnicmd-server'] === '1');
+    });
     let settled = false;
-    const settle = owned => {
+    const settle = (owned) => {
       if (settled) return;
       settled = true;
       resolve(owned);
@@ -1739,7 +1828,7 @@ async function listenOn(port, attempt) {
   }
 
   const server = app.listen(port, '127.0.0.1');
-  server.on('error', error => {
+  server.on('error', (error) => {
     if (error && error.code === 'EADDRINUSE') {
       console.warn(`Port ${port} is in use, trying ${port + 1}...`);
       listenOn(port + 1, attempt + 1);
@@ -1763,7 +1852,7 @@ async function listenOn(port, attempt) {
   });
 }
 
-listenOn(PREFERRED_PORT, 0).catch(error => {
+listenOn(PREFERRED_PORT, 0).catch((error) => {
   // A dead local server must never take the host application down with it.
   console.error('Local drive server failed to start:', error);
 });
