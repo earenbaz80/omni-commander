@@ -1,12 +1,28 @@
 import JSZip from 'jszip';
 import { archiveEntryPath, base64ToBytes, bytesToBase64, loadArchive } from './zipArchive';
-import { ConflictResolution, Drive, DiskUsageItem, FileItem, FileProgressEntry, FreeSpaceReport, PendingConflict, RecycleBinItem, TransferOptions, TransferPlan, TransferPlanEntry } from '../types';
+import {
+  ConflictResolution,
+  Drive,
+  DiskUsageItem,
+  FileItem,
+  FileProgressEntry,
+  FreeSpaceReport,
+  PendingConflict,
+  RecycleBinItem,
+  TransferOptions,
+  TransferPlan,
+  TransferPlanEntry,
+} from '../types';
 import { log } from '../utils/logger';
 import { tGlobal } from '../i18n/translations';
 import { fetchWithRetry } from '../utils/fetchWithRetry';
 
 export class ArchivePasswordError extends Error {
-  constructor(public filename: string, public message: string, public reason?: 'required' | 'invalid') {
+  constructor(
+    public filename: string,
+    public message: string,
+    public reason?: 'required' | 'invalid',
+  ) {
     super(`Archive error: ${message}`);
     this.name = 'ArchivePasswordError';
   }
@@ -71,7 +87,7 @@ export const lostJobRetryPolicy = {
   /** Consecutive polls that may fail to observe the job before giving up. */
   maxPolls: 20,
   /** Delay between those polls, in milliseconds. */
-  pollDelayMs: 500
+  pollDelayMs: 500,
 };
 
 /**
@@ -83,7 +99,7 @@ export const lostJobRetryPolicy = {
  */
 export const listingCachePolicy = {
   /** Maximum distinct directory buckets retained in memory. */
-  maxCachedDirectories: 200
+  maxCachedDirectories: 200,
 };
 
 // Initial Virtual Drives
@@ -162,7 +178,7 @@ class FileSystemEngine {
    * deliberate decision rather than an accidental quota regression.
    */
   private filesForStorage(): Array<Omit<FileItem, 'content'>> {
-    return this.files.map(f => ({
+    return this.files.map((f) => ({
       id: f.id,
       name: f.name,
       ext: f.ext,
@@ -176,7 +192,7 @@ class FileSystemEngine {
       attributes: f.attributes,
       mimeType: f.mimeType,
       icon: f.icon,
-      isLocked: f.isLocked
+      isLocked: f.isLocked,
     }));
   }
 
@@ -219,12 +235,12 @@ class FileSystemEngine {
   public subscribe(listener: () => void) {
     this.listeners.push(listener);
     return () => {
-      this.listeners = this.listeners.filter(l => l !== listener);
+      this.listeners = this.listeners.filter((l) => l !== listener);
     };
   }
 
   private notify() {
-    this.listeners.forEach(l => l());
+    this.listeners.forEach((l) => l());
   }
 
   public getDrives(): Drive[] {
@@ -234,7 +250,10 @@ class FileSystemEngine {
   public async loadSystemDriveDirectory(driveId: string, path: string): Promise<void> {
     if (this.getArchiveSource(driveId, path)) return;
     try {
-      const response = await fetchWithRetry(`${API_BASE}/api/list?driveId=${encodeURIComponent(driveId)}&path=${encodeURIComponent(path)}`, { timeoutMs: 10000, retries: 2 });
+      const response = await fetchWithRetry(
+        `${API_BASE}/api/list?driveId=${encodeURIComponent(driveId)}&path=${encodeURIComponent(path)}`,
+        { timeoutMs: 10000, retries: 2 },
+      );
       if (!response.ok) return;
       const serverItems = await response.json();
       if (!Array.isArray(serverItems)) return;
@@ -256,9 +275,9 @@ class FileSystemEngine {
           readOnly: false,
           hidden: String(item.name || '').startsWith('.'),
           system: false,
-          archive: !item.isDirectory
+          archive: !item.isDirectory,
         },
-        content: item.content || ''
+        content: item.content || '',
       }));
 
       this.files = [...untouched, ...mapped];
@@ -273,7 +292,7 @@ class FileSystemEngine {
     // Centralized indexed access instead of reaching private internals.
     const files = [...this.files];
     if (searchAllDrives) return files;
-    return files.filter(file => file.driveId === currentDriveId);
+    return files.filter((file) => file.driveId === currentDriveId);
   }
 
   public setDrives(next: Drive[]) {
@@ -287,10 +306,18 @@ class FileSystemEngine {
    */
   private driveSignature(drive: Drive): string {
     return [
-      drive.id, drive.letter, drive.name, drive.type, drive.driveKind || '',
-      drive.fileSystem || '', drive.serialNumber || '', drive.description || '',
-      String(drive.totalBytes), String(drive.freeBytes),
-      drive.isMounted ? 1 : 0, drive.readOnly ? 1 : 0
+      drive.id,
+      drive.letter,
+      drive.name,
+      drive.type,
+      drive.driveKind || '',
+      drive.fileSystem || '',
+      drive.serialNumber || '',
+      drive.description || '',
+      String(drive.totalBytes),
+      String(drive.freeBytes),
+      drive.isMounted ? 1 : 0,
+      drive.readOnly ? 1 : 0,
     ].join('|');
   }
 
@@ -307,7 +334,8 @@ class FileSystemEngine {
       const data = await response.json();
       if (!Array.isArray(data)) return false;
       const next = data as Drive[];
-      const changed = next.length !== this.drives.length ||
+      const changed =
+        next.length !== this.drives.length ||
         next.some((d, i) => this.driveSignature(d) !== this.driveSignature(this.drives[i]));
       if (changed) {
         this.setDrives(next);
@@ -320,17 +348,17 @@ class FileSystemEngine {
   }
 
   public getDrive(driveId: string): Drive | undefined {
-    return this.drives.find(d => d.id === driveId);
+    return this.drives.find((d) => d.id === driveId);
   }
 
   public getDriveByLetter(letter: string): Drive | undefined {
     const formatted = letter.endsWith(':') ? letter : `${letter}:`;
-    return this.drives.find(d => d.letter.toUpperCase() === formatted.toUpperCase());
+    return this.drives.find((d) => d.letter.toUpperCase() === formatted.toUpperCase());
   }
 
   public getFiles(driveId: string, currentPath: string): FileItem[] {
     const mount = this.findArchive(driveId, currentPath);
-    if (mount) return mount.items.filter(item => this.normalizePath(item.path) === this.normalizePath(currentPath));
+    if (mount) return mount.items.filter((item) => this.normalizePath(item.path) === this.normalizePath(currentPath));
     if (this.filesIndexVersion !== this.filesVersion) {
       this.filesIndex.clear();
       for (const f of this.files) {
@@ -366,7 +394,7 @@ class FileSystemEngine {
     this.bucketOrder.delete(key);
     this.bucketOrder.set(key, true);
 
-    const evictable = [...this.bucketOrder.keys()].filter(k => this.bucketEvictable(k));
+    const evictable = [...this.bucketOrder.keys()].filter((k) => this.bucketEvictable(k));
     if (evictable.length <= listingCachePolicy.maxCachedDirectories) return;
 
     const overBy = evictable.length - listingCachePolicy.maxCachedDirectories;
@@ -374,11 +402,14 @@ class FileSystemEngine {
     if (doomed.size === 0) return;
 
     this.bucketOrder = new Map([...this.bucketOrder].filter(([k]) => !doomed.has(k)));
-    this.files = this.files.filter(f => !doomed.has(`${f.driveId}|${this.normalizePath(f.path)}`));
+    this.files = this.files.filter((f) => !doomed.has(`${f.driveId}|${this.normalizePath(f.path)}`));
   }
 
   public getFileById(id: string): FileItem | undefined {
-    return this.files.find(f => f.id === id) || [...this.archives.values()].flatMap(m => m.items).find(f => f.id === id);
+    return (
+      this.files.find((f) => f.id === id) ||
+      [...this.archives.values()].flatMap((m) => m.items).find((f) => f.id === id)
+    );
   }
 
   public normalizePath(path: string): string {
@@ -454,7 +485,7 @@ class FileSystemEngine {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body ?? {}),
         timeoutMs: 20000,
-        retries: 0
+        retries: 0,
       });
       if (!response.ok) {
         const detail = await response.json().catch(() => null);
@@ -479,7 +510,10 @@ class FileSystemEngine {
    * finished transfer, turning a half-written file into a green 100% in the UI.
    */
   private async getServerJob(jobId: string): Promise<RealFsJob | null> {
-    const response = await fetchWithRetry(`${API_BASE}/api/fs/job/${encodeURIComponent(jobId)}`, { timeoutMs: 10000, retries: 1 });
+    const response = await fetchWithRetry(`${API_BASE}/api/fs/job/${encodeURIComponent(jobId)}`, {
+      timeoutMs: 10000,
+      retries: 1,
+    });
     if (response.status === 404) return null;
     if (!response.ok) throw new Error(`Job status request failed with HTTP ${response.status}`);
     return (await response.json()) as RealFsJob;
@@ -495,7 +529,7 @@ class FileSystemEngine {
     onProgress?: (transferred: number, total: number) => void,
     signal?: { paused: boolean; cancelled: boolean },
     onJob?: (job: RealFsJob) => void,
-    onConflict?: (conflict: PendingConflict) => void
+    onConflict?: (conflict: PendingConflict) => void,
   ): Promise<RealFsJob | null> {
     let lastPaused = false;
     let lastCancelled = false;
@@ -520,10 +554,10 @@ class FileSystemEngine {
         lostPolls += 1;
         if (lostPolls > lostJobRetryPolicy.maxPolls) {
           throw new Error(
-            'Transfer lost: the local file server stopped responding, so the destination may be incomplete.'
+            'Transfer lost: the local file server stopped responding, so the destination may be incomplete.',
           );
         }
-        await new Promise(resolve => setTimeout(resolve, lostJobRetryPolicy.pollDelayMs));
+        await new Promise((resolve) => setTimeout(resolve, lostJobRetryPolicy.pollDelayMs));
         continue;
       }
       lostPolls = 0;
@@ -545,14 +579,13 @@ class FileSystemEngine {
             source: job.pendingConflict.source,
             destination: job.pendingConflict.destination,
             name:
-              job.pendingConflict.destination.split(/[\\/]/).filter(Boolean).pop() ||
-              job.pendingConflict.destination,
+              job.pendingConflict.destination.split(/[\\/]/).filter(Boolean).pop() || job.pendingConflict.destination,
             isDirectory: job.pendingConflict.isDirectory,
             sourceSize: job.pendingConflict.sourceSize,
             destinationSize: job.pendingConflict.destinationSize,
             sourceModified: job.pendingConflict.sourceModified,
             destinationModified: job.pendingConflict.destinationModified,
-            identical: job.pendingConflict.identical
+            identical: job.pendingConflict.identical,
           });
         }
       } else {
@@ -570,7 +603,7 @@ class FileSystemEngine {
       }
 
       if (job.status !== 'running' && job.status !== 'paused' && job.status !== 'waiting') return job;
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, 200));
     }
   }
 
@@ -582,7 +615,7 @@ class FileSystemEngine {
   public async resolveConflict(jobId: string, action: ConflictResolution, applyToAll: boolean): Promise<void> {
     await this.callServerFs(`job/${encodeURIComponent(jobId)}/resolve`, {
       decision: action,
-      applyToAll: !!applyToAll
+      applyToAll: !!applyToAll,
     });
   }
 
@@ -636,7 +669,7 @@ class FileSystemEngine {
     options?: TransferOptions,
     onConflict?: (conflict: PendingConflict) => void,
     onFiles?: (files: FileProgressEntry[]) => void,
-    onStart?: (info: { totalBytes: number; itemsTotal: number; jobId: string }) => void
+    onStart?: (info: { totalBytes: number; itemsTotal: number; jobId: string }) => void,
   ): Promise<void> {
     const started = await this.callServerFs<{ jobId?: string; totalBytes?: number; itemsTotal?: number }>(op, {
       sources,
@@ -651,9 +684,9 @@ class FileSystemEngine {
         ? {
             collision: options.collision,
             throttleBps: options.throttleBps,
-            ...(options.force ? { force: true } : {})
+            ...(options.force ? { force: true } : {}),
           }
-        : {})
+        : {}),
     });
     if (!started?.jobId) {
       // `callServerFs` keeps the server's own reason out of band; surface it so
@@ -665,7 +698,11 @@ class FileSystemEngine {
     // The server already walked the tree to size the job. Report it so a
     // folder selection does not fall back to the 1 MiB floor, which made an
     // untouched copy look finished at 100%.
-    onStart?.({ totalBytes: Number(started.totalBytes) || 0, itemsTotal: Number(started.itemsTotal) || 0, jobId: String(started.jobId) });
+    onStart?.({
+      totalBytes: Number(started.totalBytes) || 0,
+      itemsTotal: Number(started.itemsTotal) || 0,
+      jobId: String(started.jobId),
+    });
 
     // The per-file rows come from the same snapshot the progress callback reads,
     // so both surfaces stay in lockstep without a second poll.
@@ -673,8 +710,8 @@ class FileSystemEngine {
       started.jobId,
       onProgress,
       signal,
-      onFiles ? snapshot => onFiles(snapshot.recentFiles || []) : undefined,
-      onConflict
+      onFiles ? (snapshot) => onFiles(snapshot.recentFiles || []) : undefined,
+      onConflict,
     );
     if (job && job.status === 'done-with-errors') {
       throw new Error(job.errors[0]?.message || 'Operation failed');
@@ -691,7 +728,7 @@ class FileSystemEngine {
     signal?: { paused: boolean; cancelled: boolean },
     options?: TransferOptions,
     onConflict?: (conflict: PendingConflict) => void,
-    onFiles?: (files: FileProgressEntry[]) => void
+    onFiles?: (files: FileProgressEntry[]) => void,
   ): Promise<FileItem | undefined> {
     await this.transferPaths(
       op,
@@ -702,7 +739,7 @@ class FileSystemEngine {
       signal,
       options,
       onConflict,
-      onFiles
+      onFiles,
     );
 
     const sourceDriveId = file.driveId;
@@ -713,10 +750,11 @@ class FileSystemEngine {
 
     const normTarget = this.normalizePath(targetPath);
     const wanted = this.realEntryName(file);
-    return this.files.find(candidate =>
-      candidate.driveId === targetDriveId &&
-      this.normalizePath(candidate.path) === normTarget &&
-      this.realEntryName(candidate) === wanted
+    return this.files.find(
+      (candidate) =>
+        candidate.driveId === targetDriveId &&
+        this.normalizePath(candidate.path) === normTarget &&
+        this.realEntryName(candidate) === wanted,
     );
   }
 
@@ -738,7 +776,10 @@ class FileSystemEngine {
    * when the server could not be reached.
    */
   public async saveCopyList(plans: TransferPlan[], path?: string): Promise<{ path: string; saved: number } | null> {
-    return this.callServerFs<{ path: string; saved: number }>('copylist/save', { list: plans, path: path || undefined });
+    return this.callServerFs<{ path: string; saved: number }>('copylist/save', {
+      list: plans,
+      path: path || undefined,
+    });
   }
 
   /**
@@ -746,7 +787,9 @@ class FileSystemEngine {
    * an error: there is simply nothing to replay yet.
    */
   public async loadCopyList(path?: string): Promise<{ path: string; list: TransferPlan[]; found: boolean } | null> {
-    return this.callServerFs<{ path: string; list: TransferPlan[]; found: boolean }>('copylist/load', { path: path || undefined });
+    return this.callServerFs<{ path: string; list: TransferPlan[]; found: boolean }>('copylist/load', {
+      path: path || undefined,
+    });
   }
 
   /**
@@ -755,12 +798,15 @@ class FileSystemEngine {
    * `missing` carries the paths the server could not stat.
    */
   public async inspectPaths(
-    paths: string[]
+    paths: string[],
   ): Promise<{ entries: TransferPlanEntry[]; missing: Array<{ path: string; reason: string }> } | null> {
     if (paths.length === 0) return { entries: [], missing: [] };
-    return this.callServerFs<{ entries: TransferPlanEntry[]; missing: Array<{ path: string; reason: string }> }>('stat', {
-      paths
-    });
+    return this.callServerFs<{ entries: TransferPlanEntry[]; missing: Array<{ path: string; reason: string }> }>(
+      'stat',
+      {
+        paths,
+      },
+    );
   }
 
   /**
@@ -769,16 +815,16 @@ class FileSystemEngine {
    * cannot do, so `size` here is the same number the job will report.
    */
   public async checkFreeSpace(plans: TransferPlan[]): Promise<FreeSpaceReport | null> {
-    const usable = plans.filter(plan => plan.entries.length > 0);
+    const usable = plans.filter((plan) => plan.entries.length > 0);
     if (usable.length === 0) return { volumes: [] };
     return this.callServerFs<FreeSpaceReport>('freespace', {
-      plans: usable.map(plan => ({
+      plans: usable.map((plan) => ({
         targetDir: plan.targetDir,
         // The operation matters: a move inside one volume is a rename and needs
         // no room, so reporting it as a copy would block a safe transfer.
         op: plan.op,
-        sources: plan.entries.map(entry => entry.path)
-      }))
+        sources: plan.entries.map((entry) => entry.path),
+      })),
     });
   }
 
@@ -789,7 +835,11 @@ class FileSystemEngine {
 
     const normParent = this.normalizePath(parentPath);
     const existing = this.files.find(
-      f => f.driveId === driveId && this.normalizePath(f.path) === normParent && f.name.toUpperCase() === cleanName.toUpperCase() && f.isDirectory
+      (f) =>
+        f.driveId === driveId &&
+        this.normalizePath(f.path) === normParent &&
+        f.name.toUpperCase() === cleanName.toUpperCase() &&
+        f.isDirectory,
     );
     if (existing) {
       throw new Error(`Directory ${cleanName} already exists`);
@@ -807,7 +857,7 @@ class FileSystemEngine {
       size: 0,
       modifiedAt: now,
       createdAt: now,
-      attributes: { readOnly: false, hidden: false, system: false, archive: false }
+      attributes: { readOnly: false, hidden: false, system: false, archive: false },
     };
 
     this.files.push(newItem);
@@ -851,7 +901,7 @@ class FileSystemEngine {
       modifiedAt: now,
       createdAt: now,
       attributes: { readOnly: false, hidden: false, system: false, archive: true },
-      content
+      content,
     };
 
     this.files.push(newItem);
@@ -867,9 +917,9 @@ class FileSystemEngine {
 
   public saveFileContent(fileId: string, content: string) {
     if (this.getFileById(fileId)?.archiveRoot) throw new Error(tGlobal('zipReadOnly'));
-    const file = this.files.find(f => f.id === fileId);
+    const file = this.files.find((f) => f.id === fileId);
     if (!file) throw new Error('File not found');
-    
+
     file.content = content;
     file.contentEncoding = 'utf8';
     file.size = new Blob([content]).size;
@@ -886,7 +936,7 @@ class FileSystemEngine {
 
   public renameItem(fileId: string, newFullName: string) {
     if (this.getFileById(fileId)?.archiveRoot) throw new Error(tGlobal('zipReadOnly'));
-    const file = this.files.find(f => f.id === fileId);
+    const file = this.files.find((f) => f.id === fileId);
     if (!file) throw new Error('Item not found');
 
     const clean = newFullName.trim();
@@ -900,7 +950,7 @@ class FileSystemEngine {
       const newDirPath = `${this.normalizePath(file.path)}\\${clean}`;
 
       // Update all descendants
-      this.files.forEach(f => {
+      this.files.forEach((f) => {
         if (f.driveId === file.driveId && f.path.startsWith(oldDirPath)) {
           f.path = f.path.replace(oldDirPath, newDirPath);
         }
@@ -934,7 +984,7 @@ class FileSystemEngine {
 
   public deleteItem(fileId: string, useRecycleBin: boolean = false) {
     if (this.getFileById(fileId)?.archiveRoot) throw new Error(tGlobal('zipReadOnly'));
-    const file = this.files.find(f => f.id === fileId);
+    const file = this.files.find((f) => f.id === fileId);
     if (!file) return;
 
     const isReal = this.isSystemDrive(file.driveId);
@@ -952,18 +1002,19 @@ class FileSystemEngine {
         'delete',
         { targets: [this.realAbsolutePath(file)], useTrash: useRecycleBin },
         file.driveId,
-        file.path
+        file.path,
       );
     }
-
 
     if (file.isDirectory) {
       const dirPath = `${this.normalizePath(file.path)}\\${file.name}`;
       // Remove all children recursively
-      this.files = this.files.filter(f => !(f.driveId === file.driveId && (f.path === dirPath || f.path.startsWith(`${dirPath}\\`))));
+      this.files = this.files.filter(
+        (f) => !(f.driveId === file.driveId && (f.path === dirPath || f.path.startsWith(`${dirPath}\\`))),
+      );
     }
 
-    this.files = this.files.filter(f => f.id !== fileId);
+    this.files = this.files.filter((f) => f.id !== fileId);
 
     this.saveToStorage();
   }
@@ -983,11 +1034,11 @@ class FileSystemEngine {
     useRecycleBin: boolean,
     onProgress?: (done: number, total: number) => void,
     signal?: { paused: boolean; cancelled: boolean },
-    onFiles?: (files: FileProgressEntry[]) => void
+    onFiles?: (files: FileProgressEntry[]) => void,
   ): Promise<void> {
-    const real = items.filter(item => this.isSystemDrive(item.driveId));
-    if (items.some(item => item.archiveRoot)) throw new Error(tGlobal('zipReadOnly'));
-    const virtual = items.filter(item => !this.isSystemDrive(item.driveId));
+    const real = items.filter((item) => this.isSystemDrive(item.driveId));
+    if (items.some((item) => item.archiveRoot)) throw new Error(tGlobal('zipReadOnly'));
+    const virtual = items.filter((item) => !this.isSystemDrive(item.driveId));
 
     for (const item of virtual) {
       this.deleteItem(item.id, useRecycleBin);
@@ -1002,15 +1053,15 @@ class FileSystemEngine {
     onProgress?.(done, total);
 
     const started = await this.callServerFs<{ jobId?: string }>('delete', {
-      targets: real.map(item => this.realAbsolutePath(item)),
-      useTrash: useRecycleBin
+      targets: real.map((item) => this.realAbsolutePath(item)),
+      useTrash: useRecycleBin,
     });
     if (!started?.jobId) {
       const reason = this.lastCallError || 'the local file service did not answer';
       throw new Error(`Delete could not start: ${reason}`);
     }
 
-    const job = await this.awaitServerJob(started.jobId, undefined, signal, snapshot => {
+    const job = await this.awaitServerJob(started.jobId, undefined, signal, (snapshot) => {
       onProgress?.(done + (snapshot.itemsDone || 0), total);
       onFiles?.(snapshot.recentFiles || []);
     });
@@ -1020,15 +1071,15 @@ class FileSystemEngine {
 
     // Mirror the removal in the overlay listing, then re-read from disk.
     for (const item of real) {
-      const file = this.files.find(f => f.id === item.id);
+      const file = this.files.find((f) => f.id === item.id);
       if (!file) continue;
       if (file.isDirectory) {
         const dirPath = `${this.normalizePath(file.path)}\\${file.name}`;
         this.files = this.files.filter(
-          f => !(f.driveId === file.driveId && (f.path === dirPath || f.path.startsWith(`${dirPath}\\`)))
+          (f) => !(f.driveId === file.driveId && (f.path === dirPath || f.path.startsWith(`${dirPath}\\`))),
         );
       }
-      this.files = this.files.filter(f => f.id !== file.id);
+      this.files = this.files.filter((f) => f.id !== file.id);
     }
     this.saveToStorage();
 
@@ -1045,7 +1096,7 @@ class FileSystemEngine {
   }
 
   public moveToRecycleBin(fileId: string): boolean {
-    const file = this.files.find(f => f.id === fileId);
+    const file = this.files.find((f) => f.id === fileId);
     if (!file) return false;
 
     const binItem: RecycleBinItem = {
@@ -1054,7 +1105,7 @@ class FileSystemEngine {
       originalPath: file.path,
       originalDriveId: file.driveId,
       deletedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
-      item: { ...file }
+      item: { ...file },
     };
 
     this.recycleBin.unshift(binItem);
@@ -1065,7 +1116,7 @@ class FileSystemEngine {
 
     if (file.isDirectory) {
       const dirPath = `${this.normalizePath(binItem.originalPath)}\\${file.name}`;
-      this.files.forEach(f => {
+      this.files.forEach((f) => {
         if (f.driveId === binItem.originalDriveId && (f.path === dirPath || f.path.startsWith(`${dirPath}\\`))) {
           f.driveId = 'drive_trash';
           f.path = f.path.replace(binItem.originalDriveId, 'drive_trash');
@@ -1078,18 +1129,18 @@ class FileSystemEngine {
   }
 
   public restoreFromRecycleBin(recycleBinItemId: string): boolean {
-    const binIndex = this.recycleBin.findIndex(b => b.id === recycleBinItemId);
+    const binIndex = this.recycleBin.findIndex((b) => b.id === recycleBinItemId);
     if (binIndex === -1) return false;
 
     const binItem = this.recycleBin[binIndex];
-    const file = this.files.find(f => f.id === binItem.originalId);
+    const file = this.files.find((f) => f.id === binItem.originalId);
 
     if (file) {
       file.driveId = binItem.originalDriveId;
       file.path = binItem.originalPath;
 
       if (file.isDirectory) {
-        this.files.forEach(f => {
+        this.files.forEach((f) => {
           if (f.driveId === 'drive_trash') {
             f.driveId = binItem.originalDriveId;
           }
@@ -1100,7 +1151,7 @@ class FileSystemEngine {
       this.files.push({
         ...binItem.item,
         driveId: binItem.originalDriveId,
-        path: binItem.originalPath
+        path: binItem.originalPath,
       });
     }
 
@@ -1110,7 +1161,7 @@ class FileSystemEngine {
   }
 
   public emptyRecycleBin() {
-    this.files = this.files.filter(f => f.driveId !== 'drive_trash');
+    this.files = this.files.filter((f) => f.driveId !== 'drive_trash');
     this.recycleBin = [];
     this.saveToStorage();
   }
@@ -1120,11 +1171,11 @@ class FileSystemEngine {
   }
 
   public deletePermanentlyFromRecycleBin(recycleBinItemId: string) {
-    const binIndex = this.recycleBin.findIndex(b => b.id === recycleBinItemId);
+    const binIndex = this.recycleBin.findIndex((b) => b.id === recycleBinItemId);
     if (binIndex === -1) return;
 
     const binItem = this.recycleBin[binIndex];
-    this.files = this.files.filter(f => f.id !== binItem.originalId && f.driveId !== 'drive_trash');
+    this.files = this.files.filter((f) => f.id !== binItem.originalId && f.driveId !== 'drive_trash');
     this.recycleBin.splice(binIndex, 1);
     this.saveToStorage();
   }
@@ -1138,7 +1189,7 @@ class FileSystemEngine {
     signal?: { paused: boolean; cancelled: boolean },
     options?: TransferOptions,
     onConflict?: (conflict: PendingConflict) => void,
-    onFiles?: (files: FileProgressEntry[]) => void
+    onFiles?: (files: FileProgressEntry[]) => void,
   ): Promise<FileItem | undefined> {
     if (this.getArchiveSource(targetDriveId, targetPath)) throw new Error(tGlobal('zipReadOnly'));
     const file = this.getFileById(fileId);
@@ -1154,7 +1205,18 @@ class FileSystemEngine {
 
     // Real drives are written by the local server, never simulated in memory.
     if (this.isSystemDrive(file.driveId) || this.isSystemDrive(targetDriveId)) {
-      return this.realCopyOrMove(file, 'copy', targetDriveId, targetPath, overwrite, onProgress, signal, options, onConflict, onFiles);
+      return this.realCopyOrMove(
+        file,
+        'copy',
+        targetDriveId,
+        targetPath,
+        overwrite,
+        onProgress,
+        signal,
+        options,
+        onConflict,
+        onFiles,
+      );
     }
 
     const normTarget = this.normalizePath(targetPath);
@@ -1165,7 +1227,9 @@ class FileSystemEngine {
       const newDirPath = `${normTarget}\\${file.name}`;
 
       // Collect children BEFORE pushing new items (fixes race condition)
-      const children = this.files.filter(f => f.driveId === file.driveId && (f.path === oldDirPath || f.path.startsWith(`${oldDirPath}\\`)));
+      const children = this.files.filter(
+        (f) => f.driveId === file.driveId && (f.path === oldDirPath || f.path.startsWith(`${oldDirPath}\\`)),
+      );
 
       // Create target directory
       const newDir: FileItem = {
@@ -1179,7 +1243,7 @@ class FileSystemEngine {
       this.files.push(newDir);
 
       let transferred = 0;
-      const total = children.filter(c => !c.isDirectory).reduce((s, c) => s + (c.size || 0), 0);
+      const total = children.filter((c) => !c.isDirectory).reduce((s, c) => s + (c.size || 0), 0);
 
       // Copy all children
       for (const child of children) {
@@ -1202,7 +1266,13 @@ class FileSystemEngine {
       return newDir;
     } else {
       // Check existing in target
-      const existing = this.files.find(f => f.driveId === targetDriveId && this.normalizePath(f.path) === normTarget && f.name === file.name && f.ext === file.ext);
+      const existing = this.files.find(
+        (f) =>
+          f.driveId === targetDriveId &&
+          this.normalizePath(f.path) === normTarget &&
+          f.name === file.name &&
+          f.ext === file.ext,
+      );
       if (existing) {
         if (overwrite) {
           existing.content = file.content;
@@ -1245,9 +1315,19 @@ class FileSystemEngine {
     }
   }
 
-  public async moveItem(fileId: string, targetDriveId: string, targetPath: string, onProgress?: (transferred: number, total: number) => void, signal?: { paused: boolean; cancelled: boolean }, options?: TransferOptions, onConflict?: (conflict: PendingConflict) => void, onFiles?: (files: FileProgressEntry[]) => void): Promise<boolean> {
-    if (this.getFileById(fileId)?.archiveRoot || this.getArchiveSource(targetDriveId, targetPath)) throw new Error(tGlobal('zipReadOnly'));
-    const file = this.files.find(f => f.id === fileId);
+  public async moveItem(
+    fileId: string,
+    targetDriveId: string,
+    targetPath: string,
+    onProgress?: (transferred: number, total: number) => void,
+    signal?: { paused: boolean; cancelled: boolean },
+    options?: TransferOptions,
+    onConflict?: (conflict: PendingConflict) => void,
+    onFiles?: (files: FileProgressEntry[]) => void,
+  ): Promise<boolean> {
+    if (this.getFileById(fileId)?.archiveRoot || this.getArchiveSource(targetDriveId, targetPath))
+      throw new Error(tGlobal('zipReadOnly'));
+    const file = this.files.find((f) => f.id === fileId);
     if (!file) {
       log.warn('Move skipped: no catalogue entry for', fileId);
       return false;
@@ -1255,7 +1335,18 @@ class FileSystemEngine {
 
     // Real drives are written by the local server, never simulated in memory.
     if (this.isSystemDrive(file.driveId) || this.isSystemDrive(targetDriveId)) {
-      await this.realCopyOrMove(file, 'move', targetDriveId, targetPath, true, onProgress, signal, options, onConflict, onFiles);
+      await this.realCopyOrMove(
+        file,
+        'move',
+        targetDriveId,
+        targetPath,
+        true,
+        onProgress,
+        signal,
+        options,
+        onConflict,
+        onFiles,
+      );
       return true;
     }
 
@@ -1267,7 +1358,9 @@ class FileSystemEngine {
       const newDirPath = `${normTarget}\\${file.name}`;
 
       // Collect children BEFORE modifying (fixes race condition)
-      const children = this.files.filter(f => f.driveId === file.driveId && (f.path === oldDirPath || f.path.startsWith(`${oldDirPath}\\`)));
+      const children = this.files.filter(
+        (f) => f.driveId === file.driveId && (f.path === oldDirPath || f.path.startsWith(`${oldDirPath}\\`)),
+      );
 
       // Update children
       for (const f of children) {
@@ -1299,8 +1392,11 @@ class FileSystemEngine {
 
   private findArchive(driveId: string, path: string) {
     const normalized = this.normalizePath(path).toLowerCase();
-    return [...this.archives.values()].find(m => m.source.driveId === driveId &&
-      (normalized === m.root.toLowerCase() || normalized.startsWith(`${m.root.toLowerCase()}\\`)));
+    return [...this.archives.values()].find(
+      (m) =>
+        m.source.driveId === driveId &&
+        (normalized === m.root.toLowerCase() || normalized.startsWith(`${m.root.toLowerCase()}\\`)),
+    );
   }
 
   public getArchiveSource(driveId: string, path: string): FileItem | undefined {
@@ -1316,8 +1412,11 @@ class FileSystemEngine {
     }
     if (this.isSystemDrive(file.driveId)) {
       const response = await fetchWithRetry(`${API_BASE}/api/fs/read-bytes`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: this.realAbsolutePath(file) }), retries: 0, timeoutMs: 120000
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: this.realAbsolutePath(file) }),
+        retries: 0,
+        timeoutMs: 120000,
       });
       if (!response.ok) throw new Error((await response.json()).error);
       return new Uint8Array(await response.arrayBuffer());
@@ -1331,25 +1430,42 @@ class FileSystemEngine {
     const safe = archiveEntryPath(relative);
     const target = this.childAbsolutePath(root, safe);
     if (this.isSystemDrive(driveId)) {
-      const response = await fetchWithRetry(`${API_BASE}/api/fs/write-bytes?path=${encodeURIComponent(target)}&root=${encodeURIComponent(root)}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/octet-stream' },
-        body: new Blob([new Uint8Array(bytes)]), retries: 0, timeoutMs: 120000
-      });
+      const response = await fetchWithRetry(
+        `${API_BASE}/api/fs/write-bytes?path=${encodeURIComponent(target)}&root=${encodeURIComponent(root)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: new Blob([new Uint8Array(bytes)]),
+          retries: 0,
+          timeoutMs: 120000,
+        },
+      );
       if (!response.ok) throw new Error((await response.json()).error);
     }
     const parent = this.getParentPath(target);
     const fullName = safe.split('\\').pop()!;
-    if (!this.isSystemDrive(driveId) && this.getFiles(driveId, parent).some(f => this.realEntryName(f).toLowerCase() === fullName.toLowerCase())) {
+    if (
+      !this.isSystemDrive(driveId) &&
+      this.getFiles(driveId, parent).some((f) => this.realEntryName(f).toLowerCase() === fullName.toLowerCase())
+    ) {
       throw new Error(tGlobal('zipErrExists').replace('{name}', fullName));
     }
     const dot = fullName.lastIndexOf('.');
     const now = new Date().toISOString();
     const item: FileItem = {
-      id: `bytes_${Date.now()}_${Math.random()}`, driveId, path: parent, fullName,
-      name: dot > 0 ? fullName.slice(0, dot) : fullName, ext: dot > 0 ? fullName.slice(dot + 1) : '',
-      isDirectory: false, size: bytes.length, createdAt: now, modifiedAt: now,
+      id: `bytes_${Date.now()}_${Math.random()}`,
+      driveId,
+      path: parent,
+      fullName,
+      name: dot > 0 ? fullName.slice(0, dot) : fullName,
+      ext: dot > 0 ? fullName.slice(dot + 1) : '',
+      isDirectory: false,
+      size: bytes.length,
+      createdAt: now,
+      modifiedAt: now,
       attributes: { readOnly: false, hidden: false, system: false, archive: true },
-      content: bytesToBase64(bytes), contentEncoding: 'base64'
+      content: bytesToBase64(bytes),
+      contentEncoding: 'base64',
     };
     this.files.push(item);
     this.saveToStorage();
@@ -1366,11 +1482,19 @@ class FileSystemEngine {
       const fullName = relative.split('\\').pop()!;
       const dot = entry.dir ? -1 : fullName.lastIndexOf('.');
       items.push({
-        id: `archive_${source.driveId}_${fullPath}`, driveId: source.driveId, path: this.getParentPath(fullPath),
-        name: dot > 0 ? fullName.slice(0, dot) : fullName, ext: dot > 0 ? fullName.slice(dot + 1) : '', fullName,
-        isDirectory: entry.dir, size: entry.dir ? 0 : (await entry.async('uint8array')).length,
-        createdAt: entry.date.toISOString(), modifiedAt: entry.date.toISOString(),
-        attributes: { readOnly: true, hidden: false, system: false, archive: true }, archiveRoot: root, archiveEntry: entry.name
+        id: `archive_${source.driveId}_${fullPath}`,
+        driveId: source.driveId,
+        path: this.getParentPath(fullPath),
+        name: dot > 0 ? fullName.slice(0, dot) : fullName,
+        ext: dot > 0 ? fullName.slice(dot + 1) : '',
+        fullName,
+        isDirectory: entry.dir,
+        size: entry.dir ? 0 : (await entry.async('uint8array')).length,
+        createdAt: entry.date.toISOString(),
+        modifiedAt: entry.date.toISOString(),
+        attributes: { readOnly: true, hidden: false, system: false, archive: true },
+        archiveRoot: root,
+        archiveEntry: entry.name,
       });
     }
     this.archives.set(`${source.driveId}|${root}`, { source, root, zip, items });
@@ -1379,7 +1503,12 @@ class FileSystemEngine {
   }
 
   // Create a ZIP from actual bytes, including recursively listed disk folders.
-  public async createZipArchive(items: FileItem[], archiveName: string, targetDriveId: string, targetPath: string): Promise<FileItem> {
+  public async createZipArchive(
+    items: FileItem[],
+    archiveName: string,
+    targetDriveId: string,
+    targetPath: string,
+  ): Promise<FileItem> {
     const zip = new JSZip();
 
     const add = async (item: FileItem, prefix = ''): Promise<void> => {
@@ -1389,9 +1518,12 @@ class FileSystemEngine {
         zip.folder(relative);
         const path = this.realAbsolutePath(item);
         if (this.isSystemDrive(item.driveId) && !item.archiveRoot) {
-          const response = await fetchWithRetry(`${API_BASE}/api/list?driveId=${encodeURIComponent(item.driveId)}&path=${encodeURIComponent(path)}`, { retries: 0, timeoutMs: 20000 });
+          const response = await fetchWithRetry(
+            `${API_BASE}/api/list?driveId=${encodeURIComponent(item.driveId)}&path=${encodeURIComponent(path)}`,
+            { retries: 0, timeoutMs: 20000 },
+          );
           if (!response.ok) throw new Error((await response.json()).error);
-          const children = await response.json() as FileItem[];
+          const children = (await response.json()) as FileItem[];
           for (const child of children) await add({ ...child, driveId: item.driveId, path }, `${relative}/`);
         } else {
           for (const child of this.getFiles(item.driveId, path)) await add(child, `${relative}/`);
@@ -1404,17 +1536,30 @@ class FileSystemEngine {
       cleanArchive += '.ZIP';
     }
 
-    const result = await this.writeBytes(targetDriveId, targetPath, cleanArchive,
-      await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' }));
+    const result = await this.writeBytes(
+      targetDriveId,
+      targetPath,
+      cleanArchive,
+      await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' }),
+    );
     if (this.isSystemDrive(targetDriveId)) await this.loadSystemDriveDirectory(targetDriveId, targetPath);
     return result;
   }
 
-  public async extractZipArchive(zipFile: FileItem, targetDriveId: string, targetPath: string, selectedEntry?: string): Promise<number> {
+  public async extractZipArchive(
+    zipFile: FileItem,
+    targetDriveId: string,
+    targetPath: string,
+    selectedEntry?: string,
+  ): Promise<number> {
     if (this.getArchiveSource(targetDriveId, targetPath)) throw new Error(tGlobal('zipReadOnly'));
     const loaded = await loadArchive(await this.readFileBytes(zipFile), this.realEntryName(zipFile));
-    const entries = Object.values(loaded.files).filter(entry => !selectedEntry || entry.name === selectedEntry ||
-      (selectedEntry.endsWith('/') && entry.name.startsWith(selectedEntry)));
+    const entries = Object.values(loaded.files).filter(
+      (entry) =>
+        !selectedEntry ||
+        entry.name === selectedEntry ||
+        (selectedEntry.endsWith('/') && entry.name.startsWith(selectedEntry)),
+    );
     const stripPrefix = selectedEntry ? selectedEntry.replace(/\/$/, '').split('/').slice(0, -1).join('/') : '';
     let extractedCount = 0;
     try {
@@ -1425,9 +1570,12 @@ class FileSystemEngine {
         let parent = this.normalizePath(targetPath);
         for (const dir of directories) {
           if (this.isSystemDrive(targetDriveId)) {
-            const result = await this.callServerFs('mkdir', { path: this.childAbsolutePath(parent, dir), archiveRoot: targetPath });
+            const result = await this.callServerFs('mkdir', {
+              path: this.childAbsolutePath(parent, dir),
+              archiveRoot: targetPath,
+            });
             if (!result) throw new Error(this.lastCallError);
-          } else if (!this.getFiles(targetDriveId, parent).some(f => f.isDirectory && f.name === dir)) {
+          } else if (!this.getFiles(targetDriveId, parent).some((f) => f.isDirectory && f.name === dir)) {
             this.createDirectory(targetDriveId, parent, dir);
           }
           parent = this.childAbsolutePath(parent, dir);
@@ -1450,7 +1598,7 @@ class FileSystemEngine {
 
   // File Splitter (Splits file into .part001, .part002, etc.)
   public splitFile(fileId: string, chunkSizeBytes: number, targetDriveId: string, targetPath: string): FileItem[] {
-    const file = this.files.find(f => f.id === fileId);
+    const file = this.files.find((f) => f.id === fileId);
     if (!file || file.isDirectory) {
       throw new Error(tGlobal('fsSplitNoFile'));
     }
@@ -1466,7 +1614,7 @@ class FileSystemEngine {
     for (let i = 1; i <= numChunks; i++) {
       const extNum = i.toString().padStart(3, '0');
       const chunkName = `${baseName}.part${extNum}`;
-      
+
       const chunkLen = Math.ceil(content.length / numChunks);
       const start = (i - 1) * chunkLen;
       const chunkContent = content.substring(start, start + chunkLen);
@@ -1483,7 +1631,7 @@ class FileSystemEngine {
 
   // File Joiner (Joins .part001, .part002, etc. into reconstructed file)
   public joinFiles(firstChunkId: string, targetDriveId: string, targetPath: string): FileItem {
-    const firstChunk = this.files.find(f => f.id === firstChunkId);
+    const firstChunk = this.files.find((f) => f.id === firstChunkId);
     if (!firstChunk) {
       throw new Error(tGlobal('fsJoinNoPart'));
     }
@@ -1498,7 +1646,9 @@ class FileSystemEngine {
     const normPath = firstChunk.path;
 
     const allChunks = this.files
-      .filter(f => f.path === normPath && `${f.name}${f.ext ? '.' + f.ext : ''}`.startsWith(`${originalFullName}.part`))
+      .filter(
+        (f) => f.path === normPath && `${f.name}${f.ext ? '.' + f.ext : ''}`.startsWith(`${originalFullName}.part`),
+      )
       .sort((a, b) => {
         const nameA = `${a.name}${a.ext ? '.' + a.ext : ''}`;
         const nameB = `${b.name}${b.ext ? '.' + b.ext : ''}`;
@@ -1508,7 +1658,7 @@ class FileSystemEngine {
     let mergedContent = '';
     let mergedSize = 0;
 
-    allChunks.forEach(chunk => {
+    allChunks.forEach((chunk) => {
       mergedContent += chunk.content || '';
       mergedSize += chunk.size;
     });
@@ -1521,32 +1671,47 @@ class FileSystemEngine {
     return joinedFile;
   }
 
-  // Recursively compute folder sizes (TreeSize style)
-  public getFolderSizes(path: string, driveId?: string): DiskUsageItem | null {
+  /**
+   * Recursively computes folder sizes (TreeSize style) from the in-memory
+   * listing index. The caller must name the drive: the engine has no notion of
+   * an "active" drive, and the previous fallback called a method that does not
+   * exist, so every invocation without a driveId threw a TypeError.
+   *
+   * Only directories that have been listed contribute bytes; a bucket that was
+   * never loaded (or was evicted by the LRU) simply adds nothing until it is
+   * fetched again.
+   */
+  public getFolderSizes(path: string, driveId: string): DiskUsageItem | null {
+    if (!driveId) return null;
     const normPath = this.normalizePath(path);
-    const items = this.getFiles(driveId || this.getActiveDriveId() || 'C');
-    const rootFiles = items.filter(i => i.path === normPath || i.path === normPath + '\\');
-    const folderItem: DiskUsageItem = { path: normPath, name: normPath.split('\\').pop() || normPath, sizeBytes: 0, fileCount: 0, subFolders: [] };
+    const items = this.getFiles(driveId, normPath);
+    const trimmed = normPath.replace(/\\+$/, '');
+    const folderItem: DiskUsageItem = {
+      path: normPath,
+      name: trimmed.split('\\').pop() || normPath,
+      sizeBytes: 0,
+      fileCount: 0,
+      subFolders: [],
+    };
+
     const subDirNames = new Set<string>();
-    rootFiles.forEach(f => {
-      const parentDir = f.path;
-      const fullPath = parentDir ? parentDir + '\\' + f.name : f.name;
-      if (f.isDirectory) {
-        subDirNames.add(f.name);
+    for (const item of items) {
+      if (item.isDirectory) {
+        subDirNames.add(item.name);
       } else {
         folderItem.fileCount++;
-        folderItem.sizeBytes += f.size || 0;
+        folderItem.sizeBytes += item.size || 0;
       }
-    });
-    Array.from(subDirNames).forEach(subName => {
-      const subPath = normPath ? normPath + '\\' + subName : subName;
-      const subItem = this.getFolderSizes(subPath, driveId || this.getActiveDriveId() || 'C');
-      if (subItem) {
-        folderItem.subFolders!.push(subItem);
-        folderItem.sizeBytes += subItem.sizeBytes;
-        folderItem.fileCount += subItem.fileCount;
-      }
-    });
+    }
+
+    for (const subName of subDirNames) {
+      const subItem = this.getFolderSizes(this.childAbsolutePath(normPath, subName), driveId);
+      if (!subItem) continue;
+      folderItem.subFolders!.push(subItem);
+      folderItem.sizeBytes += subItem.sizeBytes;
+      folderItem.fileCount += subItem.fileCount;
+    }
+
     return folderItem;
   }
 

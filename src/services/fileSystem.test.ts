@@ -4,7 +4,7 @@ import { log } from '../utils/logger';
 import { Drive } from '../types';
 describe('FileSystemEngine defaults', () => {
   it('contains no virtual drives by default', () => {
-    const letters = fsEngine.getDrives().map(d => d.letter);
+    const letters = fsEngine.getDrives().map((d) => d.letter);
     expect(letters).not.toContain('C:');
     expect(letters).not.toContain('D:');
   });
@@ -20,7 +20,7 @@ describe('FileSystemEngine defaults', () => {
       serialNumber: '24DF569F',
       totalBytes: 100,
       freeBytes: 40,
-      isMounted: true
+      isMounted: true,
     };
 
     fsEngine.setDrives([realDrive]);
@@ -28,7 +28,7 @@ describe('FileSystemEngine defaults', () => {
       letter: 'C:',
       driveKind: 'fixed',
       fileSystem: 'NTFS',
-      serialNumber: '24DF569F'
+      serialNumber: '24DF569F',
     });
   });
 
@@ -43,7 +43,9 @@ describe('FileSystemEngine defaults', () => {
   });
 
   it('resetToDefaults removes all drives and files', () => {
-    fsEngine.setDrives([{ id: 'test', letter: 'Z:', name: 'test', type: 'local', totalBytes: 1, freeBytes: 1, isMounted: true }]);
+    fsEngine.setDrives([
+      { id: 'test', letter: 'Z:', name: 'test', type: 'local', totalBytes: 1, freeBytes: 1, isMounted: true },
+    ]);
     fsEngine.resetToDefaults();
     expect(fsEngine.getDrives()).toEqual([]);
     expect(fsEngine.getFiles('', '')).toEqual([]);
@@ -58,7 +60,12 @@ describe('FileSystemEngine defaults', () => {
     fsEngine.createDirectory('real_T', 'T:', 'beta');
     fsEngine.createDirectory('real_T', 'T:\\alpha', 'nested');
 
-    expect(fsEngine.getFiles('real_T', 'T:').map((i) => i.name).sort()).toEqual(['alpha', 'beta']);
+    expect(
+      fsEngine
+        .getFiles('real_T', 'T:')
+        .map((i) => i.name)
+        .sort(),
+    ).toEqual(['alpha', 'beta']);
     expect(fsEngine.getFiles('real_T', 'T:\\alpha').map((i) => i.name)).toEqual(['nested']);
     expect(fsEngine.getFiles('real_X', 'T:')).toEqual([]);
 
@@ -108,14 +115,20 @@ describe('FileSystemEngine defaults', () => {
       ]);
       // A virtual item parked in the app recycle bin (drive id drive_trash).
       fsEngine.createFile('virtual_V', 'V:\\', 'kept.txt', 'kept');
-      const kept = fsEngine.getFiles('virtual_V', 'V:\\').find(i => i.name === 'kept')!;
+      const kept = fsEngine.getFiles('virtual_V', 'V:\\').find((i) => i.name === 'kept')!;
       fsEngine.moveToRecycleBin(kept.id);
 
-      vi.stubGlobal('fetch', async () => ({
-        ok: true,
-        status: 200,
-        json: async () => [{ name: 'x.txt', ext: 'TXT', fullName: 'x.txt', isDirectory: false, size: 1, content: '' }],
-      }) as unknown as Response);
+      vi.stubGlobal(
+        'fetch',
+        async () =>
+          ({
+            ok: true,
+            status: 200,
+            json: async () => [
+              { name: 'x.txt', ext: 'TXT', fullName: 'x.txt', isDirectory: false, size: 1, content: '' },
+            ],
+          }) as unknown as Response,
+      );
 
       for (let i = 0; i < 8; i++) {
         await fsEngine.loadSystemDriveDirectory('real_T', `T:\\d${i}`);
@@ -130,16 +143,47 @@ describe('FileSystemEngine defaults', () => {
     }
   });
 
+  it('getFolderSizes sums files recursively for the requested drive', () => {
+    fsEngine.resetToDefaults();
+    fsEngine.setDrives([
+      { id: 'real_T', letter: 'T:', name: 'Test', type: 'local', totalBytes: 1, freeBytes: 1, isMounted: true },
+    ]);
+    fsEngine.createDirectory('real_T', 'T:', 'alpha');
+    fsEngine.createDirectory('real_T', 'T:\\alpha', 'nested');
+    fsEngine.createFile('real_T', 'T:', 'root.txt', '12345');
+    fsEngine.createFile('real_T', 'T:\\alpha', 'a.txt', '123');
+    fsEngine.createFile('real_T', 'T:\\alpha\\nested', 'n.txt', 'x');
+    // Same path on another drive must not leak into the tree.
+    fsEngine.createFile('real_OTHER', 'T:', 'ignored.txt', 'xxxx');
+
+    const tree = fsEngine.getFolderSizes('T:', 'real_T');
+    expect(tree).not.toBeNull();
+    expect(tree!.name).toBe('T:');
+    expect(tree!.sizeBytes).toBe(9);
+    expect(tree!.fileCount).toBe(3);
+    expect(tree!.subFolders!.map((folder) => folder.name)).toEqual(['alpha']);
+
+    const alpha = tree!.subFolders![0];
+    expect(alpha.sizeBytes).toBe(4);
+    expect(alpha.fileCount).toBe(2);
+
+    fsEngine.resetToDefaults();
+  });
+
   it('strips content from the payload written to localStorage', async () => {
     fsEngine.resetToDefaults();
     try {
-      vi.stubGlobal('fetch', async () => ({
-        ok: true,
-        status: 200,
-        json: async () => [
-          { name: 'big', ext: 'TXT', fullName: 'big.txt', isDirectory: false, size: 9, content: 'SENSITIVE_BODY' },
-        ],
-      }) as unknown as Response);
+      vi.stubGlobal(
+        'fetch',
+        async () =>
+          ({
+            ok: true,
+            status: 200,
+            json: async () => [
+              { name: 'big', ext: 'TXT', fullName: 'big.txt', isDirectory: false, size: 9, content: 'SENSITIVE_BODY' },
+            ],
+          }) as unknown as Response,
+      );
 
       await fsEngine.loadSystemDriveDirectory('real_T', 'T:\\payload');
       fsEngine.flushStorage();
@@ -157,9 +201,9 @@ describe('FileSystemEngine defaults', () => {
   it('logs a quota-exceeded persist instead of failing silently', () => {
     fsEngine.resetToDefaults();
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {});
-    const setItemSpy = vi
-      .spyOn(Storage.prototype, 'setItem')
-      .mockImplementation(() => { throw new DOMException('quota', 'QuotaExceededError'); });
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('quota', 'QuotaExceededError');
+    });
 
     try {
       fsEngine.createFile('virtual_V', 'V:\\', 'note.txt', 'body');
@@ -167,7 +211,7 @@ describe('FileSystemEngine defaults', () => {
 
       expect(errorSpy).toHaveBeenCalled();
       // The in-memory state is untouched, so the app keeps working.
-      expect(fsEngine.getFiles('virtual_V', 'V:\\').map(i => i.name)).toContain('note');
+      expect(fsEngine.getFiles('virtual_V', 'V:\\').map((i) => i.name)).toContain('note');
     } finally {
       setItemSpy.mockRestore();
       errorSpy.mockRestore();

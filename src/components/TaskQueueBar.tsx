@@ -28,14 +28,12 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
   // A copy must open its window on its own. Minimizing is a choice the user makes
   // for one transfer, not a permanent preference: every newly started transfer
   // restores the full card so progress can never run hidden.
-  const runningTaskId = tasks.find(task => task.status === 'running')?.id;
+  const runningTaskId = tasks.find((task) => task.status === 'running')?.id;
   const lastRunningTaskIdRef = useRef<string | undefined>(undefined);
   // A transfer that starts while another one is still running is queued behind
   // it, so the running id does not change. Watching the task count covers that
   // case: any newly added transfer reopens the window too.
-  const liveTaskCount = tasks.filter(
-    task => task.type === 'copy' || task.type === 'move'
-  ).length;
+  const liveTaskCount = tasks.filter((task) => task.type === 'copy' || task.type === 'move').length;
   const lastLiveTaskCountRef = useRef(liveTaskCount);
   useEffect(() => {
     const openedForNewTransfer = runningTaskId && runningTaskId !== lastRunningTaskIdRef.current;
@@ -54,11 +52,7 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
   // the one thing that must NOT be hidden: it means the file on disk may be
   // incomplete.
   const activeTasks = tasks.filter(
-    t =>
-      t.status === 'running' ||
-      t.status === 'queued' ||
-      t.status === 'paused' ||
-      t.status === 'failed'
+    (t) => t.status === 'running' || t.status === 'queued' || t.status === 'paused' || t.status === 'failed',
   );
   const hasLiveWork = activeTasks.length > 0;
   // The control is never fully removed once a transfer has existed: hiding the
@@ -68,12 +62,12 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
 
   const topTask = activeTasks[0];
   // The newest row of the bounded per-file list is the file being written now.
-  const currentFileEntry = topTask?.files && topTask.files.length > 0
-    ? topTask.files[topTask.files.length - 1]
-    : undefined;
-  const currentFilePercent = currentFileEntry && currentFileEntry.size > 0
-    ? Math.min(100, Math.round((currentFileEntry.copied / currentFileEntry.size) * 100))
-    : 0;
+  const currentFileEntry =
+    topTask?.files && topTask.files.length > 0 ? topTask.files[topTask.files.length - 1] : undefined;
+  const currentFilePercent =
+    currentFileEntry && currentFileEntry.size > 0
+      ? Math.min(100, Math.round((currentFileEntry.copied / currentFileEntry.size) * 100))
+      : 0;
 
   if (!hasLiveWork || isMinimized || !topTask) {
     return (
@@ -89,9 +83,7 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
         >
           <Activity className="w-3.5 h-3.5 text-cyan-400" />
           <span className="font-bold text-cyan-300">{t.taskQueueShort}</span>
-          <span className="tabular-nums opacity-80">
-            {hasLiveWork ? `${topTask.progress}%` : `(${tasks.length})`}
-          </span>
+          <span className="tabular-nums opacity-80">{hasLiveWork ? `${topTask.progress}%` : `(${tasks.length})`}</span>
         </button>
       </div>
     );
@@ -106,13 +98,15 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
     <div className="fixed bottom-7 right-4 z-40 animate-fadeIn select-none font-mono text-sm">
       <div className="bg-neutral-900 border-2 border-cyan-400 rounded-md shadow-2xl overflow-hidden min-w-[300px] max-w-[420px] text-white">
         {/* Header */}
-        <div 
+        <div
           onClick={onOpenTasksModal}
           className="bg-cyan-950/90 px-[var(--space-3)] py-[var(--space-2)] flex items-center justify-between cursor-pointer border-b border-cyan-500/40 hover:bg-cyan-900/90 transition"
         >
           <div className="flex items-center gap-[var(--space-2)] font-bold text-cyan-300">
             <Activity className="w-4 h-4 animate-pulse text-cyan-400" />
-            <span>{t.taskQueueShort} ({activeTasks.length} {t.activeLabel})</span>
+            <span>
+              {t.taskQueueShort} ({activeTasks.length} {t.activeLabel})
+            </span>
           </div>
 
           <div className="flex items-center gap-[var(--space-1)]">
@@ -192,16 +186,14 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
               <span className="truncate flex-1" title={currentFileEntry.path}>
                 {currentFileEntry.name}
               </span>
-              <span className="tabular-nums shrink-0">
-                {currentFileEntry.size > 0 ? `${currentFilePercent}%` : ''}
-              </span>
+              <span className="tabular-nums shrink-0">{currentFileEntry.size > 0 ? `${currentFilePercent}%` : ''}</span>
             </div>
           )}
 
           {/* A protected destination can only be written with an elevated
               token. Explorer asks for it silently; this app has to relaunch
               itself, so keep that door in the window at all times. */}
-          {(needsAdmin && (window as any).electronAPI?.relaunchAsAdmin) && (
+          {needsAdmin && (window as any).electronAPI?.relaunchAsAdmin && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -220,17 +212,12 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
 
           <div className="flex items-center justify-between text-[12px] opacity-70">
             <span className={topTask.status === 'failed' ? 'text-rose-400 font-bold break-all' : ''}>
-              {topTask.status === 'failed' && topTask.error
-                ? topTask.error
-                : topTask.speed || t.inProgress}
+              {topTask.status === 'failed' && topTask.error ? topTask.error : topTask.speed || t.inProgress}
               {topTask.status !== 'failed' && topTask.etaSeconds != null && topTask.etaSeconds > 0
                 ? ` · ${t.etaLabel} ${topTask.etaSeconds}s`
                 : ''}
             </span>
-            <span
-              onClick={onOpenTasksModal}
-              className="underline hover:text-cyan-300 cursor-pointer font-bold"
-            >
+            <span onClick={onOpenTasksModal} className="underline hover:text-cyan-300 cursor-pointer font-bold">
               {t.viewAll}
             </span>
           </div>

@@ -50,7 +50,7 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
   theme,
   lang,
   onAnswer,
-  onCancel
+  onCancel,
 }) => {
   const t = getTranslations(lang);
   const [scope, setScope] = useState<AnswerScope>('once');
@@ -60,32 +60,41 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
     ['rename', t.collisionRename],
     ['overwrite', t.collisionOverwrite],
     ['overwrite-if-different', t.collisionOverwriteIfDifferent],
-    ['rename-old', t.collisionRenameOld]
+    ['rename-old', t.collisionRenameOld],
   ];
 
   const dialogRef = useModalDialog<HTMLDivElement>(t.conflictTitle);
 
   const facts: Array<[string, string, string]> = [
     [t.size, formatBytes(conflict.sourceSize), formatBytes(conflict.destinationSize)],
-    [t.diffModified, formatWhen(conflict.sourceModified), formatWhen(conflict.destinationModified)]
+    [t.diffModified, formatWhen(conflict.sourceModified), formatWhen(conflict.destinationModified)],
   ];
 
   return (
     <ModalShell title={t.conflictTitle} theme={theme} onClose={onCancel} closeButtonLabel={t.btnCancel}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
         {/* Header with icon and full destination path */}
-        <div className="flex items-center gap-[var(--space-2)] min-w-0 pb-2 border-b font-bold shrink-0" style={{ borderBottomColor: theme.modalBorder }}>
+        <div
+          className="flex items-center gap-[var(--space-2)] min-w-0 pb-2 border-b font-bold shrink-0"
+          style={{ borderBottomColor: theme.modalBorder }}
+        >
           <TriangleAlert className="w-4 h-4 shrink-0" />
-          <span className="truncate" title={conflict.destination}>{t.conflictTitle}: {conflict.name}</span>
+          <span className="truncate" title={conflict.destination}>
+            {t.conflictTitle}: {conflict.name}
+          </span>
         </div>
 
         <div className="p-[var(--space-4)] flex flex-col gap-[var(--space-3)]">
           <span className="opacity-75">{t.conflictBody}</span>
 
           <div className="grid gap-x-3 gap-y-1 text-[var(--fs-sm)] border border-white/10 rounded bg-black/30 p-[var(--space-2)] break-all">
-            <span className="font-bold" style={{ color: theme.accentWarn }}>{t.transferColSource}</span>
+            <span className="font-bold" style={{ color: theme.accentWarn }}>
+              {t.transferColSource}
+            </span>
             <span className="opacity-90">{conflict.source}</span>
-            <span className="font-bold" style={{ color: theme.accentWarn }}>{t.transferColDest}</span>
+            <span className="font-bold" style={{ color: theme.accentWarn }}>
+              {t.transferColDest}
+            </span>
             <span className="opacity-90">{conflict.destination}</span>
           </div>
 
@@ -108,9 +117,7 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
             </tbody>
           </table>
 
-          {conflict.identical && (
-            <span className="text-[var(--fs-sm)] text-emerald-300">{t.conflictIdentical}</span>
-          )}
+          {conflict.identical && <span className="text-[var(--fs-sm)] text-emerald-300">{t.conflictIdentical}</span>}
 
           <fieldset className="flex items-center gap-[var(--space-4)] text-[var(--fs-sm)]">
             <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
@@ -123,10 +130,7 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
               />
               <span>{t.conflictThisFile}</span>
             </label>
-            <label
-              className="flex items-center gap-[var(--space-2)] cursor-pointer"
-              title={t.conflictAlwaysHint}
-            >
+            <label className="flex items-center gap-[var(--space-2)] cursor-pointer" title={t.conflictAlwaysHint}>
               <input
                 type="radio"
                 name="conflict-scope"
@@ -134,7 +138,12 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
                 onChange={() => setScope('always')}
                 className="cursor-pointer"
               />
-              <span className={scope === 'always' ? 'font-bold' : ''} style={{ color: scope === 'always' ? theme.accentWarn : 'inherit' }}>{t.conflictAlwaysMode}</span>
+              <span
+                className={scope === 'always' ? 'font-bold' : ''}
+                style={{ color: scope === 'always' ? theme.accentWarn : 'inherit' }}
+              >
+                {t.conflictAlwaysMode}
+              </span>
             </label>
           </fieldset>
         </div>

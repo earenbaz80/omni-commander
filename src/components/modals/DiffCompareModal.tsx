@@ -1,5 +1,4 @@
 import React from 'react';
-import { GitCompare } from 'lucide-react';
 import { FileItem, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
@@ -15,13 +14,7 @@ interface DiffCompareModalProps {
   onClose: () => void;
 }
 
-export const DiffCompareModal: React.FC<DiffCompareModalProps> = ({
-  theme,
-  lang,
-  leftFile,
-  rightFile,
-  onClose
-}) => {
+export const DiffCompareModal: React.FC<DiffCompareModalProps> = ({ theme, lang, leftFile, rightFile, onClose }) => {
   const t = getTranslations(lang);
 
   const leftLines = (leftFile?.content || '').split('\n');
@@ -33,7 +26,6 @@ export const DiffCompareModal: React.FC<DiffCompareModalProps> = ({
   return (
     <ModalShell title={t.diffTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
-
         {/* File names header */}
         <div className="grid grid-cols-2 border-b border-white/20 bg-black/40 px-[var(--space-3)] py-[var(--space-2)] font-bold shrink-0">
           <div className="truncate text-amber-300">
@@ -65,7 +57,9 @@ export const DiffCompareModal: React.FC<DiffCompareModalProps> = ({
                   <span className="w-8 text-right opacity-30 select-none mr-[var(--space-2)] shrink-0 tabular-nums">
                     {leftLines[idx] !== undefined ? idx + 1 : ''}
                   </span>
-                  <span className={`whitespace-pre ${isDiff && lText ? 'text-red-300 font-semibold' : 'text-slate-200'}`}>
+                  <span
+                    className={`whitespace-pre ${isDiff && lText ? 'text-red-300 font-semibold' : 'text-slate-200'}`}
+                  >
                     {lText}
                   </span>
                 </div>
@@ -75,7 +69,9 @@ export const DiffCompareModal: React.FC<DiffCompareModalProps> = ({
                   <span className="w-8 text-right opacity-30 select-none mr-[var(--space-2)] shrink-0 tabular-nums">
                     {rightLines[idx] !== undefined ? idx + 1 : ''}
                   </span>
-                  <span className={`whitespace-pre ${isDiff && rText ? 'text-emerald-300 font-semibold' : 'text-slate-200'}`}>
+                  <span
+                    className={`whitespace-pre ${isDiff && rText ? 'text-emerald-300 font-semibold' : 'text-slate-200'}`}
+                  >
                     {rText}
                   </span>
                 </div>
@@ -85,17 +81,23 @@ export const DiffCompareModal: React.FC<DiffCompareModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div 
+        <div
           className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-t text-xs shrink-0"
           style={{
             backgroundColor: theme.modalBg,
-            borderColor: theme.modalBorder
+            borderColor: theme.modalBorder,
           }}
         >
           <div className="flex items-center gap-[var(--space-4)]">
-            <span className="flex items-center gap-[var(--space-2)]"><span className="w-3 h-3 bg-red-900 rounded"></span> {t.diffRemovedDifferent}</span>
-            <span className="flex items-center gap-[var(--space-2)]"><span className="w-3 h-3 bg-emerald-900 rounded"></span> {t.diffAdded}</span>
-            <span className="flex items-center gap-[var(--space-2)]"><span className="w-3 h-3 bg-amber-900 rounded"></span> {t.diffModified}</span>
+            <span className="flex items-center gap-[var(--space-2)]">
+              <span className="w-3 h-3 bg-red-900 rounded"></span> {t.diffRemovedDifferent}
+            </span>
+            <span className="flex items-center gap-[var(--space-2)]">
+              <span className="w-3 h-3 bg-emerald-900 rounded"></span> {t.diffAdded}
+            </span>
+            <span className="flex items-center gap-[var(--space-2)]">
+              <span className="w-3 h-3 bg-amber-900 rounded"></span> {t.diffModified}
+            </span>
           </div>
 
           <button

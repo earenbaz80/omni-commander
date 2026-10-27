@@ -82,8 +82,7 @@ describe('FileList column resizers', () => {
 
   it('auto-fits a column when its label is double-clicked', () => {
     const { container } = render(<FileList {...baseProps} />);
-    const nameCell = container.querySelectorAll('[role="separator"]')[0]
-      .parentElement as HTMLElement;
+    const nameCell = container.querySelectorAll('[role="separator"]')[0].parentElement as HTMLElement;
 
     expect(nameCell.style.width).toBe(`${DEFAULT_COLUMN_WIDTHS.name}px`);
     fireEvent.doubleClick(nameCell);

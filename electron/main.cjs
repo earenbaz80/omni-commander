@@ -24,7 +24,7 @@ let serverApi = null;
 try {
   // server.cjs only uses dependencies already included in the app package.
   serverApi = require(path.join(__dirname, '..', 'server.cjs'));
-  serverApi.onPortReady(port => {
+  serverApi.onPortReady((port) => {
     apiPort = port;
   });
 } catch (error) {
@@ -38,9 +38,9 @@ try {
 function whenApiPortReady() {
   if (apiPort != null) return Promise.resolve(apiPort);
   if (!serverApi || typeof serverApi.onPortReady !== 'function') {
-    return new Promise(resolve => setTimeout(() => resolve(apiPort), 1500));
+    return new Promise((resolve) => setTimeout(() => resolve(apiPort), 1500));
   }
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     serverApi.onPortReady(resolve);
     setTimeout(() => resolve(apiPort), 4000);
   });
@@ -105,17 +105,11 @@ function normalizeTrayState(payload) {
         id: clampText(rawTask.id, TRAY_TITLE_LIMIT),
         title: clampText(rawTask.title, TRAY_TITLE_LIMIT) || 'Transfer',
         status,
-        progress: Number.isFinite(rawTask.progress)
-          ? Math.min(100, Math.max(0, Math.round(rawTask.progress)))
-          : 0,
+        progress: Number.isFinite(rawTask.progress) ? Math.min(100, Math.max(0, Math.round(rawTask.progress))) : 0,
       }
     : null;
   const rawCount = Number(source.activeCount);
-  const activeCount = Number.isFinite(rawCount)
-    ? Math.min(99, Math.max(0, Math.trunc(rawCount)))
-    : task
-      ? 1
-      : 0;
+  const activeCount = Number.isFinite(rawCount) ? Math.min(99, Math.max(0, Math.trunc(rawCount))) : task ? 1 : 0;
   const rawLabels = source.labels && typeof source.labels === 'object' ? source.labels : {};
 
   return {
@@ -171,16 +165,9 @@ function refreshTrayMenu() {
   if (!tray || tray.isDestroyed()) return;
   const { task, activeCount, labels } = trayState;
   const status = task ? task.status : null;
-  const summary = task
-    ? `${task.title}${task.progress > 0 ? ` — ${task.progress}%` : ''}`
-    : '';
+  const summary = task ? `${task.title}${task.progress > 0 ? ` — ${task.progress}%` : ''}` : '';
 
-  tray.setToolTip(
-    clampText(
-      summary ? `OmniCommander Pro · ${summary}` : 'OmniCommander Pro',
-      TRAY_TOOLTIP_LIMIT
-    )
-  );
+  tray.setToolTip(clampText(summary ? `OmniCommander Pro · ${summary}` : 'OmniCommander Pro', TRAY_TOOLTIP_LIMIT));
 
   const header = activeCount > 1 ? `OmniCommander Pro (${activeCount})` : 'OmniCommander Pro';
   trayMenu = Menu.buildFromTemplate([
@@ -369,7 +356,7 @@ ipcMain.handle('app:relaunch-admin', async () => {
     try {
       fs.appendFileSync(
         path.join(process.env.TEMP || '.', 'omnicommander-relaunch.log'),
-        `${new Date().toISOString()} ${message}\n`
+        `${new Date().toISOString()} ${message}\n`,
       );
     } catch {
       /* logging must never break the relaunch */
@@ -385,7 +372,7 @@ ipcMain.handle('app:relaunch-admin', async () => {
     previousLog = '';
   }
   log(
-    `request target=${target} portable=${process.env.PORTABLE_EXECUTABLE_FILE || 'unset'} execPath=${process.execPath}`
+    `request target=${target} portable=${process.env.PORTABLE_EXECUTABLE_FILE || 'unset'} execPath=${process.execPath}`,
   );
   try {
     // The elevated copy re-extracts and then launches, so let this process exit

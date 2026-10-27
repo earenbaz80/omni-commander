@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, ShieldCheck, Key, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, Key, AlertTriangle } from 'lucide-react';
 import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
@@ -23,7 +23,7 @@ export const ProtectFolderModal: React.FC<ProtectFolderModalProps> = ({
   folderPath,
   isAlreadyProtected,
   onSetFolderPassword,
-  onClose
+  onClose,
 }) => {
   const t = getTranslations(lang);
   const [password, setPassword] = useState('');
@@ -67,9 +67,7 @@ export const ProtectFolderModal: React.FC<ProtectFolderModalProps> = ({
                 <ShieldCheck className="w-5 h-5 text-red-400" />
                 <span>{t.protectAlready}</span>
               </div>
-              <p className="text-[var(--fs-sm)] opacity-80">
-                {t.protectWarning}
-              </p>
+              <p className="text-[var(--fs-sm)] opacity-80">{t.protectWarning}</p>
               <button
                 onClick={handleRemoveProtection}
                 className="w-full py-[var(--space-2)] bg-red-600 hover:bg-red-500 text-white font-bold rounded cursor-pointer shadow"
@@ -87,7 +85,9 @@ export const ProtectFolderModal: React.FC<ProtectFolderModalProps> = ({
               )}
 
               <div>
-                <label className="block text-[var(--fs-sm)] font-bold mb-[var(--space-1)] opacity-80">{t.protectNewPass}</label>
+                <label className="block text-[var(--fs-sm)] font-bold mb-[var(--space-1)] opacity-80">
+                  {t.protectNewPass}
+                </label>
                 <input
                   type="password"
                   value={password}
@@ -102,7 +102,9 @@ export const ProtectFolderModal: React.FC<ProtectFolderModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-[var(--fs-sm)] font-bold mb-[var(--space-1)] opacity-80">{t.protectConfirm}</label>
+                <label className="block text-[var(--fs-sm)] font-bold mb-[var(--space-1)] opacity-80">
+                  {t.protectConfirm}
+                </label>
                 <input
                   type="password"
                   value={confirmPassword}

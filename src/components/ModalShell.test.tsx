@@ -59,7 +59,7 @@ describe('ModalShell', () => {
     render(
       <ModalShell label="Ajustes" theme={mockTheme}>
         <p>contenido</p>
-      </ModalShell>
+      </ModalShell>,
     );
     const dialog = screen.getByRole('dialog');
     expect(dialog.getAttribute('aria-modal')).toBe('true');

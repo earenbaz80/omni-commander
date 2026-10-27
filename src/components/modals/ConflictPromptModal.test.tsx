@@ -20,7 +20,7 @@ const conflict = (overrides: Partial<PendingConflict> = {}): PendingConflict => 
   destinationSize: 2048,
   sourceModified: new Date('2026-10-23T08:00:00Z').getTime(),
   destinationModified: new Date('2026-10-22T08:00:00Z').getTime(),
-  ...overrides
+  ...overrides,
 });
 
 const renderPrompt = (overrides: Partial<PendingConflict> = {}) => {
@@ -33,7 +33,7 @@ const renderPrompt = (overrides: Partial<PendingConflict> = {}) => {
       lang="en"
       onAnswer={onAnswer}
       onCancel={onCancel}
-    />
+    />,
   );
   return { onAnswer, onCancel };
 };
@@ -67,7 +67,13 @@ describe('ConflictPromptModal', () => {
 
   it('points out a destination that is already identical', () => {
     const same = new Date('2026-10-23T08:00:00Z').getTime();
-    renderPrompt({ sourceSize: 10, destinationSize: 10, sourceModified: same, destinationModified: same, identical: true });
+    renderPrompt({
+      sourceSize: 10,
+      destinationSize: 10,
+      sourceModified: same,
+      destinationModified: same,
+      identical: true,
+    });
 
     expect(screen.getByText(/same size and date/i)).toBeTruthy();
   });

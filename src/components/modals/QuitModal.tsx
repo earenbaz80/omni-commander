@@ -1,5 +1,4 @@
 import React from 'react';
-import { Power } from 'lucide-react';
 import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { soundManager } from '../../services/soundEffects';
@@ -14,12 +13,7 @@ interface QuitModalProps {
   onClose: () => void;
 }
 
-export const QuitModal: React.FC<QuitModalProps> = ({
-  theme,
-  lang,
-  onConfirmQuit,
-  onClose
-}) => {
+export const QuitModal: React.FC<QuitModalProps> = ({ theme, lang, onConfirmQuit, onClose }) => {
   const t = getTranslations(lang);
   const dialogRef = React.useRef<HTMLDivElement>(null);
 
@@ -27,12 +21,8 @@ export const QuitModal: React.FC<QuitModalProps> = ({
     <ModalShell title={t.quitTitle} label={t.btnCancel} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
         <div className="p-[var(--space-4)] space-y-[var(--space-4)] text-center">
-          <p className="text-white text-sm font-bold">
-            {t.quitConfirmQuestion}
-          </p>
-          <p className="opacity-75 text-[var(--fs-sm)]">
-            {t.quitSavedNote}
-          </p>
+          <p className="text-white text-sm font-bold">{t.quitConfirmQuestion}</p>
+          <p className="opacity-75 text-[var(--fs-sm)]">{t.quitSavedNote}</p>
 
           <div className="flex items-center justify-center gap-[var(--space-3)] pt-2">
             <button

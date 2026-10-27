@@ -71,7 +71,7 @@ export const RetroProgressBar: React.FC<RetroProgressBarProps> = ({
       const hostWidth = host.clientWidth;
       if (cellWidth > 0 && hostWidth > 0) {
         const next = Math.max(8, Math.floor(hostWidth / cellWidth));
-        setMeasuredCells(previous => (previous === next ? previous : next));
+        setMeasuredCells((previous) => (previous === next ? previous : next));
       }
     };
 
@@ -81,9 +81,7 @@ export const RetroProgressBar: React.FC<RetroProgressBarProps> = ({
     return () => observer.disconnect();
   }, [autoFit]);
 
-  const safePercent = Number.isFinite(percent)
-    ? Math.max(0, Math.min(100, Math.round(percent)))
-    : 0;
+  const safePercent = Number.isFinite(percent) ? Math.max(0, Math.min(100, Math.round(percent))) : 0;
   const total = Math.max(8, Math.floor(autoFit ? measuredCells : (cells as number)));
   const isQueued = status === 'queued';
   const reservedHead = isQueued ? 1 : 0;
@@ -104,11 +102,7 @@ export const RetroProgressBar: React.FC<RetroProgressBarProps> = ({
     >
       {/* Invisible one-character probe: its width tells the auto-fit how many cells fit. */}
       {autoFit && (
-        <span
-          ref={probeRef}
-          aria-hidden="true"
-          className="absolute left-0 top-0 invisible pointer-events-none"
-        >
+        <span ref={probeRef} aria-hidden="true" className="absolute left-0 top-0 invisible pointer-events-none">
           {FILLED_CELL}
         </span>
       )}

@@ -34,7 +34,7 @@ describe('native path picker', () => {
 
     expect(calls).toEqual([
       { mode: 'files', title: getTranslations('es').transferAddDialogFile },
-      { mode: 'folders', title: getTranslations('es').transferAddDialogFolder }
+      { mode: 'folders', title: getTranslations('es').transferAddDialogFolder },
     ]);
   });
 

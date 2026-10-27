@@ -45,7 +45,7 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
   rightPath,
   rightItems,
   onSyncComplete,
-  onClose
+  onClose,
 }) => {
   const t = getTranslations(lang);
 
@@ -60,12 +60,12 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
   const [diffItems, setDiffItems] = useState<SyncDiffItem[]>(() => {
     const map = new Map<string, { left?: FileItem; right?: FileItem }>();
 
-    leftItems.forEach(item => {
+    leftItems.forEach((item) => {
       const key = `${item.name.toLowerCase()}_${(item.ext || '').toLowerCase()}`;
       map.set(key, { left: item });
     });
 
-    rightItems.forEach(item => {
+    rightItems.forEach((item) => {
       const key = `${item.name.toLowerCase()}_${(item.ext || '').toLowerCase()}`;
       const existing = map.get(key);
       if (existing) {
@@ -114,7 +114,7 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
         leftItem: left,
         rightItem: right,
         status,
-        direction
+        direction,
       });
     });
 
@@ -127,41 +127,45 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
 
   // Toggle sync direction for a specific item
   const handleToggleItemDirection = (id: string) => {
-    setDiffItems(prev => prev.map(item => {
-      if (item.id !== id) return item;
-      let nextDir: SyncDirection;
-      if (item.direction === 'L_TO_R') nextDir = 'R_TO_L';
-      else if (item.direction === 'R_TO_L') nextDir = 'SKIP';
-      else nextDir = 'L_TO_R';
-      return { ...item, direction: nextDir };
-    }));
+    setDiffItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        let nextDir: SyncDirection;
+        if (item.direction === 'L_TO_R') nextDir = 'R_TO_L';
+        else if (item.direction === 'R_TO_L') nextDir = 'SKIP';
+        else nextDir = 'L_TO_R';
+        return { ...item, direction: nextDir };
+      }),
+    );
   };
 
   // Preset mass actions
   const setAllDirection = (dir: SyncDirection) => {
     soundManager.playKeyTick();
-    setDiffItems(prev => prev.map(item => ({ ...item, direction: dir })));
+    setDiffItems((prev) => prev.map((item) => ({ ...item, direction: dir })));
   };
 
   const setSmartSync = () => {
     soundManager.playKeyTick();
-    setDiffItems(prev => prev.map(item => {
-      if (item.status === 'LEFT_ONLY' || item.status === 'LEFT_NEWER') return { ...item, direction: 'L_TO_R' };
-      if (item.status === 'RIGHT_ONLY' || item.status === 'RIGHT_NEWER') return { ...item, direction: 'R_TO_L' };
-      return { ...item, direction: 'SKIP' };
-    }));
+    setDiffItems((prev) =>
+      prev.map((item) => {
+        if (item.status === 'LEFT_ONLY' || item.status === 'LEFT_NEWER') return { ...item, direction: 'L_TO_R' };
+        if (item.status === 'RIGHT_ONLY' || item.status === 'RIGHT_NEWER') return { ...item, direction: 'R_TO_L' };
+        return { ...item, direction: 'SKIP' };
+      }),
+    );
   };
 
   // Filtered list
   const visibleItems = useMemo(() => {
     if (!hideEqual) return diffItems;
-    return diffItems.filter(i => i.status !== 'EQUAL' || i.direction !== 'SKIP');
+    return diffItems.filter((i) => i.status !== 'EQUAL' || i.direction !== 'SKIP');
   }, [diffItems, hideEqual]);
 
   // Statistics
-  const countLtoR = diffItems.filter(i => i.direction === 'L_TO_R').length;
-  const countRtoL = diffItems.filter(i => i.direction === 'R_TO_L').length;
-  const countSkip = diffItems.filter(i => i.direction === 'SKIP').length;
+  const countLtoR = diffItems.filter((i) => i.direction === 'L_TO_R').length;
+  const countRtoL = diffItems.filter((i) => i.direction === 'R_TO_L').length;
+  const countSkip = diffItems.filter((i) => i.direction === 'SKIP').length;
 
   const formatSize = (bytes: number): string => {
     if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -171,7 +175,7 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
 
   // Execute sync operations
   const handleExecuteSync = async () => {
-    const toProcess = diffItems.filter(i => i.direction !== 'SKIP');
+    const toProcess = diffItems.filter((i) => i.direction !== 'SKIP');
     if (toProcess.length === 0) {
       alert(t.syncNoMarked);
       return;
@@ -187,7 +191,7 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
           t.syncProgress
             .replace('{current}', String(i + 1))
             .replace('{total}', String(toProcess.length))
-            .replace('{name}', item.name)
+            .replace('{name}', item.name),
         );
 
         if (item.direction === 'L_TO_R' && item.leftItem) {
@@ -199,7 +203,7 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
         }
 
         // Small delay to simulate progress
-        await new Promise(r => setTimeout(r, 60));
+        await new Promise((r) => setTimeout(r, 60));
       }
 
       soundManager.playSuccess();
@@ -217,7 +221,6 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
   return (
     <ModalShell title={t.syncModalTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
-
         {/* Directory Comparison Banner */}
         <div className="p-[var(--space-3)] bg-black/50 border-b border-white/10 grid grid-cols-1 md:grid-cols-2 gap-[var(--space-3)] shrink-0">
           <div className="p-[var(--space-2)] bg-black/40 rounded border border-sky-400/30 flex items-center gap-[var(--space-2)] truncate">
@@ -271,11 +274,7 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
           {/* Filters & Toggles */}
           <div className="flex items-center gap-[var(--space-3)]">
             <label className="flex items-center gap-[var(--space-2)] cursor-pointer font-bold text-amber-300">
-              <input
-                type="checkbox"
-                checked={hideEqual}
-                onChange={(e) => setHideEqual(e.target.checked)}
-              />
+              <input type="checkbox" checked={hideEqual} onChange={(e) => setHideEqual(e.target.checked)} />
               <span>{t.syncHideEqual}</span>
             </label>
           </div>
@@ -301,23 +300,43 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {visibleItems.map(item => {
+                {visibleItems.map((item) => {
                   let statusBadge = null;
                   switch (item.status) {
                     case 'LEFT_ONLY':
-                      statusBadge = <span className="bg-sky-950 text-sky-300 border border-sky-400/50 px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[9px]">{t.syncOnlyLeft}</span>;
+                      statusBadge = (
+                        <span className="bg-sky-950 text-sky-300 border border-sky-400/50 px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[9px]">
+                          {t.syncOnlyLeft}
+                        </span>
+                      );
                       break;
                     case 'RIGHT_ONLY':
-                      statusBadge = <span className="bg-emerald-950 text-emerald-300 border border-emerald-400/50 px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[9px]">{t.syncOnlyRight}</span>;
+                      statusBadge = (
+                        <span className="bg-emerald-950 text-emerald-300 border border-emerald-400/50 px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[9px]">
+                          {t.syncOnlyRight}
+                        </span>
+                      );
                       break;
                     case 'LEFT_NEWER':
-                      statusBadge = <span className="bg-amber-950 text-amber-300 border border-amber-400/50 px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[9px]">{t.syncLeftNewer}</span>;
+                      statusBadge = (
+                        <span className="bg-amber-950 text-amber-300 border border-amber-400/50 px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[9px]">
+                          {t.syncLeftNewer}
+                        </span>
+                      );
                       break;
                     case 'RIGHT_NEWER':
-                      statusBadge = <span className="bg-purple-950 text-purple-300 border border-purple-400/50 px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[9px]">{t.syncRightNewer}</span>;
+                      statusBadge = (
+                        <span className="bg-purple-950 text-purple-300 border border-purple-400/50 px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[9px]">
+                          {t.syncRightNewer}
+                        </span>
+                      );
                       break;
                     case 'SIZE_MISMATCH':
-                      statusBadge = <span className="bg-red-950 text-red-300 border border-red-400/50 px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[9px]">{t.syncSizeDiff}</span>;
+                      statusBadge = (
+                        <span className="bg-red-950 text-red-300 border border-red-400/50 px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[9px]">
+                          {t.syncSizeDiff}
+                        </span>
+                      );
                       break;
                     case 'EQUAL':
                       statusBadge = <span className="opacity-40 text-[9px]">{t.syncIdentical}</span>;
@@ -325,8 +344,8 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
                   }
 
                   return (
-                    <tr 
-                      key={item.id} 
+                    <tr
+                      key={item.id}
                       className={`hover:bg-white/10 transition-colors ${
                         item.direction !== 'SKIP' ? 'bg-amber-500/10 font-bold' : 'opacity-80'
                       }`}
@@ -338,7 +357,10 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
                         ) : (
                           <FileText className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
                         )}
-                        <span className="truncate text-white">{item.name}{item.ext ? `.${item.ext}` : ''}</span>
+                        <span className="truncate text-white">
+                          {item.name}
+                          {item.ext ? `.${item.ext}` : ''}
+                        </span>
                       </td>
 
                       {/* Left Side Info */}
@@ -354,13 +376,17 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
                             item.direction === 'L_TO_R'
                               ? 'bg-sky-500 text-black border-sky-300'
                               : item.direction === 'R_TO_L'
-                              ? 'bg-emerald-500 text-black border-emerald-300'
-                              : 'bg-black/40 text-slate-400 border-white/20 hover:bg-white/10'
+                                ? 'bg-emerald-500 text-black border-emerald-300'
+                                : 'bg-black/40 text-slate-400 border-white/20 hover:bg-white/10'
                           }`}
                           title={t.syncClickHint}
                         >
-                          {item.direction === 'L_TO_R' && <span className="flex items-center gap-[var(--space-1)]">A &rarr; B</span>}
-                          {item.direction === 'R_TO_L' && <span className="flex items-center gap-[var(--space-1)]">&larr; A B</span>}
+                          {item.direction === 'L_TO_R' && (
+                            <span className="flex items-center gap-[var(--space-1)]">A &rarr; B</span>
+                          )}
+                          {item.direction === 'R_TO_L' && (
+                            <span className="flex items-center gap-[var(--space-1)]">&larr; A B</span>
+                          )}
                           {item.direction === 'SKIP' && <span className="opacity-60">{t.syncSkipShort}</span>}
                         </button>
                       </td>
@@ -371,9 +397,7 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
                       </td>
 
                       {/* Status Badge */}
-                      <td className="p-[var(--space-2)] text-center">
-                        {statusBadge}
-                      </td>
+                      <td className="p-[var(--space-2)] text-center">{statusBadge}</td>
                     </tr>
                   );
                 })}
@@ -383,11 +407,11 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
         </div>
 
         {/* Footer & Actions */}
-        <div 
+        <div
           className="p-[var(--space-3)] border-t shrink-0 flex flex-col sm:flex-row items-center justify-between gap-[var(--space-3)] text-xs"
           style={{
             backgroundColor: theme.modalBg,
-            borderColor: theme.modalBorder
+            borderColor: theme.modalBorder,
           }}
         >
           {/* Summary */}

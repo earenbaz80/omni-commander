@@ -24,7 +24,7 @@ export const AppLockModal: React.FC<AppLockModalProps> = ({
   expectedUser,
   expectedPassHash,
   expectedPassSalt,
-  onUnlockSuccess
+  onUnlockSuccess,
 }) => {
   const t = getTranslations(lang);
   const [usernameInput, setUsernameInput] = useState(expectedUser || 'admin');
@@ -42,9 +42,7 @@ export const AppLockModal: React.FC<AppLockModalProps> = ({
       // Fail closed: with no stored hash there is nothing to verify against, so
       // the modal must never accept a credential. The old `|| 'admin123'`
       // fallback turned an unset password into a public master key.
-      const passOk = expectedPassHash
-        ? await checkPassword(passwordInput, expectedPassHash, expectedPassSalt)
-        : false;
+      const passOk = expectedPassHash ? await checkPassword(passwordInput, expectedPassHash, expectedPassSalt) : false;
 
       if (userOk && passOk) {
         soundManager.playSuccess();
@@ -68,7 +66,10 @@ export const AppLockModal: React.FC<AppLockModalProps> = ({
     <ModalShell title={t.appLockTitle} theme={theme} onClose={() => {}} closeButtonLabel={t.btnCancel}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
         {/* Lock Header */}
-        <div className="px-[var(--space-4)] py-[var(--space-3)] border-b font-bold shrink-0 flex items-center justify-between text-white" style={{ backgroundColor: theme.modalHeaderBg, borderBottomColor: theme.modalBorder }}>
+        <div
+          className="px-[var(--space-4)] py-[var(--space-3)] border-b font-bold shrink-0 flex items-center justify-between text-white"
+          style={{ backgroundColor: theme.modalHeaderBg, borderBottomColor: theme.modalBorder }}
+        >
           <div className="flex items-center gap-[var(--space-2)]">
             <ShieldCheck className="w-5 h-5 text-amber-300" />
             <span className="text-sm font-bold tracking-wide">{t.appLockTitle}</span>
@@ -85,9 +86,7 @@ export const AppLockModal: React.FC<AppLockModalProps> = ({
               <Lock className="w-8 h-8" />
             </div>
             <h3 className="font-bold text-white text-base">{t.appLockSignIn}</h3>
-            <p className="text-[var(--fs-sm)] opacity-75">
-              {t.lockDescription}
-            </p>
+            <p className="text-[var(--fs-sm)] opacity-75">{t.lockDescription}</p>
           </div>
 
           {hasError && (
@@ -134,7 +133,8 @@ export const AppLockModal: React.FC<AppLockModalProps> = ({
 
           <div className="pt-2">
             <button
-              type="submit" disabled={isChecking}
+              type="submit"
+              disabled={isChecking}
               className="w-full py-[var(--space-2)].5 bg-amber-400 hover:bg-amber-300 disabled:opacity-60 disabled:cursor-wait text-black font-extrabold text-xs rounded cursor-pointer shadow-lg flex items-center justify-center gap-[var(--space-2)] uppercase tracking-wider"
             >
               <Lock className="w-4 h-4" />

@@ -1,0 +1,5 @@
+# Check out text files with LF everywhere. Without this, a Windows clone with
+# `core.autocrlf=true` gets CRLF in the working tree while Prettier writes LF,
+# so `prettier --check` fails locally (and on the Windows CI runner) on files
+# nobody touched. Binary files are detected by Git and left alone.
+* text=auto eol=lf

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Play, Pause, XCircle, Trash2, Save, FolderOpen } from 'lucide-react';
+import { Play, Pause, XCircle, Trash2, Save, FolderOpen } from 'lucide-react';
 import { BackgroundTask, LanguageCode, TransferPlan } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { taskQueue } from '../../services/taskQueueManager';
@@ -18,12 +18,7 @@ interface BackgroundTasksModalProps {
   onClose: () => void;
 }
 
-export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
-  theme,
-  lang,
-  onRunCopyList,
-  onClose
-}) => {
+export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({ theme, lang, onRunCopyList, onClose }) => {
   const t = getTranslations(lang);
   const [tasks, setTasks] = useState<BackgroundTask[]>(() => taskQueue.getTasks());
   const [listStatus, setListStatus] = useState('');
@@ -46,9 +41,7 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
     }
     const result = await fsEngine.saveCopyList(plans);
     setListStatus(
-      result
-        ? t.copyListSaved.replace('{n}', String(result.saved)).replace('{path}', result.path)
-        : t.copyListFailed
+      result ? t.copyListSaved.replace('{n}', String(result.saved)).replace('{path}', result.path) : t.copyListFailed,
     );
   };
 
@@ -93,17 +86,18 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
   return (
     <ModalShell title={t.bgTasksTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
-
         {/* Action Controls */}
         <div className="p-[var(--space-3)] bg-black/40 border-b border-white/10 flex items-center justify-between gap-[var(--space-2)]">
           <div className="flex items-center gap-[var(--space-2)] text-xs">
-            <span className="font-bold text-cyan-300">{tasks.filter(t => t.status === 'running').length}</span>
+            <span className="font-bold text-cyan-300">{tasks.filter((t) => t.status === 'running').length}</span>
             <span className="opacity-75">{t.bgTasksRunning}</span>
           </div>
 
           <div className="flex items-center gap-[var(--space-2)]">
             <button
-              onClick={() => { void handleSaveList(); }}
+              onClick={() => {
+                void handleSaveList();
+              }}
               className="px-[var(--space-3)] py-[var(--space-1)] bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded flex items-center gap-[var(--space-1)] font-bold cursor-pointer"
             >
               <Save className="w-3 h-3" />
@@ -111,7 +105,9 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
             </button>
 
             <button
-              onClick={() => { void handleLoadList(); }}
+              onClick={() => {
+                void handleLoadList();
+              }}
               className="px-[var(--space-3)] py-[var(--space-1)] bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded flex items-center gap-[var(--space-1)] font-bold cursor-pointer"
             >
               <FolderOpen className="w-3 h-3" />
@@ -142,7 +138,7 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
             const isCompleted = task.status === 'completed';
 
             return (
-              <div 
+              <div
                 key={task.id}
                 className="p-[var(--space-3)] bg-black/50 border border-white/10 rounded flex flex-col gap-[var(--space-2)]"
               >
@@ -155,30 +151,32 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
                   </div>
 
                   <div className="flex items-center gap-[var(--space-2)] text-[var(--fs-8)]">
-                    {task.speed && isRunning && (
-                      <span className="text-amber-300 font-bold">{task.speed}</span>
-                    )}
+                    {task.speed && isRunning && <span className="text-amber-300 font-bold">{task.speed}</span>}
                     {task.etaSeconds != null && task.etaSeconds > 0 && (
-                      <span className="text-neutral-400">{t.etaLabel} {task.etaSeconds}s</span>
+                      <span className="text-neutral-400">
+                        {t.etaLabel} {task.etaSeconds}s
+                      </span>
                     )}
-                    <span className={`font-bold uppercase ${
-                      isRunning ? 'text-emerald-400' : isPaused ? 'text-amber-400' : isCompleted ? 'text-cyan-400' : 'text-rose-400'
-                    }`}>
+                    <span
+                      className={`font-bold uppercase ${
+                        isRunning
+                          ? 'text-emerald-400'
+                          : isPaused
+                            ? 'text-amber-400'
+                            : isCompleted
+                              ? 'text-cyan-400'
+                              : 'text-rose-400'
+                      }`}
+                    >
                       {task.status}
                     </span>
                   </div>
                 </div>
 
-                {task.details && (
-                  <div className="text-[var(--fs-8)] opacity-60 truncate">
-                    {task.details}
-                  </div>
-                )}
+                {task.details && <div className="text-[var(--fs-8)] opacity-60 truncate">{task.details}</div>}
 
                 {task.currentFile && (isRunning || isPaused) && (
-                  <div className="text-[var(--fs-8)] opacity-50 truncate font-mono">
-                    {task.currentFile}
-                  </div>
+                  <div className="text-[var(--fs-8)] opacity-50 truncate font-mono">{task.currentFile}</div>
                 )}
 
                 {/* DOS-style per-file rows, newest first: one line per file, each
@@ -189,32 +187,41 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
                       <span>{t.bgTasksFiles}</span>
                       <span className="tabular-nums">{task.files.length}</span>
                     </div>
-                    {task.files.slice().reverse().map((file) => {
-                      const pct = file.size > 0 ? Math.min(100, Math.round((file.copied / file.size) * 100)) : 0;
-                      const tone =
-                        file.status === 'done' ? 'text-emerald-400'
-                          : file.status === 'error' ? 'text-rose-300'
-                            : file.status === 'skipped' ? 'text-neutral-500'
-                              : 'text-cyan-300';
-                      const mark =
-                        file.status === 'done' ? 'OK'
-                          : file.status === 'error' ? '!!'
-                          : file.status === 'skipped' ? '--'
-                          : '>>';
-                      return (
-                        <div
-                          key={file.path}
-                          className="flex items-center gap-[var(--space-2)] text-[var(--fs-8)] font-mono py-[var(--space-1)]"
-                          title={file.path}
-                        >
-                          <span className={`shrink-0 ${tone}`}>{mark}</span>
-                          <span className="flex-1 truncate">{file.name}</span>
-                          <span className="tabular-nums opacity-60 shrink-0 w-10 text-right">
-                            {file.status === 'done' ? '' : file.size > 0 ? `${pct}%` : ''}
-                          </span>
-                        </div>
-                      );
-                    })}
+                    {task.files
+                      .slice()
+                      .reverse()
+                      .map((file) => {
+                        const pct = file.size > 0 ? Math.min(100, Math.round((file.copied / file.size) * 100)) : 0;
+                        const tone =
+                          file.status === 'done'
+                            ? 'text-emerald-400'
+                            : file.status === 'error'
+                              ? 'text-rose-300'
+                              : file.status === 'skipped'
+                                ? 'text-neutral-500'
+                                : 'text-cyan-300';
+                        const mark =
+                          file.status === 'done'
+                            ? 'OK'
+                            : file.status === 'error'
+                              ? '!!'
+                              : file.status === 'skipped'
+                                ? '--'
+                                : '>>';
+                        return (
+                          <div
+                            key={file.path}
+                            className="flex items-center gap-[var(--space-2)] text-[var(--fs-8)] font-mono py-[var(--space-1)]"
+                            title={file.path}
+                          >
+                            <span className={`shrink-0 ${tone}`}>{mark}</span>
+                            <span className="flex-1 truncate">{file.name}</span>
+                            <span className="tabular-nums opacity-60 shrink-0 w-10 text-right">
+                              {file.status === 'done' ? '' : file.size > 0 ? `${pct}%` : ''}
+                            </span>
+                          </div>
+                        );
+                      })}
                   </div>
                 )}
 
@@ -268,11 +275,7 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({
             );
           })}
 
-          {tasks.length === 0 && (
-            <div className="py-10 text-center opacity-50 italic">
-              {t.bgTasksEmpty}
-            </div>
-          )}
+          {tasks.length === 0 && <div className="py-10 text-center opacity-50 italic">{t.bgTasksEmpty}</div>}
         </div>
 
         {/* Footer */}

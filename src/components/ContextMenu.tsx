@@ -1,5 +1,20 @@
 import React, { useEffect, useRef } from 'react';
-import { Eye, Edit3, Copy, Scissors, Trash2, FolderPlus, FilePlus, FileArchive, Hash, Info, Download, Upload, RefreshCw, Lock } from 'lucide-react';
+import {
+  Eye,
+  Edit3,
+  Copy,
+  Scissors,
+  Trash2,
+  FolderPlus,
+  FilePlus,
+  FileArchive,
+  Hash,
+  Info,
+  Download,
+  Upload,
+  RefreshCw,
+  Lock,
+} from 'lucide-react';
 import { FileItem, LanguageCode } from '../types';
 import { ThemeConfig } from '../services/themeManager';
 import { getTranslations } from '../i18n/translations';
@@ -56,7 +71,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onSplitFile,
   onArchiveInfo,
   onSendToDesktop,
-  onSendToDocuments
+  onSendToDocuments,
 }) => {
   const t = getTranslations(lang);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -90,20 +105,23 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         top: `${adjustedY}px`,
         backgroundColor: theme.modalBg,
         borderColor: theme.borderPanel,
-        color: theme.itemText
+        color: theme.itemText,
       }}
     >
       {targetItem ? (
         <>
           <div className="px-[var(--space-3)] py-[var(--space-1)] font-bold text-amber-400 border-b border-white/10 truncate">
-            {targetItem.name}{targetItem.ext ? `.${targetItem.ext}` : ''}
+            {targetItem.name}
+            {targetItem.ext ? `.${targetItem.ext}` : ''}
           </div>
 
           <button
             onClick={() => handleAction(onView)}
             className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-white/20 flex items-center justify-between cursor-pointer"
           >
-            <span className="flex items-center gap-[var(--space-2)]"><Eye className="w-3.5 h-3.5" /> {t.view}</span>
+            <span className="flex items-center gap-[var(--space-2)]">
+              <Eye className="w-3.5 h-3.5" /> {t.view}
+            </span>
             <span className="opacity-60">F3</span>
           </button>
 
@@ -112,7 +130,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               onClick={() => handleAction(onEdit)}
               className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-white/20 flex items-center justify-between cursor-pointer"
             >
-              <span className="flex items-center gap-[var(--space-2)]"><Edit3 className="w-3.5 h-3.5" /> {t.edit}</span>
+              <span className="flex items-center gap-[var(--space-2)]">
+                <Edit3 className="w-3.5 h-3.5" /> {t.edit}
+              </span>
               <span className="opacity-60">F4</span>
             </button>
           )}
@@ -121,7 +141,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             onClick={() => handleAction(onCopy)}
             className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-white/20 flex items-center justify-between cursor-pointer"
           >
-            <span className="flex items-center gap-[var(--space-2)]"><Copy className="w-3.5 h-3.5" /> {t.copy}</span>
+            <span className="flex items-center gap-[var(--space-2)]">
+              <Copy className="w-3.5 h-3.5" /> {t.copy}
+            </span>
             <span className="opacity-60">F5</span>
           </button>
 
@@ -129,7 +151,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             onClick={() => handleAction(onMove)}
             className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-white/20 flex items-center justify-between cursor-pointer"
           >
-            <span className="flex items-center gap-[var(--space-2)]"><Scissors className="w-3.5 h-3.5" /> {t.move}</span>
+            <span className="flex items-center gap-[var(--space-2)]">
+              <Scissors className="w-3.5 h-3.5" /> {t.move}
+            </span>
             <span className="opacity-60">F6</span>
           </button>
 
@@ -137,14 +161,19 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             onClick={() => handleAction(onDelete)}
             className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-red-500/30 text-red-300 flex items-center justify-between cursor-pointer"
           >
-            <span className="flex items-center gap-[var(--space-2)]"><Trash2 className="w-3.5 h-3.5" /> {t.delete}</span>
+            <span className="flex items-center gap-[var(--space-2)]">
+              <Trash2 className="w-3.5 h-3.5" /> {t.delete}
+            </span>
             <span className="opacity-60">F8</span>
           </button>
 
           <div className="h-px bg-current opacity-20 my-[var(--space-1)]" />
 
           {/* Archive Actions Section */}
-          {(targetItem.ext?.toUpperCase() === 'ZIP' || targetItem.ext?.toUpperCase() === 'RAR' || targetItem.ext?.toUpperCase() === '7Z' || targetItem.ext?.toUpperCase() === 'TAR') && (
+          {(targetItem.ext?.toUpperCase() === 'ZIP' ||
+            targetItem.ext?.toUpperCase() === 'RAR' ||
+            targetItem.ext?.toUpperCase() === '7Z' ||
+            targetItem.ext?.toUpperCase() === 'TAR') && (
             <>
               <div className="px-[var(--space-3)] py-[var(--space-1)] text-[10px] uppercase opacity-50 font-bold border-b border-white/10 mb-[var(--space-2)]">
                 {t.archiveActions || 'Archive Actions'}
@@ -175,9 +204,15 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           )}
 
           <div className="h-px bg-current opacity-20 my-[var(--space-1)]" />
-          <div className="px-[var(--space-3)] py-[var(--space-1)] text-[10px] uppercase opacity-50 font-bold">Enviar a:</div>
-          <button onClick={() => handleAction(onSendToDesktop)} className="...cursor-pointer"><span>🖥️ Escritorio</span></button>
-          <button onClick={() => handleAction(onSendToDocuments)} className="...cursor-pointer"><span>📄 Documentos</span></button>
+          <div className="px-[var(--space-3)] py-[var(--space-1)] text-[10px] uppercase opacity-50 font-bold">
+            Enviar a:
+          </div>
+          <button onClick={() => handleAction(onSendToDesktop)} className="...cursor-pointer">
+            <span>🖥️ Escritorio</span>
+          </button>
+          <button onClick={() => handleAction(onSendToDocuments)} className="...cursor-pointer">
+            <span>📄 Documentos</span>
+          </button>
 
           <button
             onClick={() => handleAction(onZip)}
@@ -206,7 +241,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             onClick={() => handleAction(onProperties)}
             className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-white/20 flex items-center justify-between cursor-pointer"
           >
-            <span className="flex items-center gap-[var(--space-2)]"><Info className="w-3.5 h-3.5" /> {t.properties}</span>
+            <span className="flex items-center gap-[var(--space-2)]">
+              <Info className="w-3.5 h-3.5" /> {t.properties}
+            </span>
             <span className="opacity-60">Alt+Enter</span>
           </button>
 
@@ -217,7 +254,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                 onClick={() => handleAction(onProtectFolder)}
                 className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-amber-500/20 text-amber-300 font-bold flex items-center justify-between cursor-pointer"
               >
-                <span className="flex items-center gap-[var(--space-2)]"><Lock className="w-3.5 h-3.5 text-amber-400" /> {t.protectFolder}</span>
+                <span className="flex items-center gap-[var(--space-2)]">
+                  <Lock className="w-3.5 h-3.5 text-amber-400" /> {t.protectFolder}
+                </span>
                 <span className="opacity-60">🔒</span>
               </button>
             </>
@@ -242,7 +281,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             onClick={() => handleAction(onMkDir)}
             className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-white/20 flex items-center justify-between cursor-pointer"
           >
-            <span className="flex items-center gap-[var(--space-2)]"><FolderPlus className="w-3.5 h-3.5 text-amber-300" /> {t.newFolder}</span>
+            <span className="flex items-center gap-[var(--space-2)]">
+              <FolderPlus className="w-3.5 h-3.5 text-amber-300" /> {t.newFolder}
+            </span>
             <span className="opacity-60">F7</span>
           </button>
 
@@ -259,7 +300,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             onClick={() => handleAction(onProtectFolder)}
             className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-amber-500/20 text-amber-300 font-bold flex items-center justify-between cursor-pointer"
           >
-            <span className="flex items-center gap-[var(--space-2)]"><Lock className="w-3.5 h-3.5 text-amber-400" /> {t.protectThisFolder}</span>
+            <span className="flex items-center gap-[var(--space-2)]">
+              <Lock className="w-3.5 h-3.5 text-amber-400" /> {t.protectThisFolder}
+            </span>
             <span className="opacity-60">🔒</span>
           </button>
 
@@ -276,7 +319,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             onClick={() => handleAction(onRefresh)}
             className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-white/20 flex items-center justify-between cursor-pointer"
           >
-            <span className="flex items-center gap-[var(--space-2)]"><RefreshCw className="w-3.5 h-3.5" /> {t.refresh}</span>
+            <span className="flex items-center gap-[var(--space-2)]">
+              <RefreshCw className="w-3.5 h-3.5" /> {t.refresh}
+            </span>
             <span className="opacity-60">Ctrl+R</span>
           </button>
         </>

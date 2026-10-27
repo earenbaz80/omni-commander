@@ -6,10 +6,7 @@ export interface OperationSignal {
 }
 
 export type ProgressCallback = (transferred: number, total: number) => void;
-export type OperationExecutor = (
-  onProgress: ProgressCallback,
-  signal: OperationSignal
-) => Promise<void>;
+export type OperationExecutor = (onProgress: ProgressCallback, signal: OperationSignal) => Promise<void>;
 
 class TaskQueueManager {
   /**
@@ -34,7 +31,7 @@ class TaskQueueManager {
   }
 
   public getActiveCount(): number {
-    return this.tasks.filter(t => t.status === 'running' || t.status === 'queued').length;
+    return this.tasks.filter((t) => t.status === 'running' || t.status === 'queued').length;
   }
 
   /**
@@ -43,7 +40,7 @@ class TaskQueueManager {
    * while the job runs, and a snapshot would silently ignore them.
    */
   public getPlan(id: string): TransferPlan | undefined {
-    return this.tasks.find(task => task.id === id)?.plan;
+    return this.tasks.find((task) => task.id === id)?.plan;
   }
 
   /**
@@ -54,19 +51,19 @@ class TaskQueueManager {
   public getPlans(): TransferPlan[] {
     return this.tasks
       .filter((task): task is BackgroundTask & { plan: TransferPlan } => !!task.plan)
-      .map(task => task.plan)
+      .map((task) => task.plan)
       .reverse();
   }
 
   public subscribe(listener: () => void) {
     this.listeners.push(listener);
     return () => {
-      this.listeners = this.listeners.filter(l => l !== listener);
+      this.listeners = this.listeners.filter((l) => l !== listener);
     };
   }
 
   private notify() {
-    this.listeners.forEach(l => l());
+    this.listeners.forEach((l) => l());
   }
 
   public addTask(
@@ -75,7 +72,7 @@ class TaskQueueManager {
     details?: string,
     totalBytes?: number,
     executor?: OperationExecutor,
-    plan?: TransferPlan
+    plan?: TransferPlan,
   ): string {
     const id = `task_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const newTask: BackgroundTask = {
@@ -89,7 +86,7 @@ class TaskQueueManager {
       transferredBytes: 0,
       totalBytes: totalBytes || 1024 * 1024,
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      plan
+      plan,
     };
 
     this.tasks.unshift(newTask);
@@ -112,7 +109,7 @@ class TaskQueueManager {
     try {
       while (true) {
         // Find next queued task
-        const task = this.tasks.find(t => t.status === 'queued');
+        const task = this.tasks.find((t) => t.status === 'queued');
         if (!task) break;
 
         const executor = this.executors.get(task.id);
@@ -192,7 +189,7 @@ class TaskQueueManager {
   }
 
   public pauseTask(id: string) {
-    const task = this.tasks.find(t => t.id === id);
+    const task = this.tasks.find((t) => t.id === id);
     if (task && task.status === 'running') {
       task.status = 'paused';
       const signal = this.signals.get(id);
@@ -202,7 +199,7 @@ class TaskQueueManager {
   }
 
   public resumeTask(id: string) {
-    const task = this.tasks.find(t => t.id === id);
+    const task = this.tasks.find((t) => t.id === id);
     if (task && task.status === 'paused') {
       task.status = 'running';
       const signal = this.signals.get(id);
@@ -212,7 +209,7 @@ class TaskQueueManager {
   }
 
   public cancelTask(id: string) {
-    const task = this.tasks.find(t => t.id === id);
+    const task = this.tasks.find((t) => t.id === id);
     if (task) {
       task.status = 'cancelled';
       const signal = this.signals.get(id);
@@ -240,9 +237,9 @@ class TaskQueueManager {
       plan?: TransferPlan;
       currentFileBytes?: number;
       currentFileTotal?: number;
-    }
+    },
   ): void {
-    const task = this.tasks.find(t => t.id === id);
+    const task = this.tasks.find((t) => t.id === id);
     if (!task) return;
     if (meta.speed !== undefined) task.speed = meta.speed;
     if (meta.etaSeconds !== undefined) task.etaSeconds = meta.etaSeconds;
@@ -264,20 +261,17 @@ class TaskQueueManager {
    * list is capped rather than growing one entry per file ever touched.
    */
   public updateTaskFiles(id: string, entries: FileProgressEntry[]): void {
-    const task = this.tasks.find(t => t.id === id);
+    const task = this.tasks.find((t) => t.id === id);
     if (!task || entries.length === 0) return;
-    const merged = new Map((task.files || []).map(f => [f.path, f]));
+    const merged = new Map((task.files || []).map((f) => [f.path, f]));
     for (const entry of entries) merged.set(entry.path, entry);
     const all = [...merged.values()];
-    task.files =
-      all.length > TaskQueueManager.FILE_WINDOW
-        ? all.slice(all.length - TaskQueueManager.FILE_WINDOW)
-        : all;
+    task.files = all.length > TaskQueueManager.FILE_WINDOW ? all.slice(all.length - TaskQueueManager.FILE_WINDOW) : all;
     this.notify();
   }
 
   public clearCompleted() {
-    this.tasks = this.tasks.filter(t => t.status === 'running' || t.status === 'queued' || t.status === 'paused');
+    this.tasks = this.tasks.filter((t) => t.status === 'running' || t.status === 'queued' || t.status === 'paused');
     this.notify();
   }
 }

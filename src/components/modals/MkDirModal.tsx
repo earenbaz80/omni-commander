@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { FolderPlus, FilePlus } from 'lucide-react';
 import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
@@ -23,7 +22,7 @@ export const MkDirModal: React.FC<MkDirModalProps> = ({
   currentPath,
   isNewFile = false,
   onConfirm,
-  onClose
+  onClose,
 }) => {
   const t = getTranslations(lang);
   const [name, setName] = useState(isNewFile ? 'NewDocument.txt' : 'NEW_FOLDER');
@@ -38,7 +37,12 @@ export const MkDirModal: React.FC<MkDirModalProps> = ({
   const dialogRef = useModalDialog<HTMLDivElement>(t.toolbarNewFolder);
 
   return (
-    <ModalShell title={isNewFile ? t.newFileTitle : `${t.mkdirTitle} (F7)`} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
+    <ModalShell
+      title={isNewFile ? t.newFileTitle : `${t.mkdirTitle} (F7)`}
+      theme={theme}
+      onClose={onClose}
+      closeButtonLabel={t.btnCancel}
+    >
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
         <form onSubmit={handleSubmit} className="p-[var(--space-4)] space-y-[var(--space-4)]">
           <div>

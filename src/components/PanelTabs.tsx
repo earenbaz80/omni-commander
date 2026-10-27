@@ -23,14 +23,14 @@ export const PanelTabs: React.FC<PanelTabsProps> = ({
   onSelectTab,
   onNewTab,
   onCloseTab,
-  isActive
+  isActive,
 }) => {
   return (
-    <div 
+    <div
       className="flex items-center gap-[var(--space-1)] px-[var(--space-1)] pt-1 overflow-x-auto no-scrollbar select-none border-b shrink-0 text-xs font-mono"
       style={{
         backgroundColor: isActive ? theme.bgPanel : theme.bgPanelInactive,
-        borderColor: theme.borderPanel
+        borderColor: theme.borderPanel,
       }}
     >
       {tabs.map((tab) => {
@@ -45,20 +45,16 @@ export const PanelTabs: React.FC<PanelTabsProps> = ({
               onSelectTab(tab.id);
             }}
             className={`group relative flex items-center gap-[var(--space-2)] px-[var(--space-3)] py-[var(--space-1)] rounded-t border-t border-x cursor-pointer transition-colors max-w-[160px] ${
-              isCurrent
-                ? 'font-bold shadow-sm'
-                : 'opacity-70 hover:opacity-100 hover:bg-black/20'
+              isCurrent ? 'font-bold shadow-sm' : 'opacity-70 hover:opacity-100 hover:bg-black/20'
             }`}
             style={{
               backgroundColor: isCurrent ? theme.headerBg : 'rgba(0,0,0,0.25)',
               color: isCurrent ? theme.headerText : theme.itemText,
-              borderColor: isCurrent ? theme.borderFocus : 'transparent'
+              borderColor: isCurrent ? theme.borderFocus : 'transparent',
             }}
           >
             {/* Lock icon */}
-            {tab.isLocked && (
-              <Lock className="w-2.5 h-2.5 opacity-80 shrink-0 text-amber-300" />
-            )}
+            {tab.isLocked && <Lock className="w-2.5 h-2.5 opacity-80 shrink-0 text-amber-300" />}
 
             {/* Tab title / path name */}
             <span className="truncate text-xs font-medium" title={tab.currentPath}>

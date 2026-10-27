@@ -16,13 +16,7 @@ interface EditorModalProps {
   onClose: () => void;
 }
 
-export const EditorModal: React.FC<EditorModalProps> = ({
-  theme,
-  lang,
-  file,
-  onSave,
-  onClose
-}) => {
+export const EditorModal: React.FC<EditorModalProps> = ({ theme, lang, file, onSave, onClose }) => {
   const t = getTranslations(lang);
   const [content, setContent] = useState('');
   const [isSaved, setIsSaved] = useState(true);
@@ -53,7 +47,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({
       const lines = content.substring(0, pos).split('\n');
       setCursorPos({
         line: lines.length,
-        col: lines[lines.length - 1].length + 1
+        col: lines[lines.length - 1].length + 1,
       });
     }
   };
@@ -81,8 +75,10 @@ export const EditorModal: React.FC<EditorModalProps> = ({
     <ModalShell title={t.editorModalTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
         {/* Search bar in header area */}
-        <div className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-b font-bold shrink-0"
-          style={{ backgroundColor: theme.modalHeaderBg, color: theme.modalHeaderText, borderColor: theme.modalBorder }}>
+        <div
+          className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-b font-bold shrink-0"
+          style={{ backgroundColor: theme.modalHeaderBg, color: theme.modalHeaderText, borderColor: theme.modalBorder }}
+        >
           <div className="flex items-center gap-[var(--space-2)] truncate">
             <Edit3 className="w-4 h-4" />
             <span className="truncate">
@@ -141,7 +137,9 @@ export const EditorModal: React.FC<EditorModalProps> = ({
           {/* Line Numbers Column */}
           <div className="w-12 py-[var(--space-3)] px-[var(--space-1)] text-right select-none opacity-40 bg-black/50 border-r border-white/10 overflow-hidden leading-5">
             {Array.from({ length: Math.max(lineCount, 1) }).map((_, i) => (
-              <div key={i} className="text-[11px] tabular-nums">{i + 1}</div>
+              <div key={i} className="text-[11px] tabular-nums">
+                {i + 1}
+              </div>
             ))}
           </div>
 
@@ -164,17 +162,23 @@ export const EditorModal: React.FC<EditorModalProps> = ({
         </div>
 
         {/* Footer Status Bar */}
-        <div 
+        <div
           className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-t text-xs shrink-0 tabular-nums"
           style={{
             backgroundColor: theme.modalBg,
-            borderColor: theme.modalBorder
+            borderColor: theme.modalBorder,
           }}
         >
           <div className="flex items-center gap-[var(--space-3)]">
-            <span>{t.editorLineInfo.replace('{current}', String(cursorPos.line)).replace('{total}', String(lineCount))}</span>
+            <span>
+              {t.editorLineInfo.replace('{current}', String(cursorPos.line)).replace('{total}', String(lineCount))}
+            </span>
             <span>{t.editorColumnInfo.replace('{n}', String(cursorPos.col))}</span>
-            <span>{t.editorTotalChars.replace('{n}', String(content.length)).replace('{size}', String(new Blob([content]).size))}</span>
+            <span>
+              {t.editorTotalChars
+                .replace('{n}', String(content.length))
+                .replace('{size}', String(new Blob([content]).size))}
+            </span>
           </div>
 
           <div className="flex items-center gap-[var(--space-2)]">
