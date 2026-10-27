@@ -1,6 +1,14 @@
 import JSZip from 'jszip';
 import { tGlobal } from '../i18n/translations';
 
+/** Windows rejects control characters (0x00-0x1F) anywhere in a file name. */
+function hasControlChar(value: string): boolean {
+  for (let index = 0; index < value.length; index++) {
+    if (value.charCodeAt(index) < 0x20) return true;
+  }
+  return false;
+}
+
 export function archiveEntryPath(name: string): string {
   const normalized = name.replace(/\\/g, '/').replace(/\/$/, '');
   const parts = normalized.split('/');
@@ -11,7 +19,8 @@ export function archiveEntryPath(name: string): string {
         !part ||
         part === '.' ||
         part === '..' ||
-        /[\x00-\x1f:*?"<>|]/.test(part) ||
+        hasControlChar(part) ||
+        /[:*?"<>|]/.test(part) ||
         /[. ]$/.test(part) ||
         /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(part),
     )
@@ -22,9 +31,14 @@ export function archiveEntryPath(name: string): string {
 }
 
 export async function loadArchive(bytes: Uint8Array, name: string, password?: string): Promise<JSZip> {
+  // JSZip cannot decrypt encrypted entries, so there is no password option to
+  // pass. The parameter stays in the signature until a decrypting backend is
+  // wired in; silently dropping it here is why encrypted archives report as
+  // corrupt instead of prompting.
+  void password;
   let zip: JSZip;
   try {
-    zip = await JSZip.loadAsync(bytes, { checkCRC32: true, createFolders: true, password });
+    zip = await JSZip.loadAsync(bytes, { checkCRC32: true, createFolders: true });
   } catch {
     throw new Error(tGlobal('zipErrCorrupt').replace('{name}', name));
   }

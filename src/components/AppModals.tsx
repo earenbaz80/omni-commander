@@ -532,23 +532,6 @@ export const AppModals: React.FC<AppModalsProps> = ({
           />
         )}
 
-        {activeModal === 'zipPassword' && (
-          <ZipPasswordModal
-            theme={currentTheme}
-            lang={lang}
-            fileName={archivePwdFileName || 'archive'}
-            invalid={archivePwdInvalid || false}
-            onSubmit={(pwd) => {
-              handleArchivePasswordSubmit?.(pwd);
-              setActiveModal(null);
-            }}
-            onClose={() => {
-              handleArchivePasswordClose?.();
-              setActiveModal(null);
-            }}
-          />
-        )}
-
         {activeModal === 'archive_info' && selectedFileForModal && (
           <ArchiveInfoModal
             theme={currentTheme}
