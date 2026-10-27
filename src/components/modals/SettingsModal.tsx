@@ -1,25 +1,11 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import ModalShell from '../ModalShell';
-import {
-  Settings,
-  Palette,
-  Globe,
-  Monitor,
-  Sliders,
-  Keyboard,
-  Volume2,
-  Lock,
-  Save,
-  X,
-  Check,
-  Eye,
-  EyeOff,
-} from 'lucide-react';
+import { Palette, Globe, Monitor, Sliders, Keyboard, Volume2, Lock, Save, Check, Eye, EyeOff } from 'lucide-react';
 import { UserSettings, ThemeId, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
-import { createPasswordRecord } from '../../services/appLock';
+import { checkPassword, createPasswordRecord } from '../../services/appLock';
 import { useThemeColors } from '../../hooks/useThemeColors';
 
 interface SettingsModalProps {
@@ -82,14 +68,59 @@ const keybindingPresets = [
 ];
 
 type FormSettings = Partial<UserSettings> & {
+  currentPassword: string;
   newPassword: string;
   confirmPassword: string;
 };
 
 const INITIAL_FORM: FormSettings = {
+  currentPassword: '',
   newPassword: '',
   confirmPassword: '',
 };
+
+/**
+ * Everything a settings file can carry about the app lock. Both directions drop
+ * it: the three password fields are form-only and hold whatever was typed, in
+ * clear; the salted hash would let anyone holding the file test guesses
+ * offline; and `appLockEnabled` alone describes a lock nothing can open. Import
+ * only merges the keys a file has, so a backup leaves the receiving machine's
+ * own lock and credential untouched instead of arming or disarming it.
+ */
+const SETTINGS_LOCK_KEYS = [
+  'currentPassword',
+  'newPassword',
+  'confirmPassword',
+  'appLockEnabled',
+  'appPasswordHash',
+  'appPasswordSalt',
+] as const satisfies readonly (keyof FormSettings)[];
+
+/** Payload for the settings export: the real settings, minus the lock keys. */
+function buildSettingsExport(formData: FormSettings): Partial<UserSettings> {
+  const exportable: Record<string, unknown> = { ...formData };
+  for (const key of SETTINGS_LOCK_KEYS) delete exportable[key];
+  return exportable as Partial<UserSettings>;
+}
+
+/**
+ * Counterpart of `buildSettingsExport` for the import button. Payloads that are
+ * not a settings object are rejected (the caller reports the invalid file)
+ * rather than spread into the form as numeric keys, and the lock keys are
+ * dropped so an old backup carrying `appLockEnabled: true` plus a hash — for a
+ * password this machine may never have had — cannot arm a lock no credential
+ * opens.
+ */
+function parseSettingsImport(raw: string): Partial<UserSettings> {
+  const parsed: unknown = JSON.parse(raw);
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('settings file is not a JSON object');
+  }
+
+  const importable: Record<string, unknown> = { ...(parsed as Record<string, unknown>) };
+  for (const key of SETTINGS_LOCK_KEYS) delete importable[key];
+  return importable as Partial<UserSettings>;
+}
 
 export function SettingsTabButton({
   active,
@@ -176,7 +207,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
   const [activeTab, setActiveTab] = useState<SettingsTab>('theme');
   const [formData, setFormData] = useState<FormSettings>({ ...INITIAL_FORM, ...settings });
   const [errors, setErrors] = useState<Partial<Record<keyof FormSettings, string>>>({});
-  const [touched, setTouched] = useState<Partial<Record<keyof FormSettings, boolean>>>({});
+  // Password visibility is its own state. It used to ride on `touched`, which
+  // every blur set to true, so leaving a password field revealed it in clear.
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Validación en tiempo real
   const validateField = useCallback(
@@ -202,23 +237,82 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
     [validateField],
   );
 
-  const handleBlur = useCallback((name: keyof FormSettings) => {
-    setTouched((prev) => ({ ...prev, [name]: true }));
-  }, []);
-
-  const handleSave = () => {
+  const handleSave = async () => {
     // Validar todo antes de guardar
     const newErrors: Partial<Record<keyof FormSettings, string>> = {};
     if (formData.newPassword && formData.newPassword !== formData.confirmPassword) {
       newErrors.confirmPassword = (t as any).protectMismatch || 'Passwords do not match';
     }
+    // Enabling the lock without any password would create a lock that no
+    // credential can open, so the save is refused instead.
+    if (formData.appLockEnabled && !formData.appPasswordHash && !formData.newPassword) {
+      newErrors.newPassword = t.settingsAppLockNeedsPassword;
+    }
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      setTouched({ newPassword: true, confirmPassword: true });
+      setActiveTab('security');
       return;
     }
-    // Guardar configuración
-    const { newPassword, confirmPassword, ...settingsToSave } = formData;
+
+    // Replacing an existing password requires proving knowledge of the current
+    // one: otherwise an unlocked-but-unattended session could take over the lock.
+    if (formData.newPassword && formData.appPasswordHash) {
+      if (!formData.currentPassword) {
+        setErrors({ currentPassword: t.settingsAppCurrentPassRequired });
+        setActiveTab('security');
+        return;
+      }
+      try {
+        const currentOk = await checkPassword(
+          formData.currentPassword,
+          formData.appPasswordHash,
+          formData.appPasswordSalt || undefined,
+        );
+        if (!currentOk) {
+          soundManager.playBeep(250, 0.2);
+          setErrors({ currentPassword: t.settingsAppCurrentPassWrong });
+          setFormData((prev) => ({ ...prev, currentPassword: '' }));
+          setActiveTab('security');
+          return;
+        }
+      } catch {
+        setErrors({ currentPassword: t.appLockNoWebCrypto || 'Password could not be verified' });
+        setActiveTab('security');
+        return;
+      }
+    }
+
+    // The plaintext password never leaves this function: only the salted PBKDF2
+    // hash is persisted. The password fields are form-only and are stripped below.
+    const {
+      newPassword,
+      confirmPassword: _confirmPassword,
+      currentPassword: _currentPassword,
+      ...settingsToSave
+    } = formData;
+    if (newPassword) {
+      try {
+        const record = await createPasswordRecord(newPassword);
+        settingsToSave.appPasswordHash = record.hash;
+        settingsToSave.appPasswordSalt = record.salt;
+        setFormData((prev) => ({
+          ...prev,
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: '',
+          appPasswordHash: record.hash,
+          appPasswordSalt: record.salt,
+        }));
+      } catch {
+        setErrors((prev) => ({
+          ...prev,
+          newPassword: t.appLockNoWebCrypto || 'Password could not be hashed',
+        }));
+        return;
+      }
+    }
+
+    setErrors({});
     onUpdateSettings(settingsToSave);
     soundManager.playSuccess();
   };
@@ -226,9 +320,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
   const handleCancel = () => {
     onClose();
   };
-
-  const currentThemeName = themeList.find((th) => th.id === settings.theme)?.name;
-  const currentLangLabel = LANGUAGES.find((l) => l.code === settings.language)?.label;
 
   const themeTabContent = (
     <div className="space-y-[var(--space-2)]">
@@ -293,7 +384,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             type="checkbox"
             checked={formData.showToolbar}
             onChange={(e) => handleChange('showToolbar', e.target.checked)}
-            onBlur={() => handleBlur('showToolbar')}
           />
           <span>{t.settingsToolbar}</span>
         </label>
@@ -303,7 +393,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             type="checkbox"
             checked={formData.showCollapsibleInfoDrawer}
             onChange={(e) => handleChange('showCollapsibleInfoDrawer', e.target.checked)}
-            onBlur={() => handleBlur('showCollapsibleInfoDrawer')}
           />
           <span>{t.settingsInfoBar}</span>
         </label>
@@ -315,7 +404,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             type="checkbox"
             checked={formData.crtEffectEnabled}
             onChange={(e) => handleChange('crtEffectEnabled', e.target.checked)}
-            onBlur={() => handleBlur('crtEffectEnabled')}
           />
           <span>{t.settingsCrtEffect}</span>
         </label>
@@ -326,7 +414,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             <select
               value={formData.crtIntensity || 'classic'}
               onChange={(e) => handleChange('crtIntensity', e.target.value)}
-              onBlur={() => handleBlur('crtIntensity')}
               className="px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-amber-300 font-mono font-bold"
             >
               <option value="subtle">{t.settingsCrtSubtle}</option>
@@ -341,7 +428,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             type="checkbox"
             checked={formData.blinkingCursorEnabled}
             onChange={(e) => handleChange('blinkingCursorEnabled', e.target.checked)}
-            onBlur={() => handleBlur('blinkingCursorEnabled')}
           />
           <span>{t.settingsBlinkCursor}</span>
         </label>
@@ -351,7 +437,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
           <select
             value={formData.cursorBlinkColor || 'cyan'}
             onChange={(e) => handleChange('cursorBlinkColor', e.target.value)}
-            onBlur={() => handleBlur('cursorBlinkColor')}
             className="px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-amber-300 font-mono font-bold"
           >
             <option value="amber">{t.settingsColorAmber}</option>
@@ -367,7 +452,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
           <select
             value={formData.fileSelectorColor || 'blue'}
             onChange={(e) => handleChange('fileSelectorColor', e.target.value)}
-            onBlur={() => handleBlur('fileSelectorColor')}
             className="px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-amber-300 font-mono font-bold"
           >
             <option value="blue">{t.settingsColorBlue}</option>
@@ -386,7 +470,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             type="checkbox"
             checked={formData.showClock}
             onChange={(e) => handleChange('showClock', e.target.checked)}
-            onBlur={() => handleBlur('showClock')}
           />
           <span>{t.settingsClock}</span>
         </label>
@@ -397,7 +480,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             <select
               value={formData.clockPosition || 'header'}
               onChange={(e) => handleChange('clockPosition', e.target.value)}
-              onBlur={() => handleBlur('clockPosition')}
               className="px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-amber-300 font-mono font-bold"
             >
               <option value="header">{t.settingsClockHeader}</option>
@@ -418,7 +500,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             type="checkbox"
             checked={formData.showHoverTooltips}
             onChange={(e) => handleChange('showHoverTooltips', e.target.checked)}
-            onBlur={() => handleBlur('showHoverTooltips')}
           />
           <span>{t.settingsHoverTooltips}</span>
         </label>
@@ -428,7 +509,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             type="checkbox"
             checked={formData.showImageHoverThumbnails}
             onChange={(e) => handleChange('showImageHoverThumbnails', e.target.checked)}
-            onBlur={() => handleBlur('showImageHoverThumbnails')}
             disabled={!formData.showHoverTooltips}
           />
           <span>{t.settingsThumbnails}</span>
@@ -441,7 +521,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             type="checkbox"
             checked={formData.confirmDelete}
             onChange={(e) => handleChange('confirmDelete', e.target.checked)}
-            onBlur={() => handleBlur('confirmDelete')}
           />
           <span>{t.settingsConfirmDelete}</span>
         </label>
@@ -451,7 +530,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             type="checkbox"
             checked={formData.confirmCopyOverwrite}
             onChange={(e) => handleChange('confirmCopyOverwrite', e.target.checked)}
-            onBlur={() => handleBlur('confirmCopyOverwrite')}
           />
           <span>{t.settingsConfirmOverwrite}</span>
         </label>
@@ -461,7 +539,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             type="checkbox"
             checked={formData.showHiddenFiles}
             onChange={(e) => handleChange('showHiddenFiles', e.target.checked)}
-            onBlur={() => handleBlur('showHiddenFiles')}
           />
           <span>{t.settingsShowHidden}</span>
         </label>
@@ -471,7 +548,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             type="checkbox"
             checked={formData.showSystemFiles}
             onChange={(e) => handleChange('showSystemFiles', e.target.checked)}
-            onBlur={() => handleBlur('showSystemFiles')}
           />
           <span>{t.settingsShowSystem}</span>
         </label>
@@ -481,7 +557,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             type="checkbox"
             checked={formData.useRecycleBin !== false}
             onChange={(e) => handleChange('useRecycleBin', e.target.checked)}
-            onBlur={() => handleBlur('useRecycleBin')}
           />
           <span>{t.settingsUseRecycleBin}</span>
         </label>
@@ -525,12 +600,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             if (e.target.checked) soundManager.playSuccess();
             handleChange('soundEffects', e.target.checked);
           }}
-          onBlur={() => handleBlur('soundEffects')}
         />
         <span>{t.settingsSoundEnable}</span>
       </label>
     </SectionCard>
   );
+
+  // A stored hash or a password typed in this session are both enough to enable
+  // the lock; otherwise there would be nothing to unlock with.
+  const passwordReady = !!formData.appPasswordHash || formData.newPassword.length > 0;
 
   const securityTabContent = (
     <div className="space-y-[var(--space-2)]">
@@ -539,86 +617,113 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
           <input
             type="checkbox"
             checked={formData.appLockEnabled}
-            disabled={!formData.appPasswordHash && !formData.appLockEnabled}
+            disabled={!passwordReady && !formData.appLockEnabled}
             onChange={(e) => {
-              if (e.target.checked && !formData.appPasswordHash) {
+              if (e.target.checked && !passwordReady) {
                 soundManager.playBeep(220, 0.2);
                 window.alert(t.settingsAppLockNeedsPassword);
                 return;
               }
               handleChange('appLockEnabled', e.target.checked);
             }}
-            onBlur={() => handleBlur('appLockEnabled')}
           />
           <span>{t.settingsAppLock}</span>
         </label>
 
-        {formData.appLockEnabled && (
-          <div className="p-[var(--space-2)] bg-black/60 rounded border border-amber-400/40 grid grid-cols-1 sm:grid-cols-2 gap-[var(--space-2)]">
-            <div>
-              <span className="text-[var(--fs-8)] opacity-70 block font-bold mb-0.5">{t.settingsAppUser}</span>
-              <input
-                type="text"
-                value={formData.appUsername || 'admin'}
-                onChange={(e) => handleChange('appUsername', e.target.value)}
-                onBlur={() => handleBlur('appUsername')}
-                className="w-full px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
-              />
-            </div>
-            <div>
-              <span className="text-[var(--fs-8)] opacity-70 block font-bold mb-0.5">{t.settingsAppPass}</span>
-              <div className="relative">
-                <input
-                  type={touched.newPassword ? 'text' : 'password'}
-                  value={formData.newPassword}
-                  placeholder={formData.appPasswordSalt ? t.settingsAppPassSet : t.settingsAppPassNone}
-                  onChange={(e) => handleChange('newPassword', e.target.value)}
-                  onBlur={() => handleBlur('newPassword')}
-                  className="w-full px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-white font-mono pr-[var(--space-7)]"
-                />
-                <button
-                  type="button"
-                  onClick={() => setTouched((prev) => ({ ...prev, newPassword: !prev.newPassword }))}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-amber-300 hover:text-amber-100"
-                  aria-label="Toggle password visibility"
-                >
-                  {touched.newPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                </button>
-                {errors.newPassword && (
-                  <span className="text-[var(--fs-8)] text-rose-300 mt-[var(--space-1)] block">
-                    {errors.newPassword}
-                  </span>
-                )}
-              </div>
-            </div>
+        {/* Always visible so the first password can be created: the lock itself
+            cannot be enabled until one exists. */}
+        <div className="p-[var(--space-2)] bg-black/60 rounded border border-amber-400/40 grid grid-cols-1 sm:grid-cols-2 gap-[var(--space-2)]">
+          {/* A stored password can only be replaced by someone who knows it. */}
+          {formData.appPasswordHash && (
             <div className="sm:col-span-2">
-              <span className="text-[var(--fs-8)] opacity-70 block font-bold mb-0.5">{t.settingsAppPass}</span>
+              <span className="text-[var(--fs-8)] opacity-70 block font-bold mb-0.5">{t.settingsAppCurrentPass}</span>
               <div className="relative">
                 <input
-                  type={touched.confirmPassword ? 'text' : 'password'}
-                  value={formData.confirmPassword}
-                  placeholder={t.settingsAppPassNone}
-                  onChange={(e) => handleChange('confirmPassword', e.target.value)}
-                  onBlur={() => handleBlur('confirmPassword')}
+                  aria-label={t.settingsAppCurrentPass}
+                  type={showCurrentPassword ? 'text' : 'password'}
+                  value={formData.currentPassword}
+                  onChange={(e) => handleChange('currentPassword', e.target.value)}
                   className="w-full px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-white font-mono pr-[var(--space-7)]"
                 />
                 <button
                   type="button"
-                  onClick={() => setTouched((prev) => ({ ...prev, confirmPassword: !prev.confirmPassword }))}
+                  onClick={() => setShowCurrentPassword((v) => !v)}
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 text-amber-300 hover:text-amber-100"
-                  aria-label="Toggle password visibility"
+                  aria-label={t.settingsAppCurrentPass}
+                  aria-pressed={showCurrentPassword}
                 >
-                  {touched.confirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  {showCurrentPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
-                {errors.confirmPassword && (
+                {errors.currentPassword && (
                   <span className="text-[var(--fs-8)] text-rose-300 mt-[var(--space-1)] block">
-                    {errors.confirmPassword}
+                    {errors.currentPassword}
                   </span>
                 )}
               </div>
+            </div>
+          )}
+          <div>
+            <span className="text-[var(--fs-8)] opacity-70 block font-bold mb-0.5">{t.settingsAppUser}</span>
+            <input
+              type="text"
+              value={formData.appUsername || 'admin'}
+              onChange={(e) => handleChange('appUsername', e.target.value)}
+              className="w-full px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
+            />
+          </div>
+          <div>
+            <span className="text-[var(--fs-8)] opacity-70 block font-bold mb-0.5">{t.settingsAppPass}</span>
+            <div className="relative">
+              <input
+                aria-label={t.settingsAppPass}
+                type={showNewPassword ? 'text' : 'password'}
+                value={formData.newPassword}
+                placeholder={formData.appPasswordSalt ? t.settingsAppPassSet : t.settingsAppPassNone}
+                onChange={(e) => handleChange('newPassword', e.target.value)}
+                className="w-full px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-white font-mono pr-[var(--space-7)]"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword((v) => !v)}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-amber-300 hover:text-amber-100"
+                aria-label={t.settingsAppPass}
+                aria-pressed={showNewPassword}
+              >
+                {showNewPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+              {errors.newPassword && (
+                <span className="text-[var(--fs-8)] text-rose-300 mt-[var(--space-1)] block">{errors.newPassword}</span>
+              )}
             </div>
           </div>
-        )}
+          <div className="sm:col-span-2">
+            <span className="text-[var(--fs-8)] opacity-70 block font-bold mb-0.5">{t.protectConfirm}</span>
+            <div className="relative">
+              <input
+                aria-label={t.protectConfirm}
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={formData.confirmPassword}
+                placeholder={t.protectConfirmPlaceholder}
+                onChange={(e) => handleChange('confirmPassword', e.target.value)}
+                className="w-full px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-white font-mono pr-[var(--space-7)]"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((v) => !v)}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-amber-300 hover:text-amber-100"
+                aria-label={t.protectConfirm}
+                aria-pressed={showConfirmPassword}
+              >
+                {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+              {errors.confirmPassword && (
+                <span className="text-[var(--fs-8)] text-rose-300 mt-[var(--space-1)] block">
+                  {errors.confirmPassword}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
       </SectionCard>
     </div>
   );
@@ -667,7 +772,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             <div className="flex items-center gap-[var(--space-1)]">
               <button
                 onClick={() => {
-                  const blob = new Blob([JSON.stringify(formData, null, 2)], { type: 'application/json' });
+                  const payload = buildSettingsExport(formData);
+                  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement('a');
                   a.href = url;
@@ -689,7 +795,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
                     const file = (ev.target as HTMLInputElement).files?.[0];
                     if (!file) return;
                     try {
-                      const parsed = JSON.parse(await file.text());
+                      const parsed = parseSettingsImport(await file.text());
                       setFormData((prev) => ({ ...prev, ...parsed }));
                       soundManager.playSuccess();
                     } catch {
@@ -711,7 +817,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
                 {t.btnCancel}
               </button>
               <button
-                onClick={handleSave}
+                onClick={() => {
+                  void handleSave();
+                }}
                 className="px-[var(--space-3)] py-[var(--space-1)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow flex items-center gap-[var(--space-1)]"
               >
                 <Save className="w-3 h-3" /> {t.btnSave}

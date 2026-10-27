@@ -13,7 +13,9 @@ export default tseslint.config(
   {
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-vars': 'warn',
+      // Rest-destructuring is how this codebase omits form-only keys before
+      // persisting; those siblings are intentionally unused.
+      '@typescript-eslint/no-unused-vars': ['warn', { ignoreRestSiblings: true }],
     },
   },
   storybook.configs['flat/recommended'],
