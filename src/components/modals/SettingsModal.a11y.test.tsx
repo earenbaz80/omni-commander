@@ -40,7 +40,6 @@ const settings: UserSettings = {
   appPasswordSalt: '',
   protectedFolders: {},
   customShortcuts: {},
-  keybindingPreset: 'norton',
   useRecycleBin: true,
 };
 

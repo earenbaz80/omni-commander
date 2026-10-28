@@ -390,7 +390,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
                 onClick={() => handleAction(() => onSetTheme('classic_blue'))}
                 className="w-full text-left px-4 py-0.5 hover:bg-white/20"
               >
-                {t.menuThemeNorton} {theme.id === 'classic_blue' || theme.id === 'norton_classic' ? '✓' : ''}
+                {t.themeOmniClassic} {theme.id === 'classic_blue' ? '✓' : ''}
               </button>
               <button
                 onClick={() => handleAction(() => onSetTheme('midnight_amber'))}
@@ -414,7 +414,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
                 onClick={() => handleAction(() => onSetTheme('retro_gray'))}
                 className="w-full text-left px-4 py-0.5 hover:bg-white/20"
               >
-                {t.themeTotalCmd} {theme.id === 'retro_gray' || theme.id === 'total_commander' ? '✓' : ''}
+                {t.themeOmniRetro} {theme.id === 'retro_gray' ? '✓' : ''}
               </button>
               <div className="h-px bg-current opacity-20 my-1"></div>
               <button

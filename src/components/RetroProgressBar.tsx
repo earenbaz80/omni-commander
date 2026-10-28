@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ThemeConfig } from '../services/themeManager';
 
 /**
- * MS-DOS / Norton Commander style progress bar.
+ * Character-mode progress bar: text cells, the way a DOS-era tool drew one.
  *
  * Rendered as a run of text cells (`████████░░░░░░░░`) so it reads like a
  * character-mode dialog instead of a modern rounded gradient. The bar can fill

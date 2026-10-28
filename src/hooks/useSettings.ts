@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { UserSettings } from '../types';
+import { migrateThemeId } from '../services/themeManager';
 
 /**
  * Global system settings: loads from localStorage on first render and persists
@@ -42,7 +43,6 @@ export function useSettings() {
       appPasswordSalt: '',
       protectedFolders: {},
       customShortcuts: {},
-      keybindingPreset: 'norton',
       useRecycleBin: true,
     };
 
@@ -54,6 +54,8 @@ export function useSettings() {
           return {
             ...defaultSettings,
             ...parsed,
+            // Saved by an older build that named the theme differently.
+            theme: migrateThemeId(parsed?.theme),
             protectedFolders: parsed?.protectedFolders || {},
           };
         }

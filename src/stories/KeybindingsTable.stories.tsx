@@ -4,7 +4,7 @@ import { ThemeConfig } from '../services/themeManager';
 
 const mockTheme: ThemeConfig = {
   id: 'classic_blue',
-  nameKey: 'themeNorton',
+  nameKey: 'themeOmniClassic',
   bgApp: '#000084',
   bgPanel: '#0000a8',
   bgPanelInactive: '#000084',
@@ -45,28 +45,28 @@ const mockTheme: ThemeConfig = {
 };
 
 const sampleKeybindings = [
-  { category: 'Function Keys', key: 'F1', description: 'Open Help', preset: 'norton' },
-  { category: 'Function Keys', key: 'F2', description: 'User Menu', preset: 'norton' },
-  { category: 'Function Keys', key: 'F3', description: 'View File', preset: 'norton' },
-  { category: 'Function Keys', key: 'F4', description: 'Edit File', preset: 'norton' },
-  { category: 'Function Keys', key: 'F5', description: 'Copy', preset: 'norton' },
-  { category: 'Function Keys', key: 'F6', description: 'Move', preset: 'norton' },
-  { category: 'Function Keys', key: 'F7', description: 'New Folder', preset: 'norton' },
-  { category: 'Function Keys', key: 'F8', description: 'Delete', preset: 'norton' },
-  { category: 'Function Keys', key: 'F9', description: 'Menu', preset: 'norton' },
-  { category: 'Function Keys', key: 'F10', description: 'Quit', preset: 'norton' },
-  { category: 'Navigation', key: 'Tab', description: 'Switch Panels', preset: 'norton' },
-  { category: 'Navigation', key: 'Enter', description: 'Open Folder', preset: 'norton' },
-  { category: 'Navigation', key: 'Backspace', description: 'Go Parent', preset: 'norton' },
-  { category: 'Navigation', key: 'Ctrl+T', description: 'New Tab', preset: 'norton' },
-  { category: 'Navigation', key: 'Ctrl+W', description: 'Close Tab', preset: 'norton' },
-  { category: 'Selection', key: 'Space', description: 'Toggle Selection', preset: 'norton' },
-  { category: 'Selection', key: 'Ctrl+A', description: 'Select All', preset: 'norton' },
-  { category: 'Selection', key: '*', description: 'Invert Selection', preset: 'norton' },
+  { category: 'Function Keys', key: 'F1', description: 'Open Help', preset: 'omni' },
+  { category: 'Function Keys', key: 'F2', description: 'User Menu', preset: 'omni' },
+  { category: 'Function Keys', key: 'F3', description: 'View File', preset: 'omni' },
+  { category: 'Function Keys', key: 'F4', description: 'Edit File', preset: 'omni' },
+  { category: 'Function Keys', key: 'F5', description: 'Copy', preset: 'omni' },
+  { category: 'Function Keys', key: 'F6', description: 'Move', preset: 'omni' },
+  { category: 'Function Keys', key: 'F7', description: 'New Folder', preset: 'omni' },
+  { category: 'Function Keys', key: 'F8', description: 'Delete', preset: 'omni' },
+  { category: 'Function Keys', key: 'F9', description: 'Menu', preset: 'omni' },
+  { category: 'Function Keys', key: 'F10', description: 'Quit', preset: 'omni' },
+  { category: 'Navigation', key: 'Tab', description: 'Switch Panels', preset: 'omni' },
+  { category: 'Navigation', key: 'Enter', description: 'Open Folder', preset: 'omni' },
+  { category: 'Navigation', key: 'Backspace', description: 'Go Parent', preset: 'omni' },
+  { category: 'Navigation', key: 'Ctrl+T', description: 'New Tab', preset: 'omni' },
+  { category: 'Navigation', key: 'Ctrl+W', description: 'Close Tab', preset: 'omni' },
+  { category: 'Selection', key: 'Space', description: 'Toggle Selection', preset: 'omni' },
+  { category: 'Selection', key: 'Ctrl+A', description: 'Select All', preset: 'omni' },
+  { category: 'Selection', key: '*', description: 'Invert Selection', preset: 'omni' },
 ];
 
 const categories = ['Function Keys', 'Navigation', 'Selection'];
-const presets = ['norton', 'totalcmd', 'midnight'];
+const presets = ['omni'];
 
 const meta = {
   title: 'Design System/KeybindingsTable',
@@ -99,7 +99,7 @@ export const WithPresetFilter: Story = {
     lang: 'en',
     keybindings: sampleKeybindings,
     categories,
-    filterPreset: 'norton',
+    filterPreset: 'omni',
     presets,
     onFilterChange: (preset: string) => console.log('Preset changed:', preset),
   },

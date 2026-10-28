@@ -4,6 +4,7 @@ import { Palette, Globe, Monitor, Sliders, Keyboard, Volume2, Lock, Save, Check,
 import { UserSettings, ThemeId, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations, TranslationKey } from '../../i18n/translations';
+import { buildShortcutGroups } from '../../services/shortcutGroups';
 import { soundManager } from '../../services/soundEffects';
 import { checkPassword, createPasswordRecord } from '../../services/appLock';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -53,20 +54,14 @@ const TAB_ICONS: Record<SettingsTab, React.ReactNode> = {
 // Theme names are product names and stay as-is; only the colour hint in
 // parentheses is localised.
 const themeList: { id: ThemeId; name: string; colorsKey?: TranslationKey }[] = [
-  { id: 'classic_blue', name: 'Norton Classic', colorsKey: 'themeColorsBlueCyan' },
-  { id: 'retro_gray', name: 'Total Commander', colorsKey: 'themeColorsGrayGreen' },
+  { id: 'classic_blue', name: 'Omni Commander Classic', colorsKey: 'themeColorsBlueCyan' },
+  { id: 'retro_gray', name: 'Omni Commander Retro', colorsKey: 'themeColorsGrayGreen' },
   { id: 'midnight_amber', name: 'Midnight Amber', colorsKey: 'themeColorsBlackAmber' },
   { id: 'matrix_green', name: 'Matrix Green', colorsKey: 'themeColorsBlackGreen' },
   { id: 'windows11_dark', name: 'Windows 11 Fluent Dark' },
   { id: 'windows11_light', name: 'Windows 11 Fluent Light' },
   { id: 'dracula_retro', name: 'Dracula Retro Cyberpunk' },
   { id: 'solarized_dark', name: 'Solarized Dark Pro' },
-];
-
-const keybindingPresets: { id: string; name: string; descKey: TranslationKey }[] = [
-  { id: 'norton', name: 'Norton Commander', descKey: 'presetDescNorton' },
-  { id: 'totalcmd', name: 'Total Commander', descKey: 'presetDescTotalCmd' },
-  { id: 'midnight', name: 'Midnight Commander', descKey: 'presetDescMidnight' },
 ];
 
 type FormSettings = Partial<UserSettings> & {
@@ -570,29 +565,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
     </div>
   );
 
+  // The keys this program answers to, not a menu of other file managers' schemes:
+  // there is nothing to choose, only the list to read. The same groups the manual
+  // shows, so the two can never disagree.
   const keybindingsTabContent = (
-    <SectionCard title={t.settingsKeybindings}>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--space-1)]">
-        {keybindingPresets.map((preset) => (
-          <button
-            key={preset.id}
-            type="button"
-            onClick={() => {
-              soundManager.playKeyTick();
-              setFormData((prev) => ({ ...prev, keybindingPreset: preset.id as any }));
-            }}
-            className={`p-[var(--space-2)] rounded border text-left cursor-pointer transition ${
-              formData.keybindingPreset === preset.id
-                ? 'bg-amber-400 text-black font-bold border-amber-300 shadow'
-                : 'bg-black/50 border-white/10 text-white/80 hover:bg-white/5'
-            }`}
-          >
-            <div className="font-bold text-[var(--fs-sm)]">{preset.name}</div>
-            <div className="text-[var(--fs-8)] opacity-75 mt-[var(--space-1)]">{t[preset.descKey]}</div>
-          </button>
-        ))}
-      </div>
-    </SectionCard>
+    <div className="space-y-[var(--space-2)]">
+      <h3 className="px-[var(--space-1)] text-[var(--fs-8)] font-bold uppercase tracking-wider text-amber-300">
+        {t.settingsKeybindings}
+      </h3>
+      {buildShortcutGroups(t).map((group) => (
+        <SectionCard key={group.title} title={group.title}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--space-1)]">
+            {group.shortcuts.map((shortcut) => (
+              <div key={shortcut.key} className="flex items-center gap-[var(--space-2)] py-[2px]">
+                <kbd className="shrink-0 min-w-[5.5rem] rounded border border-amber-400/40 bg-black/60 px-[var(--space-1)] py-[2px] text-center font-bold text-amber-300 text-[var(--fs-8)]">
+                  {shortcut.key}
+                </kbd>
+                <span className="text-[var(--fs-sm)] opacity-90">{shortcut.desc}</span>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      ))}
+    </div>
   );
 
   const soundTabContent = (

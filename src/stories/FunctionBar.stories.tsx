@@ -4,7 +4,7 @@ import { ThemeConfig } from '../services/themeManager';
 
 const mockTheme: ThemeConfig = {
   id: 'classic_blue',
-  nameKey: 'themeNorton',
+  nameKey: 'themeOmniClassic',
   bgApp: '#000084',
   bgPanel: '#0000a8',
   bgPanelInactive: '#000084',

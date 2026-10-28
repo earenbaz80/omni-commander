@@ -527,7 +527,7 @@ const FileListComponent: React.FC<FileListProps> = ({
         color: theme.itemText,
       }}
     >
-      {/* Table Header Columns (Norton / Total Commander style) */}
+      {/* Table header columns, in the classic two-panel layout */}
       <div
         className="flex items-center min-w-full px-[var(--space-2)] py-[var(--space-1)] border-b select-none font-bold text-[11px] shrink-0 uppercase tracking-wider gap-0 whitespace-nowrap flex-nowrap"
         style={{
