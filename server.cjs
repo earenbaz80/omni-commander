@@ -1,5 +1,5 @@
 const express = require('express');
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
 const { promisify } = require('util');
 const execFileAsync = promisify(execFile);
 const path = require('path');
@@ -3098,6 +3098,195 @@ function registerFsRoutes() {
     }
 
     return res.status(422).json({ error: 'unsupported-target' });
+  });
+
+  // -------------------------------------------------------------------------
+  // Running a program (the part of Win+R that starts an executable)
+  //
+  // Kept apart from /api/open on purpose: opening a document and starting a
+  // program are different levels of trust. The renderer first asks for a plan
+  // (without `confirmed`) and this route answers with the argv it parsed; only
+  // the second request, carrying `confirmed: true`, starts anything. That plan
+  // is not the security boundary — the token and the origin check are — it is
+  // the sentence the user reads before a line becomes a process.
+  //
+  // There is no shell here either. The line is split into arguments by the
+  // quoting rules below and handed to CreateProcess, so `&`, `|` and `>` are
+  // characters inside an argument rather than operators, and `%VAR%` is
+  // expanded once, before parsing, exactly as the Run box does. `cmd /c dir`
+  // still works when the user asks for cmd by name; nothing is interpreted
+  // behind their back.
+  // --------------------------------------------------------------------------
+
+  /** Splits a command line into argv, honouring double quotes and rejecting an unbalanced one. */
+  function splitCommandLine(text) {
+    const argv = [];
+    let current = '';
+    let quoted = false;
+    let pending = false;
+    for (const char of text) {
+      if (char === '"') {
+        quoted = !quoted;
+        pending = true;
+        continue;
+      }
+      if (!quoted && /\s/.test(char)) {
+        if (pending) {
+          argv.push(current);
+          current = '';
+          pending = false;
+        }
+        continue;
+      }
+      current += char;
+      pending = true;
+    }
+    if (quoted) throw new Error('Unterminated quote');
+    if (pending) argv.push(current);
+    return argv;
+  }
+
+  // Detached on purpose: a launched program is not a child of the file manager,
+  // so closing OmniCommander does not close it. stdio is ignored because this
+  // process has no console to hand a program, and a GUI program does not need
+  // one; a console program that requires a window asks Windows for its own.
+  function launchProgram(argv) {
+    return new Promise((resolve, reject) => {
+      const child = spawn(argv[0], argv.slice(1), { detached: true, stdio: 'ignore', windowsHide: false });
+      child.once('spawn', () => {
+        child.unref();
+        resolve();
+      });
+      // CreateProcess reports "no such program" and "not allowed" here, so the
+      // dialog can say which of the two happened instead of a generic failure.
+      child.once('error', reject);
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Running as administrator
+  //
+  // The Run box answers Ctrl+Shift+Enter with ShellExecute's "runas" verb, and
+  // that verb is what raises Windows' UAC prompt. Node cannot call ShellExecute,
+  // so the same request goes through PowerShell's Start-Process -Verb RunAs.
+  //
+  // The script travels as -EncodedCommand (UTF-16LE, base64) so no path is ever
+  // re-quoted by cmd.exe on the way in, and inside it every value is a
+  // single-quoted PowerShell literal with '' escaping -- the one form that
+  // survives a path like C:\Users\O'Brien without becoming two arguments.
+  // -------------------------------------------------------------------------
+  const ELEVATION_CANCELLED = /cancel(?:l)?ed by the user|1223/i;
+
+  function psLiteral(value) {
+    return `'${String(value).replace(/'/g, "''")}'`;
+  }
+
+  // Start-Process joins an -ArgumentList array with single spaces, so an argument
+  // with a space in it has to carry its own double quotes or it would arrive as
+  // two: `notepad "C:\mis notas.txt"` has to keep the file name whole.
+  function startProcessArg(value) {
+    return /[\s"]/.test(value) ? `"${String(value).replace(/"/g, '\\"')}"` : value;
+  }
+
+  function buildElevationScript(file, args) {
+    return [
+      '$ErrorActionPreference = "Stop"',
+      'try {',
+      `  Start-Process -FilePath ${psLiteral(file)}` +
+        (args.length ? ` -ArgumentList @(${args.map((arg) => psLiteral(startProcessArg(arg))).join(', ')})` : '') +
+        ' -Verb RunAs | Out-Null',
+      '} catch {',
+      '  [Console]::Error.WriteLine($_.Exception.Message)',
+      '  exit 1',
+      '}',
+    ].join('\n');
+  }
+
+  function launchElevated(file, args) {
+    const encoded = Buffer.from(buildElevationScript(file, args), 'utf16le').toString('base64');
+    return new Promise((resolve, reject) => {
+      const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded], {
+        stdio: ['ignore', 'ignore', 'pipe'],
+        windowsHide: true,
+      });
+      let stderr = '';
+      child.stderr.on('data', (chunk) => {
+        stderr += String(chunk);
+      });
+      child.once('error', reject);
+      child.once('close', (code) => {
+        if (code === 0) return resolve();
+        const error = new Error(stderr.trim() || `elevation exited with ${code}`);
+        // Refusing the UAC prompt is an answer, not a defect: the dialog says so
+        // instead of reporting that the program could not be started.
+        error.code = ELEVATION_CANCELLED.test(stderr) ? 'ELEVATION_CANCELLED' : 'ELEVATION_FAILED';
+        reject(error);
+      });
+    });
+  }
+
+  app.post('/api/run', async (req, res) => {
+    const body = req.body || {};
+    const raw = typeof body.command === 'string' ? body.command.trim() : '';
+    if (!raw) return res.status(400).json({ error: 'empty-command' });
+    if (raw.length > RUN_COMMAND_MAX_LENGTH) return res.status(400).json({ error: 'command-too-long' });
+    if (RUN_CONTROL_CHARS.test(raw)) return res.status(400).json({ error: 'invalid-command' });
+    const elevated = body.elevated === true;
+
+    let argv;
+    try {
+      argv = splitCommandLine(expandRunEnvVars(raw));
+    } catch {
+      return res.status(400).json({ error: 'invalid-command' });
+    }
+    if (!argv.length || !argv[0].trim()) return res.status(400).json({ error: 'empty-command' });
+
+    // The plan is the resolved line, not the one that was typed: an installer's
+    // short name becomes the file it registered, a Start Menu label becomes its
+    // shortcut, and a batch file becomes the cmd.exe line that can run it. What
+    // the user approves is what starts.
+    let entry;
+    try {
+      entry = await resolveRunEntry(argv);
+    } catch (error) {
+      logDebug('run resolution failed', argv, error?.message || error);
+      entry = { kind: 'missing', target: argv[0], argv };
+    }
+
+    if (entry.kind === 'missing') {
+      return res.status(404).json({ error: 'program-not-found', program: argv[0] });
+    }
+
+    if (body.confirmed !== true) {
+      return res.status(409).json({
+        error: 'confirmation-required',
+        argv: entry.argv,
+        mode: entry.kind,
+        target: entry.target,
+        elevated,
+      });
+    }
+
+    try {
+      if (!RUN_DRY_RUN) {
+        if (elevated) {
+          // A shell target is one file the shell knows how to start, so it is
+          // handed over alone; everything else keeps the plan's own argv, with
+          // the program first and the arguments as Start-Process' list.
+          if (entry.kind === 'shell') await launchElevated(entry.target, []);
+          else await launchElevated(entry.argv[0], entry.argv.slice(1));
+        } else if (entry.kind === 'shell') await shellOpen(entry.target);
+        else await launchProgram(entry.argv);
+      }
+      return res.json({ kind: 'launched', argv: entry.argv, mode: entry.kind, target: entry.target, elevated });
+    } catch (error) {
+      logDebug('run failed', entry.argv, error?.message || error);
+      if (error?.code === 'ELEVATION_CANCELLED')
+        return res.status(403).json({ error: 'elevation-denied', program: argv[0] });
+      if (error?.code === 'ENOENT') return res.status(404).json({ error: 'program-not-found', program: argv[0] });
+      if (error?.code === 'EACCES') return res.status(403).json({ error: 'program-not-accessible', program: argv[0] });
+      return res.status(502).json({ error: 'launch-failed', program: argv[0] });
+    }
   });
 
   // -------------------------------------------------------------------------
