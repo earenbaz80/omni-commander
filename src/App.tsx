@@ -136,6 +136,10 @@ export default function App() {
 
   // Active Modals & Operations
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
+  // Bumped by the launcher's shortcut; the Run box owns what "open" means.
+  const [runLauncherOpenRequest, setRunLauncherOpenRequest] = useState(0);
+  // True while the launcher stands on its own because the toolbar is off.
+  const [launcherOnly, setLauncherOnly] = useState(false);
   const [modalData, setModalData] = useState<any>(null);
   const [selectedFileForModal, setSelectedFileForModal] = useState<FileItem | null>(null);
   // Folder the cleanup modal was opened for, picked in the toolbar's cleanup menu.
@@ -408,6 +412,12 @@ export default function App() {
     handleToggleSelect,
     handleOpenItem,
     handleGoParent,
+    handleOpenRunLauncher: () => {
+      // The line must stay reachable with the toolbar switched off. It comes
+      // alone in that case, instead of turning the whole row back on.
+      if (!settings.showToolbar) setLauncherOnly(true);
+      setRunLauncherOpenRequest((request) => request + 1);
+    },
   });
 
   // A real transfer running with the "ask" collision policy parks on disk until

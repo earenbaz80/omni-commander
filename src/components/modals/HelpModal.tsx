@@ -4,6 +4,7 @@ import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
+import { RUN_EXAMPLE_ROWS } from '../../services/runLauncher';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
@@ -48,6 +49,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ theme, lang, onClose }) =>
         { key: 'Alt + F2', desc: t.helpScAltF2 },
         { key: 'Ctrl + R', desc: t.helpScCtrlR },
         { key: 'Ctrl + Q', desc: t.helpScCtrlQ },
+        { key: 'Ctrl + Shift + R', desc: t.helpScCtrlShiftR },
       ],
     },
     {
@@ -130,7 +132,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ theme, lang, onClose }) =>
               activeTab === 'storybook' ? 'bg-amber-400 text-black shadow' : 'hover:bg-white/10 text-white/80'
             }`}
           >
-            <BookOpen className="w-3.5 h-3.5" /> Storybook
+            <BookOpen className="w-3.5 h-3.5" /> {t.helpTabStorybook}
           </button>
         </div>
 
@@ -159,6 +161,27 @@ export const HelpModal: React.FC<HelpModalProps> = ({ theme, lang, onClose }) =>
                   </div>
                 </div>
               ))}
+
+              <div className="space-y-[var(--space-2)]">
+                <h3 className="font-bold text-amber-300 uppercase tracking-wider text-[11px] pb-1 border-b border-white/10">
+                  {t.helpRunExamplesTitle}
+                </h3>
+                <p className="opacity-80 text-[var(--fs-sm)]">{t.helpRunExamplesIntro}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--space-2)]">
+                  {' '}
+                  {RUN_EXAMPLE_ROWS.map((row) => (
+                    <div
+                      key={row.descriptionKey}
+                      className="p-[var(--space-2)] bg-black/30 rounded border border-white/10 space-y-[var(--space-1)]"
+                    >
+                      <code className="block font-bold text-amber-300 text-[var(--fs-sm)] break-all">
+                        {row.examples.join(' · ')}
+                      </code>
+                      <span className="block opacity-90 text-[var(--fs-sm)]">{t[row.descriptionKey]}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
@@ -260,15 +283,12 @@ export const HelpModal: React.FC<HelpModalProps> = ({ theme, lang, onClose }) =>
           {activeTab === 'storybook' && (
             <div className="space-y-[var(--space-3)] leading-relaxed text-[var(--fs-sm)]">
               <h3 className="text-lg font-bold text-amber-300 flex items-center gap-[var(--space-2)]">
-                <BookOpen className="w-5 h-5" /> Storybook — Component Catalog
+                <BookOpen className="w-5 h-5" /> {t.helpSbTitle}
               </h3>
-              <p className="opacity-80">
-                Storybook is an isolated development environment for UI components. It lets you view, test, and document
-                each component independently without running the full app.
-              </p>
+              <p className="opacity-80">{t.helpSbIntro}</p>
 
               <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-2)]">
-                <h4 className="font-bold text-cyan-300">How to run Storybook</h4>
+                <h4 className="font-bold text-cyan-300">{t.helpSbRunTitle}</h4>
                 <div className="font-mono text-[var(--fs-8)] bg-black/60 p-[var(--space-2)] rounded">
                   <div>npm run storybook</div>
                   <div className="opacity-60 mt-1"># → http://localhost:6006</div>
@@ -276,70 +296,71 @@ export const HelpModal: React.FC<HelpModalProps> = ({ theme, lang, onClose }) =>
               </div>
 
               <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-2)]">
-                <h4 className="font-bold text-emerald-300">Available Stories</h4>
+                <h4 className="font-bold text-emerald-300">{t.helpSbStoriesTitle}</h4>
                 <ul className="list-disc list-inside space-y-[var(--space-1)] opacity-80">
                   <li>
-                    <strong>ModalShell</strong> — Unified modal backdrop, panel, header, and close button
+                    <strong>ModalShell</strong> — {t.helpSbStoryModalShell}
                   </li>
                   <li>
-                    <strong>FunctionBar</strong> — F1-F10 function bar with disabled/hidden states
+                    <strong>FunctionBar</strong> — {t.helpSbStoryFunctionBar}
                   </li>
                   <li>
-                    <strong>KeybindingsTable</strong> — Searchable keybindings table with category/preset filters
+                    <strong>KeybindingsTable</strong> — {t.helpSbStoryKeybindingsTable}
                   </li>
                   <li>
-                    <strong>SettingsModal</strong> — Full settings panel with vertical tabs
+                    <strong>SettingsModal</strong> — {t.helpSbStorySettingsModal}
                   </li>
                   <li>
-                    <strong>FileListStatusBar</strong> — File/dir/selection counts bar
+                    <strong>FileListStatusBar</strong> — {t.helpSbStoryFileListStatusBar}
                   </li>
                   <li>
-                    <strong>FunctionKeyBar</strong> — Function key bar with Alt/Ctrl state
+                    <strong>FunctionKeyBar</strong> — {t.helpSbStoryFunctionKeyBar}
                   </li>
                   <li>
-                    <strong>SectionCard</strong> — Reusable settings section card
+                    <strong>SectionCard</strong> — {t.helpSbStorySectionCard}
                   </li>
                   <li>
-                    <strong>SettingsTabButton</strong> — Active/inactive tab button
+                    <strong>SettingsTabButton</strong> — {t.helpSbStorySettingsTabButton}
                   </li>
                   <li>
-                    <strong>ThemePreview</strong> — Visual preview of theme colors
+                    <strong>ThemePreview</strong> — {t.helpSbStoryThemePreview}
                   </li>
                 </ul>
               </div>
 
               <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-2)]">
-                <h4 className="font-bold text-fuchsia-300">How to add a new Story</h4>
+                <h4 className="font-bold text-fuchsia-300">{t.helpSbAddTitle}</h4>
                 <ol className="list-decimal list-inside space-y-[var(--space-1)] opacity-80">
                   <li>
-                    Create a file in{' '}
+                    {t.helpSbAddStep1}{' '}
                     <code className="bg-black/60 px-1 rounded">src/stories/YourComponent.stories.tsx</code>
                   </li>
                   <li>
-                    Import your component and create a <code className="bg-black/60 px-1 rounded">meta</code> object
-                    with title, component, and args
+                    {t.helpSbAddStep2Before} <code className="bg-black/60 px-1 rounded">meta</code>{' '}
+                    {t.helpSbAddStep2After}
                   </li>
-                  <li>Export the meta as default and named exports for each story variant</li>
+                  <li>{t.helpSbAddStep3}</li>
                   <li>
-                    Run <code className="bg-black/60 px-1 rounded">npm run storybook</code> to see it live
+                    {t.helpSbAddStep4Before} <code className="bg-black/60 px-1 rounded">npm run storybook</code>{' '}
+                    {t.helpSbAddStep4After}
                   </li>
                 </ol>
               </div>
 
               <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-2)]">
-                <h4 className="font-bold text-amber-300">Storybook Addons</h4>
+                <h4 className="font-bold text-amber-300">{t.helpSbAddonsTitle}</h4>
                 <ul className="list-disc list-inside space-y-[var(--space-1)] opacity-80">
                   <li>
-                    <strong>Docs</strong> — Auto-generated documentation from props and JSDoc
+                    <strong>Docs</strong> — {t.helpSbAddonDocs}
                   </li>
                   <li>
-                    <strong>A11y</strong> — Accessibility checks (contrast, ARIA, keyboard nav)
+                    <strong>A11y</strong> — {t.helpSbAddonA11y}
                   </li>
                   <li>
-                    <strong>Vitest</strong> — Run component tests inside Storybook
+                    <strong>Vitest</strong> — {t.helpSbAddonVitest}
                   </li>
                   <li>
-                    <strong>Chromatic</strong> — Visual regression testing in CI
+                    <strong>Chromatic</strong> — {t.helpSbAddonChromatic}
                   </li>
                 </ul>
               </div>
