@@ -286,6 +286,8 @@ export interface UserSettings {
   customShortcuts: Record<string, string>;
   keybindingPreset: KeybindingPreset;
   useRecycleBin: boolean;
+  /** Last folder a "Enviar a" copy landed in, so the picker reopens there. */
+  sendToLastFolder?: string;
 }
 
 export interface ClipboardState {
@@ -405,6 +407,8 @@ export type ActiveModal =
   | 'cleanup'
   | 'settings'
   | 'new_file'
+  | 'rename'
+  | 'choose_folder'
   | 'shortcuts_cheat'
   | 'protect_folder'
   | 'unlock_folder'

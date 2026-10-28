@@ -13,7 +13,7 @@ import {
   TransferOptions,
   TransferPlan,
 } from './types';
-import { fsEngine } from './services/fileSystem';
+import { CleanupTargetId, fsEngine, type OpenableArchiveFormat } from './services/fileSystem';
 import { themes, ThemeConfig } from './services/themeManager';
 import { soundManager } from './services/soundEffects';
 import { createPasswordRecord } from './services/appLock';
@@ -899,6 +899,34 @@ export default function App() {
     setActiveModal(null);
   };
 
+  const handleConfirmSendToFolder = async (folderPath: string) => {
+    const item = selectedFileForModal;
+    const driveId = modalData?.sendToDriveId;
+    setActiveModal(null);
+    if (!item || !driveId) return;
+    const created = await fsEngine.sendToFolder(driveId, folderPath, item);
+    if (created) {
+      soundManager.playSuccess();
+      // Only a folder the copy actually reached is worth remembering; a refused
+      // destination would otherwise become the default and fail again.
+      setSettings((prev) => ({ ...prev, sendToLastFolder: folderPath }));
+    } else {
+      alert(fsEngine.lastServerError || 'No se pudo copiar el elemento');
+    }
+  };
+
+  const handleConfirmRename = (newName: string) => {
+    const target = selectedFileForModal;
+    if (!target) return;
+    try {
+      fsEngine.renameItem(target.id, newName);
+      soundManager.playSuccess();
+      setActiveModal(null);
+    } catch (e: any) {
+      alert(e.message);
+    }
+  };
+
   const handleConfirmMkDir = (dirName: string) => {
     try {
       fsEngine.createDirectory(currentActiveTab.driveId, currentActiveTab.currentPath, dirName);
@@ -1401,6 +1429,12 @@ export default function App() {
           onCopy={handleTriggerCopy}
           onMove={handleTriggerMove}
           onDelete={handleTriggerDelete}
+          onRename={() => {
+            if (contextMenuState.targetItem) {
+              setSelectedFileForModal(contextMenuState.targetItem);
+              setActiveModal('rename');
+            }
+          }}
           onMkDir={() => setActiveModal('mkdir')}
           onNewFile={() => {
             setModalData({ isNewFile: true });
@@ -1465,8 +1499,32 @@ export default function App() {
               setActiveModal('archive_info');
             }
           }}
-          onSendToDesktop={() => alert('Enviar a Escritorio: ' + (contextMenuState.targetItem?.name || 'archivo'))}
-          onSendToDocuments={() => alert('Enviar a Documentos: ' + (contextMenuState.targetItem?.name || 'archivo'))}
+          canSendTo={
+            !!contextMenuState.targetItem &&
+            fsEngine.isSystemDrive(contextMenuState.targetItem.driveId) &&
+            !contextMenuState.targetItem.archiveRoot
+          }
+          onSendTo={(destination) => {
+            const item = contextMenuState.targetItem;
+            if (!item) return;
+            void (async () => {
+              const created = await fsEngine.sendTo(destination, item);
+              if (created) {
+                soundManager.playSuccess();
+                return;
+              }
+              alert(fsEngine.lastServerError || 'No se pudo enviar el elemento');
+            })();
+          }}
+          onSendToFolder={() => {
+            const item = contextMenuState.targetItem;
+            if (!item) return;
+            // The other pane is the destination picker, whichever pane is active.
+            const other = contextMenuState.panelSide === 'left' ? rightTab : leftTab;
+            setSelectedFileForModal(item);
+            setModalData({ sendToDriveId: other.driveId, sendToPath: other.currentPath });
+            setActiveModal('choose_folder');
+          }}
         />
       )}
 
@@ -1503,6 +1561,8 @@ export default function App() {
         handleConfirmDelete={handleConfirmDelete}
         handleConfirmMkDir={handleConfirmMkDir}
         handleConfirmNewFile={handleConfirmNewFile}
+        handleConfirmRename={handleConfirmRename}
+        handleConfirmSendToFolder={handleConfirmSendToFolder}
         handleApplyBatchRename={handleApplyBatchRename}
         getSelectedOrFocusedItems={getSelectedOrFocusedItems}
         handleNavigate={handleNavigate}
