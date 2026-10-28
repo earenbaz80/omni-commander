@@ -433,10 +433,10 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
         >
           <div className="flex items-center justify-between pb-1 border-b border-white/10 opacity-70">
             <div className="flex items-center gap-[var(--space-2)]">
-              <span className="font-bold text-amber-400">OmniCommander Pro Shell Console</span>
+              <span className="font-bold text-amber-400">{t.cmdShellTitle}</span>
               {isAdminMode && (
                 <span className="bg-red-600 text-white font-black px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[9px] uppercase tracking-wider animate-pulse">
-                  Administrator: ELEVATED
+                  {t.cmdAdminElevated}
                 </span>
               )}
             </div>
@@ -451,7 +451,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
                       : 'bg-black/40 text-slate-300 border-white/20 hover:bg-white/10'
                   }`}
                 >
-                  {isAdminMode ? 'Elevated (ADMIN)' : 'User Shell'}
+                  {isAdminMode ? t.cmdElevatedShell : t.cmdUserShell}
                 </button>
               )}
               <button
@@ -594,7 +594,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
             <kbd className="px-[var(--space-1)] py-0.2 bg-amber-400/20 border border-amber-400/40 rounded text-amber-300 font-extrabold text-[9px]">
               TAB
             </kbd>
-            <span>Coincidencias ({tabState.matches.length}):</span>
+            <span>{t.cmdMatches.replace('{n}', String(tabState.matches.length))}</span>
           </span>
           <div className="flex items-center gap-[var(--space-1)] overflow-x-auto max-w-full no-scrollbar py-[var(--space-1)]">
             {tabState.matches.map((match, idx) => {

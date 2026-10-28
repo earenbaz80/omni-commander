@@ -414,7 +414,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                     disabled={!active?.plan?.entries?.length}
                     className="px-[var(--space-2)] py-[var(--space-1)] border border-white/20 rounded cursor-pointer disabled:opacity-40"
                   >
-                    All
+                    {t.transferSelectAll}
                   </button>
                   <button
                     type="button"
@@ -426,7 +426,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                     disabled={!active?.plan?.entries?.length}
                     className="px-[var(--space-2)] py-[var(--space-1)] border border-white/20 rounded cursor-pointer disabled:opacity-40"
                   >
-                    Invert
+                    {t.transferSelectInvert}
                   </button>
                   <button
                     type="button"
@@ -442,7 +442,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                     disabled={selected.size === 0}
                     className="px-[var(--space-2)] py-[var(--space-1)] border border-rose-500/50 rounded text-rose-300 cursor-pointer disabled:opacity-40"
                   >
-                    Remove selected
+                    {t.transferRemoveSelected}
                   </button>
                   {canPickPaths() && (
                     <>

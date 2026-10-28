@@ -3,7 +3,7 @@ import ModalShell from '../ModalShell';
 import { Palette, Globe, Monitor, Sliders, Keyboard, Volume2, Lock, Save, Check, Eye, EyeOff } from 'lucide-react';
 import { UserSettings, ThemeId, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
-import { getTranslations } from '../../i18n/translations';
+import { getTranslations, TranslationKey } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 import { checkPassword, createPasswordRecord } from '../../services/appLock';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -50,21 +50,23 @@ const TAB_ICONS: Record<SettingsTab, React.ReactNode> = {
   security: <Lock className="w-4 h-4" />,
 };
 
-const themeList: { id: ThemeId; name: string }[] = [
-  { id: 'classic_blue', name: 'Norton Classic (Azul/Cian)' },
-  { id: 'retro_gray', name: 'Total Commander (Gris/Verde)' },
-  { id: 'midnight_amber', name: 'Midnight Amber (Negro/Ámbar)' },
-  { id: 'matrix_green', name: 'Matrix Green (Negro/Verde)' },
+// Theme names are product names and stay as-is; only the colour hint in
+// parentheses is localised.
+const themeList: { id: ThemeId; name: string; colorsKey?: TranslationKey }[] = [
+  { id: 'classic_blue', name: 'Norton Classic', colorsKey: 'themeColorsBlueCyan' },
+  { id: 'retro_gray', name: 'Total Commander', colorsKey: 'themeColorsGrayGreen' },
+  { id: 'midnight_amber', name: 'Midnight Amber', colorsKey: 'themeColorsBlackAmber' },
+  { id: 'matrix_green', name: 'Matrix Green', colorsKey: 'themeColorsBlackGreen' },
   { id: 'windows11_dark', name: 'Windows 11 Fluent Dark' },
   { id: 'windows11_light', name: 'Windows 11 Fluent Light' },
   { id: 'dracula_retro', name: 'Dracula Retro Cyberpunk' },
   { id: 'solarized_dark', name: 'Solarized Dark Pro' },
 ];
 
-const keybindingPresets = [
-  { id: 'norton', name: 'Norton Commander', desc: 'F3=Ver, F4=Editar, F5=Copiar, F6=Mover, F7=MkDir, F8=Borrar' },
-  { id: 'totalcmd', name: 'Total Commander', desc: 'F3=Ver, F4=Editar, F5=Copiar, F6=Mover, F7=MkDir, F8=Borrar' },
-  { id: 'midnight', name: 'Midnight Commander', desc: 'F3=Ver, F4=Editar, F5=Copiar, F6=Ren/Mov, F7=MkDir, F8=Borrar' },
+const keybindingPresets: { id: string; name: string; descKey: TranslationKey }[] = [
+  { id: 'norton', name: 'Norton Commander', descKey: 'presetDescNorton' },
+  { id: 'totalcmd', name: 'Total Commander', descKey: 'presetDescTotalCmd' },
+  { id: 'midnight', name: 'Midnight Commander', descKey: 'presetDescMidnight' },
 ];
 
 type FormSettings = Partial<UserSettings> & {
@@ -170,7 +172,8 @@ export function SectionCard({
   );
 }
 
-export function ThemePreview({ themeId }: { themeId: ThemeId }) {
+export function ThemePreview({ themeId, lang }: { themeId: ThemeId; lang: LanguageCode }) {
+  const t = getTranslations(lang);
   const colors = useThemeColors(themeId);
 
   return (
@@ -181,21 +184,21 @@ export function ThemePreview({ themeId }: { themeId: ThemeId }) {
       <div className="flex items-center gap-[var(--space-2)] mb-[var(--space-1)]">
         <div className="w-4 h-4 rounded" style={{ backgroundColor: colors.accent }} />
         <span className="font-bold text-[var(--fs-sm)]" style={{ color: colors.text }}>
-          Vista previa
+          {t.themePreviewLabel}
         </span>
       </div>
       <div className="grid grid-cols-2 gap-[var(--space-1)] text-[var(--fs-8)]">
         <div className="p-[var(--space-1)] rounded" style={{ backgroundColor: colors.bg, color: colors.text }}>
-          Panel
+          {t.themePreviewPanel}
         </div>
         <div className="p-[var(--space-1)] rounded" style={{ backgroundColor: colors.accent, color: '#000' }}>
-          Acento
+          {t.themePreviewAccent}
         </div>
         <div className="p-[var(--space-1)] rounded" style={{ backgroundColor: colors.panel, color: colors.text }}>
-          Texto
+          {t.themePreviewText}
         </div>
         <div className="p-[var(--space-1)] rounded" style={{ backgroundColor: colors.bg, color: colors.accent }}>
-          Borde
+          {t.themePreviewBorder}
         </div>
       </div>
     </div>
@@ -218,9 +221,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
     (name: keyof FormSettings, value: any) => {
       const newErrors = { ...errors };
       if (name === 'newPassword' && value && value !== formData.confirmPassword) {
-        newErrors.confirmPassword = (t as any).protectMismatch || 'Passwords do not match';
+        newErrors.confirmPassword = t.protectMismatch;
       } else if (name === 'confirmPassword' && value && value !== formData.newPassword) {
-        newErrors.confirmPassword = (t as any).protectMismatch || 'Passwords do not match';
+        newErrors.confirmPassword = t.protectMismatch;
       } else if (name === 'confirmPassword' && value && value === formData.newPassword) {
         delete newErrors.confirmPassword;
       }
@@ -241,7 +244,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
     // Validar todo antes de guardar
     const newErrors: Partial<Record<keyof FormSettings, string>> = {};
     if (formData.newPassword && formData.newPassword !== formData.confirmPassword) {
-      newErrors.confirmPassword = (t as any).protectMismatch || 'Passwords do not match';
+      newErrors.confirmPassword = t.protectMismatch;
     }
     // Enabling the lock without any password would create a lock that no
     // credential can open, so the save is refused instead.
@@ -276,7 +279,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
           return;
         }
       } catch {
-        setErrors({ currentPassword: t.appLockNoWebCrypto || 'Password could not be verified' });
+        setErrors({ currentPassword: t.appLockNoWebCrypto });
         setActiveTab('security');
         return;
       }
@@ -306,7 +309,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
       } catch {
         setErrors((prev) => ({
           ...prev,
-          newPassword: t.appLockNoWebCrypto || 'Password could not be hashed',
+          newPassword: t.appLockNoWebCrypto,
         }));
         return;
       }
@@ -341,13 +344,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
                     : 'bg-black/40 border-white/10 hover:border-white/30 text-white/90'
                 }`}
               >
-                <span className="truncate">{th.name}</span>
+                <span className="truncate">
+                  {th.name}
+                  {th.colorsKey ? ` ${t[th.colorsKey]}` : ''}
+                </span>
                 {isSelected && <Check className="w-4 h-4 shrink-0 text-black" />}
               </button>
             );
           })}
         </div>
-        <ThemePreview themeId={formData.theme} />
+        <ThemePreview themeId={formData.theme} lang={lang} />
       </SectionCard>
     </div>
   );
@@ -582,7 +588,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             }`}
           >
             <div className="font-bold text-[var(--fs-sm)]">{preset.name}</div>
-            <div className="text-[var(--fs-8)] opacity-75 mt-[var(--space-1)]">{preset.desc}</div>
+            <div className="text-[var(--fs-8)] opacity-75 mt-[var(--space-1)]">{t[preset.descKey]}</div>
           </button>
         ))}
       </div>
@@ -649,7 +655,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
                   type="button"
                   onClick={() => setShowCurrentPassword((v) => !v)}
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 text-amber-300 hover:text-amber-100"
-                  aria-label={t.settingsAppCurrentPass}
+                  aria-label={showCurrentPassword ? t.settingsHidePassword : t.settingsShowPassword}
                   aria-pressed={showCurrentPassword}
                 >
                   {showCurrentPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -686,7 +692,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
                 type="button"
                 onClick={() => setShowNewPassword((v) => !v)}
                 className="absolute right-1.5 top-1/2 -translate-y-1/2 text-amber-300 hover:text-amber-100"
-                aria-label={t.settingsAppPass}
+                aria-label={showNewPassword ? t.settingsHidePassword : t.settingsShowPassword}
                 aria-pressed={showNewPassword}
               >
                 {showNewPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -711,7 +717,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
                 type="button"
                 onClick={() => setShowConfirmPassword((v) => !v)}
                 className="absolute right-1.5 top-1/2 -translate-y-1/2 text-amber-300 hover:text-amber-100"
-                aria-label={t.protectConfirm}
+                aria-label={showConfirmPassword ? t.settingsHidePassword : t.settingsShowPassword}
                 aria-pressed={showConfirmPassword}
               >
                 {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}

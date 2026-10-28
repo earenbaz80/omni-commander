@@ -57,7 +57,7 @@ export const FTPManagerModal: React.FC<FTPManagerModalProps> = ({ theme, lang, o
 
     const newLogs = [
       t.ftpConnecting.replace('{protocol}', protocol).replace('{host}', host).replace('{port}', port),
-      `[220] Welcome to OmniCommander SFTP Subsystem 3.2`,
+      `[220] Welcome to OmniCommander Pro SFTP Subsystem 3.2`,
       `> USER ${username}`,
       `[331] Password required for ${username}`,
       `> PASS ********`,

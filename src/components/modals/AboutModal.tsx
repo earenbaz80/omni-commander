@@ -32,10 +32,10 @@ export const AboutModal: React.FC<AboutModalProps> = ({ theme, lang, authorName,
             OC
           </div>
           <div>
-            <h2 className="text-base font-bold text-white tracking-wide">OmniCommander Pro</h2>
-            <p className="text-[var(--fs-sm)] opacity-75">Advanced Dual-Pane File Manager for Windows</p>
+            <h2 className="text-base font-bold text-white tracking-wide">{t.appName}</h2>
+            <p className="text-[var(--fs-sm)] opacity-75">{t.aboutTagline}</p>
             <span className="inline-block mt-[var(--space-1)] text-[var(--fs-8)] bg-amber-400/20 text-amber-300 px-[var(--space-2)] py-[var(--space-1)] rounded border border-amber-400/30 font-bold">
-              Edition 2026 • Professional
+              {t.aboutEditionBadge}
             </span>
           </div>
         </div>
@@ -69,7 +69,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ theme, lang, authorName,
             <span className="flex items-center gap-[var(--space-2)] opacity-70">
               <Cpu className="w-3.5 h-3.5 text-purple-400" /> {t.aboutArchitectureLabel}
             </span>
-            <span className="text-slate-200">Dual-Pane Orthodox Engine + HTML5 Host FS Access</span>
+            <span className="text-slate-200">{t.aboutEngineValue}</span>
           </div>
         </div>
 

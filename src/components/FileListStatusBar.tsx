@@ -7,10 +7,11 @@ interface FileListStatusBarProps {
   totalDirs: number;
   selectedCount: number;
   selectedBytes: number;
-  totalBytes: number;
   filesCountLabel: string;
   dirsCountLabel: string;
   selectedCountLabel: string;
+  /** "<size> kB total", already translated by the caller. */
+  totalLabel: string;
 }
 
 export const FileListStatusBar: React.FC<FileListStatusBarProps> = ({
@@ -19,10 +20,10 @@ export const FileListStatusBar: React.FC<FileListStatusBarProps> = ({
   totalDirs,
   selectedCount,
   selectedBytes,
-  totalBytes,
   filesCountLabel,
   dirsCountLabel,
   selectedCountLabel,
+  totalLabel,
 }) => (
   <div
     className="px-[var(--space-2)] py-[var(--space-1)] border-t text-[11px] select-none flex items-center justify-between shrink-0 font-mono"
@@ -49,6 +50,6 @@ export const FileListStatusBar: React.FC<FileListStatusBarProps> = ({
         </>
       )}
     </div>
-    <div className="tabular-nums font-bold">{Math.round(totalBytes / 1024)} kB total</div>
+    <div className="tabular-nums font-bold">{totalLabel}</div>
   </div>
 );

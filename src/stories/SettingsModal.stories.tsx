@@ -77,7 +77,7 @@ const defaultSettings: UserSettings = {
   showCommandLine: true,
   showFunctionBar: true,
   showDriveButtons: true,
-  authorName: 'OmniCommander',
+  authorName: 'OmniCommander Pro',
   protectedFolders: {},
   customShortcuts: {},
   appUsername: 'admin',

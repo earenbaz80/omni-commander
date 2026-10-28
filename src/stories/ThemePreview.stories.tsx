@@ -6,7 +6,7 @@ const meta = {
   component: ThemePreview,
   parameters: { layout: 'centered' },
   tags: ['autodocs'],
-  args: { themeId: 'classic_blue' },
+  args: { themeId: 'classic_blue', lang: 'en' },
 } satisfies Meta<typeof ThemePreview>;
 
 export default meta;
