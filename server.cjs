@@ -24,7 +24,13 @@ function isAllowedOrigin(origin, tokenValid) {
   if (!origin) return true; // same-origin or non-browser client
   if (origin === 'null') return tokenValid; // packaged file:// renderer only
   try {
-    const host = new URL(origin).hostname;
+    // WHATWG parsing keeps the brackets around an IPv6 literal, so the hostname
+    // of `http://[::1]:3000` is the four-character string `[::1]`. Comparing it
+    // against a bare `::1` — as this did — can never match, and the dev server
+    // binding IPv6 loopback is exactly the case that hits it: every mutation
+    // came back 403 for anyone opening the app on that address. Strip the
+    // brackets and fold case, which is how host names compare anyway.
+    const host = new URL(origin).hostname.replace(/^\[|\]$/g, '').toLowerCase();
     return host === 'localhost' || host === '127.0.0.1' || host === '::1';
   } catch {
     return false;
@@ -517,7 +523,27 @@ async function listDirectory(driveId, requestedPath) {
     return { error: 'Path outside drive' };
   }
 
-  const items = await readDirectoryCached(safePath);
+  let items;
+  try {
+    items = await readDirectoryCached(safePath);
+  } catch (err) {
+    // A folder that is not there, or a file where a folder was asked for, is a
+    // normal answer for a browser rather than a server fault. Saying 404 also
+    // keeps the raw ENOENT text (and the server's own paths) out of the
+    // response, and stops the client's 5xx retry from repeating a listing that
+    // can only fail again.
+    if (err && (err.code === 'ENOENT' || err.code === 'ENOTDIR')) {
+      return { status: 404, error: `Folder not found: ${safePath}` };
+    }
+    // A folder that exists but is closed to this account (System Volume
+    // Information, another user's profile) is not a server fault either, and
+    // saying 500 made the caller report a dead server. 403 lets it say what
+    // actually happened: the folder needs administrator rights.
+    if (err && (err.code === 'EACCES' || err.code === 'EPERM')) {
+      return { status: 403, error: `Folder not readable: ${safePath}` };
+    }
+    throw err;
+  }
   return { path: safePath, items };
 }
 
@@ -532,7 +558,7 @@ app.get('/api/drives', async (_req, res) => {
 app.get('/api/list', async (req, res) => {
   try {
     const result = await listDirectory(String(req.query.driveId || ''), String(req.query.path || ''));
-    if (result.error) return res.status(400).json(result);
+    if (result.error) return res.status(result.status || 400).json({ error: result.error });
     res.json(result.items);
   } catch (e) {
     res.status(500).json({ error: e.message });

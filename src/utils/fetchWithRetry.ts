@@ -11,7 +11,7 @@
  * remember to send it and none can forget. Outside Electron the bridge is absent
  * (dev web / tests) and the server runs without a token, so no header is added.
  */
-function sessionTokenHeader(): Record<string, string> {
+export function sessionTokenHeader(): Record<string, string> {
   const bridge = typeof window !== 'undefined' ? (window as any).electronAPI : undefined;
   const token = bridge?.apiToken;
   return token ? { 'x-omni-token': String(token) } : {};

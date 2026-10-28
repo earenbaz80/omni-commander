@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import { SettingsModal } from './SettingsModal';
 import { themes } from '../../services/themeManager';
 import { translations } from '../../i18n/translations';
@@ -218,15 +218,20 @@ describe('SettingsModal app password', () => {
     fireEvent.blur(screen.getByDisplayValue('admin'));
     expect(newPassword.getAttribute('type')).toBe('password');
 
-    // The eye control is the only thing that shows the password.
-    const reveal = screen.getByRole('button', { name: translations.es.settingsAppPass }) as HTMLButtonElement;
+    // The eye control is the only thing that shows the password, and it carries
+    // its own label instead of repeating the field's.
+    const reveal = within(newPassword.parentElement as HTMLElement).getByRole('button', {
+      name: translations.es.settingsShowPassword,
+    }) as HTMLButtonElement;
     fireEvent.click(reveal);
     expect(newPassword.getAttribute('type')).toBe('text');
     expect(reveal.getAttribute('aria-pressed')).toBe('true');
+    expect(reveal.getAttribute('aria-label')).toBe(translations.es.settingsHidePassword);
 
     fireEvent.click(reveal);
     expect(newPassword.getAttribute('type')).toBe('password');
     expect(reveal.getAttribute('aria-pressed')).toBe('false');
+    expect(reveal.getAttribute('aria-label')).toBe(translations.es.settingsShowPassword);
   });
 
   it('only asks for the current password once one is stored', () => {

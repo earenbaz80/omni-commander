@@ -1,10 +1,9 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { spawn, ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import net from 'node:net';
+import { startServer, type TestServer } from '@/scripts/serverHarness';
 
 /**
  * The free-space pre-flight decides whether a transfer can even start, so a
@@ -12,29 +11,13 @@ import net from 'node:net';
  * A move inside one volume is the case that matters most: it is a rename and
  * needs no room at all, yet its bytes would otherwise be counted as a copy.
  */
-const PORT = 3998;
-const BASE = `http://127.0.0.1:${PORT}/api/fs`;
-
-let child: ChildProcess | null = null;
+let server: TestServer;
 let root = '';
 let source = '';
 let target = '';
 
-const reachable = (port: number): Promise<boolean> =>
-  new Promise((resolve) => {
-    const socket = net.connect({ host: '127.0.0.1', port });
-    const done = (ok: boolean) => {
-      socket.destroy();
-      resolve(ok);
-    };
-    socket.setTimeout(500);
-    socket.once('connect', () => done(true));
-    socket.once('error', () => done(false));
-    socket.once('timeout', () => done(false));
-  });
-
 const post = async (route: string, body: unknown) => {
-  const res = await fetch(`${BASE}/${route}`, {
+  const res = await fetch(server.url(`/api/fs/${route}`), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -53,20 +36,11 @@ beforeAll(async () => {
   fs.mkdirSync(path.join(source, 'arbol'));
   fs.writeFileSync(path.join(source, 'arbol', 'a.txt'), 'x'.repeat(2000));
 
-  child = spawn(process.execPath, ['server.cjs'], {
-    env: { ...process.env, PORT: String(PORT), OMNI_SESSION_TOKEN: '' },
-    stdio: 'ignore',
-  });
-  const start = Date.now();
-  while (Date.now() - start < 10000) {
-    if (await reachable(PORT)) return;
-    await new Promise((resolve) => setTimeout(resolve, 150));
-  }
-  throw new Error('server did not start in time');
-}, 20000);
+  server = await startServer({ env: { OMNI_SESSION_TOKEN: '' } });
+}, 30000);
 
-afterAll(() => {
-  child?.kill();
+afterAll(async () => {
+  await server.stop();
   if (root) fs.rmSync(root, { recursive: true, force: true });
 });
 
@@ -122,7 +96,7 @@ describe('POST /api/fs/freespace', () => {
 
     let status = 'running';
     for (let i = 0; i < 60 && status === 'running'; i++) {
-      const job = await (await fetch(`${BASE}/job/${started.body.jobId}`)).json();
+      const job = await (await fetch(server.url(`/api/fs/job/${started.body.jobId}`))).json();
       status = (job as any).status;
       if (status === 'running') await new Promise((resolve) => setTimeout(resolve, 100));
     }

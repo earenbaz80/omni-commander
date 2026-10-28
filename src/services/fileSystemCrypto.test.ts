@@ -1,13 +1,12 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
-import { spawn, ChildProcess } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import fs from 'node:fs';
-import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { calculateFileHashes } from './fileSystemCrypto';
 import { FileItem } from '../types';
+import { startServer, type TestServer } from '../../scripts/serverHarness';
 
 /**
  * A checksum that is not a hash of the file's bytes is worse than no checksum:
@@ -20,25 +19,11 @@ import { FileItem } from '../types';
  * over a known fixture, not asserted against a hand-written mock.
  */
 
-const PORT = 3998;
 const TOKEN = randomBytes(32).toString('hex');
-let child: ChildProcess | null = null;
+let server: TestServer;
 let scratchDir = '';
 let fixturePath = '';
 let fixtureBytes: Buffer;
-
-const tryConnect = (port: number, timeoutMs = 1000): Promise<boolean> =>
-  new Promise((resolve) => {
-    const socket = net.connect({ host: '127.0.0.1', port });
-    const done = (ok: boolean) => {
-      socket.destroy();
-      resolve(ok);
-    };
-    socket.setTimeout(timeoutMs);
-    socket.once('connect', () => done(true));
-    socket.once('error', () => done(false));
-    socket.once('timeout', () => done(false));
-  });
 
 beforeAll(async () => {
   scratchDir = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-crypto-'));
@@ -46,20 +31,14 @@ beforeAll(async () => {
   fixtureBytes = Buffer.from('The quick brown fox jumps over the lazy dog', 'utf8');
   fs.writeFileSync(fixturePath, fixtureBytes);
 
-  child = spawn(process.execPath, [process.env.OMNI_TEST_SERVER_CJS || 'server.cjs'], {
-    env: { ...process.env, PORT: String(PORT), OMNI_SESSION_TOKEN: TOKEN },
-    stdio: 'ignore',
+  server = await startServer({
+    serverPath: process.env.OMNI_TEST_SERVER_CJS || 'server.cjs',
+    env: { OMNI_SESSION_TOKEN: TOKEN },
   });
-  const start = Date.now();
-  while (Date.now() - start < 15000) {
-    if (await tryConnect(PORT)) return;
-    await new Promise((r) => setTimeout(r, 150));
-  }
-  throw new Error('server did not start in time');
 }, 30000);
 
-afterAll(() => {
-  child?.kill();
+afterAll(async () => {
+  await server.stop();
   try {
     fs.rmSync(scratchDir, { recursive: true, force: true });
   } catch {
@@ -92,7 +71,7 @@ describe('calculateFileHashes', () => {
     // The renderer reaches the server through the preload bridge; give it the
     // loopback port and the per-launch token the same way Electron does.
     vi.stubGlobal('window', {
-      electronAPI: { isElectron: true, apiPort: PORT, apiToken: TOKEN },
+      electronAPI: { isElectron: true, apiPort: server.port, apiToken: TOKEN },
     });
   });
 
@@ -147,10 +126,8 @@ describe('calculateFileHashes', () => {
  * /api/fs/delete and wipe the disk. These tests drive the real server over
  * HTTP so the refusal is proven end to end.
  */
-const baseUrl = `http://127.0.0.1:${PORT}`;
-
 async function post(pathname: string, body: unknown, headers: Record<string, string> = {}) {
-  return fetch(`${baseUrl}${pathname}`, {
+  return fetch(server.url(pathname), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(body),
@@ -194,7 +171,7 @@ describe('loopback API origin and token enforcement (S1)', () => {
   });
 
   it('still serves same-origin GETs used by the built-in dashboard', async () => {
-    const res = await fetch(`${baseUrl}/api/fs/dashboard`, {
+    const res = await fetch(server.url('/api/fs/dashboard'), {
       headers: { origin: 'http://127.0.0.1:3000' },
     });
     expect(res.ok).toBe(true);
@@ -207,12 +184,14 @@ describe('loopback API origin and token enforcement (S1)', () => {
  * down (which would kill every sibling job too).
  */
 describe('copy integrity and job isolation (S2, S3)', () => {
-  const jobsUrl = `${baseUrl}/api/fs/job`;
+  // A function, not a constant: the suite body runs before `beforeAll` starts the
+  // server, so reading its port here would be reading it too early.
+  const jobUrl = (id: string) => server.url(`/api/fs/job/${id}`);
 
   async function waitForJob(id: string, timeoutMs = 15000) {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
-      const res = await fetch(`${jobsUrl}/${id}`);
+      const res = await fetch(jobUrl(id));
       if (res.ok) {
         const job = await res.json();
         if (job.status !== 'running' && job.status !== 'paused' && job.status !== 'waiting') return job;
@@ -298,7 +277,7 @@ describe('copy integrity and job isolation (S2, S3)', () => {
     expect(leftovers).toEqual([]);
 
     // The server survived: a fresh request still answers.
-    const alive = await fetch(`${baseUrl}/api/fs/dashboard`);
+    const alive = await fetch(server.url('/api/fs/dashboard'));
     expect(alive.ok).toBe(true);
   });
 });

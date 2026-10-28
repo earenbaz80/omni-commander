@@ -2,8 +2,49 @@ import { useEffect, useRef } from 'react';
 import { soundManager } from '../services/soundEffects';
 import { ActiveModal, Drive, FileItem, PanelState, PanelTab } from '../types';
 
+/**
+ * Keys that act on the file list of the active panel: opening, copying, moving,
+ * deleting, filtering, selecting, walking the rows and type-to-jump.
+ *
+ * Alt combinations belong to navigation (drive cycling, the search dialog) and
+ * the app-wide keys (F1, F2, F10, Tab, Ctrl+D, Ctrl+U) are deliberately absent,
+ * so they keep working while a panel shows something other than its files.
+ */
+function isFileListShortcut(e: KeyboardEvent): boolean {
+  if (e.altKey) return false;
+  if (
+    [
+      'F3',
+      'F4',
+      'F5',
+      'F6',
+      'F7',
+      'F8',
+      'Delete',
+      'ArrowUp',
+      'ArrowDown',
+      'Home',
+      'End',
+      'PageUp',
+      'PageDown',
+      'Insert',
+      'Enter',
+      'Backspace',
+      ' ',
+    ].includes(e.key)
+  ) {
+    return true;
+  }
+  const command = e.ctrlKey || e.metaKey;
+  if (command) return ['a', 'f', 'h', 'm', 'q', 't', 'w'].includes(e.key.toLowerCase());
+  // A printable character starts the type-to-jump search.
+  return e.key.length === 1;
+}
+
 export interface KeyboardShortcutDeps {
   activePanel: 'left' | 'right';
+  /** True while the active panel body is the folder-size tree, not its files. */
+  activePanelShowsDiskUsage: boolean;
   currentActiveTab: PanelTab;
   activeItems: FileItem[];
   activeFocusedItem: FileItem | null;
@@ -34,6 +75,8 @@ export interface KeyboardShortcutDeps {
   handleToggleSelect: (panelSide: 'left' | 'right', id: string) => void;
   handleOpenItem: (item: FileItem) => void;
   handleGoParent: (panelSide: 'left' | 'right') => void;
+  /** Opens the toolbar's Run launcher from anywhere in the window. */
+  handleOpenRunLauncher: () => void;
 }
 
 /**
@@ -52,6 +95,7 @@ export function useKeyboardShortcuts(d: KeyboardShortcutDeps) {
     const handleKeyDown = (e: KeyboardEvent) => {
       const {
         activePanel,
+        activePanelShowsDiskUsage,
         currentActiveTab,
         activeItems,
         activeFocusedItem,
@@ -82,7 +126,20 @@ export function useKeyboardShortcuts(d: KeyboardShortcutDeps) {
         handleToggleSelect,
         handleOpenItem,
         handleGoParent,
+        handleOpenRunLauncher,
       } = dRef.current;
+
+      // The launcher's own key, answered before the text-field bail: it is a Ctrl
+      // combination rather than typing, and browsers answer it with a hard
+      // reload, so letting it through would reload the window instead of opening
+      // the box. Shift is part of the combination, so Ctrl+R stays untouched.
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        if (activeModal || isAppLocked) return;
+        soundManager.playKeyTick();
+        handleOpenRunLauncher();
+        return;
+      }
 
       const targetTag = (e.target as HTMLElement)?.tagName?.toUpperCase();
       if (targetTag === 'INPUT' || targetTag === 'TEXTAREA' || activeModal || isAppLocked) {
@@ -111,6 +168,18 @@ export function useKeyboardShortcuts(d: KeyboardShortcutDeps) {
         e.preventDefault();
         soundManager.playKeyTick();
         setActivePanel((p) => (p === 'left' ? 'right' : 'left'));
+        return;
+      }
+
+      // A panel showing the folder-size tree has no file list on screen. Its tab
+      // still exists behind the tree, so Delete, F5 or type-to-jump would act on
+      // a selection the user cannot see: they would delete or copy something
+      // invisible. Swallow those keys here; the app-wide ones keep working so
+      // help, the drive cycle and switching panels are never blocked.
+      if (activePanelShowsDiskUsage && isFileListShortcut(e)) {
+        // Consumed, not just ignored: otherwise F5 reloads the page and F3 or
+        // Backspace trigger the browser's own find and history navigation.
+        e.preventDefault();
         return;
       }
 
