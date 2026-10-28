@@ -118,7 +118,7 @@ interface AppModalsProps {
   getSelectedOrFocusedItems: () => FileItem[];
   handleNavigate: (panelSide: 'left' | 'right', newPath: string) => void;
   handleSelectIndex: (panelSide: 'left' | 'right', index: number) => void;
-  handleCompressZip: (archiveName: string) => Promise<void>;
+  handleCompressZip: (archiveName: string, format: OpenableArchiveFormat) => Promise<void>;
   handleExtractZip: (zipFile: FileItem) => Promise<void>;
   handleSetFolderPassword: (folderPath: string, password: string | null) => void;
   handleSelectDrive: (panelSide: 'left' | 'right', driveId: string) => Promise<void>;
@@ -536,15 +536,11 @@ export const AppModals: React.FC<AppModalsProps> = ({
           <ArchiveInfoModal
             theme={currentTheme}
             lang={lang}
-            fileName={selectedFileForModal.name}
-            formatInfo={{ format: selectedFileForModal.ext.toUpperCase() || '' }}
+            fileName={`${selectedFileForModal.name}${selectedFileForModal.ext ? `.${selectedFileForModal.ext}` : ''}`}
             fileSize={selectedFileForModal.size || 0}
             fileDate={new Date(selectedFileForModal.modifiedAt || Date.now())}
             onExtractAll={() => {
               setActiveModal('zipArchive');
-            }}
-            onExtractSelected={() => {
-              // Placeholder para extracción selectiva futura
             }}
             onClose={() => setActiveModal(null)}
           />

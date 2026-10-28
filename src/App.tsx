@@ -24,6 +24,7 @@ import { HeaderMenuBar } from './components/HeaderMenuBar';
 import { AppModals } from './components/AppModals';
 import { ConflictPromptModal } from './components/modals/ConflictPromptModal';
 import { FreeSpaceModal } from './components/modals/FreeSpaceModal';
+import { ZipPasswordModal } from './components/modals/ZipPasswordModal';
 import { Toolbar } from './components/Toolbar';
 import { PanelView } from './components/PanelView';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -183,12 +184,31 @@ export default function App() {
   // Sync with FileSystem changes
   const [fsTick, setFsTick] = useState(0);
 
-  const requestArchivePassword = useCallback(async (): Promise<string | null> => {
-    // Encrypted archives are not supported yet (JSZip cannot decrypt), so there
-    // is no password to collect. Returning null refuses the open cleanly instead
-    // of leaving a password modal on screen that can never succeed.
-    return null;
+  // A password request is a promise the panel awaits, so the modal has to settle
+  // exactly once: with what the user typed, or with null when they cancel. The
+  // promise lives in a ref because it is not render state -- what is rendered is
+  // only the request being asked about.
+  const pendingPassword = useRef<{ resolve: (value: string | null) => void } | null>(null);
+  const [passwordRequest, setPasswordRequest] = useState<{ fileName: string; invalid: boolean } | null>(null);
+
+  const settlePassword = useCallback((value: string | null) => {
+    const pending = pendingPassword.current;
+    pendingPassword.current = null;
+    setPasswordRequest(null);
+    pending?.resolve(value);
   }, []);
+
+  const requestArchivePassword = useCallback(
+    (fileName: string, invalid?: boolean): Promise<string | null> =>
+      new Promise((resolve) => {
+        // A second archive opened while the modal is up cancels the first ask,
+        // so no promise is left waiting on a prompt that is no longer shown.
+        pendingPassword.current?.resolve(null);
+        pendingPassword.current = { resolve };
+        setPasswordRequest({ fileName, invalid: Boolean(invalid) });
+      }),
+    [],
+  );
 
   const {
     leftPanel,
@@ -685,7 +705,7 @@ export default function App() {
         for (const item of items) {
           const source = fsEngine.getArchiveSource(item.driveId, item.path);
           if (!source) throw new Error(t.zipErrEmpty);
-          await fsEngine.extractZipArchive(source, currentInactiveTab.driveId, targetPath, item.archiveEntry);
+          await fsEngine.extractArchive(source, currentInactiveTab.driveId, targetPath, item.archiveEntry);
         }
       });
     }
@@ -901,7 +921,7 @@ export default function App() {
     setActiveModal(null);
   };
 
-  const handleCompressZip = async (archiveName: string) => {
+  const handleCompressZip = async (archiveName: string, format: OpenableArchiveFormat) => {
     const items = getSelectedOrFocusedItems();
     if (items.length === 0) return;
     const totalBytes = items.reduce((acc, i) => acc + (i.isDirectory ? 0 : i.size), 0);
@@ -911,7 +931,13 @@ export default function App() {
       t.appItemsCount.replace('{n}', String(items.length)),
       totalBytes,
       async () => {
-        await fsEngine.createZipArchive(items, archiveName, currentActiveTab.driveId, currentActiveTab.currentPath);
+        await fsEngine.createArchive(
+          items,
+          archiveName,
+          currentActiveTab.driveId,
+          currentActiveTab.currentPath,
+          format,
+        );
       },
     );
     setActiveModal(null);
@@ -927,7 +953,7 @@ export default function App() {
       t.appDest.replace('{path}', destination.currentPath),
       source.size,
       async () => {
-        await fsEngine.extractZipArchive(source, destination.driveId, destination.currentPath);
+        await fsEngine.extractArchive(source, destination.driveId, destination.currentPath);
       },
     );
     setActiveModal(null);
@@ -1480,6 +1506,17 @@ export default function App() {
           lang={lang}
           onForce={handleForceTransfer}
           onCancel={() => setFreeSpacePrompt(null)}
+        />
+      )}
+
+      {passwordRequest && (
+        <ZipPasswordModal
+          theme={currentTheme}
+          lang={lang}
+          fileName={passwordRequest.fileName}
+          invalid={passwordRequest.invalid}
+          onSubmit={settlePassword}
+          onClose={() => settlePassword(null)}
         />
       )}
 

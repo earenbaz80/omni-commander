@@ -4,6 +4,13 @@ import { FileItem, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
+import {
+  CREATABLE_FORMATS,
+  extensionForFormat,
+  formatFromExtension,
+  isOpenable,
+  type OpenableArchiveFormat,
+} from '../../services/archiveBackend';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
@@ -14,12 +21,13 @@ interface ZipArchiveModalProps {
   selectedItems: FileItem[];
   targetDriveId: string;
   targetPath: string;
-  onCompress: (archiveName: string) => void;
+  onCompress: (archiveName: string, format: ArchiveFormat) => void;
   onExtract: (zipFile: FileItem) => void;
   onClose: () => void;
 }
 
-export type ArchiveFormat = 'ZIP' | 'TAR' | 'TAR.GZ' | '7Z';
+/** The formats a user can pick, taken from what the engine can actually write. */
+export type ArchiveFormat = OpenableArchiveFormat;
 
 export const ZipArchiveModal: React.FC<ZipArchiveModalProps> = ({
   theme,
@@ -31,33 +39,26 @@ export const ZipArchiveModal: React.FC<ZipArchiveModalProps> = ({
   onClose,
 }) => {
   const t = getTranslations(lang);
-  const isArchiveSelected =
-    selectedItems.length === 1 && ['ZIP', 'TAR', 'GZ', 'TGZ', '7Z', 'RAR'].includes(selectedItems[0].ext.toUpperCase());
-  const [mode, setMode] = useState<'pack' | 'unpack'>(isArchiveSelected ? 'unpack' : 'pack');
+  const single = selectedItems.length === 1 ? selectedItems[0] : undefined;
+  const singleName = single ? `${single.name}${single.ext ? `.${single.ext}` : ''}` : '';
+  const singleFormat = single ? formatFromExtension(singleName) : 'unknown';
+  // "Extract" is offered whenever some engine can read the format: ZIP and TAR
+  // here, RAR/7-Zip/TAR.BZ2/TAR.LZMA through the local server. Every archive
+  // extension is readable now, so a hardcoded "cannot open this" warning would
+  // only go stale again.
+  const canExtract = !!single && isOpenable(singleFormat);
+
+  const [mode, setMode] = useState<'pack' | 'unpack'>(canExtract ? 'unpack' : 'pack');
   const [format, setFormat] = useState<ArchiveFormat>('ZIP');
 
-  const getExtensionForFormat = (fmt: ArchiveFormat) => {
-    switch (fmt) {
-      case 'TAR':
-        return 'tar';
-      case 'TAR.GZ':
-        return 'tar.gz';
-      case '7Z':
-        return '7z';
-      default:
-        return 'zip';
-    }
-  };
-
-  const baseName = selectedItems.length === 1 ? selectedItems[0].name : 'Archive_Package';
+  const baseName = single ? single.name : 'Archive_Package';
   const [archiveBaseName, setArchiveBaseName] = useState(baseName);
-
-  const finalArchiveName = `${archiveBaseName}.${getExtensionForFormat(format)}`;
+  const finalArchiveName = `${archiveBaseName}.${extensionForFormat(format)}`;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (mode === 'pack') {
-      onCompress(finalArchiveName);
+      onCompress(finalArchiveName, format);
     } else {
       if (selectedItems[0]) {
         soundManager.playDiskAccess();
@@ -83,7 +84,7 @@ export const ZipArchiveModal: React.FC<ZipArchiveModalProps> = ({
             >
               <FolderInput className="w-3.5 h-3.5" /> {t.zipPackMode}
             </button>
-            {isArchiveSelected && (
+            {canExtract && (
               <button
                 type="button"
                 onClick={() => setMode('unpack')}
@@ -114,9 +115,9 @@ export const ZipArchiveModal: React.FC<ZipArchiveModalProps> = ({
 
               {/* Format Selection */}
               <div>
-                <label className="block font-bold text-white mb-[var(--space-1)].5">{t.zipFormat}</label>
-                <div className="grid grid-cols-4 gap-[var(--space-2)]">
-                  {(['ZIP'] as ArchiveFormat[]).map((fmt) => (
+                <label className="block font-bold text-white mb-[var(--space-1)]">{t.zipFormat}</label>
+                <div className="grid grid-cols-3 gap-[var(--space-2)]">
+                  {CREATABLE_FORMATS.map((fmt) => (
                     <button
                       key={fmt}
                       type="button"
@@ -127,7 +128,7 @@ export const ZipArchiveModal: React.FC<ZipArchiveModalProps> = ({
                           : 'bg-black/40 border-white/20 hover:bg-white/10 text-white/70'
                       }`}
                     >
-                      .{fmt.toLowerCase()}
+                      .{extensionForFormat(fmt)}
                     </button>
                   ))}
                 </div>
