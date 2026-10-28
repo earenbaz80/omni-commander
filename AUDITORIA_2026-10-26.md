@@ -3,10 +3,66 @@
 **Fecha:** 26-oct-2026 · **Commit auditado:** `d3b113e` (master, árbol limpio) · **Versión:** 1.0.4
 **Alcance:** compuertas de calidad, seguridad (API loopback, Electron, archivos), correctitud funcional, rendimiento, tests, CI y empaquetado.
 **Método:** ejecución de las compuertas reales + lectura de código + prueba de ejecución aislada para el fallo de TreeSize.
+**Estado:** revisado el 28-oct-2026. §0 mide el árbol actual y marca cada hallazgo; §1–§8 se conservan como la foto del 26-oct.
+
+---
+
+## 0. Estado a 28-oct-2026
+
+Las secciones siguientes son el registro de lo que se encontró en `d3b113e` y se dejan intactas. Aquí se revisa cada punto contra el árbol de trabajo actual (HEAD `489dc90` más los cambios sin commitear) para separar lo corregido de lo que sigue abierto.
+
+### 0.1 Compuertas, medidas hoy
+
+| Compuerta | Comando | Resultado |
+| --- | --- | --- |
+| TypeScript | `npx tsc --noEmit` | ✅ sin errores |
+| ESLint | `npx eslint src --max-warnings 0` | ✅ exit 0 — 0 errores, 0 warnings |
+| Tests | `npx vitest run` | ✅ 67 ficheros / 491 pruebas, medido con la máquina al 100 % de CPU: las consultas asíncronas esperan hasta 5 s (`src/test/setup.ts`) y `server.treesize.test.ts` tiene 20 s de presupuesto |
+| Build | `npx vite build` | ✅ 23 s; `dist` 1,7 MB; chunk principal 528 kB (147 kB gzip), antes 943 kB |
+| Auditoría de deps | `npm audit` | ⚠️ 4 bajas (`deepmerge` vía `workbox-build`/`vite-plugin-pwa`); `--omit=dev` → **0 vulnerabilidades** |
+| Empaquetado | `app.asar` | No re-medido en esta revisión |
+| E2E | `npm run test:e2e` | No ejecutado (4 specs: `smoke`, `a11y`, `a11y.modals`, `archives`) |
+
+### 0.2 Hallazgos
+
+| Punto | Estado | Qué se midió |
+| --- | --- | --- |
+| P0-1 · TreeSize | ✅ Resuelto | `getFolderSizes(path, driveId)` exige la unidad y recorre con el índice por carpeta (`fileSystem.ts:2033`); `getActiveDriveId` ya no existe; cubierto en `fileSystem.test.ts`, `DiskUsageModal.test.tsx` y `DiskUsagePane.test.tsx` |
+| P0-2 · ZIP con contraseña | ✅ Resuelto | `ArchivePasswordError` real (`archiveBackend.ts:171`), inspección con `password` en el servidor y `ZipPasswordModal` en uso; pruebas en `server.archives.test.ts`, `serverArchive.test.ts` y `ZipPasswordModal.test.tsx` |
+| P0-3 · RAR/7Z/TAR | ✅ Resuelto | Se abren en el servidor con `libarchive.js` y `node-unrar-js` (`server.cjs:2234-2600`); `server.archives.test.ts` y `e2e/archives.spec.ts` |
+| P0-4 · Release desde árbol roto | ✅ Resuelto | El job de release depende de `verify`, que corre en cada push a `master` y en cada PR (`.github/workflows/release.yml`) |
+| P1-1 · Dependencias | ✅ Resuelto | `npm audit fix` subió `body-parser` a 1.20.9 (producción sin avisos), `electron` a 44.10.0, `fast-uri` a 3.1.9 y `serialize-javascript` a 7.1.4; quedan 4 avisos bajos que exigen un cambio mayor de `vite-plugin-pwa` |
+| P1-2 · Archivos grandes | ⚠️ Parcial | `read-bytes` acepta `maxBytes` con tope de 64 MiB y el visor lo pasa; sin `maxBytes` sigue leyendo el archivo entero, y las entradas ZIP se siguen descomprimiendo para medirlas (`archiveBackend.ts:226`) |
+| P1-3 · CI sin compuertas | ✅ Resuelto | `verify` ejecuta formato, tipos, ESLint y tests en matriz de dos versiones, y el release depende de él |
+| P1-4 · GET sin token | ❌ Abierto | El token solo se exige a métodos mutantes: `/api/list`, `/api/fs/hash` y `/api/fs/jobs` quedan legibles por cualquier origen de loopback, y el origen sigue aceptando cualquier puerto de loopback (`server.cjs:26`) |
+| P1-5 · Electron | ❌ Abierto | `isAllowedLocalUrl` sigue comparando con `startsWith('http://localhost:3000')` (`electron/main.cjs:253`) y no hay CSP en `index.html` ni cabecera equivalente |
+| P2-1 · Pre-flight de espacio | ❌ Abierto | Límite de 100 planes × 5000 fuentes, pero los árboles se miden en serie dentro de la petición (`server.cjs:3525`) |
+| P2-2 · `getFolderSizes` | ⚠️ Parcial | Ya usa el índice por carpeta y exige `driveId`; `DiskUsageModal.tsx:32` sigue leyendo `(fsEngine as any).files` |
+| P2-3 · i18n | ⚠️ Parcial | `DiskUsageModal` traduce sus textos; las etiquetas de trabajo siguen en español (`server.cjs:2017`) |
+| P2-4 · Tipado | ⚠️ Parcial | 33 usos de `any` en `src` (eran 57); `npm run typecheck:strict` existe, pero el CI no lo ejecuta |
+| P2-5 · `includes` en render | ⚠️ Parcial | El caso del render ya usa un `Set`; el payload de arrastre sigue con `selectedIds.includes` (`FileList.tsx:339`) |
+| P2-6 · Filtro del panel | ❌ Abierto | Sigue escapando solo `.`, `*` y `?` (`usePanels.ts:196`) |
+| P2-7 · Carpetas protegidas | ❌ Abierto | La contraseña se guarda en claro (`App.tsx:1084`) y se compara en claro (`usePanels.ts:260`) |
+| P2-8 · README y metadatos | ✅ Resuelto | README real, `metadata.json` eliminado, `engines` presente, y ESLint con script propia que el CI sí ejecuta |
+| P2-9 · Dependencias sin uso | ⚠️ Parcial | `libarchive.js` y `node-unrar-js` ya se usan; `@zip.js/zip.js` sigue declarado y sin uso |
+| P2-10 · Higiene local | ❌ Abierto | `release/` ocupa 657 MB y los `.txt` de depuración siguen en la raíz |
+| P2-11 · `server.cjs` monolítico | ❌ Abierto | 3.758 líneas (antes 1.771); lo que sí cambió son las pruebas: 12 ficheros `server.*.test.ts` |
+| P2-12 · Tests | ⚠️ Parcial | 491 pruebas en 67 ficheros, con TreeSize, archivos y contraseñas cubiertos; sigue sin script de cobertura ni umbral |
+
+### 0.3 Lo que queda, por prioridad
+
+1. **Token en los GET sensibles y origen exacto** (P1-4), y después **CSP + comparación por `new URL().origin`** en Electron (P1-5).
+2. **Tope por defecto en `read-bytes`** y tamaño de entradas ZIP sin descomprimir (P1-2).
+3. **Contraseña de carpetas protegidas** con PBKDF2 de `appLock.ts` (P2-7).
+4. **Pre-flight acotado** y división de `server.cjs` (P2-1, P2-11).
+5. **Limpieza**: `release/`, `.txt` de la raíz y `@zip.js/zip.js` (P2-9, P2-10).
+6. **Cobertura con umbral** (P2-12) y `typecheck:strict` en el CI (P2-4).
 
 ---
 
 ## 1. Resumen ejecutivo
+
+*Foto del 26-oct-2026; el estado actual de cada punto está en §0.*
 
 La base es sólida: 195 tests pasan, el build de producción funciona, el endurecimiento de seguridad de la API local está bien pensado (token de sesión, rechazo de `Origin: null` sin token, copias a archivo temporal + `rename`, validación anti zip-slip, virtualización de listas, Electron con `sandbox` + `contextIsolation`).
 
@@ -19,6 +75,8 @@ Pero **el HEAD no está en estado publicable**:
 5. **El CI no ejecuta ninguna compuerta** (ni tipos, ni lint, ni tests): solo compila al crear un tag. Por eso los puntos 1–3 llegaron a un release.
 
 ## 2. Estado de las compuertas (medido)
+
+*Medición del 26-oct-2026; la de hoy está en §0.1.*
 
 | Compuerta | Comando | Resultado |
 |---|---|---|
@@ -130,6 +188,8 @@ Los tests no detectan esto porque Vitest transpila sin comprobar tipos; `tsc` es
 - **Tests y a11y:** 195 tests verdes, guard que obliga a que cada modal use `ModalShell`/`useModalDialog`, `ErrorBoundary` con recuperación y copia de detalles.
 
 ## 7. Priorización sugerida
+
+*Plan tal como se propuso el 26-oct; lo que sigue pendiente hoy está en §0.3.*
 
 **P0 — antes de cualquier publicación (≈1 día)**
 1. Arreglar `getFolderSizes` (o retirar temporalmente el modal) + test.
