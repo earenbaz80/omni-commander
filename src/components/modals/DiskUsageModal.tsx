@@ -1,12 +1,14 @@
 import React from 'react';
 import { HardDrive } from 'lucide-react';
-import { DiskUsageItem, Drive, FileItem, LanguageCode } from '../../types';
+import { DiskUsageScan, DiskUsageTopFile, Drive, FileItem, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { fsEngine } from '../../services/fileSystem';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
+import { DiskUsageTree } from '../DiskUsageTree';
+import { formatBytes } from '../../utils/formatBytes';
 
 interface DiskUsageModalProps {
   theme: ThemeConfig;
@@ -20,39 +22,18 @@ interface DiskUsageModalProps {
 
 export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({ theme, lang, drives, driveId, rootPath, onClose }) => {
   const t = getTranslations(lang);
-  const allFiles = (fsEngine as any).files as FileItem[];
+  const scanPath = rootPath || (driveId.startsWith('real_') ? `${driveId.slice(5)}:` : '');
+  // The tree reports its finished scan so the largest-files table below can use
+  // the measured answer instead of the in-memory index.
+  const [scan, setScan] = React.useState<DiskUsageScan | null>(null);
 
-  // Top largest files
-  const topFiles = [...allFiles]
-    .filter((f) => !f.isDirectory)
-    .sort((a, b) => b.size - a.size)
-    .slice(0, 10);
-
-  // Built from the active panel's listing index instead of a hard-coded C:\,
-  // which used to crash because getFolderSizes was called without a drive.
-  const tree = React.useMemo(
-    () => (driveId ? fsEngine.getFolderSizes(rootPath || 'C:', driveId) : null),
-    [driveId, rootPath],
-  );
-
-  const renderTree = (item: DiskUsageItem, depth = 0): React.ReactNode => (
-    <div key={item.path} style={{ paddingLeft: depth * 12 }}>
-      <div className="flex justify-between text-white truncate hover:bg-white/10">
-        <span>📁 {item.name}</span>
-        <span className="tabular-nums text-amber-300">
-          {(item.sizeBytes / (1024 * 1024)).toFixed(1)} MB / {item.fileCount} files
-        </span>
-      </div>
-      {item.subFolders?.map((sub) => renderTree(sub, depth + 1))}
-    </div>
-  );
-
-  const formatBytes = (bytes: number): string => {
-    if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${bytes} B`;
-  };
+  const topFiles: DiskUsageTopFile[] = scan
+    ? scan.topFiles
+    : [...((fsEngine as any).files as FileItem[])]
+        .filter((f) => !f.isDirectory)
+        .sort((a, b) => b.size - a.size)
+        .slice(0, 10)
+        .map((f) => ({ path: f.path, fullName: f.fullName || `${f.name}.${f.ext}`, size: f.size }));
 
   const dialogRef = useModalDialog<HTMLDivElement>(t.diskUsageModalTitle);
 
@@ -70,7 +51,7 @@ export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({ theme, lang, dri
                 .filter((d) => d.isMounted)
                 .map((drive) => {
                   const used = drive.totalBytes - drive.freeBytes;
-                  const percent = Math.round((used / drive.totalBytes) * 100);
+                  const percent = drive.totalBytes ? Math.round((used / drive.totalBytes) * 100) : 0;
 
                   return (
                     <div
@@ -96,7 +77,7 @@ export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({ theme, lang, dri
                       <div className="w-full h-2.5 bg-black/60 rounded-full overflow-hidden border border-white/20">
                         <div
                           className={`h-full transition-all ${percent > 85 ? 'bg-red-500' : percent > 60 ? 'bg-amber-400' : 'bg-emerald-400'}`}
-                          style={{ width: `${percent}%` }}
+                          style={{ width: `${Math.min(100, percent)}%` }}
                         />
                       </div>
                     </div>
@@ -108,16 +89,14 @@ export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({ theme, lang, dri
           {/* TreeSize-style folder hierarchy */}
           <div>
             <h3 className="font-bold text-amber-300 mb-[var(--space-2)] uppercase tracking-wider text-[var(--fs-sm)]">
-              TreeSize — Folder Hierarchy
+              {t.diskUsageTreeTitle}
             </h3>
-            {rootPath && (
-              <div className="text-[var(--fs-8)] opacity-60 mb-1 truncate" title={rootPath}>
-                {rootPath}
+            {scanPath && (
+              <div className="text-[var(--fs-8)] opacity-60 mb-1 truncate" title={scanPath}>
+                {scanPath}
               </div>
             )}
-            <div className="border border-white/10 rounded overflow-hidden bg-black/40 space-y-1 p-2 text-xs">
-              {tree ? renderTree(tree) : <div className="opacity-50">No data</div>}
-            </div>
+            <DiskUsageTree lang={lang} driveId={driveId} path={scanPath} onScanChange={setScan} />
           </div>
 
           {/* Top 10 Largest Files */}
@@ -136,12 +115,10 @@ export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({ theme, lang, dri
                 </thead>
                 <tbody>
                   {topFiles.map((file, idx) => (
-                    <tr key={file.id} className="border-b border-white/5 hover:bg-white/5">
+                    <tr key={`${file.path}\\${file.fullName}`} className="border-b border-white/5 hover:bg-white/5">
                       <td className="p-[var(--space-2)] font-bold truncate text-white flex items-center gap-[var(--space-2)]">
                         <span className="text-[var(--fs-8)] opacity-40 tabular-nums">#{idx + 1}</span>
-                        <span>
-                          {file.name}.{file.ext}
-                        </span>
+                        <span className="truncate">{file.fullName}</span>
                       </td>
                       <td className="p-[var(--space-2)] truncate opacity-70 text-[var(--fs-sm)]">{file.path}</td>
                       <td className="p-[var(--space-2)] text-right font-bold text-amber-300 tabular-nums">
