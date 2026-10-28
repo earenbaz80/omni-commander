@@ -359,6 +359,7 @@ export const fr = {
   terminalMode: 'Mode terminal :',
   toggleConsole: 'Afficher / masquer la console de sortie',
   settingsToolbar: "Afficher la barre d'outils (style Explorateur Windows)",
+  settingsMenuHoverOpen: 'Ouvrir les menus au survol (sans clic)',
   settingsClock: "Afficher l'horloge numérique en temps réel",
   syncOnlyLeft: 'Uniquement à gauche',
   syncOnlyRight: 'Uniquement à droite',

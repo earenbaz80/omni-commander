@@ -385,6 +385,7 @@ export const en = {
   terminalMode: 'Terminal mode:',
   toggleConsole: 'Show / Hide output console',
   settingsToolbar: 'Show toolbar (Windows Explorer style)',
+  settingsMenuHoverOpen: 'Open menus on hover (no click)',
   settingsClock: 'Show real-time digital clock',
   syncOnlyLeft: 'Only in Left',
   syncOnlyRight: 'Only in Right',

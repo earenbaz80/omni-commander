@@ -358,6 +358,7 @@ export const ru = {
   terminalMode: 'Режим терминала:',
   toggleConsole: 'Показать / скрыть консоль вывода',
   settingsToolbar: 'Показывать панель инструментов (стиль проводника Windows)',
+  settingsMenuHoverOpen: 'Открывать меню при наведении (без клика)',
   settingsClock: 'Показывать цифровые часы в реальном времени',
   syncOnlyLeft: 'Только слева',
   syncOnlyRight: 'Только справа',

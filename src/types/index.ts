@@ -250,6 +250,8 @@ export interface UserSettings {
   showHiddenFiles: boolean;
   showSystemFiles: boolean;
   showToolbar: boolean;
+  /** Menus open when the pointer crosses their title, without a click. */
+  menuBarHoverOpen?: boolean;
   confirmDelete: boolean;
   confirmCopyOverwrite: boolean;
   retroDosBorders: boolean;

@@ -392,6 +392,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
         <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
           <input
             type="checkbox"
+            checked={formData.menuBarHoverOpen ?? false}
+            onChange={(e) => handleChange('menuBarHoverOpen', e.target.checked)}
+          />
+          <span>{t.settingsMenuHoverOpen}</span>
+        </label>
+
+        <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
+          <input
+            type="checkbox"
             checked={formData.showCollapsibleInfoDrawer}
             onChange={(e) => handleChange('showCollapsibleInfoDrawer', e.target.checked)}
           />

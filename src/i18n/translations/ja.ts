@@ -359,6 +359,7 @@ export const ja = {
   terminalMode: 'ターミナルモード:',
   toggleConsole: '出力コンソールの表示 / 非表示',
   settingsToolbar: 'ツールバーを表示 (Windows エクスプローラー スタイル)',
+  settingsMenuHoverOpen: 'マウスを重ねるとメニューを開く（クリック不要）',
   settingsClock: 'リアルタイムデジタル時計を表示',
   syncOnlyLeft: '左のみ',
   syncOnlyRight: '右のみ',

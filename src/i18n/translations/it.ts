@@ -358,6 +358,7 @@ export const it = {
   terminalMode: 'Modalità terminale:',
   toggleConsole: 'Mostra / Nascondi console di output',
   settingsToolbar: 'Mostra barra degli strumenti (stile Esplora risorse)',
+  settingsMenuHoverOpen: 'Apri i menu col passaggio del mouse (senza clic)',
   settingsClock: 'Mostra orologio digitale in tempo reale',
   syncOnlyLeft: 'Solo a sinistra',
   syncOnlyRight: 'Solo a destra',
