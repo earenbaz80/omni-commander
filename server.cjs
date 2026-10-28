@@ -2762,6 +2762,344 @@ function registerFsRoutes() {
   // of rundll32 and reaches ShellExecute as a file name that does not exist, so
   // this cannot become a command interpreter by accident or on purpose.
   // -------------------------------------------------------------------------
+  const RUN_TARGET_MAX_LENGTH = 2048;
+  const RUN_COMMAND_MAX_LENGTH = 4096;
+  const RUN_URI_SCHEMES = new Set(['http:', 'https:', 'ms-settings:', 'shell:', 'ms-windows-store:']);
+  // Windows' Run box also takes an address without the scheme ("google.com"),
+  // and opens it in the default browser. Only a host that is recognisably a web
+  // site is treated that way -- a dot plus a real top-level domain, or localhost
+  // with a port -- so a file name such as "notas.txt" is still refused instead of
+  // being sent to a browser that cannot do anything with it.
+  const RUN_WEB_TLDS = new Set([
+    'com',
+    'net',
+    'org',
+    'edu',
+    'gov',
+    'int',
+    'io',
+    'dev',
+    'ai',
+    'app',
+    'co',
+    'es',
+    'mx',
+    'ar',
+    'cl',
+    'pe',
+    've',
+    'uk',
+    'de',
+    'fr',
+    'it',
+    'pt',
+    'br',
+    'nl',
+    'ru',
+    'pl',
+    'tr',
+    'cn',
+    'jp',
+    'kr',
+    'in',
+    'ca',
+    'au',
+    'eu',
+    'us',
+    'tv',
+    'me',
+    'info',
+    'biz',
+    'online',
+    'site',
+    'store',
+    'cloud',
+    'tech',
+    'shop',
+    'blog',
+    'xyz',
+    'gg',
+    'sh',
+    'ly',
+  ]);
+  const RUN_CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
+  // Set by the suites, and by anyone who wants to see what a target would do
+  // without a window opening: both routes answer with the raw argv instead.
+  const RUN_DRY_RUN = process.env.OMNI_RUN_DRY_RUN === '1';
+
+  /** True when the text is a web address written without its scheme. */
+  function looksLikeWebAddress(value) {
+    // A space is an argument and a backslash is a Windows path: neither is a host.
+    // A forward slash is allowed, because it is how an address carries its path.
+    if (/[\s\\]/.test(value)) return false;
+    if (/^localhost(:\d{1,5})?(?:[/?#]\S*)?$/i.test(value)) return true;
+    // The port and any path are checked separately so "example.com:8080/x?y" is
+    // still one address, while "C:file.txt" keeps its drive letter and fails.
+    const match = /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+([a-z]{2,})(?::\d{1,5})?(?:[/?#]\S*)?$/i.exec(value);
+    return Boolean(match && RUN_WEB_TLDS.has(match[1].toLowerCase()));
+  }
+
+  // %TEMP% (and friends) is how people write paths in the Run box, so expand the
+  // names the environment actually knows. An unknown name stays untouched and
+  // then fails as a path, instead of collapsing to an empty string that would
+  // silently point at the current directory.
+  function expandRunEnvVars(value) {
+    return value.replace(/%([^%\\/\r\n]{1,64})%/g, (match, name) => {
+      const key = Object.keys(process.env).find((candidate) => candidate.toUpperCase() === name.toUpperCase());
+      return key ? process.env[key] : match;
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Resolving a typed name the way the Run box does
+  //
+  // CreateProcess alone only finds an .exe on PATH, which is why a name like
+  // `services.msc`, a Start Menu entry or a batch file used to fail even though
+  // Windows' own Run box starts all three. The lists below reproduce that reach:
+  // installers register short names under App Paths, PATH is searched with the
+  // usual extensions, and a label can name a Start Menu shortcut.
+  //
+  // The security rule does not move: the command line is still split into argv
+  // and never handed to a shell as a string. A batch file is the one case that
+  // needs an interpreter, so cmd.exe is named in the argv the user approves.
+  // -------------------------------------------------------------------------
+  const RUN_SCRIPT_EXTENSIONS = new Set(['.bat', '.cmd']);
+  const RUN_SHELL_EXTENSIONS = new Set(['.lnk', '.url', '.msc', '.cpl', '.msi', '.scr']);
+  // The extensions a bare name is completed with, in the order Windows tries
+  // them. The last two are not executables, but they are exactly the names people
+  // type into Run (services.msc, appwiz.cpl) and the shell knows how to open them.
+  const RUN_LOOKUP_EXTENSIONS = ['.exe', '.com', '.bat', '.cmd', '.msc', '.cpl'];
+  const APP_PATHS_ROOTS = [
+    'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\App Paths',
+    'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths',
+    'HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\App Paths',
+  ];
+
+  function isFile(file) {
+    try {
+      return fs.statSync(file).isFile();
+    } catch {
+      return false;
+    }
+  }
+
+  /** PATH in Windows' order. A missing PATH still leaves the absolute cases working. */
+  function pathDirectories() {
+    return String(process.env.PATH || '')
+      .split(path.win32.delimiter)
+      .filter(Boolean);
+  }
+
+  /**
+   * App Paths is the registry key installers write so `chrome` or `winword`
+   * works without a path. It is read through reg.exe, and a value that no longer
+   * exists on disk is ignored instead of offered as a program.
+   */
+  async function registryAppPath(name) {
+    if (process.platform !== 'win32') return null;
+    const names = path.win32.extname(name) ? [name] : [`${name}.exe`, name];
+    for (const root of APP_PATHS_ROOTS) {
+      for (const candidate of names) {
+        try {
+          const { stdout } = await execFileAsync('reg.exe', ['query', `${root}\\${candidate}`, '/ve'], {
+            windowsHide: true,
+            timeout: 5000,
+          });
+          const line = String(stdout)
+            .split(/\r?\n/)
+            .find((row) => row.includes('REG_SZ'));
+          if (!line) continue;
+          const value = line
+            .split('REG_SZ')
+            .slice(1)
+            .join('REG_SZ')
+            .trim()
+            .replace(/^"([\s\S]*)"$/, '$1')
+            .trim();
+          if (value && isFile(value)) return value;
+        } catch {
+          // Not registered here; try the next root.
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * The file a bare name points at: App Paths first (that is what an installer
+   * registered on purpose), then PATH with the Run box's extensions. A name with
+   * a path in it is never completed, so resolution stays away from the cwd.
+   */
+  async function resolveProgramFile(command) {
+    if (path.win32.isAbsolute(command)) return isFile(command) ? command : null;
+    if (/[\\/]/.test(command)) return null;
+    const registered = await registryAppPath(command);
+    if (registered) return registered;
+    const extensions = path.win32.extname(command) ? [''] : RUN_LOOKUP_EXTENSIONS;
+    for (const directory of pathDirectories()) {
+      for (const extension of extensions) {
+        const candidate = path.win32.join(directory, `${command}${extension}`);
+        if (isFile(candidate)) return candidate;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * A batch file is not an executable: CreateProcess cannot start one. cmd is the
+   * interpreter that can, and it is named in the argv the user reads and
+   * approves. /s makes cmd strip only the outer pair of quotes, so a path with
+   * spaces survives as one token.
+   */
+  function scriptArgv(file, args) {
+    const quoted = [file, ...args].map((value) => `"${String(value).replace(/"/g, '""')}"`).join(' ');
+    return ['cmd.exe', '/d', '/s', '/c', `"${quoted}"`];
+  }
+
+  /** What a resolved file becomes: a process, a script run by cmd, or a shell target. */
+  function describeResolvedFile(file, args) {
+    const extension = path.win32.extname(file).toLowerCase();
+    if (RUN_SCRIPT_EXTENSIONS.has(extension)) {
+      return { kind: 'script', target: file, argv: scriptArgv(file, args) };
+    }
+    if (RUN_SHELL_EXTENSIONS.has(extension)) {
+      // Associations (MMC, Control Panel, shortcuts, installers) are ShellExecute's
+      // job, reached through the same rundll32 entry point /api/open uses.
+      return { kind: 'shell', target: file, argv: ['rundll32.exe', 'url.dll,FileProtocolHandler', file] };
+    }
+    return { kind: 'program', target: file, argv: [file, ...args] };
+  }
+
+  /**
+   * Resolves one typed line: the program file, or the Start Menu shortcut whose
+   * label was typed. Extra arguments are only passed to a real executable; a
+   * shell target has no argument channel, which is how Run treats a shortcut too.
+   *
+   * A label is not always one word. "Google Chrome" and "Visual Studio Code" are
+   * the names people type, and Run starts them, so the whole line is tried as a
+   * label before the first word is given up on. A label can also be followed by
+   * what to open ("Visual Studio Code C:\proyecto"): the longest prefix that names
+   * a shortcut wins and the rest is the argument list.
+   */
+  async function resolveRunEntry(argv) {
+    const [command, ...args] = argv;
+    // The label is tried first. A full application name typed as its Start Menu
+    // entry is the program the user means, even when a helper of the same name
+    // happens to sit on PATH ("file explorer" versus a `file.exe` in a tool
+    // folder): the menu is what the suggestions offer, so it must win here too.
+    const items = await currentStartMenuItems();
+    const labels = new Map(items.map((item) => [foldText(item.label), item]));
+    for (let split = argv.length; split >= 1; split -= 1) {
+      const shortcut = labels.get(foldText(argv.slice(0, split).join(' ')));
+      if (!shortcut) continue;
+      const target = shortcut.value.replace(/^"([\s\S]*)"$/, '$1');
+      return describeResolvedFile(target, argv.slice(split));
+    }
+    const file = await resolveProgramFile(command);
+    if (file) return describeResolvedFile(file, args);
+    return { kind: 'missing', target: command, argv };
+  }
+
+  // ShellExecute through rundll32: the same default-program decision the Run box
+  // makes, with the target as a separate argument so an `&` or a `;` in a file
+  // name stays part of the file name.
+  async function shellOpen(target) {
+    const argv = ['url.dll,FileProtocolHandler', target];
+    if (RUN_DRY_RUN) return ['rundll32.exe', ...argv];
+    await execFileAsync('rundll32.exe', argv, { timeout: 15000, windowsHide: true });
+    return null;
+  }
+
+  app.post('/api/open', async (req, res) => {
+    const raw = typeof (req.body || {}).target === 'string' ? req.body.target : '';
+    // Quoting a path is normal in the Run box ("C:\Program Files").
+    const unquoted = raw
+      .trim()
+      .replace(/^"([\s\S]*)"$/, '$1')
+      .trim();
+    if (!unquoted) return res.status(400).json({ error: 'empty-target' });
+    if (unquoted.length > RUN_TARGET_MAX_LENGTH) return res.status(400).json({ error: 'target-too-long' });
+    if (RUN_CONTROL_CHARS.test(unquoted)) return res.status(400).json({ error: 'invalid-target' });
+
+    const target = expandRunEnvVars(unquoted);
+
+    if (isAbsoluteLocalPath(target)) {
+      let resolved;
+      try {
+        resolved = assertSafePath(target);
+      } catch {
+        return res.status(400).json({ error: 'invalid-target' });
+      }
+      const stat = await fs.promises.stat(resolved).catch((error) => {
+        if (error.code === 'ENOENT' || error.code === 'ENOTDIR') return null;
+        return error;
+      });
+      if (stat instanceof Error) {
+        logDebug('open stat failed', resolved, stat.message);
+        return res.status(403).json({ error: 'not-accessible', path: resolved });
+      }
+      if (!stat) return res.status(404).json({ error: 'not-found', path: resolved });
+      if (stat.isDirectory()) return res.json({ kind: 'folder', path: resolved });
+      try {
+        const launched = await shellOpen(resolved);
+        return res.json({ kind: 'opened', path: resolved, launched: launched || undefined });
+      } catch (error) {
+        logDebug('open failed', resolved, error?.message || error);
+        return res.status(502).json({ error: 'launch-failed', path: resolved });
+      }
+    }
+
+    const scheme = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(target);
+    if (scheme && RUN_URI_SCHEMES.has(`${scheme[1].toLowerCase()}:`)) {
+      try {
+        const launched = await shellOpen(target);
+        return res.json({ kind: 'opened', target, launched: launched || undefined });
+      } catch (error) {
+        logDebug('open failed', target, error?.message || error);
+        return res.status(502).json({ error: 'launch-failed', target });
+      }
+    }
+
+    // A name Windows already knows without a path: the Start Menu entry of an
+    // installed application, or a destination the shell owns (services.msc,
+    // appwiz.cpl). The target is resolved as one argv element, so a label with
+    // spaces in it ("Google Chrome") opens its entry and nothing is dropped from
+    // the line; executables are still left to /api/run, where starting one needs
+    // the explicit confirmation.
+    let resolved = null;
+    try {
+      resolved = await resolveRunEntry([target]);
+    } catch (error) {
+      logDebug('open resolution failed', target, error?.message || error);
+    }
+    if (resolved && resolved.kind === 'shell') {
+      try {
+        const launched = await shellOpen(resolved.target);
+        return res.json({ kind: 'opened', target: resolved.target, launched: launched || undefined });
+      } catch (error) {
+        logDebug('open failed', resolved.target, error?.message || error);
+        return res.status(502).json({ error: 'launch-failed', target: resolved.target });
+      }
+    }
+
+    // Last, the address typed without its scheme. The shortcut lookup above runs
+    // first because a real Start Menu entry is a thing on this machine, while a
+    // host is the shell's business: it is handed over as a proper http URL so the
+    // browser does not mistake "google.com" for a search or a local file.
+    if (looksLikeWebAddress(target)) {
+      const address = `http://${target}`;
+      try {
+        const launched = await shellOpen(address);
+        return res.json({ kind: 'opened', target: address, launched: launched || undefined });
+      } catch (error) {
+        logDebug('open failed', address, error?.message || error);
+        return res.status(502).json({ error: 'launch-failed', target: address });
+      }
+    }
+
+    return res.status(422).json({ error: 'unsupported-target' });
+  });
+
   // -------------------------------------------------------------------------
   // Suggestions for the Run box
   //
