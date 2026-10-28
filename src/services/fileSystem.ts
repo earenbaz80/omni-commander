@@ -1,5 +1,18 @@
 import JSZip from 'jszip';
-import { archiveEntryPath, base64ToBytes, bytesToBase64, loadArchive } from './zipArchive';
+import { archiveEntryPath, base64ToBytes, bytesToBase64 } from './zipArchive';
+import { buildTar, gzip } from './tarArchive';
+import {
+  UnsupportedArchiveError,
+  formatFromExtension,
+  formatLabel,
+  isServerReadable,
+  loadArchiveBackend,
+  withFormatExtension,
+  type ArchiveBackend,
+  type OpenableArchiveFormat,
+} from './archiveBackend';
+import { API_BASE } from './apiBase';
+import { loadServerArchiveBackend } from './serverArchive';
 import {
   ConflictResolution,
   Drive,
@@ -15,7 +28,7 @@ import {
 } from '../types';
 import { log } from '../utils/logger';
 import { tGlobal } from '../i18n/translations';
-import { fetchWithRetry } from '../utils/fetchWithRetry';
+import { fetchWithRetry, sessionTokenHeader } from '../utils/fetchWithRetry';
 
 export class ArchivePasswordError extends Error {
   constructor(
@@ -32,21 +45,6 @@ import { calculateFileHashes as calculateFileHashesImpl } from './fileSystemCryp
 const STORAGE_KEY = 'nc_filesystem_v1';
 const DRIVES_STORAGE_KEY = 'nc_drives_v1';
 const RECYCLE_BIN_STORAGE_KEY = 'nc_recycle_bin_v1';
-
-// In the packaged Electron app the renderer is loaded from file://, so relative
-// /api/* requests never reach the embedded server. Resolve against the local
-// server's absolute URL when running inside Electron; keep relative paths in
-// dev/web mode where Vite proxies /api to http://127.0.0.1:3001.
-//
-// The port is NOT assumed: the embedded server takes the first free port (3001
-// is frequently held by unrelated software) and the main process passes the one
-// it actually bound through the preload bridge.
-const API_BASE = (() => {
-  const bridge = typeof window !== 'undefined' ? (window as any).electronAPI : undefined;
-  if (!bridge?.isElectron) return '';
-  const port = Number(bridge.apiPort);
-  return `http://127.0.0.1:${Number.isFinite(port) && port > 0 ? port : 3001}`;
-})();
 
 /** Progress snapshot of a real filesystem job owned by the local server. */
 interface RealFsJob {
@@ -247,16 +245,21 @@ class FileSystemEngine {
     return [...this.drives];
   }
 
-  public async loadSystemDriveDirectory(driveId: string, path: string): Promise<void> {
-    if (this.getArchiveSource(driveId, path)) return;
+  /**
+   * Reads one directory from disk into the catalogue. Resolves `true` when the
+   * server listed it, `false` when it refused or could not be reached: callers
+   * that offer the folder as a destination need to tell "empty" from "gone".
+   */
+  public async loadSystemDriveDirectory(driveId: string, path: string): Promise<boolean> {
+    if (this.getArchiveSource(driveId, path)) return false;
     try {
       const response = await fetchWithRetry(
         `${API_BASE}/api/list?driveId=${encodeURIComponent(driveId)}&path=${encodeURIComponent(path)}`,
         { timeoutMs: 10000, retries: 2 },
       );
-      if (!response.ok) return;
+      if (!response.ok) return false;
       const serverItems = await response.json();
-      if (!Array.isArray(serverItems)) return;
+      if (!Array.isArray(serverItems)) return false;
 
       const normPath = this.normalizePath(path);
       const untouched = this.files.filter((f) => !(f.driveId === driveId && this.normalizePath(f.path) === normPath));
@@ -283,8 +286,10 @@ class FileSystemEngine {
       this.files = [...untouched, ...mapped];
       this.touchBucket(driveId, normPath);
       this.saveToStorage();
+      return true;
     } catch (e) {
       log.warn('Could not list system directory', path, e);
+      return false;
     }
   }
 
@@ -457,8 +462,27 @@ class FileSystemEngine {
     return file.ext ? `${file.name}.${file.ext}` : file.name;
   }
 
+  /**
+   * Drive letter a real-drive id stands for: `real_C` -> `C:`. Panels hold their
+   * location relative to the drive ("Users\\name"), but the server accepts only
+   * drive-letter absolute paths, so the letter has to be put back before a call.
+   */
+  private driveLetterOf(driveId: string): string {
+    const match = /^real_([A-Za-z])$/.exec(driveId);
+    return match ? `${match[1].toUpperCase()}:` : '';
+  }
+
+  /** Absolute on-disk form of a real-drive path, which the panels keep relative. */
+  private absoluteForDrive(driveId: string, targetPath: string): string {
+    const normalized = this.normalizePath(targetPath);
+    if (/^[A-Za-z]:/.test(normalized)) return normalized;
+    const letter = this.driveLetterOf(driveId);
+    if (!letter) return normalized;
+    return this.normalizePath(normalized ? `${letter}\\${normalized}` : letter);
+  }
+
   private realAbsolutePath(file: FileItem): string {
-    const parent = this.normalizePath(file.path);
+    const parent = this.absoluteForDrive(file.driveId, file.path);
     const trimmed = parent.endsWith('\\') ? parent.slice(0, -1) : parent;
     return `${trimmed}\\${this.realEntryName(file)}`;
   }
@@ -501,6 +525,57 @@ class FileSystemEngine {
       this.lastCallError = error instanceof Error ? error.message : `Request ${route} failed`;
       return null;
     }
+  }
+
+  /**
+   * Why the last real server call failed, empty when it succeeded.
+   * `callServerFs` returns null instead of throwing, so a caller that must show
+   * a reason ("needs administrator rights") reads it here.
+   */
+  get lastServerError(): string {
+    return this.lastCallError;
+  }
+
+  /**
+   * Sends an item to one of the user's folders: the desktop gets a shortcut,
+   * every other destination a copy (the rule lives on the server). Returns the
+   * final path, or null with `lastServerError` set.
+   */
+  async sendTo(destination: SendToDestination, item: FileItem): Promise<string | null> {
+    const result = await this.callServerFs<{ path?: string }>('sendto', {
+      path: this.realAbsolutePath(item),
+      destination,
+    });
+    return result?.path ?? null;
+  }
+
+  /** Same, into a folder the user picked in the dialog (a copy). */
+  async sendToFolder(driveId: string, folderPath: string, item: FileItem): Promise<string | null> {
+    const result = await this.callServerFs<{ path?: string }>('sendto', {
+      path: this.realAbsolutePath(item),
+      destinationDir: this.absoluteForDrive(driveId, folderPath),
+    });
+    return result?.path ?? null;
+  }
+
+  /** The folders the cleanup menu may offer, with the paths the server owns. */
+  async listCleanupTargets(): Promise<CleanupTarget[] | null> {
+    const result = await this.callServerFs<{ targets: CleanupTarget[] }>('cleanup/targets', {});
+    return result?.targets ?? null;
+  }
+
+  /** Measures what emptying one cleanup folder would free, changing nothing. */
+  async scanCleanup(target: CleanupTargetId, minAgeDays: number): Promise<CleanupScan | null> {
+    return this.callServerFs<CleanupScan>('cleanup/scan', { target, minAgeDays });
+  }
+
+  /**
+   * Empties one cleanup folder, best effort: entries another program holds on to
+   * are reported instead of failing the whole run. The server decides which
+   * files those are; the renderer only chooses the folder and the age filter.
+   */
+  async runCleanup(target: CleanupTargetId, minAgeDays: number): Promise<CleanupRun | null> {
+    return this.callServerFs<CleanupRun>('cleanup/run', { target, minAgeDays });
   }
 
   /**
@@ -864,7 +939,12 @@ class FileSystemEngine {
 
     // Real-drive write-through: the server owns the disk write.
     if (this.isSystemDrive(driveId)) {
-      this.runRealJob('mkdir', { path: this.childAbsolutePath(parentPath, cleanName) }, driveId, parentPath);
+      this.runRealJob(
+        'mkdir',
+        { path: this.absoluteForDrive(driveId, this.childAbsolutePath(parentPath, cleanName)) },
+        driveId,
+        parentPath,
+      );
     }
 
     this.saveToStorage();
@@ -908,7 +988,12 @@ class FileSystemEngine {
 
     // Real-drive write-through: the server owns the disk write.
     if (this.isSystemDrive(driveId)) {
-      this.runRealJob('write', { path: this.childAbsolutePath(parentPath, cleanName), content }, driveId, parentPath);
+      this.runRealJob(
+        'write',
+        { path: this.absoluteForDrive(driveId, this.childAbsolutePath(parentPath, cleanName)), content },
+        driveId,
+        parentPath,
+      );
     }
 
     this.saveToStorage();
@@ -972,6 +1057,10 @@ class FileSystemEngine {
       file.ext = ext;
     }
 
+    // The server's rename takes the current absolute path and the new leaf name,
+    // so `fullName` has to follow the rename: it is what `realAbsolutePath`
+    // builds every later path from, and a stale one sends a delete to the old name.
+    file.fullName = clean;
     file.modifiedAt = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
     // Real-drive write-through: the server owns the disk write.
@@ -1428,10 +1517,12 @@ class FileSystemEngine {
   private async writeBytes(driveId: string, root: string, relative: string, bytes: Uint8Array): Promise<FileItem> {
     if (this.getArchiveSource(driveId, root)) throw new Error(tGlobal('zipReadOnly'));
     const safe = archiveEntryPath(relative);
+    // Kept drive-relative for the catalogue entry, which indexes panels by that
+    // form; only the request to the server needs the drive letter.
     const target = this.childAbsolutePath(root, safe);
     if (this.isSystemDrive(driveId)) {
       const response = await fetchWithRetry(
-        `${API_BASE}/api/fs/write-bytes?path=${encodeURIComponent(target)}&root=${encodeURIComponent(root)}`,
+        `${API_BASE}/api/fs/write-bytes?path=${encodeURIComponent(this.absoluteForDrive(driveId, target))}&root=${encodeURIComponent(this.absoluteForDrive(driveId, root))}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/octet-stream' },
