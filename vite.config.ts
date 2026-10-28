@@ -93,6 +93,9 @@ export default defineConfig(({ mode }) => {
     test: {
       environment: 'jsdom',
       globals: true,
+      // Shared wait budget for the async queries, so a loaded machine does not
+      // fail components that are only slow to render. See the file for why.
+      setupFiles: ['./src/test/setup.ts'],
       exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
     },
   };
