@@ -198,6 +198,119 @@ describe('FileSystemEngine defaults', () => {
     }
   });
 
+  it('sends absolute drive paths to the server for a panel location kept relative', async () => {
+    // Panels hold "Users\\ana" for C:\, and the server accepts only drive-letter
+    // absolute paths. Without the letter every real-drive read and write came
+    // back as `Unsafe path`, which is why the viewer showed no content and save
+    // silently did nothing.
+    fsEngine.resetToDefaults();
+    const reads: string[] = [];
+    const writes: string[] = [];
+
+    try {
+      vi.stubGlobal('fetch', async (input: any, init?: any) => {
+        const url = String(input);
+        if (url.includes('/api/list')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => [
+              { name: 'nota', ext: 'txt', fullName: 'nota.txt', isDirectory: false, size: 5, content: '' },
+            ],
+          } as unknown as Response;
+        }
+        if (url.includes('/api/fs/read-bytes')) {
+          reads.push(JSON.parse(String(init?.body)).path);
+          return {
+            ok: true,
+            status: 200,
+            arrayBuffer: async () => new TextEncoder().encode('hola').buffer,
+          } as unknown as Response;
+        }
+        if (url.includes('/api/fs/write')) {
+          writes.push(JSON.parse(String(init?.body)).path);
+          return { ok: true, status: 200, json: async () => ({ ok: true }) } as unknown as Response;
+        }
+        throw new Error(`unexpected request ${url}`);
+      });
+
+      await fsEngine.loadSystemDriveDirectory('real_C', 'Users\\ana');
+      const item = fsEngine.getFiles('real_C', 'Users\\ana')[0];
+      expect(item.path).toBe('Users\\ana');
+
+      await fsEngine.readFileBytes(item, { maxBytes: 10 });
+      fsEngine.saveFileContent(item.id, 'adios');
+      // saveFileContent writes through without blocking the caller.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(reads).toEqual(['C:\\Users\\ana\\nota.txt']);
+      expect(writes).toEqual(['C:\\Users\\ana\\nota.txt']);
+    } finally {
+      vi.unstubAllGlobals();
+      fsEngine.resetToDefaults();
+    }
+  });
+
+  it('sends absolute drive paths for mkdir, create, rename and delete from a relative location', async () => {
+    // Same mismatch as the read/write path: the panel holds "Users\\ana" for C:,
+    // the server accepts only drive-letter absolute paths, and the job helper is
+    // fire-and-forget, so a rejected relative path just silently did nothing.
+    fsEngine.resetToDefaults();
+    const sent: Record<string, string[]> = { mkdir: [], write: [], rename: [], delete: [] };
+
+    try {
+      vi.stubGlobal('fetch', async (input: any, init?: any) => {
+        const url = String(input);
+        if (url.includes('/api/list')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => [
+              { name: 'nota', ext: 'txt', fullName: 'nota.txt', isDirectory: false, size: 5, content: '' },
+            ],
+          } as unknown as Response;
+        }
+
+        const route = ['mkdir', 'write', 'rename', 'delete'].find((name) => url.includes(`/api/fs/${name}`));
+        if (route) {
+          const body = JSON.parse(String(init?.body));
+          sent[route].push(body.path ?? body.targets[0]);
+          return { ok: true, status: 200, json: async () => ({ ok: true }) } as unknown as Response;
+        }
+
+        throw new Error(`unexpected request ${url}`);
+      });
+
+      await fsEngine.loadSystemDriveDirectory('real_C', 'Users\\ana');
+      const existing = fsEngine.getFiles('real_C', 'Users\\ana')[0];
+
+      // No await between these: each one must build its path from the state it
+      // is handed, not from the listing a background reload happens to install.
+      fsEngine.createDirectory('real_C', 'Users\\ana', 'nueva');
+      const created = fsEngine.createFile('real_C', 'Users\\ana', 'nuevo.txt', 'hola');
+      fsEngine.renameItem(created.id, 'otro.txt');
+      fsEngine.deleteItem(created.id);
+      fsEngine.deleteItem(existing.id, true);
+
+      for (let i = 0; i < 10; i++) await Promise.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(sent.mkdir).toEqual(['C:\\Users\\ana\\nueva']);
+      expect(sent.write).toEqual(['C:\\Users\\ana\\nuevo.txt']);
+      // The rename names the old file, and the delete that follows it must use
+      // the new name even though the listing has not been reloaded yet.
+      expect(sent.rename).toEqual(['C:\\Users\\ana\\nuevo.txt']);
+      expect(sent.delete).toEqual(['C:\\Users\\ana\\otro.txt', 'C:\\Users\\ana\\nota.txt']);
+
+      // Drain the reloads the jobs start before the stub goes away, so a late one
+      // does not escape to the real network from inside the test run.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    } finally {
+      vi.unstubAllGlobals();
+      fsEngine.resetToDefaults();
+    }
+  });
+
   it('logs a quota-exceeded persist instead of failing silently', () => {
     fsEngine.resetToDefaults();
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {});
