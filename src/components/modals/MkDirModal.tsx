@@ -12,6 +12,9 @@ interface MkDirModalProps {
   lang: LanguageCode;
   currentPath: string;
   isNewFile?: boolean;
+  /** Rename an existing entry instead of creating one: same dialog, new name. */
+  isRename?: boolean;
+  initialName?: string;
   onConfirm: (name: string) => void;
   onClose: () => void;
 }
@@ -21,11 +24,13 @@ export const MkDirModal: React.FC<MkDirModalProps> = ({
   lang,
   currentPath,
   isNewFile = false,
+  isRename = false,
+  initialName,
   onConfirm,
   onClose,
 }) => {
   const t = getTranslations(lang);
-  const [name, setName] = useState(isNewFile ? 'NewDocument.txt' : 'NEW_FOLDER');
+  const [name, setName] = useState(initialName ?? (isNewFile ? 'NewDocument.txt' : 'NEW_FOLDER'));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,11 +39,11 @@ export const MkDirModal: React.FC<MkDirModalProps> = ({
     onConfirm(name.trim());
   };
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.toolbarNewFolder);
+  const dialogRef = useModalDialog<HTMLDivElement>(isRename ? t.renameItemTitle : t.toolbarNewFolder);
 
   return (
     <ModalShell
-      title={isNewFile ? t.newFileTitle : `${t.mkdirTitle} (F7)`}
+      title={isRename ? t.renameItemTitle : isNewFile ? t.newFileTitle : `${t.mkdirTitle} (F7)`}
       theme={theme}
       onClose={onClose}
       closeButtonLabel={t.btnCancel}
@@ -46,11 +51,14 @@ export const MkDirModal: React.FC<MkDirModalProps> = ({
       <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
         <form onSubmit={handleSubmit} className="p-[var(--space-4)] space-y-[var(--space-4)]">
           <div>
-            <span className="opacity-75 block mb-[var(--space-1)]">
-              {t.mkdirCreateIn} <strong className="text-white">{currentPath}</strong>
-            </span>
+            {/* A rename has no destination to announce: the item stays where it is. */}
+            {!isRename && (
+              <span className="opacity-75 block mb-[var(--space-1)]">
+                {t.mkdirCreateIn} <strong className="text-white">{currentPath}</strong>
+              </span>
+            )}
             <label className="block font-bold text-white mb-[var(--space-1)]">
-              {isNewFile ? t.mkdirFileNameLabel : t.mkdirDirNameLabel}
+              {isRename ? t.renameItemLabel : isNewFile ? t.mkdirFileNameLabel : t.mkdirDirNameLabel}
             </label>
             <input
               type="text"

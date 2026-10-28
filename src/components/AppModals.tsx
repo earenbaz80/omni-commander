@@ -11,7 +11,7 @@ import {
   TransferPlan,
   UserSettings,
 } from '../types';
-import { fsEngine } from '../services/fileSystem';
+import { CleanupTargetId, fsEngine, type OpenableArchiveFormat } from '../services/fileSystem';
 import { TaskQueueBar } from './TaskQueueBar';
 import { OfflineIndicator } from './OfflineIndicator';
 
@@ -19,6 +19,9 @@ const ViewerModal = React.lazy(() => import('./modals/ViewerModal').then((m) => 
 const EditorModal = React.lazy(() => import('./modals/EditorModal').then((m) => ({ default: m.EditorModal })));
 const CopyMoveModal = React.lazy(() => import('./modals/CopyMoveModal').then((m) => ({ default: m.CopyMoveModal })));
 const MkDirModal = React.lazy(() => import('./modals/MkDirModal').then((m) => ({ default: m.MkDirModal })));
+const ChooseFolderModal = React.lazy(() =>
+  import('./modals/ChooseFolderModal').then((m) => ({ default: m.ChooseFolderModal })),
+);
 const DeleteModal = React.lazy(() => import('./modals/DeleteModal').then((m) => ({ default: m.DeleteModal })));
 const BatchRenameModal = React.lazy(() =>
   import('./modals/BatchRenameModal').then((m) => ({ default: m.BatchRenameModal })),
@@ -116,6 +119,8 @@ interface AppModalsProps {
   handleConfirmDelete: () => void;
   handleConfirmMkDir: (dirName: string) => void;
   handleConfirmNewFile: (fileName: string) => void;
+  handleConfirmRename: (newName: string) => void;
+  handleConfirmSendToFolder: (folderPath: string) => Promise<void>;
   handleApplyBatchRename: (renames: { id: string; newName: string }[]) => void;
   getSelectedOrFocusedItems: () => FileItem[];
   handleNavigate: (panelSide: 'left' | 'right', newPath: string) => void;
@@ -164,6 +169,8 @@ export const AppModals: React.FC<AppModalsProps> = ({
   handleConfirmDelete,
   handleConfirmMkDir,
   handleConfirmNewFile,
+  handleConfirmRename,
+  handleConfirmSendToFolder,
   handleApplyBatchRename,
   getSelectedOrFocusedItems,
   handleNavigate,
@@ -267,6 +274,38 @@ export const AppModals: React.FC<AppModalsProps> = ({
             currentPath={currentActiveTab.currentPath}
             isNewFile={true}
             onConfirm={handleConfirmNewFile}
+            onClose={() => setActiveModal(null)}
+          />
+        )}
+
+        {activeModal === 'rename' && selectedFileForModal && (
+          <MkDirModal
+            theme={currentTheme}
+            lang={lang}
+            currentPath={currentActiveTab.currentPath}
+            isRename={true}
+            initialName={
+              selectedFileForModal.fullName ||
+              `${selectedFileForModal.name}${selectedFileForModal.ext ? `.${selectedFileForModal.ext}` : ''}`
+            }
+            onConfirm={handleConfirmRename}
+            onClose={() => setActiveModal(null)}
+          />
+        )}
+
+        {activeModal === 'choose_folder' && selectedFileForModal && (
+          <ChooseFolderModal
+            theme={currentTheme}
+            lang={lang}
+            itemName={
+              selectedFileForModal.fullName ||
+              `${selectedFileForModal.name}${selectedFileForModal.ext ? `.${selectedFileForModal.ext}` : ''}`
+            }
+            driveId={modalData?.sendToDriveId || currentInactiveTab.driveId}
+            startPath={modalData?.sendToPath ?? currentInactiveTab.currentPath}
+            drives={drives}
+            rememberedFolder={settings.sendToLastFolder}
+            onConfirm={handleConfirmSendToFolder}
             onClose={() => setActiveModal(null)}
           />
         )}

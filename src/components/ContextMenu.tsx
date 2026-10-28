@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import {
   Eye,
   Edit3,
+  Pencil,
   Copy,
   Scissors,
   Trash2,
@@ -17,6 +18,7 @@ import {
 } from 'lucide-react';
 import { FileItem, LanguageCode } from '../types';
 import { ThemeConfig } from '../services/themeManager';
+import { SendToDestination } from '../services/fileSystem';
 import { getTranslations } from '../i18n/translations';
 import { soundManager } from '../services/soundEffects';
 
@@ -32,6 +34,7 @@ interface ContextMenuProps {
   onCopy: () => void;
   onMove: () => void;
   onDelete: () => void;
+  onRename: () => void;
   onMkDir: () => void;
   onNewFile: () => void;
   onZip: () => void;
@@ -43,8 +46,11 @@ interface ContextMenuProps {
   onProtectFolder: () => void;
   onSplitFile?: () => void;
   onArchiveInfo?: (item: FileItem) => void;
-  onSendToDesktop?: () => void;
-  onSendToDocuments?: () => void;
+  /** Sends the target to one of the user's folders (desktop: shortcut, rest: copy). */
+  onSendTo?: (destination: SendToDestination) => void;
+  /** Opens the folder picker, starting on the other panel. */
+  onSendToFolder?: () => void;
+  canSendTo?: boolean;
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({
@@ -59,6 +65,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onCopy,
   onMove,
   onDelete,
+  onRename,
   onMkDir,
   onNewFile,
   onZip,
@@ -70,8 +77,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onProtectFolder,
   onSplitFile,
   onArchiveInfo,
-  onSendToDesktop,
-  onSendToDocuments,
+  onSendTo,
+  onSendToFolder,
+  canSendTo = false,
 }) => {
   const t = getTranslations(lang);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -136,6 +144,13 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               <span className="opacity-60">F4</span>
             </button>
           )}
+
+          <button
+            onClick={() => handleAction(onRename)}
+            className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-white/20 flex items-center gap-[var(--space-2)] cursor-pointer"
+          >
+            <Pencil className="w-3.5 h-3.5" /> {t.rename}
+          </button>
 
           <button
             onClick={() => handleAction(onCopy)}
@@ -203,16 +218,60 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             </>
           )}
 
+          {/* Creating here too: the panel the item lives in is where these land. */}
           <div className="h-px bg-current opacity-20 my-[var(--space-1)]" />
-          <div className="px-[var(--space-3)] py-[var(--space-1)] text-[10px] uppercase opacity-50 font-bold">
-            Enviar a:
-          </div>
-          <button onClick={() => handleAction(onSendToDesktop)} className="...cursor-pointer">
-            <span>🖥️ Escritorio</span>
+          <button
+            onClick={() => handleAction(onMkDir)}
+            className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-white/20 flex items-center justify-between cursor-pointer"
+          >
+            <span className="flex items-center gap-[var(--space-2)]">
+              <FolderPlus className="w-3.5 h-3.5 text-amber-300" /> {t.newFolder}
+            </span>
+            <span className="opacity-60">F7</span>
           </button>
-          <button onClick={() => handleAction(onSendToDocuments)} className="...cursor-pointer">
-            <span>📄 Documentos</span>
+
+          <button
+            onClick={() => handleAction(onNewFile)}
+            className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-white/20 flex items-center gap-[var(--space-2)] cursor-pointer"
+          >
+            <FilePlus className="w-3.5 h-3.5 text-sky-300" /> {t.newFile}
           </button>
+
+          {/* Only a real drive has a file on disk worth sending. */}
+          {canSendTo && onSendTo && (
+            <>
+              <div className="h-px bg-current opacity-20 my-[var(--space-1)]" />
+              <div className="px-[var(--space-3)] py-[var(--space-1)] text-[10px] uppercase opacity-50 font-bold">
+                {t.sendTo}
+              </div>
+              <button
+                onClick={() => handleAction(() => onSendTo('desktop'))}
+                className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-white/20 flex items-center gap-[var(--space-2)] cursor-pointer"
+              >
+                <span>🖥️ {t.sendToDesktop}</span>
+              </button>
+              <button
+                onClick={() => handleAction(() => onSendTo('documents'))}
+                className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-white/20 flex items-center gap-[var(--space-2)] cursor-pointer"
+              >
+                <span>📄 {t.sendToDocuments}</span>
+              </button>
+              <button
+                onClick={() => handleAction(() => onSendTo('downloads'))}
+                className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-white/20 flex items-center gap-[var(--space-2)] cursor-pointer"
+              >
+                <span>⬇️ {t.sendToDownloads}</span>
+              </button>
+              {onSendToFolder && (
+                <button
+                  onClick={() => handleAction(onSendToFolder)}
+                  className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-white/20 flex items-center gap-[var(--space-2)] cursor-pointer"
+                >
+                  <span>📁 {t.sendToChooseFolder}</span>
+                </button>
+              )}
+            </>
+          )}
 
           <button
             onClick={() => handleAction(onZip)}

@@ -1684,6 +1684,7 @@ async function moveTree(src, dest, job, alreadyPlanned = false) {
 // Windows Recycle Bin access needs the VisualBasic FileSystem API, which is
 // only reachable through PowerShell. The helper script is generated once.
 let recycleScriptPath = null;
+let shortcutScriptPath = null;
 function ensureRecycleScript() {
   if (recycleScriptPath) return recycleScriptPath;
   const scriptPath = path.join(os.tmpdir(), `omnicommander-recycle-${process.pid}.ps1`);
@@ -1718,6 +1719,108 @@ async function deleteTarget(target, useTrash) {
     return;
   }
   await fs.promises.rm(target, { recursive: true, force: true, maxRetries: 3 });
+}
+
+// ---------------------------------------------------------------------------
+// "Send to" shortcuts
+//
+// The renderer names a destination from this table and the server resolves the
+// folder itself, so a request can never drop a .lnk wherever it likes. The
+// shortcut is written through WScript.Shell because a .lnk is a COM object, not
+// a format that can be typed out by hand.
+const SEND_TO_DESTINATIONS = {
+  desktop: (known) => known.desktop,
+  documents: (known) => known.documents,
+  downloads: () => path.win32.join(process.env.USERPROFILE || '', 'Downloads'),
+};
+
+// Test hook, mirroring OMNI_CLEANUP_USER_TEMP_ROOT: every destination points at
+// one scratch folder, so a run never leaves shortcuts on the real desktop.
+const SEND_TO_ROOT_OVERRIDE = String(process.env.OMNI_SEND_TO_ROOT || '').trim();
+
+let knownUserFoldersPromise = null;
+
+/** Desktop and Documents, which can be redirected (OneDrive) and so are not guessable. */
+function knownUserFolders() {
+  if (!knownUserFoldersPromise) {
+    const command =
+      "@{ desktop = [Environment]::GetFolderPath('Desktop'); documents = [Environment]::GetFolderPath('MyDocuments') } | ConvertTo-Json -Compress";
+    knownUserFoldersPromise = execFileAsync(
+      'powershell',
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', command],
+      { encoding: 'utf8', windowsHide: true, maxBuffer: 1024 * 1024, timeout: POWERSHELL_TIMEOUT_MS },
+    )
+      .then(({ stdout }) => JSON.parse(String(stdout || '').trim() || '{}'))
+      .catch((err) => {
+        // A failed lookup must not be remembered as "no folders exist".
+        knownUserFoldersPromise = null;
+        throw err;
+      });
+  }
+  return knownUserFoldersPromise;
+}
+
+/** An absolute path that must already be a folder the shortcut can land in. */
+async function assertFolder(value) {
+  const folder = assertSafePath(value);
+  const stat = await fs.promises.stat(folder).catch(() => null);
+  if (!stat || !stat.isDirectory()) throw new Error(`Not a folder: ${folder}`);
+  return folder;
+}
+
+async function sendToFolder(destinationId) {
+  const destination = SEND_TO_DESTINATIONS[String(destinationId || '')];
+  if (!destination) throw new Error(`Unknown destination: ${String(destinationId || '')}`);
+  if (SEND_TO_ROOT_OVERRIDE) return assertFolder(SEND_TO_ROOT_OVERRIDE);
+  const raw = destination(await knownUserFolders());
+  if (!raw) throw new Error(`No folder for destination: ${String(destinationId || '')}`);
+  return assertFolder(raw);
+}
+
+function ensureShortcutScript() {
+  if (shortcutScriptPath) return shortcutScriptPath;
+  const scriptPath = path.join(os.tmpdir(), `omnicommander-shortcut-${process.pid}.ps1`);
+  const lines = [
+    'param([Parameter(Mandatory=$true)][string]$TargetB64, [Parameter(Mandatory=$true)][string]$ShortcutB64)',
+    // Paths travel base64-encoded: arguments are decoded with the console code page
+    // otherwise, which mangles accented file names.
+    '$target = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($TargetB64))',
+    '$shortcut = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($ShortcutB64))',
+    '$shell = New-Object -ComObject WScript.Shell',
+    '$link = $shell.CreateShortcut($shortcut)',
+    '$link.TargetPath = $target',
+    '$link.WorkingDirectory = Split-Path -LiteralPath $target -Parent',
+    '$link.Save()',
+  ];
+  fs.writeFileSync(scriptPath, lines.join('\r\n'), 'utf8');
+  shortcutScriptPath = scriptPath;
+  return scriptPath;
+}
+
+async function copyIntoFolder(target, folder) {
+  const wanted = path.win32.basename(target);
+  const direct = path.win32.join(folder, wanted);
+  const destination = (await pathExists(direct)) ? path.win32.join(folder, await uniqueName(folder, wanted)) : direct;
+  await fs.promises.cp(target, destination, { recursive: true, force: false, errorOnExist: true });
+  return destination;
+}
+
+async function createShortcut(target, shortcutPath) {
+  const b64 = (value) => Buffer.from(String(value), 'utf8').toString('base64');
+  await execFileAsync(
+    'powershell',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      ensureShortcutScript(),
+      b64(target),
+      b64(shortcutPath),
+    ],
+    { encoding: 'utf8', windowsHide: true, maxBuffer: 1024 * 1024, timeout: POWERSHELL_TIMEOUT_MS },
+  );
 }
 
 /**
@@ -2039,6 +2142,40 @@ function registerFsRoutes() {
       await fs.promises.mkdir(target, { recursive: true });
       invalidateListings();
       res.json({ ok: true, path: target });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  // "Enviar a": the desktop gets a shortcut, everything else gets a copy, which
+  // is what the same menu does in Explorer. Either a known destination name or a
+  // folder picked in the dialog; the server resolves the first and validates the
+  // second, so nothing is written where the request did not point.
+  app.post('/api/fs/sendto', async (req, res) => {
+    try {
+      const body = req.body || {};
+      const target = assertSafePath(body.path);
+      if (!(await pathExists(target))) return res.status(404).json({ error: 'The item no longer exists' });
+
+      const pickedFolder = String(body.destinationDir || '').trim();
+      const folder = pickedFolder ? await assertFolder(pickedFolder) : await sendToFolder(body.destination);
+
+      if (!pickedFolder && body.destination === 'desktop') {
+        // Explorer names these "<name> - Acceso directo.lnk", and a second one
+        // for the same item gets a numbered sibling instead of replacing it.
+        const wanted = `${path.win32.basename(target)} - Acceso directo.lnk`;
+        const direct = path.win32.join(folder, wanted);
+        const shortcutPath = (await pathExists(direct))
+          ? path.win32.join(folder, await uniqueName(folder, wanted))
+          : direct;
+        await createShortcut(target, shortcutPath);
+        invalidateListings();
+        return res.json({ ok: true, kind: 'shortcut', path: shortcutPath });
+      }
+
+      const copyPath = await copyIntoFolder(target, folder);
+      invalidateListings();
+      res.json({ ok: true, kind: 'copy', path: copyPath });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
