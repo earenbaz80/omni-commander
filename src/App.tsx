@@ -1146,6 +1146,7 @@ export default function App() {
         lang={lang}
         showClock={settings.showClock}
         clockPosition={settings.clockPosition}
+        hoverOpen={settings.menuBarHoverOpen}
         crtEffectEnabled={settings.crtEffectEnabled}
         onToggleCrt={() => setSettings((s) => ({ ...s, crtEffectEnabled: !s.crtEffectEnabled }))}
         onOpenModal={(m) => {

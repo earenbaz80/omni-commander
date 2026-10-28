@@ -11,6 +11,8 @@ interface HeaderMenuBarProps {
   lang: LanguageCode;
   showClock?: boolean;
   clockPosition?: 'header' | 'footer' | 'both';
+  /** Menus open as the pointer crosses their title, without a click (Settings > Appearance). */
+  hoverOpen?: boolean;
   crtEffectEnabled?: boolean;
   onToggleCrt?: () => void;
   onOpenModal: (modal: ActiveModal) => void;
@@ -39,6 +41,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
   lang,
   showClock = true,
   clockPosition = 'header',
+  hoverOpen = false,
   onOpenModal,
   onRefresh,
   onSelectAll,
@@ -95,15 +98,31 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
     setOpenMenu(openMenu === menuName ? null : menuName);
   };
 
+  /**
+   * Crossing a title opens its menu when the setting asks for it, and moving on
+   * to the next title switches menus instead of stacking them. It stays silent:
+   * a tick per title would turn browsing the bar into noise.
+   */
+  const hoverMenu = (menuName: string) => {
+    if (!hoverOpen || openMenu === menuName) return;
+    setOpenMenu(menuName);
+  };
+
   const handleAction = (action: () => void) => {
     soundManager.playKeyTick();
     setOpenMenu(null);
     action();
   };
 
+  // Leaving the whole bar closes what hovering opened; the panels live inside
+  // it, so opening one does not count as leaving. A menu opened by a click is
+  // left alone: that is the behaviour this bar had before the setting existed.
   return (
     <div
       ref={menuRef}
+      onMouseLeave={() => {
+        if (hoverOpen) setOpenMenu(null);
+      }}
       className="nc-drag flex items-center justify-between px-[var(--space-2)] py-[var(--space-1)] text-xs select-none border-b shrink-0 z-30 font-mono tracking-wide"
       style={{
         backgroundColor: theme.headerBg,
@@ -146,7 +165,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         </div>
 
         {/* Menu items */}
-        <div className="relative inline-block">
+        <div className="relative inline-block" onMouseEnter={() => hoverMenu('left')}>
           <button
             onClick={() => handleMenuClick('left')}
             className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'left' ? 'bg-black/30 font-bold' : ''}`}
@@ -189,7 +208,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         </div>
 
         {/* Files menu */}
-        <div className="relative inline-block">
+        <div className="relative inline-block" onMouseEnter={() => hoverMenu('files')}>
           <button
             onClick={() => handleMenuClick('files')}
             className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'files' ? 'bg-black/30 font-bold' : ''}`}
@@ -268,7 +287,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         </div>
 
         {/* Commands menu */}
-        <div className="relative inline-block">
+        <div className="relative inline-block" onMouseEnter={() => hoverMenu('commands')}>
           <button
             onClick={() => handleMenuClick('commands')}
             className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'commands' ? 'bg-black/30 font-bold' : ''}`}
@@ -363,7 +382,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         </div>
 
         {/* Options menu */}
-        <div className="relative inline-block">
+        <div className="relative inline-block" onMouseEnter={() => hoverMenu('options')}>
           <button
             onClick={() => handleMenuClick('options')}
             className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'options' ? 'bg-black/30 font-bold' : ''}`}
@@ -428,7 +447,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         </div>
 
         {/* FTP menu */}
-        <div className="relative inline-block">
+        <div className="relative inline-block" onMouseEnter={() => hoverMenu('ftp')}>
           <button
             onClick={() => handleMenuClick('ftp')}
             className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'ftp' ? 'bg-black/30 font-bold' : ''}`}
@@ -451,7 +470,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         </div>
 
         {/* Right menu */}
-        <div className="relative inline-block">
+        <div className="relative inline-block" onMouseEnter={() => hoverMenu('right')}>
           <button
             onClick={() => handleMenuClick('right')}
             className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'right' ? 'bg-black/30 font-bold' : ''}`}
@@ -487,7 +506,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         </div>
 
         {/* Help menu */}
-        <div className="relative inline-block">
+        <div className="relative inline-block" onMouseEnter={() => hoverMenu('help')}>
           <button
             onClick={() => handleMenuClick('help')}
             className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'help' ? 'bg-black/30 font-bold' : ''}`}

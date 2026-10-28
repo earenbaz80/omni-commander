@@ -14,6 +14,7 @@ export function useSettings() {
       showHiddenFiles: true,
       showSystemFiles: true,
       showToolbar: true,
+      menuBarHoverOpen: false,
       confirmDelete: true,
       confirmCopyOverwrite: true,
       retroDosBorders: true,

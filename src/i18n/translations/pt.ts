@@ -358,6 +358,7 @@ export const pt = {
   terminalMode: 'Modo Terminal:',
   toggleConsole: 'Mostrar / Ocultar console de saída',
   settingsToolbar: 'Mostrar barra de ferramentas (estilo Windows Explorer)',
+  settingsMenuHoverOpen: 'Abrir os menus ao passar o rato (sem clique)',
   settingsClock: 'Mostrar Relógio Digital em Tempo Real',
   syncOnlyLeft: 'Somente na Esq.',
   syncOnlyRight: 'Somente na Dir.',

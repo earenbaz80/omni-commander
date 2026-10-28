@@ -360,6 +360,7 @@ export const de = {
   terminalMode: 'Terminalmodus:',
   toggleConsole: 'Ausgabekonsole ein-/ausblenden',
   settingsToolbar: 'Symbolleiste anzeigen (Windows-Explorer-Stil)',
+  settingsMenuHoverOpen: 'Menüs beim Überfahren öffnen (ohne Klick)',
   settingsClock: 'Digitale Echtzeituhr anzeigen',
   syncOnlyLeft: 'Nur links',
   syncOnlyRight: 'Nur rechts',
