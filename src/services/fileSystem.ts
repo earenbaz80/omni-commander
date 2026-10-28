@@ -1519,15 +1519,17 @@ class FileSystemEngine {
       const response = await fetchWithRetry(`${API_BASE}/api/fs/read-bytes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: this.realAbsolutePath(file) }),
+        body: JSON.stringify({ path: this.realAbsolutePath(file), maxBytes }),
         retries: 0,
         timeoutMs: 120000,
       });
       if (!response.ok) throw new Error((await response.json()).error);
-      return new Uint8Array(await response.arrayBuffer());
+      return cap(new Uint8Array(await response.arrayBuffer()));
     }
-    if (file.contentEncoding === 'base64' || file.ext.toUpperCase() === 'ZIP') return base64ToBytes(file.content || '');
-    return new TextEncoder().encode(file.content || '');
+    if (file.contentEncoding === 'base64' || file.ext.toUpperCase() === 'ZIP') {
+      return cap(base64ToBytes(file.content || ''));
+    }
+    return cap(new TextEncoder().encode(file.content || ''));
   }
 
   private async writeBytes(driveId: string, root: string, relative: string, bytes: Uint8Array): Promise<FileItem> {

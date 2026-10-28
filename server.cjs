@@ -1570,9 +1570,27 @@ function registerFsRoutes() {
     }
   });
 
+  // Reads a file for the renderer. `maxBytes` exists for callers that only need to
+  // show a file (the viewer and the editor): without it a stray multi-gigabyte
+  // file would be pulled into memory whole. Callers that must see every byte
+  // (checksums) send no limit and still get the whole file.
   app.post('/api/fs/read-bytes', async (req, res) => {
     try {
-      const target = assertSafePath((req.body || {}).path);
+      const body = req.body || {};
+      const target = assertSafePath(body.path);
+      const maxBytes = Number(body.maxBytes);
+      if (Number.isFinite(maxBytes) && maxBytes > 0) {
+        const wanted = Math.min(Math.floor(maxBytes), 64 * 1024 * 1024);
+        const handle = await fs.promises.open(target, 'r');
+        try {
+          const buffer = Buffer.alloc(wanted);
+          const { bytesRead } = await handle.read(buffer, 0, wanted, 0);
+          res.type('application/octet-stream').send(buffer.subarray(0, bytesRead));
+        } finally {
+          await handle.close();
+        }
+        return;
+      }
       const bytes = await fs.promises.readFile(target);
       res.type('application/octet-stream').send(bytes);
     } catch (err) {

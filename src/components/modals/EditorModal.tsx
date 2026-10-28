@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Edit3, Save, Search } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { AlertTriangle, Edit3, Save, Search } from 'lucide-react';
 import { FileItem, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
+import { useFileContent } from '../../hooks/useFileContent';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
@@ -18,26 +19,52 @@ interface EditorModalProps {
 
 export const EditorModal: React.FC<EditorModalProps> = ({ theme, lang, file, onSave, onClose }) => {
   const t = getTranslations(lang);
-  const [content, setContent] = useState('');
-  const [isSaved, setIsSaved] = useState(true);
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
   const [showSearch, setShowSearch] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [replaceText, setReplaceText] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => {
-    if (file) {
-      setContent(file.content || '');
-      setIsSaved(true);
-    }
-  }, [file]);
+  // The text on screen starts as the bytes on disk. It used to start as
+  // `file.content`, which the listing of a real drive never fills, so a real file
+  // opened blank and saving wrote that blank buffer over it.
+  const { state, reload } = useFileContent(file);
+  const ready = state.status === 'ready' ? state : null;
+
+  /**
+   * The buffer is derived from what was loaded until the user changes it, never
+   * copied into state by an effect: with a copy there is a frame where the file
+   * has loaded, saving is allowed and the buffer is still empty — and writing
+   * that empty buffer is exactly how this editor used to truncate files.
+   */
+  const [draft, setDraft] = useState<string | null>(null);
+  const content = draft ?? ready?.text ?? '';
+  const isDirty = draft !== null && ready !== null && draft !== ready.text;
+
+  const dialogRef = useModalDialog<HTMLDivElement>(t.editorModalTitle);
 
   if (!file) return null;
 
+  /**
+   * Why saving is refused right now, empty when it is allowed. A file that is
+   * still loading has no buffer to write, a binary file cannot survive a round
+   * trip through a text buffer, and a file larger than the read cap would be
+   * truncated by the write.
+   */
+  const blockedReason =
+    state.status === 'loading'
+      ? t.contentLoading
+      : state.status === 'error'
+        ? t.contentLoadFailed
+        : ready?.binary
+          ? t.editorBinaryBlocked
+          : ready?.truncated
+            ? t.editorTruncatedBlocked
+            : '';
+  const canSave = blockedReason === '' && ready !== null;
+
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
-    setIsSaved(false);
+    setDraft(e.target.value);
     updateCursor();
   };
 
@@ -53,23 +80,23 @@ export const EditorModal: React.FC<EditorModalProps> = ({ theme, lang, file, onS
   };
 
   const handleSave = () => {
+    // Guarded here as well as on the button: Ctrl+S reaches this too, and an
+    // unloaded buffer must never be written.
+    if (!canSave) return;
     soundManager.playSuccess();
     onSave(file.id, content);
-    setIsSaved(true);
+    // Back to the file's own text: what was saved is the file now.
+    setDraft(null);
   };
 
   const handleReplaceAll = () => {
-    if (!searchText) return;
+    if (!searchText || !canSave) return;
     soundManager.playKeyTick();
-    const newContent = content.replaceAll(searchText, replaceText);
-    setContent(newContent);
-    setIsSaved(false);
+    setDraft(content.replaceAll(searchText, replaceText));
   };
 
   const lines = content.split('\n');
   const lineCount = lines.length;
-
-  const dialogRef = useModalDialog<HTMLDivElement>(t.editorModalTitle);
 
   return (
     <ModalShell title={t.editorModalTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
@@ -82,7 +109,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({ theme, lang, file, onS
           <div className="flex items-center gap-[var(--space-2)] truncate">
             <Edit3 className="w-4 h-4" />
             <span className="truncate">
-              Editor: {file.path}\{file.name}.{file.ext} {!isSaved && t.editorModified}
+              Editor: {file.path}\{file.name}.{file.ext} {isDirty && t.editorModified}
             </span>
           </div>
 
@@ -95,12 +122,30 @@ export const EditorModal: React.FC<EditorModalProps> = ({ theme, lang, file, onS
             </button>
             <button
               onClick={handleSave}
-              className="px-[var(--space-3)] py-[var(--space-1)] bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs flex items-center gap-[var(--space-1)] cursor-pointer font-bold"
+              disabled={!canSave}
+              title={blockedReason || undefined}
+              className="px-[var(--space-3)] py-[var(--space-1)] bg-emerald-600 hover:bg-emerald-500 disabled:bg-white/10 disabled:text-white/40 disabled:cursor-not-allowed text-white rounded text-xs flex items-center gap-[var(--space-1)] cursor-pointer font-bold"
             >
               <Save className="w-3.5 h-3.5" /> {t.btnSave} (Ctrl+S)
             </button>
           </div>
         </div>
+
+        {/* Why saving is unavailable, when it is */}
+        {blockedReason && (
+          <div
+            data-testid="editor-save-blocked"
+            className="flex items-center gap-[var(--space-2)] px-[var(--space-3)] py-[var(--space-1)] bg-amber-950/70 border-b border-amber-500/40 text-amber-200 text-[11px] shrink-0"
+          >
+            <AlertTriangle className="w-3.5 h-3.5" />
+            <span>{blockedReason}</span>
+            {state.status === 'error' && (
+              <button onClick={reload} className="underline cursor-pointer font-bold">
+                {t.contentLoadRetry}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Find & Replace bar */}
         {showSearch && (
@@ -125,7 +170,8 @@ export const EditorModal: React.FC<EditorModalProps> = ({ theme, lang, file, onS
             </div>
             <button
               onClick={handleReplaceAll}
-              className="px-[var(--space-2)] py-[var(--space-1)] bg-amber-400 text-black font-bold rounded cursor-pointer hover:bg-amber-300"
+              disabled={!canSave}
+              className="px-[var(--space-2)] py-[var(--space-1)] bg-amber-400 text-black font-bold rounded cursor-pointer hover:bg-amber-300 disabled:bg-white/10 disabled:text-white/40 disabled:cursor-not-allowed"
             >
               {t.editorReplaceAll}
             </button>
@@ -150,6 +196,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({ theme, lang, file, onS
             onChange={handleContentChange}
             onClick={updateCursor}
             onKeyUp={updateCursor}
+            disabled={!canSave}
             onKeyDown={(e) => {
               if ((e.ctrlKey || e.metaKey) && e.key === 's') {
                 e.preventDefault();
@@ -157,7 +204,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({ theme, lang, file, onS
               }
             }}
             spellCheck={false}
-            className="flex-1 p-[var(--space-3)] bg-transparent text-slate-100 font-mono text-xs resize-none outline-none leading-5 select-text overflow-auto"
+            className="flex-1 p-[var(--space-3)] bg-transparent text-slate-100 font-mono text-xs resize-none outline-none leading-5 select-text overflow-auto disabled:opacity-50"
           />
         </div>
 
@@ -182,8 +229,8 @@ export const EditorModal: React.FC<EditorModalProps> = ({ theme, lang, file, onS
           </div>
 
           <div className="flex items-center gap-[var(--space-2)]">
-            <span className={isSaved ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
-              {isSaved ? t.editorSaved : t.editorUnsaved}
+            <span className={isDirty ? 'text-amber-400 font-bold' : 'text-emerald-400 font-bold'}>
+              {isDirty ? t.editorUnsaved : t.editorSaved}
             </span>
             <button
               onClick={onClose}
