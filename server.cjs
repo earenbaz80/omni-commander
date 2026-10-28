@@ -1952,6 +1952,87 @@ function registerFsRoutes() {
     return directories;
   }
 
+  app.post('/api/archives/inspect', async (req, res) => {
+    const body = req.body || {};
+    let target;
+    try {
+      const resolved = await resolveArchiveTarget(body.path);
+      if (resolved.payload) return res.status(resolved.status).json(resolved.payload);
+      target = resolved.target;
+    } catch (error) {
+      return res.status(400).json({ code: 'not-found', error: error.message });
+    }
+    try {
+      const head = await readArchiveHead(target);
+      assertArchiveSignature(head);
+      if (isRarHead(head)) return res.json({ entries: await inspectRar(target, body.password) });
+      const entries = await withLibarchiveArchive(target, body.password, async (reader) => {
+        const files = await reader.getFilesArray();
+        const listed = new Map();
+        for (const item of files) {
+          if (!item.file) continue;
+          const name = `${item.path || ''}${item.file.name}`.replace(/^\/+/, '');
+          const modified = Number(item.file.lastModified);
+          listed.set(name, {
+            name,
+            dir: false,
+            size: Number(item.file.size) || 0,
+            date: Number.isFinite(modified) ? Math.round(modified / 1e6) : Date.now(),
+          });
+          for (const directory of parentDirectories(name)) {
+            if (!listed.has(directory))
+              listed.set(directory, { name: directory, dir: true, size: 0, date: Date.now() });
+          }
+        }
+        return [...listed.values()].sort((a, b) => a.name.localeCompare(b.name));
+      });
+      res.json({ entries });
+    } catch (error) {
+      const payload = archiveErrorPayload(error);
+      console.warn('Archive listing failed:', payload.error);
+      res.status(400).json(payload);
+    }
+  });
+
+  app.post('/api/archives/entry', async (req, res) => {
+    const body = req.body || {};
+    const name = typeof body.entry === 'string' ? body.entry : '';
+    if (!name) return res.status(400).json({ code: 'not-found', error: 'entry is required' });
+    let target;
+    try {
+      const resolved = await resolveArchiveTarget(body.path);
+      if (resolved.payload) return res.status(resolved.status).json(resolved.payload);
+      target = resolved.target;
+    } catch (error) {
+      return res.status(400).json({ code: 'not-found', error: error.message });
+    }
+    try {
+      const head = await readArchiveHead(target);
+      assertArchiveSignature(head);
+      if (isRarHead(head)) {
+        const rarBytes = await readRarEntry(target, name, body.password);
+        return res.type('application/octet-stream').send(Buffer.from(rarBytes));
+      }
+      const bytes = await withLibarchiveArchive(target, body.password, async (reader) => {
+        // The library throws an opaque TypeError for a path it never listed, so
+        // the entry is checked against the listing first. That listing is cached
+        // by the reader after the first call, which the browse already paid for.
+        const listed = await reader.getFilesArray();
+        const known = listed.some(
+          (item) => item.file && `${item.path || ''}${item.file.name}`.replace(/^\/+/, '') === name,
+        );
+        if (!known) throw new Error(`Entry not found: ${name}`);
+        const file = await reader.extractSingleFile(name);
+        return new Uint8Array(await file.arrayBuffer());
+      });
+      res.type('application/octet-stream').send(Buffer.from(bytes));
+    } catch (error) {
+      const payload = archiveErrorPayload(error);
+      console.warn('Archive entry read failed:', name, payload.error);
+      res.status(400).json(payload);
+    }
+  });
+
   app.post(
     '/api/fs/write-bytes',
     express.raw({ type: 'application/octet-stream', limit: '512mb' }),
