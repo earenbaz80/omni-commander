@@ -138,6 +138,8 @@ export default function App() {
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [modalData, setModalData] = useState<any>(null);
   const [selectedFileForModal, setSelectedFileForModal] = useState<FileItem | null>(null);
+  // Folder the cleanup modal was opened for, picked in the toolbar's cleanup menu.
+  const [cleanupTarget, setCleanupTarget] = useState<CleanupTargetId>('user-temp');
 
   // Context menu state
   const [contextMenuState, setContextMenuState] = useState<{
@@ -1166,6 +1168,22 @@ export default function App() {
         activeFocusedItem={activeFocusedItem}
         setSelectedFileForModal={setSelectedFileForModal}
         setActiveModal={handleSetActiveModal}
+        onCleanup={(target) => {
+          setCleanupTarget(target);
+          handleSetActiveModal('cleanup');
+        }}
+        rightPanelShowsDiskUsage={rightPanel.panelView === 'diskUsage'}
+        onNavigate={handleNavigate}
+        runLauncherOpenRequest={runLauncherOpenRequest}
+        launcherOnly={launcherOnly}
+        onLauncherDismiss={() => setLauncherOnly(false)}
+        panelStacked={stackedPanels}
+        onTogglePanelLayout={() =>
+          setSettings((s) => ({ ...s, splitLayout: s.splitLayout === 'vertical' ? 'horizontal' : 'vertical' }))
+        }
+        onToggleRightPanelDiskUsage={() =>
+          setRightPanel((p) => ({ ...p, panelView: p.panelView === 'diskUsage' ? 'files' : 'diskUsage' }))
+        }
       />
 
       {/* 2. Main Dual-Panel Viewport */}
@@ -1458,6 +1476,7 @@ export default function App() {
         selectedFileForModal={selectedFileForModal}
         setActiveModal={handleSetActiveModal}
         activeModal={activeModal}
+        cleanupTarget={cleanupTarget}
         modalData={modalData?.items?.length ? modalData : { ...modalData, items: transferItems }}
         setModalData={setModalData}
         onRunCopyList={handleRunCopyList}

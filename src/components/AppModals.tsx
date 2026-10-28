@@ -34,6 +34,7 @@ const ZipArchiveModal = React.lazy(() =>
   import('./modals/ZipArchiveModal').then((m) => ({ default: m.ZipArchiveModal })),
 );
 const DiskUsageModal = React.lazy(() => import('./modals/DiskUsageModal').then((m) => ({ default: m.DiskUsageModal })));
+const CleanupModal = React.lazy(() => import('./modals/CleanupModal').then((m) => ({ default: m.CleanupModal })));
 const PropertiesModal = React.lazy(() =>
   import('./modals/PropertiesModal').then((m) => ({ default: m.PropertiesModal })),
 );
@@ -85,6 +86,7 @@ interface AppModalsProps {
   selectedFileForModal: FileItem | null;
   setActiveModal: React.Dispatch<React.SetStateAction<ActiveModal>>;
   activeModal: ActiveModal;
+  cleanupTarget: CleanupTargetId;
   modalData: any;
   setModalData: React.Dispatch<React.SetStateAction<any>>;
   currentActiveTab: PanelTab;
@@ -136,6 +138,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
   selectedFileForModal,
   setActiveModal,
   activeModal,
+  cleanupTarget,
   modalData,
   setModalData,
   currentActiveTab,
@@ -342,6 +345,10 @@ export const AppModals: React.FC<AppModalsProps> = ({
             rootPath={currentActiveTab.currentPath}
             onClose={() => setActiveModal(null)}
           />
+        )}
+
+        {activeModal === 'cleanup' && (
+          <CleanupModal theme={currentTheme} lang={lang} target={cleanupTarget} onClose={() => setActiveModal(null)} />
         )}
 
         {activeModal === 'properties' && selectedFileForModal && (

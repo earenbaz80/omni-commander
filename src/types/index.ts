@@ -402,6 +402,7 @@ export type ActiveModal =
   | 'zipPassword'
   | 'disk_usage'
   | 'diskUsage'
+  | 'cleanup'
   | 'settings'
   | 'new_file'
   | 'shortcuts_cheat'

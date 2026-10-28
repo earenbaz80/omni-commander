@@ -92,6 +92,63 @@ interface RealFsJob {
 }
 
 /**
+ * Folders the toolbar's cleanup menu offers. Only the user's temp folder can be
+ * emptied without an elevated token; the server refuses the other two and the
+ * menu shows them disabled with the reason.
+ */
+export type CleanupTargetId = 'user-temp' | 'windows-temp' | 'prefetch';
+
+/**
+ * Folders the "Enviar a" menu drops a shortcut into. The renderer names one of
+ * these and the server resolves the folder, so a request never carries a path
+ * the user did not pick.
+ */
+export type SendToDestination = 'desktop' | 'documents' | 'downloads';
+
+export const cleanupTargets: Array<{ id: CleanupTargetId; requiresAdmin: boolean }> = [
+  { id: 'user-temp', requiresAdmin: false },
+  { id: 'windows-temp', requiresAdmin: true },
+  { id: 'prefetch', requiresAdmin: true },
+];
+
+/** A cleanup folder as the server resolves it; the renderer never names a path. */
+export interface CleanupTarget {
+  id: CleanupTargetId;
+  path: string;
+  requiresAdmin: boolean;
+  exists: boolean;
+}
+
+/** What a cleanup would remove. Measured without removing anything. */
+export interface CleanupScan {
+  target: CleanupTargetId;
+  path: string;
+  minAgeDays: number;
+  files: number;
+  dirs: number;
+  bytes: number;
+  /** Entries left alone: reparse points and anything unreadable. */
+  skipped: number;
+  /** True when the folder was too large to measure in full. */
+  truncated: boolean;
+  largest: Array<{ name: string; size: number; modifiedMs: number }>;
+}
+
+/** What a cleanup did. `failedCount` counts what another program held on to. */
+export interface CleanupRun {
+  target: CleanupTargetId;
+  path: string;
+  minAgeDays: number;
+  freedBytes: number;
+  deletedFiles: number;
+  deletedDirs: number;
+  failed: Array<{ path: string; message: string }>;
+  failedCount: number;
+  skipped: number;
+  truncated: boolean;
+}
+
+/**
  * How long an unobservable job is retried before a transfer is declared failed.
  * The defaults hold a transfer for about ten seconds, which rides out a brief
  * hiccup but refuses to call a dead server a success. Exposed so tests can
