@@ -2,11 +2,11 @@
 // Archivo: src/services/zipPasswordHandler.ts (nuevo)
 
 /**
- * Cuando fsEngine.openZipArchive lanza ArchivePasswordError,
+ * Cuando fsEngine.openArchive lanza ArchivePasswordError,
  * hay que:
  * 1. Capturar el error en usePanels (línea ~486)
  * 2. Abrir ZipPasswordModal (ya existe)
- * 3. Pasar la contraseña a openZipArchive de nuevo
+ * 3. Pasar la contraseña a openArchive de nuevo
  * 4. Si es válida, navegar al archive; si no, mostrar invalid y repetir
  */
 
@@ -18,7 +18,7 @@ export interface PasswordFlow {
 
 // Ejemplo de integración en handleOpenItem de usePanels:
 // try {
-//   handleNavigate(activePanel, await fsEngine.openZipArchive(item, password));
+//   handleNavigate(activePanel, await fsEngine.openArchive(item, password));
 // } catch (e) {
 //   if (e instanceof ArchivePasswordError) {
 //     const pwd = await showPasswordModal(item.name, e.reason === 'invalid');
