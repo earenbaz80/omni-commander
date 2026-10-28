@@ -77,6 +77,8 @@ export interface PanelState {
   tabs: PanelTab[];
   isTreeVisible: boolean;
   isQuickView: boolean;
+  /** What the panel body shows: the file list, or the TreeSize view. */
+  panelView?: 'files' | 'diskUsage';
 }
 
 export type ThemeId =
@@ -300,6 +302,66 @@ export interface DiskUsageItem {
   fileCount: number;
   subFolders?: DiskUsageItem[];
 }
+
+/** A file that came out of a TreeSize scan, with the folder that holds it. */
+export interface DiskUsageTopFile {
+  /** Folder the file lives in. */
+  path: string;
+  fullName: string;
+  size: number;
+}
+
+/**
+ * Result of scanning a real folder on disk. Unlike `DiskUsageItem`, every size
+ * here was measured, so it is worth showing even for folders never opened.
+ */
+export interface DiskUsageScan extends DiskUsageItem {
+  dirCount: number;
+  /** True when the walk could not measure everything (depth cap or unreadable folder). */
+  truncated: boolean;
+  subFolders?: DiskUsageScan[];
+  topFiles: DiskUsageTopFile[];
+}
+
+/**
+ * Live counters of a TreeSize walk. A whole drive takes minutes to measure, so
+ * the scan reports as it goes instead of answering once at the end; `folders`
+ * carries the root folders already finished, biggest first.
+ */
+export interface TreeSizeProgress {
+  /** Entries seen so far: files and folders together. */
+  entries: number;
+  files: number;
+  dirs: number;
+  /** Bytes of the files measured so far. */
+  bytes: number;
+  /** Folder the walk is inside right now. */
+  currentPath: string;
+  elapsedMs: number;
+  folders: DiskUsageItem[];
+}
+
+/** How a TreeSize scan reports its progress and how the caller stops it. */
+export interface TreeSizeOptions {
+  signal?: AbortSignal;
+  onProgress?: (progress: TreeSizeProgress) => void;
+}
+
+/**
+ * Why a scan produced no tree. They are kept apart because the answer is
+ * different in each case: an unreachable server is retried or reported as a
+ * fault, a folder closed by permissions needs administrator rights, and a
+ * missing folder is simply gone.
+ */
+export type TreeSizeFailure = 'unreachable' | 'forbidden' | 'notFound' | 'refused';
+
+/**
+ * A finished scan, or the reason there is none. The discriminant is a string
+ * because this project compiles without `strictNullChecks`, where narrowing a
+ * union by a `true`/`false` field does not work and every read of the other
+ * side would need a cast.
+ */
+export type TreeSizeResult = { status: 'ok'; tree: DiskUsageScan } | { status: 'failed'; reason: TreeSizeFailure };
 
 export type ActiveModal =
   | null
