@@ -14,6 +14,23 @@ export default defineConfig(({ mode }) => {
     if (process.env[key] === undefined) process.env[key] = value;
   }
 
+  // The API only answers the app's own origin, port included, and that port is
+  // fixed at 3000 (the dev script uses `strictPort`). A dev server can still be
+  // started elsewhere, so the proxy presents the canonical origin instead of the
+  // one the browser happened to use; the browser's request stays same-origin
+  // either way. Only loopback origins are rewritten: a page from anywhere else
+  // keeps its origin and the server refuses it.
+  const DEV_UI_PORT = 3000;
+  const isLoopbackOrigin = (origin: string) => {
+    try {
+      const url = new URL(origin);
+      const host = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+      return url.protocol === 'http:' && ['localhost', '127.0.0.1', '::1'].includes(host);
+    } catch {
+      return false;
+    }
+  };
+
   // Inside Electron the app is already installed locally, so the PWA service
   // worker adds nothing and can serve stale cached assets. Skip it there.
   const isElectronBuild = mode === 'electron';
@@ -84,7 +101,17 @@ export default defineConfig(({ mode }) => {
         // Follows the same port the local server binds. Override with OMNI_API_PORT
         // when the server had to walk past a busy 3001. The numeric coercion keeps
         // "0" and garbage out: server.cjs reads them as 3001, so the proxy must too.
-        '/api': `http://127.0.0.1:${Number(process.env.OMNI_API_PORT || process.env.PORT) || 3001}`,
+        '/api': {
+          target: `http://127.0.0.1:${Number(process.env.OMNI_API_PORT || process.env.PORT) || 3001}`,
+          configure: (proxy) => {
+            proxy.on('proxyReq', (proxyReq) => {
+              const origin = String(proxyReq.getHeader('origin') || '');
+              if (isLoopbackOrigin(origin)) {
+                proxyReq.setHeader('origin', `http://localhost:${DEV_UI_PORT}`);
+              }
+            });
+          },
+        },
       },
     },
     build: {

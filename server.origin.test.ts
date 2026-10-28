@@ -73,4 +73,15 @@ describe('origin guard', () => {
   it('refuses a third-party origin', async () => {
     expect(await statusFor('https://evil.example.com')).toBe(403);
   });
+
+  // A loopback host alone used to be enough, which let any other dev server or
+  // local tool on 127.0.0.1 drive this API. The port is part of the app.
+  it('refuses another loopback port, which is some other local app', async () => {
+    expect(await statusFor('http://localhost:3010')).toBe(403);
+    expect(await statusFor('http://127.0.0.1:8080')).toBe(403);
+  });
+
+  it('refuses a loopback host over https, which this server never serves', async () => {
+    expect(await statusFor('https://localhost:3000')).toBe(403);
+  });
 });

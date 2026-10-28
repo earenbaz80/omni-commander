@@ -6,10 +6,11 @@
 
 /**
  * The embedded server requires a per-launch session token on every mutating
- * request. The Electron main process generates it and preload.cjs exposes it on
- * the bridge, so attaching it here covers every renderer call: no caller has to
- * remember to send it and none can forget. Outside Electron the bridge is absent
- * (dev web / tests) and the server runs without a token, so no header is added.
+ * request and on the GETs that describe the disk. The Electron main process
+ * generates it and preload.cjs exposes it on the bridge, so attaching it here
+ * covers every renderer call: no caller has to remember to send it and none can
+ * forget. Outside Electron the bridge is absent (dev web / tests) and the server
+ * runs without a token, so no header is added.
  */
 export function sessionTokenHeader(): Record<string, string> {
   const bridge = typeof window !== 'undefined' ? (window as any).electronAPI : undefined;

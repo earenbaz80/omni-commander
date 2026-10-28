@@ -170,11 +170,25 @@ describe('loopback API origin and token enforcement (S1)', () => {
     expect(res.status).toBe(403);
   });
 
-  it('still serves same-origin GETs used by the built-in dashboard', async () => {
+  it('refuses a GET that describes the disk when the token is missing', async () => {
     const res = await fetch(server.url('/api/fs/dashboard'), {
       headers: { origin: 'http://127.0.0.1:3000' },
     });
+    expect(res.status).toBe(403);
+  });
+
+  it('serves that GET to the app, which carries the token', async () => {
+    const res = await fetch(server.url('/api/fs/dashboard'), {
+      headers: { origin: 'http://127.0.0.1:3000', 'x-omni-token': TOKEN },
+    });
     expect(res.ok).toBe(true);
+  });
+
+  it('leaves a GET that describes no disk open, so readiness needs no secret', async () => {
+    const res = await fetch(server.url('/api/system/stats'), {
+      headers: { origin: 'http://127.0.0.1:3000' },
+    });
+    expect(res.status).not.toBe(403);
   });
 });
 
@@ -191,7 +205,7 @@ describe('copy integrity and job isolation (S2, S3)', () => {
   async function waitForJob(id: string, timeoutMs = 15000) {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
-      const res = await fetch(jobUrl(id));
+      const res = await fetch(jobUrl(id), { headers: { 'x-omni-token': TOKEN } });
       if (res.ok) {
         const job = await res.json();
         if (job.status !== 'running' && job.status !== 'paused' && job.status !== 'waiting') return job;
@@ -277,7 +291,7 @@ describe('copy integrity and job isolation (S2, S3)', () => {
     expect(leftovers).toEqual([]);
 
     // The server survived: a fresh request still answers.
-    const alive = await fetch(server.url('/api/fs/dashboard'));
+    const alive = await fetch(server.url('/api/fs/dashboard'), { headers: { 'x-omni-token': TOKEN } });
     expect(alive.ok).toBe(true);
   });
 });

@@ -5,10 +5,11 @@ const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
 
 // Per-launch session token. It is the shared secret between this process, the
-// embedded API server and the renderer: every mutating request must carry it,
-// so a remote web page (which cannot know it) can never drive the loopback API
-// -- not even with an opaque `Origin: null` sandboxed iframe. It lives only in
-// this process's memory and never touches disk or the network.
+// embedded API server and the renderer: every mutating request, and every GET
+// that describes the disk, must carry it, so a remote web page (which cannot
+// know it) can never drive the loopback API -- not even with an opaque
+// `Origin: null` sandboxed iframe. It lives only in this process's memory and
+// never touches disk or the network.
 const sessionToken = crypto.randomBytes(32).toString('hex');
 
 // The server reads this from process.env at require time (the same channel it
