@@ -163,12 +163,21 @@ export default function App() {
   // MS-DOS Command History
   const [commandHistory, setCommandHistory] = useState<CommandHistoryItem[]>([]);
 
-  // Manual Panel Width Resizing State
+  // Panels can be arranged side by side (the historical layout) or stacked,
+  // which is what a wide monitor wants: two full-width panes instead of two
+  // narrow columns. The splitter follows whichever axis is on screen.
+  const stackedPanels = settings.splitLayout === 'vertical';
+
+  // Manual Panel Resizing State
   const {
     isDraggingSplitter,
     setIsDraggingSplitter,
     ratio: dualPaneRatio,
-  } = useSplitter(setSettings, settings.dualPaneRatio || 50);
+  } = useSplitter(
+    setSettings,
+    stackedPanels ? (settings.dualPaneRatioRows ?? 50) : settings.dualPaneRatio || 50,
+    stackedPanels,
+  );
 
   // Load real OS drives when a local drive API is available, then keep the
   // list fresh so removable devices can be plugged in and unplugged live.
@@ -1225,10 +1234,14 @@ export default function App() {
       />
 
       {/* 2. Main Dual-Panel Viewport */}
-      <div id="dual-panel-container" className="flex-1 flex flex-col md:flex-row min-h-0 relative p-1 gap-1">
+      <div
+        id="dual-panel-container"
+        className={`flex-1 flex ${stackedPanels ? 'flex-col' : 'flex-col md:flex-row'} min-h-0 relative p-1 gap-1`}
+      >
         <PanelView
           side="left"
           widthPercent={dualPaneRatio}
+          stacked={stackedPanels}
           currentTheme={currentTheme}
           themeForFileList={themeForFileList}
           lang={lang}
@@ -1280,15 +1293,26 @@ export default function App() {
             e.preventDefault();
             setIsDraggingSplitter(true);
           }}
-          className="hidden md:flex w-2.5 hover:w-3.5 bg-black/40 hover:bg-amber-400/90 cursor-col-resize items-center justify-center transition-all group z-30 select-none rounded border border-white/10 hover:border-amber-300"
+          role="separator"
+          aria-orientation={stackedPanels ? 'horizontal' : 'vertical'}
+          className={`${
+            stackedPanels
+              ? 'flex h-2.5 w-full hover:h-3.5 cursor-row-resize'
+              : 'hidden md:flex w-2.5 hover:w-3.5 cursor-col-resize'
+          } shrink-0 bg-black/40 hover:bg-amber-400/90 items-center justify-center transition-all group z-30 select-none rounded border border-white/10 hover:border-amber-300`}
           title={t.appResizerTitle}
         >
-          <div className="w-0.5 h-10 bg-amber-400/60 group-hover:bg-black rounded-full" />
+          <div
+            className={`${
+              stackedPanels ? 'w-10 h-0.5' : 'w-0.5 h-10'
+            } bg-amber-400/60 group-hover:bg-black rounded-full`}
+          />
         </div>
 
         <PanelView
           side="right"
           widthPercent={100 - dualPaneRatio}
+          stacked={stackedPanels}
           currentTheme={currentTheme}
           themeForFileList={themeForFileList}
           lang={lang}

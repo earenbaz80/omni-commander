@@ -72,7 +72,10 @@ export const DriveBar: React.FC<DriveBarProps> = ({
       }}
     >
       {/* Drive Selector Buttons */}
-      <div className="flex items-center gap-[var(--space-1)] overflow-x-auto no-scrollbar py-[var(--space-1)]">
+      {/* The gap is what separates one drive pill from the next: at --space-1
+          (2px) the buttons read as one segmented control rather than a row of
+          separate drives. --space-3 (6px) keeps the row compact and legible. */}
+      <div className="flex items-center gap-[var(--space-3)] overflow-x-auto no-scrollbar py-[var(--space-1)]">
         <span className="text-[11px] opacity-75 font-semibold mr-0.5">
           {panelSide === 'left' ? 'Alt+F1' : 'Alt+F2'}:
         </span>
@@ -89,7 +92,7 @@ export const DriveBar: React.FC<DriveBarProps> = ({
                   onSelectDrive(drive.id);
                 }}
                 title={`${drive.letter} ${drive.name}${drive.fileSystem ? ` [${drive.fileSystem}]` : ''}${drive.driveKind ? ` (${drive.driveKind})` : ''} - ${formatBytes(drive.freeBytes)} free`}
-                className={`px-[var(--space-1)].5 py-[var(--space-1)] text-xs font-bold transition-all rounded flex items-center gap-[var(--space-1)] shrink-0 cursor-pointer ${
+                className={`px-[var(--space-2)] py-[var(--space-1)] text-xs font-bold transition-all rounded flex items-center gap-[var(--space-1)] shrink-0 cursor-pointer ${
                   isSelected
                     ? 'bg-amber-400 text-black shadow-inner font-extrabold ring-1 ring-amber-300'
                     : 'bg-black/30 hover:bg-black/50 text-white/90 border border-white/20'
