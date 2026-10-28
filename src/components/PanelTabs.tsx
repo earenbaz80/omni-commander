@@ -1,11 +1,13 @@
 import React from 'react';
 import { Plus, X, Lock } from 'lucide-react';
-import { PanelTab } from '../types';
+import { PanelTab, LanguageCode } from '../types';
 import { ThemeConfig } from '../services/themeManager';
 import { soundManager } from '../services/soundEffects';
+import { getTranslations } from '../i18n/translations';
 
 interface PanelTabsProps {
   theme: ThemeConfig;
+  lang: LanguageCode;
   tabs: PanelTab[];
   activeTabId: string;
   onSelectTab: (tabId: string) => void;
@@ -18,6 +20,7 @@ interface PanelTabsProps {
 
 export const PanelTabs: React.FC<PanelTabsProps> = ({
   theme,
+  lang,
   tabs,
   activeTabId,
   onSelectTab,
@@ -25,6 +28,8 @@ export const PanelTabs: React.FC<PanelTabsProps> = ({
   onCloseTab,
   isActive,
 }) => {
+  const t = getTranslations(lang);
+
   return (
     <div
       className="flex items-center gap-[var(--space-1)] px-[var(--space-1)] pt-1 overflow-x-auto no-scrollbar select-none border-b shrink-0 text-xs font-mono"
@@ -35,7 +40,7 @@ export const PanelTabs: React.FC<PanelTabsProps> = ({
     >
       {tabs.map((tab) => {
         const isCurrent = tab.id === activeTabId;
-        const shortTitle = tab.currentPath ? tab.currentPath.split('\\').pop() || tab.currentPath : 'Root';
+        const shortTitle = tab.currentPath ? tab.currentPath.split('\\').pop() || tab.currentPath : t.tabRoot;
 
         return (
           <div
@@ -69,7 +74,7 @@ export const PanelTabs: React.FC<PanelTabsProps> = ({
                   soundManager.playKeyTick();
                   onCloseTab(tab.id);
                 }}
-                title="Close Tab (Ctrl+W)"
+                title={t.closeTab}
                 className="opacity-0 group-hover:opacity-100 hover:bg-black/30 p-[var(--space-1)] rounded transition-opacity ml-[var(--space-1)]"
               >
                 <X className="w-2.5 h-2.5" />
@@ -85,7 +90,7 @@ export const PanelTabs: React.FC<PanelTabsProps> = ({
           soundManager.playKeyTick();
           onNewTab();
         }}
-        title="New Tab (Ctrl+T)"
+        title={t.newTab}
         className="p-[var(--space-1)] hover:bg-black/30 text-white/80 hover:text-white rounded border border-transparent hover:border-white/20 transition-all ml-[var(--space-1)] cursor-pointer"
       >
         <Plus className="w-3.5 h-3.5" />

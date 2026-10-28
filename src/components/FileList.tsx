@@ -640,6 +640,9 @@ const FileListComponent: React.FC<FileListProps> = ({
         {viewMode === 'full' && (
           <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}>
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              // The row below carries `data-name`, the entry's own name: a stable
+              // hook for end-to-end tests, instead of parsing how the name and the
+              // extension are split into separate columns.
               const item = items[virtualRow.index];
               const idx = virtualRow.index;
               const isFocused = idx === focusedIndex && isActive;
@@ -653,6 +656,7 @@ const FileListComponent: React.FC<FileListProps> = ({
                   key={virtualRow.key}
                   data-index={virtualRow.index}
                   ref={rowVirtualizer.measureElement}
+                  data-name={item.fullName || (item.ext ? `${item.name}.${item.ext}` : item.name)}
                   data-focused={isFocused}
                   draggable
                   onDragStart={(e) => handleDragStart(e, item, idx)}
@@ -1158,10 +1162,10 @@ const FileListComponent: React.FC<FileListProps> = ({
         totalDirs={stats.totalDirs}
         selectedCount={stats.selectedCount}
         selectedBytes={stats.selectedBytes}
-        totalBytes={stats.totalBytes}
         filesCountLabel={t.filesCount}
         dirsCountLabel={t.dirsCount}
         selectedCountLabel={t.selectedCount}
+        totalLabel={t.statusBarTotalSize.replace('{size}', String(Math.round(stats.totalBytes / 1024)))}
       />
     </div>
   );

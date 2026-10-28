@@ -168,7 +168,7 @@ export const PathBar: React.FC<PathBarProps> = ({
                 onGoBack();
               }}
               disabled={!canGoBack}
-              title="Back"
+              title={t.navBack}
               className={`p-[var(--space-1)] rounded ${canGoBack ? 'hover:bg-black/30 cursor-pointer text-white' : 'opacity-30 cursor-not-allowed'}`}
             >
               <ChevronLeft className="w-3.5 h-3.5" />
@@ -180,7 +180,7 @@ export const PathBar: React.FC<PathBarProps> = ({
                 onGoForward();
               }}
               disabled={!canGoForward}
-              title="Forward"
+              title={t.navForward}
               className={`p-[var(--space-1)] rounded ${canGoForward ? 'hover:bg-black/30 cursor-pointer text-white' : 'opacity-30 cursor-not-allowed'}`}
             >
               <ChevronRight className="w-3.5 h-3.5" />
@@ -191,7 +191,7 @@ export const PathBar: React.FC<PathBarProps> = ({
                 soundManager.playDiskAccess();
                 onGoParent();
               }}
-              title="Parent Directory (Backspace)"
+              title={t.navUp}
               className="p-[var(--space-1)] hover:bg-black/30 rounded cursor-pointer text-white"
             >
               <ArrowUp className="w-3.5 h-3.5" />
@@ -202,7 +202,7 @@ export const PathBar: React.FC<PathBarProps> = ({
                 soundManager.playKeyTick();
                 onRefresh();
               }}
-              title="Refresh (Ctrl+R)"
+              title={t.refresh}
               className="p-[var(--space-1)] hover:bg-black/30 rounded cursor-pointer text-white"
             >
               <RefreshCw className="w-3.5 h-3.5" />
@@ -216,6 +216,7 @@ export const PathBar: React.FC<PathBarProps> = ({
                 <input
                   ref={inputRef}
                   type="text"
+                  data-path-input
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
                   onBlur={() => setIsEditing(false)}
@@ -229,7 +230,7 @@ export const PathBar: React.FC<PathBarProps> = ({
               <div
                 onClick={() => setIsEditing(true)}
                 className="flex items-center gap-[var(--space-1)] whitespace-nowrap cursor-text w-full py-[var(--space-1)]"
-                title="Click to edit path"
+                title={t.pathEditHint}
               >
                 <span className="font-bold text-amber-300 shrink-0">{driveLetter}\</span>
                 {segments.map((seg, idx) => {
@@ -264,7 +265,7 @@ export const PathBar: React.FC<PathBarProps> = ({
                   soundManager.playKeyTick();
                   onChangeViewMode('full');
                 }}
-                title="Full Details View"
+                title={t.viewFull}
                 className={`p-[var(--space-1)] rounded cursor-pointer ${viewMode === 'full' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10 text-white/80'}`}
               >
                 <List className="w-3 h-3" />
@@ -274,7 +275,7 @@ export const PathBar: React.FC<PathBarProps> = ({
                   soundManager.playKeyTick();
                   onChangeViewMode('brief');
                 }}
-                title="Brief Multi-column View"
+                title={t.viewBrief}
                 className={`p-[var(--space-1)] rounded cursor-pointer ${viewMode === 'brief' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10 text-white/80'}`}
               >
                 <Columns className="w-3 h-3" />
@@ -284,7 +285,7 @@ export const PathBar: React.FC<PathBarProps> = ({
                   soundManager.playKeyTick();
                   onChangeViewMode('thumbnails');
                 }}
-                title="Thumbnails View"
+                title={t.viewThumbnails}
                 className={`p-[var(--space-1)] rounded cursor-pointer ${viewMode === 'thumbnails' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10 text-white/80'}`}
               >
                 <LayoutGrid className="w-3 h-3" />

@@ -78,11 +78,11 @@ export const HoverPreviewTooltip: React.FC<HoverPreviewTooltipProps> = ({ theme,
           ) : (
             <div className="w-28 h-28 rounded bg-black/40 border border-white/20 flex flex-col items-center justify-center text-amber-300">
               <ImageIcon className="w-10 h-10 mb-[var(--space-1)] opacity-70" />
-              <span className="text-[10px] font-bold uppercase">{ext} Image</span>
+              <span className="text-[10px] font-bold uppercase">{t.hoverImageLabel.replace('{ext}', ext)}</span>
             </div>
           )}
           <span className="text-[10px] opacity-75 mt-[var(--space-1)] font-semibold text-emerald-300">
-            Vista previa miniatura
+            {t.hoverThumbnailPreview}
           </span>
         </div>
       )}

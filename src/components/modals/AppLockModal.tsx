@@ -74,8 +74,8 @@ export const AppLockModal: React.FC<AppLockModalProps> = ({
             <ShieldCheck className="w-5 h-5 text-amber-300" />
             <span className="text-sm font-bold tracking-wide">{t.appLockTitle}</span>
           </div>
-          <span className="text-[var(--fs-8)] bg-black/30 px-[var(--space-2)] py-[var(--space-1)] rounded font-mono font-extrabold text-amber-300">
-            PROTECTED
+          <span className="text-[var(--fs-8)] bg-black/30 px-[var(--space-2)] py-[var(--space-1)] rounded font-mono font-extrabold text-amber-300 uppercase">
+            {t.protectedLabel}
           </span>
         </div>
 

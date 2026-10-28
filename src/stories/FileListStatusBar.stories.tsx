@@ -55,10 +55,10 @@ const meta = {
     totalDirs: 86,
     selectedCount: 3,
     selectedBytes: 153600,
-    totalBytes: 85000000,
     filesCountLabel: 'files',
     dirsCountLabel: 'dirs',
     selectedCountLabel: 'selected',
+    totalLabel: '83007 kB total',
   },
 } satisfies Meta<typeof FileListStatusBar>;
 
