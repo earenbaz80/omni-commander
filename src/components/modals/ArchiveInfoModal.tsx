@@ -1,8 +1,9 @@
 import React from 'react';
-import { FileArchive, FolderOpen, Package, Copy } from 'lucide-react';
+import { FileArchive, Package, Copy } from 'lucide-react';
 import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
+import { formatFromExtension, formatLabel, isOpenable } from '../../services/archiveBackend';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
@@ -11,15 +12,9 @@ interface ArchiveInfoModalProps {
   theme: ThemeConfig;
   lang: LanguageCode;
   fileName: string;
-  formatInfo?: {
-    format: string;
-    encrypted?: boolean;
-    passwordRequired?: boolean;
-  };
   fileSize: number;
   fileDate: Date;
   onExtractAll: () => void;
-  onExtractSelected: () => void;
   onClose: () => void;
 }
 
@@ -27,32 +22,18 @@ export const ArchiveInfoModal: React.FC<ArchiveInfoModalProps> = ({
   theme,
   lang,
   fileName,
-  formatInfo,
   fileSize,
   fileDate,
   onExtractAll,
-  onExtractSelected,
   onClose,
 }) => {
   const t = getTranslations(lang);
-  const dialogRef = useModalDialog<HTMLDivElement>(t.zipTitle); // Usar traducción existente
-
-  const formatLabel = () => {
-    if (!formatInfo?.format) return 'ZIP';
-
-    switch (formatInfo.format.toUpperCase()) {
-      case 'ZIP':
-        return 'ZIP Archive';
-      case 'RAR':
-        return formatInfo.format.includes('v5') ? 'RAR v5' : 'RAR v4';
-      case '7Z':
-        return '7-Zip';
-      case 'TAR':
-        return formatInfo.format || 'TAR';
-      default:
-        return formatInfo.format;
-    }
-  };
+  const dialogRef = useModalDialog<HTMLDivElement>(t.zipTitle);
+  // The format comes from the name the user selected, never from a guess: the
+  // window used to offer "Extract All" for RAR and 7Z too, and both ended in a
+  // corrupt-archive error because no reader exists for them.
+  const format = formatFromExtension(fileName);
+  const canExtract = isOpenable(format);
 
   return (
     <ModalShell title={t.zipTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
@@ -64,52 +45,44 @@ export const ArchiveInfoModal: React.FC<ArchiveInfoModalProps> = ({
             <div>
               <h3 className="text-sm font-bold">{fileName}</h3>
               <span className="inline-flex items-center gap-[var(--space-1)] px-[var(--space-2)].5 py-[var(--space-1)] rounded-full text-[10px] font-bold border bg-purple-500/20 text-purple-300 border-purple-400/30">
-                {formatLabel()}
+                {formatLabel(format)}
               </span>
             </div>
           </div>
 
           {/* Details */}
           <div className="grid grid-cols-[auto_1fr] gap-x-[var(--space-4)] gap-y-[var(--space-2)].5 text-xs opacity-80">
-            <span>Size:</span>
+            <span>{t.sizeLabel}</span>
             <span>{(fileSize / 1024 / 1024).toFixed(2)} MB</span>
 
-            <span>Date:</span>
+            <span>{t.dateLabel}</span>
             <span>{fileDate.toLocaleString()}</span>
           </div>
 
           {/* Actions */}
           <div className="border-t border-white/10 pt-[var(--space-4)] space-y-[var(--space-2)]">
-            {formatInfo?.format === 'ZIP' || formatInfo?.format === 'RAR' || formatInfo?.format === '7Z' ? (
-              <>
-                <button
-                  onClick={onExtractAll}
-                  className="w-full px-4 py-[var(--space-3)] bg-gradient-to-r from-purple-500/80 to-pink-500/80 hover:from-purple-400/90 hover:to-pink-400/90 text-white font-bold rounded flex items-center justify-center gap-[var(--space-2)] transition-all shadow-lg"
-                >
-                  <Package className="w-4 h-4" />
-                  {t.zipExtractAllBtn} (E)
-                </button>
-
-                <button
-                  onClick={onExtractSelected}
-                  className="w-full px-4 py-[var(--space-2)] bg-white/10 hover:bg-white/20 text-white font-semibold rounded flex items-center justify-center gap-[var(--space-2)] transition-all"
-                >
-                  <FolderOpen className="w-4 h-4" />
-                  Extract Selected (S)
-                </button>
-              </>
-            ) : null}
+            {canExtract ? (
+              <button
+                onClick={onExtractAll}
+                className="w-full px-4 py-[var(--space-3)] bg-gradient-to-r from-purple-500/80 to-pink-500/80 hover:from-purple-400/90 hover:to-pink-400/90 text-white font-bold rounded flex items-center justify-center gap-[var(--space-2)] transition-all shadow-lg"
+              >
+                <Package className="w-4 h-4" />
+                {t.zipExtractAllBtn}
+              </button>
+            ) : (
+              <p className="text-xs text-amber-300">{t.zipInfoUnsupported.replace('{format}', formatLabel(format))}</p>
+            )}
 
             {/* Copy path option */}
             <button
               onClick={() => {
                 navigator.clipboard.writeText(fileName).catch(() => {});
-                alert('Path copied to clipboard');
+                alert(t.copied);
               }}
               className="w-full px-4 py-[var(--space-2)] bg-white/10 hover:bg-white/20 text-white font-semibold rounded flex items-center justify-center gap-[var(--space-2)] transition-all"
             >
               <Copy className="w-4 h-4" />
-              Copy Path
+              {t.copyBtn}
             </button>
           </div>
         </div>

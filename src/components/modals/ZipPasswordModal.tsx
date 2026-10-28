@@ -42,9 +42,9 @@ export const ZipPasswordModal: React.FC<ZipPasswordModalProps> = ({
         <form onSubmit={handleSubmit} className="p-[var(--space-4)] space-y-[var(--space-4)]">
           <div className="flex items-center gap-[var(--space-2)] opacity-90">
             <Lock className="w-4 h-4" />
-            <span>Enter password for "{fileName}":</span>
+            <span>{t.zipPassPrompt.replace('{name}', fileName)}</span>
           </div>
-          {invalid && <div className="text-red-400 text-xs">Invalid password for "{fileName}"</div>}
+          {invalid && <div className="text-red-400 text-xs">{t.zipPassInvalid.replace('{name}', fileName)}</div>}
 
           {/* Opción de detectar formato */}
           {detectFormat && (
@@ -55,7 +55,7 @@ export const ZipPasswordModal: React.FC<ZipPasswordModalProps> = ({
                 className="w-full px-4 py-[var(--space-2)] bg-white/10 hover:bg-white/20 rounded flex items-center justify-center gap-[var(--space-2)] transition-all text-xs font-semibold"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                Detect Archive Format
+                {t.detectArchiveFormat}
               </button>
             </div>
           )}
@@ -64,7 +64,7 @@ export const ZipPasswordModal: React.FC<ZipPasswordModalProps> = ({
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Archive password..."
+            placeholder={t.zipPassPlaceholder}
             className="w-full bg-black/50 border border-white/30 rounded px-[var(--space-3)] py-[var(--space-2)] text-white font-mono text-xs focus:ring-1 focus:ring-amber-400 outline-none"
             autoFocus
           />
