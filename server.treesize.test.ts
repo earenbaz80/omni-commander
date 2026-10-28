@@ -142,6 +142,9 @@ describe('GET /api/treesize', () => {
     expect(messages[messages.length - 1].type).toBe('done');
   });
 
+  // 1.500 freshly written files: the walk is bound by the disk, not by the
+  // assertions, and the 5 s default leaves no room on a loaded machine. The
+  // file's other tests measure a handful of entries and keep the default.
   it('measures a folder larger than any fixed entry budget to the last file', async () => {
     const { status, body } = await treeSize(bulk);
 
@@ -149,7 +152,7 @@ describe('GET /api/treesize', () => {
     expect(body.fileCount).toBe(1500);
     expect(body.sizeBytes).toBe(1500);
     expect(body.truncated).toBe(false);
-  });
+  }, 20000);
 
   it('keeps refusing a folder that is not there, an unknown drive and a path outside it', async () => {
     const missing = await treeSize(path.join(root, 'no-existe'));
