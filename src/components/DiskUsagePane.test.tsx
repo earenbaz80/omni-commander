@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { translations } from '../i18n/translations';
 import { themes } from '../services/themeManager';
-import { getDiskTreeControls, setDiskTreeControls } from '../services/diskTreeControls';
+import { getDiskTreeControls } from '../services/diskTreeControls';
 import type { DiskUsageScan } from '../types';
 
 const getTreeSize = vi.fn();
