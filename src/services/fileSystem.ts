@@ -17,7 +17,11 @@ import {
   ConflictResolution,
   Drive,
   DiskUsageItem,
+  DiskUsageScan,
   FileItem,
+  TreeSizeFailure,
+  TreeSizeOptions,
+  TreeSizeResult,
   FileProgressEntry,
   FreeSpaceReport,
   PendingConflict,
@@ -35,6 +39,24 @@ import { fetchWithRetry, sessionTokenHeader } from '../utils/fetchWithRetry';
 export { ArchivePasswordError, UnsupportedArchiveError } from './archiveBackend';
 export type { ArchiveBackend, OpenableArchiveFormat } from './archiveBackend';
 import { calculateFileHashes as calculateFileHashesImpl } from './fileSystemCrypto';
+
+/** A cancelled request rejects with this name; that is not a scan failure. */
+function isAbortError(error: unknown): boolean {
+  return (error as { name?: string } | null)?.name === 'AbortError';
+}
+
+/**
+ * What a failed scan answer means. The server distinguishes a folder it cannot
+ * read (403) from one that is gone (404). A 5xx is the server failing to answer
+ * at all — in development the proxy turns a stopped server into exactly that —
+ * and any other refusal is the server declining this path.
+ */
+function treeSizeFailureForStatus(status: number): TreeSizeFailure {
+  if (status === 403) return 'forbidden';
+  if (status === 404) return 'notFound';
+  if (status >= 500) return 'unreachable';
+  return 'refused';
+}
 
 const STORAGE_KEY = 'nc_filesystem_v1';
 const DRIVES_STORAGE_KEY = 'nc_drives_v1';
@@ -1850,8 +1872,107 @@ class FileSystemEngine {
    *
    * Only directories that have been listed contribute bytes; a bucket that was
    * never loaded (or was evicted by the LRU) simply adds nothing until it is
-   * fetched again.
+   * fetched again. That is fine for a virtual drive, whose whole tree lives in
+   * this index, and useless for a real one: the disk usage view therefore calls
+   * `getTreeSize` there and measures the folders on the machine instead.
    */
+  /**
+   * Measures a real folder tree on disk through the local server. The in-memory
+   * index only knows the folders that have been opened, so a tree built from it
+   * reports 0 bytes for everything the user has not visited yet.
+   *
+   * The answer carries why there is no tree when there is none: a virtual drive
+   * has no disk to walk, a server that does not answer is a different problem
+   * from a folder closed by permissions, and the view says so in each case.
+   *
+   * The tree arrives as a newline-delimited stream: a whole drive takes minutes
+   * to measure, so the server reports its counters and each finished root folder
+   * as it goes and sends the finished tree last. Aborting the caller's signal
+   * stops the walk on the server, and an abort is re-thrown so the caller can
+   * tell "the user stopped it" from "the scan failed".
+   */
+  public async getTreeSize(driveId: string, path: string, options: TreeSizeOptions = {}): Promise<TreeSizeResult> {
+    // Nothing on disk to measure: a virtual drive lives in this engine's index.
+    if (!this.isSystemDrive(driveId)) return { status: 'failed', reason: 'refused' };
+    const { signal, onProgress } = options;
+    const url = `${API_BASE}/api/treesize?driveId=${encodeURIComponent(driveId)}&path=${encodeURIComponent(path)}`;
+
+    let response: Response;
+    try {
+      // No retry and no client timeout: the walk lasts as long as the disk
+      // needs, and the caller cancels it through its own signal.
+      response = await fetch(url, { headers: sessionTokenHeader(), signal });
+    } catch (e) {
+      if (isAbortError(e)) throw e;
+      // No answer at all: the server is down, not a folder refusing to be read.
+      log.warn('Could not reach the local server to scan folder sizes', path, e);
+      return { status: 'failed', reason: 'unreachable' };
+    }
+    if (!response.ok) return { status: 'failed', reason: treeSizeFailureForStatus(response.status) };
+    if (!response.body) return { status: 'failed', reason: 'unreachable' };
+
+    const counters = { entries: 0, files: 0, dirs: 0, bytes: 0, currentPath: path, elapsedMs: 0 };
+    let folders: DiskUsageItem[] = [];
+    const emit = () => onProgress?.({ ...counters, folders: [...folders] });
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let tree: DiskUsageScan | null = null;
+    let failure: string | null = null;
+
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        for (let newline = buffer.indexOf('\n'); newline >= 0; newline = buffer.indexOf('\n')) {
+          const line = buffer.slice(0, newline).trim();
+          buffer = buffer.slice(newline + 1);
+          if (!line) continue;
+
+          let message: any;
+          try {
+            message = JSON.parse(line);
+          } catch {
+            continue;
+          }
+
+          if (message.type === 'progress') {
+            counters.entries = message.entries ?? counters.entries;
+            counters.files = message.files ?? counters.files;
+            counters.dirs = message.dirs ?? counters.dirs;
+            counters.bytes = message.bytes ?? counters.bytes;
+            counters.currentPath = message.currentPath || counters.currentPath;
+            counters.elapsedMs = message.elapsedMs ?? counters.elapsedMs;
+            emit();
+          } else if (message.type === 'folder' && message.folder) {
+            folders = [...folders, message.folder as DiskUsageItem].sort((a, b) => b.sizeBytes - a.sizeBytes);
+            emit();
+          } else if (message.type === 'done') {
+            tree = message.tree as DiskUsageScan;
+          } else if (message.type === 'error') {
+            failure = String(message.error || 'scan failed');
+          }
+        }
+      }
+    } catch (e) {
+      if (isAbortError(e)) throw e;
+      log.warn('The folder size scan stopped early', path, e);
+      return { status: 'failed', reason: 'unreachable' };
+    } finally {
+      reader.releaseLock();
+    }
+
+    if (failure) {
+      log.warn('The folder size scan failed', path, failure);
+      return { status: 'failed', reason: 'refused' };
+    }
+    if (!tree) return { status: 'failed', reason: 'unreachable' };
+    return { status: 'ok', tree };
+  }
+
   public getFolderSizes(path: string, driveId: string): DiskUsageItem | null {
     if (!driveId) return null;
     const normPath = this.normalizePath(path);
