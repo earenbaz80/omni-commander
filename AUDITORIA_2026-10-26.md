@@ -17,7 +17,7 @@ Las secciones siguientes son el registro de lo que se encontró en `d3b113e` y s
 | --- | --- | --- |
 | TypeScript | `npx tsc --noEmit` | ✅ sin errores |
 | ESLint | `npx eslint src --max-warnings 0` | ✅ exit 0 — 0 errores, 0 warnings |
-| Tests | `npx vitest run` | ✅ 67 ficheros / 491 pruebas, medido con la máquina al 100 % de CPU: las consultas asíncronas esperan hasta 5 s (`src/test/setup.ts`) y `server.treesize.test.ts` tiene 20 s de presupuesto |
+| Tests | `npx vitest run` | ✅ 67 ficheros / 495 pruebas, medido con la máquina al 100 % de CPU: las consultas asíncronas esperan hasta 5 s (`src/test/setup.ts`) y `server.treesize.test.ts` tiene 20 s de presupuesto |
 | Build | `npx vite build` | ✅ 23 s; `dist` 1,7 MB; chunk principal 528 kB (147 kB gzip), antes 943 kB |
 | Auditoría de deps | `npm audit` | ⚠️ 4 bajas (`deepmerge` vía `workbox-build`/`vite-plugin-pwa`); `--omit=dev` → **0 vulnerabilidades** |
 | Empaquetado | `app.asar` | No re-medido en esta revisión |
@@ -34,7 +34,7 @@ Las secciones siguientes son el registro de lo que se encontró en `d3b113e` y s
 | P1-1 · Dependencias | ✅ Resuelto | `npm audit fix` subió `body-parser` a 1.20.9 (producción sin avisos), `electron` a 44.10.0, `fast-uri` a 3.1.9 y `serialize-javascript` a 7.1.4; quedan 4 avisos bajos que exigen un cambio mayor de `vite-plugin-pwa` |
 | P1-2 · Archivos grandes | ⚠️ Parcial | `read-bytes` acepta `maxBytes` con tope de 64 MiB y el visor lo pasa; sin `maxBytes` sigue leyendo el archivo entero, y las entradas ZIP se siguen descomprimiendo para medirlas (`archiveBackend.ts:226`) |
 | P1-3 · CI sin compuertas | ✅ Resuelto | `verify` ejecuta formato, tipos, ESLint y tests en matriz de dos versiones, y el release depende de él |
-| P1-4 · GET sin token | ❌ Abierto | El token solo se exige a métodos mutantes: `/api/list`, `/api/fs/hash` y `/api/fs/jobs` quedan legibles por cualquier origen de loopback, y el origen sigue aceptando cualquier puerto de loopback (`server.cjs:26`) |
+| P1-4 · GET sin token | ✅ Resuelto | El token cubre mutaciones y los GET que describen el disco (`/api/list`, `/api/treesize`, `/api/fs/hash`, `/api/fs/jobs`, detalle de trabajo, panel, unidades y sugerencias del lanzador); el origen debe ser loopback en el puerto 3000 exacto, y el proxy de Vite presenta ese origen para cualquier puerto de desarrollo (`server.cjs:26-96`, `vite.config.ts`) |
 | P1-5 · Electron | ❌ Abierto | `isAllowedLocalUrl` sigue comparando con `startsWith('http://localhost:3000')` (`electron/main.cjs:253`) y no hay CSP en `index.html` ni cabecera equivalente |
 | P2-1 · Pre-flight de espacio | ❌ Abierto | Límite de 100 planes × 5000 fuentes, pero los árboles se miden en serie dentro de la petición (`server.cjs:3525`) |
 | P2-2 · `getFolderSizes` | ⚠️ Parcial | Ya usa el índice por carpeta y exige `driveId`; `DiskUsageModal.tsx:32` sigue leyendo `(fsEngine as any).files` |
@@ -47,11 +47,11 @@ Las secciones siguientes son el registro de lo que se encontró en `d3b113e` y s
 | P2-9 · Dependencias sin uso | ⚠️ Parcial | `libarchive.js` y `node-unrar-js` ya se usan; `@zip.js/zip.js` sigue declarado y sin uso |
 | P2-10 · Higiene local | ❌ Abierto | `release/` ocupa 657 MB y los `.txt` de depuración siguen en la raíz |
 | P2-11 · `server.cjs` monolítico | ❌ Abierto | 3.758 líneas (antes 1.771); lo que sí cambió son las pruebas: 12 ficheros `server.*.test.ts` |
-| P2-12 · Tests | ⚠️ Parcial | 491 pruebas en 67 ficheros, con TreeSize, archivos y contraseñas cubiertos; sigue sin script de cobertura ni umbral |
+| P2-12 · Tests | ⚠️ Parcial | 495 pruebas en 67 ficheros, con TreeSize, archivos, contraseñas y los guardas de origen y token cubiertos; sigue sin script de cobertura ni umbral |
 
 ### 0.3 Lo que queda, por prioridad
 
-1. **Token en los GET sensibles y origen exacto** (P1-4), y después **CSP + comparación por `new URL().origin`** en Electron (P1-5).
+1. **CSP y comparación por `new URL().origin`** en Electron (P1-5).
 2. **Tope por defecto en `read-bytes`** y tamaño de entradas ZIP sin descomprimir (P1-2).
 3. **Contraseña de carpetas protegidas** con PBKDF2 de `appLock.ts` (P2-7).
 4. **Pre-flight acotado** y división de `server.cjs` (P2-1, P2-11).
