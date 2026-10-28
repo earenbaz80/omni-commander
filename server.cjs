@@ -2747,6 +2747,176 @@ function registerFsRoutes() {
     res.json({ entries, missing });
   });
 
+  // -------------------------------------------------------------------------
+  // Run dialog ("Ejecutar", the Win+R box)
+  //
+  // Windows' Run box does one thing: hand a target to the shell. This route is
+  // deliberately narrower than that box. A local path is resolved and either
+  // reported back as a folder (the panel navigates there, which is what a file
+  // manager should do instead of spawning a second Explorer window) or handed
+  // to the default program. A destination with an allowlisted scheme goes to
+  // the shell as-is. Anything else is refused.
+  //
+  // The refusal is the security boundary, not a formality: there is no shell
+  // string anywhere in this route. `cmd /c del *` typed here is one argv element
+  // of rundll32 and reaches ShellExecute as a file name that does not exist, so
+  // this cannot become a command interpreter by accident or on purpose.
+  // -------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // Suggestions for the Run box
+  //
+  // Two local sources. The Start Menu is where an installed application really
+  // is on Windows, so the scan reads it instead of guessing PATH; and a short
+  // list of names Windows already answers to (ms-settings:, services.msc,
+  // shell:startup...) covers the destinations that are typed by hand.
+  //
+  // A program is suggested as its shortcut path, never as a bare name: the path
+  // is something /api/open can already act on, while a name would only launch
+  // when it happened to be on PATH, which is exactly the case that makes an
+  // autocomplete feel broken. The scan is cached per process, because a
+  // keystroke must not walk two Start Menu trees.
+  // -------------------------------------------------------------------------
+  const SUGGESTION_LIMIT = 8;
+  const SUGGESTION_QUERY_MAX_LENGTH = 64;
+  const START_MENU_CACHE_TTL_MS = 5 * 60 * 1000;
+
+  // Names the Run box has always accepted. They are Windows' own, not
+  // translated: they have to be typed, so they are shown as they are.
+  const SYSTEM_DESTINATIONS = [
+    'ms-settings:',
+    'ms-settings:display',
+    'ms-settings:bluetooth',
+    'ms-settings:windowsupdate',
+    'ms-settings:appsfeatures',
+    'ms-settings:network',
+    'ms-settings:personalization',
+    'ms-settings:privacy',
+    'shell:startup',
+    'shell:common startup',
+    'shell:sendto',
+    'shell:fonts',
+    'control',
+    'explorer',
+    'cmd',
+    'powershell',
+    'regedit',
+    'taskmgr',
+    'services.msc',
+    'devmgmt.msc',
+    'diskmgmt.msc',
+    'compmgmt.msc',
+    'eventvwr.msc',
+    'perfmon',
+    'appwiz.cpl',
+    'ncpa.cpl',
+    'sysdm.cpl',
+    'mstsc',
+    'notepad',
+    'calc',
+    'mspaint',
+    'winver',
+    'cleanmgr',
+    'dxdiag',
+    'charmap',
+    'osk',
+  ];
+
+  /** Lowercase without diacritics, so "Notas" matches "notas" and "música" matches "musica". */
+  function foldText(value) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+  }
+
+  function startMenuRoots() {
+    const configured = String(process.env.OMNI_START_MENU_ROOTS || '').trim();
+    if (configured) return configured.split(path.win32.delimiter).filter(Boolean);
+    return [
+      path.win32.join(process.env.ProgramData || 'C:\\ProgramData', 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
+      process.env.APPDATA ? path.win32.join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs') : '',
+    ].filter(Boolean);
+  }
+
+  async function scanStartMenu() {
+    const found = new Map();
+    for (const root of startMenuRoots()) {
+      let entries;
+      try {
+        entries = await fs.promises.readdir(root, { recursive: true, withFileTypes: true });
+      } catch {
+        // A missing or unreadable menu is normal (fresh profile, restricted
+        // machine): the destinations list alone is still a useful answer.
+        continue;
+      }
+      for (const entry of entries) {
+        const name = String(entry.name || '');
+        if (!/\.(lnk|url)$/i.test(name)) continue;
+        // Shortcuts for removing a program are noise in a launcher.
+        if (/uninstall|desinstal|deinstall|remove|readme/i.test(name)) continue;
+        const label = name
+          .replace(/\.(lnk|url)$/i, '')
+          .replace(/\s*-\s*(shortcut|acceso directo)$/i, '')
+          .trim();
+        if (!label) continue;
+        const key = foldText(label);
+        if (found.has(key)) continue;
+        // Node 22 exposes parentPath; `path` is the older spelling of the same thing.
+        const parent = entry.parentPath || entry.path || root;
+        found.set(key, { value: path.win32.join(parent, name), label, kind: 'app' });
+      }
+    }
+    return [...found.values()];
+  }
+
+  let startMenuCache = { at: 0, items: [] };
+  let startMenuScan = null;
+
+  /**
+   * One scan at a time and one cache, shared by the suggestion list and by the
+   * resolver: typing a name must not walk two Start Menu trees, and the entry the
+   * list offered must be the entry that launches.
+   */
+  async function currentStartMenuItems() {
+    if (Date.now() - startMenuCache.at > START_MENU_CACHE_TTL_MS) {
+      startMenuScan = startMenuScan || scanStartMenu().finally(() => (startMenuScan = null));
+      const items = await startMenuScan;
+      startMenuCache = { at: Date.now(), items };
+    }
+    return startMenuCache.items;
+  }
+
+  app.get('/api/run/suggestions', async (req, res) => {
+    const raw = typeof req.query.q === 'string' ? req.query.q : '';
+    if (raw.length > SUGGESTION_QUERY_MAX_LENGTH) return res.status(400).json({ error: 'query-too-long' });
+    const query = foldText(raw).trim();
+    if (!query) return res.json({ suggestions: [] });
+
+    let programs = [];
+    try {
+      programs = await currentStartMenuItems();
+    } catch (error) {
+      logDebug('start menu scan failed', error?.message || error);
+    }
+
+    const system = SYSTEM_DESTINATIONS.map((value) => ({ value, kind: 'system' }));
+    const rank = (entry) => {
+      const label = foldText(entry.label || entry.value);
+      const target = foldText(entry.value);
+      // A prefix match is what the user is almost always typing; a hit in the
+      // middle of the name comes later, alphabetically inside each group.
+      if (label.startsWith(query) || target.startsWith(query)) return 0;
+      return 1;
+    };
+
+    const suggestions = [...system, ...programs]
+      .filter((entry) => foldText(entry.label || entry.value).includes(query) || foldText(entry.value).includes(query))
+      .sort((a, b) => rank(a) - rank(b) || String(a.label || a.value).localeCompare(String(b.label || b.value)))
+      .slice(0, SUGGESTION_LIMIT);
+
+    res.json({ suggestions });
+  });
+
   // Pre-flight space check for a transfer that is about to start. The renderer
   // can neither measure a folder tree nor read a volume's free space, and a copy
   // that dies at 80% with ENOSPC leaves a half-written file behind. Trees are
