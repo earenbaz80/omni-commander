@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Copy, Check, ShieldCheck } from 'lucide-react';
 import { FileItem, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
-import { getTranslations } from '../../i18n/translations';
+import { getTranslations, tGlobal } from '../../i18n/translations';
 import { fsEngine } from '../../services/fileSystem';
 import { soundManager } from '../../services/soundEffects';
 
@@ -34,8 +34,11 @@ export const ChecksumModal: React.FC<ChecksumModalProps> = ({ theme, lang, file,
       })
       .catch((err) => {
         if (cancelled) return;
-        // Never render a fake digest: show why the real one is unavailable.
-        setError(err && err.message ? String(err.message) : 'Could not read the file bytes');
+        // Never render a fake digest: show why the real one is unavailable. The
+        // fallback is read through the module-level language store because this
+        // runs inside the effect, which must not re-run when the language
+        // changes mid-hash.
+        setError(err && err.message ? String(err.message) : tGlobal('checksumReadError'));
       });
     return () => {
       cancelled = true;

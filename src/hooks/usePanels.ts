@@ -3,6 +3,7 @@ import { fsEngine } from '../services/fileSystem';
 import { soundManager } from '../services/soundEffects';
 import { ActiveModal, Drive, FileItem, PanelState, PanelTab, SortField, UserSettings } from '../types';
 import { tGlobal } from '../i18n/translations';
+import { ARCHIVE_EXTENSIONS } from '../services/archiveBackend';
 
 interface PanelDeps {
   drives: Drive[];
@@ -78,6 +79,7 @@ export function usePanels(deps: PanelDeps) {
     ],
     isTreeVisible: false,
     isQuickView: false,
+    panelView: 'files',
   });
 
   const [rightPanel, setRightPanel] = useState<PanelState>({
@@ -101,6 +103,7 @@ export function usePanels(deps: PanelDeps) {
     ],
     isTreeVisible: false,
     isQuickView: false,
+    panelView: 'files',
   });
 
   // Quick live filter bar states (Ctrl+F)
@@ -282,7 +285,7 @@ export function usePanels(deps: PanelDeps) {
         newArchiveRoot = currentArchiveRoot;
         newVirtualPath = newPath.slice(currentArchiveRoot.length + 1);
       } else if (!currentArchiveRoot) {
-        // Check if new path is an archive root (from openZipArchive)
+        // Check if new path is an archive root (from openArchive)
         const mount = fsEngine.getArchiveSource(activeTab?.driveId || '', newPath);
         if (mount) {
           // Entering an archive
@@ -554,27 +557,31 @@ export function usePanels(deps: PanelDeps) {
         if (item.isDirectory) {
           const newPath = `${item.path}\\${item.name}`;
           handleNavigate(activePanel, newPath);
-        } else if (['ZIP', 'RAR', '7Z', 'TAR', 'GZ', 'TGZ'].includes(item.ext.toUpperCase()) && !item.archiveRoot) {
+        } else if (ARCHIVE_EXTENSIONS.includes(item.ext.toUpperCase()) && !item.archiveRoot) {
           let password: string | undefined;
           for (;;) {
             try {
-              handleNavigate(activePanel, await fsEngine.openZipArchive(item, password));
+              handleNavigate(activePanel, await fsEngine.openArchive(item, password));
               return;
             } catch (e) {
+              // A password-protected archive is not damage, so ask for the
+              // password. This covers an encrypted RAR or 7-Zip too: the server
+              // decrypts with it. When none can be collected, say so instead of
+              // closing silently as if nothing had been opened.
               if (e instanceof Error && e.name === 'ArchivePasswordError') {
                 const next = requestArchivePassword
                   ? await requestArchivePassword(item.name, (e as any).reason === 'invalid')
                   : null;
-                if (!next) return;
+                if (!next) {
+                  alert(tGlobal('zipErrPasswordNeeded').replace('{name}', `${item.name}.${item.ext}`));
+                  return;
+                }
                 password = next;
-              } else if (
-                ['RAR', '7Z', 'TAR', 'GZ', 'TGZ'].includes(item.ext.toUpperCase()) &&
-                e instanceof Error &&
-                (e.message?.includes('ZIP') || e.message?.includes('password'))
-              ) {
-                handleNavigate(activePanel, await fsEngine.openZipArchive(item));
-                return;
-              } else throw e;
+                continue;
+              }
+              // Anything else (an unreadable format, a corrupt file) surfaces
+              // with its own message through the outer catch.
+              throw e;
             }
           }
         } else {

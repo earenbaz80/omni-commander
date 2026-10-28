@@ -1,8 +1,9 @@
-import { describe, it, expect } from 'vitest';
-import { render, fireEvent, screen } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, fireEvent, screen, waitFor } from '@testing-library/react';
 import { ViewerModal } from './modals/ViewerModal';
 import { QuickViewPane } from './QuickViewPane';
 import { HoverPreviewTooltip } from './HoverPreviewTooltip';
+import { fsEngine } from '../services/fileSystem';
 import { themes } from '../services/themeManager';
 import { FileItem } from '../types';
 
@@ -38,13 +39,22 @@ const expectSafeSvgRender = (container: HTMLElement) => {
   expect(container.querySelector('[onload]')).toBeNull();
 };
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe('SVG preview renders safely (no script execution)', () => {
-  it('ViewerModal preview tab uses an <img> and never injects raw markup', () => {
+  it('ViewerModal preview tab uses an <img> and never injects raw markup', async () => {
+    // The viewer paints what it read from disk, so the SVG source has to come
+    // back from the file read rather than from the listing entry.
+    vi.spyOn(fsEngine, 'readFileBytes').mockResolvedValue(new TextEncoder().encode(MALICIOUS_SVG));
+
     const { container } = render(
       <ViewerModal theme={theme} lang="es" file={makeSvgFile()} onClose={() => {}} onEdit={() => {}} />,
     );
 
     fireEvent.click(screen.getByText(/Previsualización/i));
+    await waitFor(() => expect(container.querySelector('img')).not.toBeNull());
 
     expectSafeSvgRender(container);
   });

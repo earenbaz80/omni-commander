@@ -1,15 +1,14 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { spawn, ChildProcess } from 'node:child_process';
 import net from 'node:net';
 import os from 'node:os';
+import { startServer, type TestServer } from '@/scripts/serverHarness';
 
 /**
  * The local drive API exposes the whole filesystem (listings of any path).
  * It must only be reachable over loopback, never from the LAN.
  */
-const PORT = 3999;
-let child: ChildProcess | null = null;
+let server: TestServer;
 
 const tryConnect = (host: string, port: number, timeoutMs = 1000): Promise<boolean> =>
   new Promise((resolve) => {
@@ -34,25 +33,16 @@ const lanIPv4 = (): string | null => {
 };
 
 beforeAll(async () => {
-  child = spawn(process.execPath, ['server.cjs'], {
-    env: { ...process.env, PORT: String(PORT) },
-    stdio: 'ignore',
-  });
-  const start = Date.now();
-  while (Date.now() - start < 10000) {
-    if (await tryConnect('127.0.0.1', PORT)) return;
-    await new Promise((r) => setTimeout(r, 150));
-  }
-  throw new Error('server did not start in time');
-}, 20000);
+  server = await startServer();
+}, 30000);
 
-afterAll(() => {
-  child?.kill();
+afterAll(async () => {
+  await server.stop();
 });
 
 describe('local API binding', () => {
   it('is reachable on loopback', async () => {
-    expect(await tryConnect('127.0.0.1', PORT)).toBe(true);
+    expect(await tryConnect('127.0.0.1', server.port)).toBe(true);
   });
 
   it('is NOT reachable from a non-loopback interface', async () => {
@@ -61,6 +51,6 @@ describe('local API binding', () => {
       // No external interface on this machine; nothing to assert.
       return;
     }
-    expect(await tryConnect(ip, PORT)).toBe(false);
+    expect(await tryConnect(ip, server.port)).toBe(false);
   });
 });
