@@ -142,7 +142,16 @@ export const PathBar: React.FC<PathBarProps> = ({
     }
   };
 
+  // `C:\Windows` splits into ["C:", "Windows"], and the drive is already drawn
+  // on its own in amber below, so the letter is dropped from the crumbs. Without
+  // this the drive appeared twice, and the second copy was a button pointing at
+  // `C:\C:`, a path that cannot exist: clicking it broke the panel instead of
+  // going to the root. Comparing against the drive name (not a single-letter
+  // pattern) also covers the virtual drives, whose letter can be longer.
   const segments = currentPath ? currentPath.split('\\').filter(Boolean) : [];
+  if (segments.length && segments[0].toLowerCase() === String(driveLetter).toLowerCase()) {
+    segments.shift();
+  }
 
   return (
     <div
