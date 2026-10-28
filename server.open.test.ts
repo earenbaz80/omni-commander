@@ -94,6 +94,28 @@ describe('POST /api/open', () => {
     expect(body.path.toLowerCase()).toContain('temp');
   });
 
+  it.runIf(process.platform === 'win32')('opens a folder Windows names without a path, like temp', async () => {
+    // Typing `temp` here used to be answered with "unsupported target", while the
+    // Run box opens the folder. The alias is the same one %TEMP% resolves to.
+    const { status, body } = await post('temp');
+    expect(status).toBe(200);
+    expect(body.kind).toBe('folder');
+    expect(body.path.toLowerCase()).toBe(os.tmpdir().toLowerCase());
+  });
+
+  it.runIf(process.platform === 'win32')('opens prefetch and system32, which are names and not paths', async () => {
+    const winDir = process.env.SystemRoot || 'C:\\Windows';
+    for (const [typed, expected] of [
+      ['prefetch', path.join(winDir, 'Prefetch')],
+      ['system32', path.join(winDir, 'System32')],
+    ]) {
+      const { status, body } = await post(typed);
+      expect(status, typed).toBe(200);
+      expect(body.kind, typed).toBe('folder');
+      expect(body.path.toLowerCase(), typed).toBe(expected.toLowerCase());
+    }
+  });
+
   it('hands system destinations to the shell untouched', async () => {
     for (const target of ['ms-settings:display', 'shell:startup', 'https://example.com/']) {
       const { status, body } = await post(target);

@@ -2839,6 +2839,61 @@ function registerFsRoutes() {
     return Boolean(match && RUN_WEB_TLDS.has(match[1].toLowerCase()));
   }
 
+  //
+  // The folders Windows opens by a bare name. `temp` is not a path on disk as
+  // typed (it is %TEMP%), and `prefetch` only exists under the Windows folder, so
+  // the name has to become one before the absolute-path branch can answer with a
+  // folder. These are the names people actually type into Run when they clean up
+  // or poke at the system; %TEMP% keeps meaning the same folder as `temp`.
+  function shellFolderAlias(name) {
+    const winDir = process.env.SystemRoot || process.env.windir || 'C:\\Windows';
+    const profile = process.env.USERPROFILE || '';
+    const roaming = process.env.APPDATA || (profile && path.win32.join(profile, 'AppData', 'Roaming'));
+    const system32 = path.win32.join(winDir, 'System32');
+    const aliases = {
+      temp: os.tmpdir(),
+      tmp: os.tmpdir(),
+      prefetch: path.win32.join(winDir, 'Prefetch'),
+      windir: winDir,
+      systemroot: winDir,
+      windows: winDir,
+      system32,
+      syswow64: path.win32.join(winDir, 'SysWOW64'),
+      drivers: path.win32.join(system32, 'drivers'),
+      fonts: path.win32.join(winDir, 'Fonts'),
+      appdata: roaming,
+      localappdata: process.env.LOCALAPPDATA,
+      userprofile: profile,
+      programdata: process.env.ProgramData,
+      programfiles: process.env.ProgramFiles,
+      'program files': process.env.ProgramFiles,
+      public: process.env.PUBLIC,
+    };
+    // The user's own folders are only names when there is a profile to point
+    // them at; a missing one must stay unresolved rather than become a
+    // relative path that the safety check would have to reject later.
+    if (profile) {
+      Object.assign(aliases, {
+        desktop: path.win32.join(profile, 'Desktop'),
+        downloads: path.win32.join(profile, 'Downloads'),
+        documents: path.win32.join(profile, 'Documents'),
+        pictures: path.win32.join(profile, 'Pictures'),
+        music: path.win32.join(profile, 'Music'),
+        videos: path.win32.join(profile, 'Videos'),
+      });
+    }
+    if (roaming) {
+      const shell = path.win32.join(roaming, 'Microsoft', 'Windows');
+      Object.assign(aliases, {
+        startup: path.win32.join(shell, 'Start Menu', 'Programs', 'Startup'),
+        recent: path.win32.join(shell, 'Recent'),
+        sendto: path.win32.join(shell, 'SendTo'),
+      });
+    }
+    const resolved = aliases[String(name).trim().toLowerCase()];
+    return typeof resolved === 'string' && resolved ? resolved : null;
+  }
+
   // %TEMP% (and friends) is how people write paths in the Run box, so expand the
   // names the environment actually knows. An unknown name stays untouched and
   // then fails as a path, instead of collapsing to an empty string that would
@@ -3049,6 +3104,22 @@ function registerFsRoutes() {
       }
     }
 
+    // A folder Windows names without a path (`temp`, `prefetch`, `system32`,
+    // `downloads`). It answered "unsupported" before, which is why typing `temp`
+    // in this launcher did nothing while the Run box opens it. The alias is
+    // trusted only once it is a real, allowed directory on this machine.
+    const alias = shellFolderAlias(target);
+    if (alias) {
+      let aliasPath = null;
+      try {
+        aliasPath = assertSafePath(alias);
+      } catch {
+        aliasPath = null;
+      }
+      const stat = aliasPath ? await fs.promises.stat(aliasPath).catch(() => null) : null;
+      if (stat && stat.isDirectory()) return res.json({ kind: 'folder', path: aliasPath });
+    }
+
     const scheme = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(target);
     if (scheme && RUN_URI_SCHEMES.has(`${scheme[1].toLowerCase()}:`)) {
       try {
@@ -3064,8 +3135,8 @@ function registerFsRoutes() {
     // installed application, or a destination the shell owns (services.msc,
     // appwiz.cpl). The target is resolved as one argv element, so a label with
     // spaces in it ("Google Chrome") opens its entry and nothing is dropped from
-    // the line; executables are still left to /api/run, where starting one needs
-    // the explicit confirmation.
+    // the line; executables are still left to /api/run, which is the only route
+    // that spawns.
     let resolved = null;
     try {
       resolved = await resolveRunEntry([target]);
@@ -3104,11 +3175,13 @@ function registerFsRoutes() {
   // Running a program (the part of Win+R that starts an executable)
   //
   // Kept apart from /api/open on purpose: opening a document and starting a
-  // program are different levels of trust. The renderer first asks for a plan
-  // (without `confirmed`) and this route answers with the argv it parsed; only
-  // the second request, carrying `confirmed: true`, starts anything. That plan
-  // is not the security boundary — the token and the origin check are — it is
-  // the sentence the user reads before a line becomes a process.
+  // program are different levels of trust, and this is the only route that
+  // spawns. A request without `confirmed: true` is answered with the argv the
+  // line would become instead of starting it, which is what lets a caller look
+  // at the command before it becomes a process. `confirmed` is not the security
+  // boundary — the token and the origin check are — it is the difference between
+  // asking and starting. The launcher sends it straight away, because one Enter
+  // is one window in the Run box.
   //
   // There is no shell here either. The line is split into arguments by the
   // quoting rules below and handed to CreateProcess, so `&`, `|` and `>` are

@@ -11,15 +11,13 @@ import { RUN_EXAMPLE_ROWS } from '../services/runLauncher';
  * - a folder navigates the active panel (not a second Explorer window);
  * - a refusal is worded, not swallowed, so a typo does not look like a no-op;
  * - the last targets come back on Up, which is what the real Run box trained;
- * - a program never starts on the first Enter: the parsed plan is shown and the
- *   launch waits for an explicit yes.
+ * - a program starts on that same Enter, with no card in between.
  *
  * The server calls are mocked: what they decide is covered by
  * server.open.test.ts and server.run.test.ts. Here the question is only what the
  * dialog does with each answer.
  */
 const openRunTarget = vi.fn();
-const planRunCommand = vi.fn();
 const runCommand = vi.fn();
 const fetchRunSuggestions = vi.fn();
 
@@ -28,7 +26,6 @@ vi.mock('../services/runLauncher', async () => {
   return {
     ...actual,
     openRunTarget: (...args: unknown[]) => openRunTarget(...args),
-    planRunCommand: (...args: unknown[]) => planRunCommand(...args),
     runCommand: (...args: unknown[]) => runCommand(...args),
     fetchRunSuggestions: (...args: unknown[]) => fetchRunSuggestions(...args),
   };
@@ -55,7 +52,6 @@ const openBox = () => {
 
 beforeEach(() => {
   openRunTarget.mockReset();
-  planRunCommand.mockReset();
   runCommand.mockReset();
   fetchRunSuggestions.mockReset();
   fetchRunSuggestions.mockResolvedValue([]);
@@ -113,24 +109,8 @@ describe('RunLauncher', () => {
     expect(onNavigate).not.toHaveBeenCalled();
   });
 
-  it('asks before starting a program, showing the argv it would run', async () => {
+  it('starts a program on that same Enter, with no card in between', async () => {
     openRunTarget.mockResolvedValue({ kind: 'error', reason: 'unsupported-target' });
-    planRunCommand.mockResolvedValue({ argv: ['notepad', 'C:\\nota.txt'] });
-    renderLauncher();
-
-    const input = openBox();
-    fireEvent.change(input, { target: { value: 'notepad C:\\nota.txt' } });
-    fireEvent.submit(input.closest('form')!);
-
-    expect(await screen.findByText(t.runConfirmLead)).toBeDefined();
-    expect(screen.getByText('notepad C:\\nota.txt')).toBeDefined();
-    // The point of the step: nothing has been started yet.
-    expect(runCommand).not.toHaveBeenCalled();
-  });
-
-  it('starts the program only after the confirmation is accepted', async () => {
-    openRunTarget.mockResolvedValue({ kind: 'error', reason: 'unsupported-target' });
-    planRunCommand.mockResolvedValue({ argv: ['notepad'] });
     runCommand.mockResolvedValue({ kind: 'launched', argv: ['notepad'] });
     renderLauncher();
 
@@ -138,141 +118,52 @@ describe('RunLauncher', () => {
     fireEvent.change(input, { target: { value: 'notepad' } });
     fireEvent.submit(input.closest('form')!);
 
-    fireEvent.click(await screen.findByText(t.runConfirmRun));
-
     await waitFor(() => expect(runCommand).toHaveBeenCalledWith('notepad'));
-    await waitFor(() => expect(screen.queryByText(t.runConfirmLead)).toBeNull());
+    // One Enter is one window, and the line is ready for the next target.
+    await waitFor(() => expect(input.value).toBe(''));
+    expect(screen.queryByRole('dialog')).toBeNull();
     expect(openRunTarget).toHaveBeenCalledWith('notepad');
   });
 
-  it('plans the line as administrator on Ctrl+Shift+Enter, without opening it first', async () => {
-    planRunCommand.mockResolvedValue({ argv: ['notepad'] });
+  it('launches elevated on Ctrl+Shift+Enter, without opening it first', async () => {
+    runCommand.mockResolvedValue({ kind: 'launched', argv: ['notepad'] });
     renderLauncher();
 
     const input = openBox();
     fireEvent.change(input, { target: { value: 'notepad' } });
     fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true, shiftKey: true });
 
-    expect(await screen.findByText(t.runConfirmLead)).toBeDefined();
-    expect(planRunCommand).toHaveBeenCalledWith('notepad', true);
     // Elevation is a decision to run, so the shell is never asked to open it.
+    await waitFor(() => expect(runCommand).toHaveBeenCalledWith('notepad', true));
     expect(openRunTarget).not.toHaveBeenCalled();
-    expect(runCommand).not.toHaveBeenCalled();
-    // The key already said what it wants, so the box arrives checked.
-    expect((screen.getByLabelText(t.runElevate) as HTMLInputElement).checked).toBe(true);
-  });
-
-  it('launches elevated once the confirmation, with its box, is accepted', async () => {
-    planRunCommand.mockResolvedValue({ argv: ['notepad'] });
-    runCommand.mockResolvedValue({ kind: 'launched', argv: ['notepad'] });
-    renderLauncher();
-
-    const input = openBox();
-    fireEvent.change(input, { target: { value: 'notepad' } });
-    fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true, shiftKey: true });
-    fireEvent.click(await screen.findByText(t.runConfirmRun));
-
-    await waitFor(() => expect(runCommand).toHaveBeenCalledWith('notepad', true));
-  });
-
-  it('keeps a plain Enter unelevated, and honours the box being ticked by hand', async () => {
-    openRunTarget.mockResolvedValue({ kind: 'error', reason: 'unsupported-target' });
-    planRunCommand.mockResolvedValue({ argv: ['notepad'] });
-    runCommand.mockResolvedValue({ kind: 'launched', argv: ['notepad'] });
-    renderLauncher();
-
-    const input = openBox();
-    fireEvent.change(input, { target: { value: 'notepad' } });
-    fireEvent.submit(input.closest('form')!);
-
-    // Enter alone asks for nothing more than running it as the current user.
-    const box = (await screen.findByLabelText(t.runElevate)) as HTMLInputElement;
-    expect(box.checked).toBe(false);
-    fireEvent.click(box);
-    fireEvent.click(screen.getByText(t.runConfirmRun));
-
-    await waitFor(() => expect(runCommand).toHaveBeenCalledWith('notepad', true));
-  });
-
-  it('answers an open confirmation with elevation on Ctrl+Shift+Enter', async () => {
-    openRunTarget.mockResolvedValue({ kind: 'error', reason: 'unsupported-target' });
-    planRunCommand.mockResolvedValue({ argv: ['notepad'] });
-    runCommand.mockResolvedValue({ kind: 'launched', argv: ['notepad'] });
-    renderLauncher();
-
-    const input = openBox();
-    fireEvent.change(input, { target: { value: 'notepad' } });
-    fireEvent.submit(input.closest('form')!);
-    await screen.findByText(t.runConfirmLead);
-
-    // The focus sits on the confirm button now, so the key is answered at the
-    // window, the same way Ctrl+R is.
-    fireEvent.keyDown(window, { key: 'Enter', ctrlKey: true, shiftKey: true });
-
-    await waitFor(() => expect(runCommand).toHaveBeenCalledWith('notepad', true));
   });
 
   it('says Windows refused the elevation instead of blaming the program', async () => {
-    planRunCommand.mockResolvedValue({ argv: ['notepad'] });
     runCommand.mockResolvedValue({ kind: 'error', reason: 'elevation-denied' });
     renderLauncher();
 
     const input = openBox();
     fireEvent.change(input, { target: { value: 'notepad' } });
     fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true, shiftKey: true });
-    fireEvent.click(await screen.findByText(t.runConfirmRun));
 
     expect(await screen.findByRole('alert')).toHaveProperty('textContent', t.runErrorElevationDenied);
   });
 
-  it('goes back to the line untouched when the confirmation is cancelled', async () => {
-    openRunTarget.mockResolvedValue({ kind: 'error', reason: 'unsupported-target' });
-    planRunCommand.mockResolvedValue({ argv: ['notepad'] });
-    renderLauncher();
-
-    const input = openBox();
-    fireEvent.change(input, { target: { value: 'notepad' } });
-    fireEvent.submit(input.closest('form')!);
-
-    fireEvent.click(await screen.findByText(t.runConfirmCancel));
-
-    const back = screen.getByLabelText(t.runPlaceholder) as HTMLInputElement;
-    expect(back.value).toBe('notepad');
-    expect(runCommand).not.toHaveBeenCalled();
-  });
-
-  it('names the program the machine does not know while planning, before asking to confirm', async () => {
-    openRunTarget.mockResolvedValue({ kind: 'error', reason: 'unsupported-target' });
-    planRunCommand.mockResolvedValue({ error: 'program-not-found', program: 'omnicmd-ghost' });
-    renderLauncher();
-    const input = openBox();
-    fireEvent.change(input, { target: { value: 'omnicmd-ghost' } });
-    fireEvent.submit(input.closest('form')!);
-
-    expect(await screen.findByRole('alert')).toHaveProperty(
-      'textContent',
-      t.runErrorProgramNotFound.replace('{program}', 'omnicmd-ghost'),
-    );
-    // No confirmation for something that cannot start.
-    expect(screen.queryByText(t.runConfirmLead)).toBeNull();
-    expect(runCommand).not.toHaveBeenCalled();
-  });
-
   it('names the program Windows could not find', async () => {
     openRunTarget.mockResolvedValue({ kind: 'error', reason: 'unsupported-target' });
-    planRunCommand.mockResolvedValue({ argv: ['omnicmd-ghost'] });
     runCommand.mockResolvedValue({ kind: 'error', reason: 'program-not-found', program: 'omnicmd-ghost' });
     renderLauncher();
 
     const input = openBox();
     fireEvent.change(input, { target: { value: 'omnicmd-ghost' } });
     fireEvent.submit(input.closest('form')!);
-    fireEvent.click(await screen.findByText(t.runConfirmRun));
 
     expect(await screen.findByRole('alert')).toHaveProperty(
       'textContent',
       t.runErrorProgramNotFound.replace('{program}', 'omnicmd-ghost'),
     );
+    // A refusal keeps the line, so a typo can be fixed instead of retyped.
+    expect(input.value).toBe('omnicmd-ghost');
   });
 
   it('ignores an empty target without calling the server', () => {
@@ -317,20 +208,16 @@ describe('RunLauncher', () => {
     await waitFor(() => expect(openRunTarget).toHaveBeenCalledWith('notepad'));
   });
 
-  it('confirms the program waiting for approval with Ctrl+R', async () => {
+  it('starts the typed program with Ctrl+R, like Enter', async () => {
     openRunTarget.mockResolvedValue({ kind: 'error', reason: 'unsupported-target' });
-    planRunCommand.mockResolvedValue({ argv: ['notepad'] });
     runCommand.mockResolvedValue({ kind: 'launched', argv: ['notepad'] });
     renderLauncher();
     const input = openBox();
     fireEvent.change(input, { target: { value: 'notepad' } });
-    fireEvent.submit(input.closest('form')!);
-    await screen.findByText(t.runConfirmLead);
 
     fireEvent.keyDown(window, { key: 'R', ctrlKey: true });
 
     await waitFor(() => expect(runCommand).toHaveBeenCalledWith('notepad'));
-    await waitFor(() => expect(screen.queryByText(t.runConfirmLead)).toBeNull());
   });
 
   it('leaves Ctrl+Shift+R to the app-wide focus shortcut', () => {

@@ -1075,28 +1075,25 @@ export const fr = {
   panelLayoutRows: 'Fenêtres empilées (haut/bas)',
   panelLayoutColumns: 'Fenêtres côte à côte',
 
-  // Boîte Exécuter : ouvre des chemins et des destinations, et confirme avant de lancer un programme.
+  // Boîte Exécuter : ouvre des chemins et des destinations, et lance un programme avec Entrée.
   runTitle: 'Exécuter…',
   runPlaceholder: 'Chemin, notepad, ms-settings:, https://…',
-  runHint: 'Ouvre des chemins et des destinations ; un programme ou une commande demande toujours confirmation.',
+  runHint: 'Ouvre des chemins et des destinations ; un programme démarre avec Entrée.',
   runSuggestions: 'Suggestions',
   runFavoriteHint: 'Tab complète · Ctrl+D épingle ou retire',
   runKeysTitle: 'Raccourcis du lanceur',
   runKeysButtonLabel: 'Afficher les raccourcis du lanceur',
   runKeysEnter: 'Exécute la ligne ; champ vide, la ligne surlignée',
-  runKeysCtrlR: 'Exécute la ligne ou approuve le programme en attente',
+  runKeysCtrlR: 'Exécute la ligne, comme Entrée',
   runKeysTab: 'Complète la suggestion surlignée',
   runKeysArrows: 'Parcourt la liste ou l’historique',
   runKeysPin: 'Épingle ou retire la cible surlignée',
-  runKeysEscape: 'Ferme la confirmation, la liste ou la ligne',
-  runKeysElevate: 'Prépare la ligne en administrateur, Windows demandera alors l’autorisation',
+  runKeysEscape: 'Ferme la liste ou la ligne',
+  runKeysElevate: 'Lance la ligne en administrateur, Windows demandera alors l’autorisation',
   runFavMoveUp: 'Monter le favori',
   runFavMoveDown: 'Descendre le favori',
   runFavRemove: 'Retirer des favoris',
   runDismiss: 'Fermer la ligne d’exécution',
-  runConfirmLead: 'Voici exactement ce qui sera lancé :',
-  runConfirmRun: 'Exécuter',
-  runConfirmCancel: 'Annuler',
   runErrorProgramNotFound: 'Le programme « {program} » est introuvable.',
   runErrorProgramNotAccessible: "Windows n'autorise pas l'exécution de ce programme.",
   runErrorNotFound: "Aucun chemin de ce nom n'existe.",
@@ -1105,13 +1102,12 @@ export const fr = {
   runErrorInvalid: "Cette cible n'est pas valide : vérifiez les guillemets, les sauts de ligne ou la longueur.",
   runErrorFailed: "Windows n'a pas pu ouvrir la cible.",
   runErrorUnreachable: "Le serveur local ne répond pas, il n'y a rien à ouvrir.",
-  runElevate: 'Exécuter en tant qu’administrateur (UAC)',
   runErrorElevationDenied: 'Windows a annulé la demande d’administrateur, rien n’a donc été exécuté.',
 
   // Aide : exemples de ce que le champ Exécuter accepte.
   helpRunExamplesTitle: 'Lanceur (Exécuter…) : ce qu’il accepte',
   helpRunExamplesIntro:
-    'Le champ accepte un chemin, un programme, un outil Windows ou une adresse web. Un programme est confirmé avant de démarrer.',
+    'Le champ accepte un chemin, un programme, un outil Windows ou une adresse web. Un programme démarre avec Entrée.',
   helpRunExampleFolders: 'Un dossier : le panneau actif s’y rend.',
   helpRunExampleFiles: 'Un fichier : il s’ouvre avec son programme par défaut.',
   helpRunExamplePrograms:

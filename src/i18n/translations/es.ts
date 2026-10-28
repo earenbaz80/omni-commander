@@ -1099,28 +1099,25 @@ export const es = {
   panelLayoutRows: 'Apilar paneles (arriba/abajo)',
   panelLayoutColumns: 'Paneles lado a lado',
 
-  // Caja Ejecutar: abre rutas y destinos, y confirma antes de lanzar un programa.
+  // Caja Ejecutar: abre rutas y destinos, y lanza un programa al pulsar Enter.
   runTitle: 'Ejecutar…',
   runPlaceholder: 'Ruta, notepad, ms-settings:, https://…',
-  runHint: 'Abre rutas y destinos; si escribes un programa o comando, se pide confirmación.',
+  runHint: 'Abre rutas y destinos; si escribes un programa, se inicia al pulsar Enter.',
   runSuggestions: 'Sugerencias',
   runFavoriteHint: 'Tab completa · Ctrl+D fija o quita',
   runKeysTitle: 'Atajos del lanzador',
   runKeysButtonLabel: 'Ver atajos del lanzador',
   runKeysEnter: 'Ejecuta la línea; con el campo vacío, la fila resaltada',
-  runKeysCtrlR: 'Ejecuta la línea o confirma el programa pendiente',
+  runKeysCtrlR: 'Ejecuta la línea, igual que Enter',
   runKeysTab: 'Completa la sugerencia resaltada',
   runKeysArrows: 'Recorre la lista o el historial',
   runKeysPin: 'Fija o quita el destino resaltado',
-  runKeysEscape: 'Cierra la confirmación, la lista o la línea',
-  runKeysElevate: 'Prepara la línea como administrador, para que Windows pida permiso',
+  runKeysEscape: 'Cierra la lista o la línea',
+  runKeysElevate: 'Inicia la línea como administrador, para que Windows pida permiso',
   runFavMoveUp: 'Subir favorito',
   runFavMoveDown: 'Bajar favorito',
   runFavRemove: 'Quitar de favoritos',
   runDismiss: 'Cerrar la línea de ejecución',
-  runConfirmLead: 'Se iniciará exactamente esto:',
-  runConfirmRun: 'Ejecutar',
-  runConfirmCancel: 'Cancelar',
   runErrorProgramNotFound: 'No se encontró el programa «{program}».',
   runErrorProgramNotAccessible: 'Windows no permite ejecutar ese programa.',
   runErrorNotFound: 'No existe ninguna ruta con ese nombre.',
@@ -1129,13 +1126,12 @@ export const es = {
   runErrorInvalid: 'Ese destino no es válido: revisa comillas, saltos de línea o longitud.',
   runErrorFailed: 'Windows no pudo abrir el destino.',
   runErrorUnreachable: 'El servidor local no responde, así que no hay nada que abrir.',
-  runElevate: 'Ejecutar como administrador (UAC)',
   runErrorElevationDenied: 'Windows canceló el permiso de administrador, así que no se ejecutó nada.',
 
   // Ayuda: ejemplos de lo que acepta el campo Ejecutar.
   helpRunExamplesTitle: 'Lanzador (Ejecutar…): qué acepta',
   helpRunExamplesIntro:
-    'El campo acepta una ruta, un programa, una herramienta de Windows o una dirección web. Un programa se confirma antes de iniciarse.',
+    'El campo acepta una ruta, un programa, una herramienta de Windows o una dirección web. Un programa se inicia al pulsar Enter.',
   helpRunExampleFolders: 'Una carpeta: el panel activo se mueve allí.',
   helpRunExampleFiles: 'Un archivo: se abre con su programa predeterminado.',
   helpRunExamplePrograms:

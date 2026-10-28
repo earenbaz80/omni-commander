@@ -9,8 +9,8 @@ import { startServer, type TestServer } from '@/scripts/serverHarness';
  * Running a program is the part of the Run box that needs a second look. Three
  * things have to hold, and all are proven here on the real route:
  *
- * - nothing starts until the caller confirms; the first answer is the argv that
- *   will actually start, which is what the dialog puts in front of the user;
+ * - nothing starts until the caller confirms; the first answer is the argv the
+ *   line would become, which is how a caller can look before it spawns;
  * - the line is split into arguments and never handed to a shell as a string, so
  *   `&`, `|` and `>` stay words and `%TEMP%` is expanded once;
  * - a name resolves the way Windows' Run box resolves it: PATH with the usual
