@@ -139,9 +139,10 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
           </div>
         )}
 
-        <div className="flex items-center gap-[var(--space-1)] font-bold px-[var(--space-2)] py-[var(--space-1)] mr-2 rounded bg-black/20">
-          <span className="text-sm font-black tracking-tighter">OC</span>
-          <span className="font-semibold hidden sm:inline">OmniCommander Pro</span>
+        {/* The brand stays on one line: when the header runs out of room the box
+            shrinks and the name scrolls sideways instead of wrapping. */}
+        <div className="nc-scroll-x flex items-center gap-[var(--space-1)] font-bold px-[var(--space-2)] py-[var(--space-1)] mr-2 rounded bg-black/20 min-w-0 overflow-x-auto">
+          <span className="font-semibold whitespace-nowrap">{t.appName}</span>
         </div>
 
         {/* Menu items */}
@@ -522,7 +523,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
                 onClick={() => handleAction(() => onOpenModal('about'))}
                 className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 font-bold text-sky-300"
               >
-                Acerca de OmniCommander Pro...
+                {t.aboutTitle}...
               </button>
             </div>
           )}

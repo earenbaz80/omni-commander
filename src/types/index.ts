@@ -261,7 +261,9 @@ export interface UserSettings {
   fontSize: 'compact' | 'normal' | 'large';
   fontFamily: 'mono' | 'dos' | 'sans';
   splitLayout: 'horizontal' | 'vertical';
-  dualPaneRatio: number; // 50% default
+  dualPaneRatio: number; // 50% default, panes side by side
+  /** Same 50% default, for the stacked arrangement. Kept apart so switching layouts does not move both splits. */
+  dualPaneRatioRows?: number;
   quickPreviewAutoPlay: boolean;
   showCommandLine: boolean;
   showFunctionBar: boolean;

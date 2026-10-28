@@ -236,7 +236,8 @@ button:active:not(:disabled) {
 .nc-drag input,
 .nc-drag select,
 .nc-drag textarea,
-.nc-drag [role='button'] {
+.nc-drag [role='button'],
+.nc-drag .nc-scroll-x {
   -webkit-app-region: no-drag;
 }
 
