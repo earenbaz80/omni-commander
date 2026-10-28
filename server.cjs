@@ -1150,6 +1150,200 @@ function assertSafePath(value) {
   return path.win32.normalize(rooted);
 }
 
+// ---------------------------------------------------------------------------
+// Disposable-folder cleanup
+//
+// The renderer never names a path here: it names a target from this table and
+// the server resolves the folder itself, so a hostile request cannot aim a
+// recursive delete at C:\. Windows Temp and Prefetch live under %SystemRoot%
+// and need an elevated token, so they are advertised with `requiresAdmin` and
+// refused with a clear reason instead of failing halfway through a folder.
+const CLEANUP_TARGETS = {
+  'user-temp': {
+    resolve: () => process.env.TEMP || process.env.TMP || '',
+    requiresAdmin: false,
+  },
+  'windows-temp': {
+    resolve: () => path.win32.join(process.env.SystemRoot || 'C:\\Windows', 'Temp'),
+    requiresAdmin: true,
+  },
+  prefetch: {
+    resolve: () => path.win32.join(process.env.SystemRoot || 'C:\\Windows', 'Prefetch'),
+    requiresAdmin: true,
+  },
+};
+
+// Test hook: the suite points the user temp target at a scratch folder so it can
+// never delete the machine's real temporary files. It is an environment variable
+// and not a request field on purpose: a request must not be able to name the
+// folder that gets emptied.
+const CLEANUP_TEMP_OVERRIDE = String(process.env.OMNI_CLEANUP_USER_TEMP_ROOT || '').trim();
+
+// A pathologically large folder should not hold a request open forever.
+const CLEANUP_MAX_ENTRIES = 200000;
+
+/** Where a cleanup target points, whether or not it may be acted on. */
+function cleanupTargetPath(targetId) {
+  const target = CLEANUP_TARGETS[targetId];
+  if (!target) return '';
+  const raw = targetId === 'user-temp' && CLEANUP_TEMP_OVERRIDE ? CLEANUP_TEMP_OVERRIDE : target.resolve();
+  if (!raw) return '';
+  try {
+    return assertSafePath(raw);
+  } catch {
+    return '';
+  }
+}
+
+/** Resolves a cleanup target to the one folder it is allowed to touch. */
+function resolveCleanupRoot(targetId) {
+  if (!CLEANUP_TARGETS[targetId]) throw new Error(`Unknown cleanup target: ${String(targetId || '')}`);
+  if (CLEANUP_TARGETS[targetId].requiresAdmin) {
+    throw new Error(`${targetId} needs administrator rights`);
+  }
+  const root = cleanupTargetPath(targetId);
+  if (!root) throw new Error(`No folder for cleanup target: ${String(targetId || '')}`);
+  // Emptying a drive root would be the whole disk; refuse rather than trust that
+  // TEMP is always somewhere sensible inside a user profile.
+  if (/^[a-zA-Z]:\\$/.test(root)) throw new Error(`Refusing to clean a drive root: ${root}`);
+  return root;
+}
+
+/** Clamps the age filter and turns it into the cutoff the walk compares against. */
+function cleanupAgeCutoff(minAgeDays) {
+  return Date.now() - clampCleanupDays(minAgeDays) * 24 * 60 * 60 * 1000;
+}
+
+function clampCleanupDays(minAgeDays) {
+  const days = Number(minAgeDays);
+  if (!Number.isFinite(days) || days <= 0) return 0;
+  return Math.min(Math.floor(days), 3650);
+}
+
+/**
+ * Walks a cleanup root and returns the entries old enough to delete. A directory
+ * is a removal candidate only when it is old itself and every entry under it is
+ * a candidate, so a folder still holding something we must keep stays in place.
+ * Reparse points (junctions, symlinks) are never followed: they can point
+ * outside the root, and following one would delete files this operation has no
+ * business touching.
+ */
+async function scanCleanup(root, minAgeDays) {
+  const cutoff = cleanupAgeCutoff(minAgeDays);
+  const files = [];
+  const dirs = [];
+  let skipped = 0;
+  let seen = 0;
+  let truncated = false;
+
+  async function walk(dir) {
+    let entries = [];
+    try {
+      entries = await fs.promises.readdir(dir, { withFileTypes: true });
+    } catch {
+      skipped += 1;
+      return false;
+    }
+    let allCandidates = true;
+    for (const entry of entries) {
+      if (seen >= CLEANUP_MAX_ENTRIES) {
+        truncated = true;
+        allCandidates = false;
+        break;
+      }
+      seen += 1;
+      const full = path.win32.join(dir, entry.name);
+      let stat = null;
+      try {
+        stat = await fs.promises.lstat(full);
+      } catch {
+        skipped += 1;
+        allCandidates = false;
+        continue;
+      }
+      if (stat.isSymbolicLink()) {
+        skipped += 1;
+        allCandidates = false;
+        continue;
+      }
+      if (stat.isDirectory()) {
+        const childrenAll = await walk(full);
+        if (childrenAll && stat.mtimeMs < cutoff) dirs.push({ path: full, modifiedMs: stat.mtimeMs });
+        if (!childrenAll) allCandidates = false;
+      } else if (stat.isFile()) {
+        if (stat.mtimeMs < cutoff) {
+          files.push({ path: full, name: entry.name, size: stat.size, modifiedMs: stat.mtimeMs });
+        } else {
+          allCandidates = false;
+        }
+      } else {
+        skipped += 1;
+        allCandidates = false;
+      }
+    }
+    return allCandidates;
+  }
+
+  await walk(root);
+  return {
+    files,
+    dirs,
+    bytes: files.reduce((sum, file) => sum + file.size, 0),
+    skipped,
+    truncated,
+  };
+}
+
+/**
+ * Deletes what the scan found, best effort. A file another program holds open
+ * cannot be removed, so it is reported and the walk continues instead of
+ * abandoning the rest of the folder.
+ */
+async function runCleanup(root, minAgeDays) {
+  const scan = await scanCleanup(root, minAgeDays);
+  const failed = [];
+  let freedBytes = 0;
+  let deletedFiles = 0;
+  let deletedDirs = 0;
+
+  for (const file of scan.files) {
+    try {
+      const stat = await fs.promises.lstat(file.path).catch(() => null);
+      // Gone or replaced by a folder since the scan: nothing to count.
+      if (!stat || !stat.isFile()) continue;
+      await fs.promises.unlink(file.path);
+      freedBytes += stat.size;
+      deletedFiles += 1;
+    } catch (err) {
+      failed.push({ path: file.path, message: err.code || err.message });
+    }
+  }
+
+  // Deepest first: a parent can only be removed once its children are gone.
+  for (const dir of [...scan.dirs].sort((a, b) => b.path.length - a.path.length)) {
+    try {
+      await fs.promises.rmdir(dir.path);
+      deletedDirs += 1;
+    } catch (err) {
+      // ENOTEMPTY means a file inside survived (already reported above) and
+      // ENOENT means someone else removed it first; neither is news.
+      if (err.code !== 'ENOTEMPTY' && err.code !== 'ENOENT') {
+        failed.push({ path: dir.path, message: err.code || err.message });
+      }
+    }
+  }
+
+  return {
+    freedBytes,
+    deletedFiles,
+    deletedDirs,
+    failed: failed.slice(0, 50),
+    failedCount: failed.length,
+    skipped: scan.skipped,
+    truncated: scan.truncated,
+  };
+}
+
 async function assertArchiveDestination(rootValue, target) {
   const root = assertSafePath(rootValue);
   const relative = path.win32.relative(root, target);
@@ -1744,6 +1938,64 @@ function registerFsRoutes() {
 
   app.post('/api/fs/copy', transfer('copy'));
   app.post('/api/fs/move', transfer('move'));
+
+  // Advertises the folders the cleanup menu may offer. Read-only: it reports the
+  // resolved paths and which of them need an elevated token, and deletes nothing.
+  app.post('/api/fs/cleanup/targets', (_req, res) => {
+    const targets = Object.keys(CLEANUP_TARGETS).map((id) => {
+      const folder = cleanupTargetPath(id);
+      return {
+        id,
+        path: folder,
+        requiresAdmin: CLEANUP_TARGETS[id].requiresAdmin,
+        exists: !!folder && fs.existsSync(folder),
+      };
+    });
+    res.json({ targets });
+  });
+
+  app.post('/api/fs/cleanup/scan', async (req, res) => {
+    try {
+      const body = req.body || {};
+      const root = resolveCleanupRoot(String(body.target || ''));
+      const minAgeDays = clampCleanupDays(body.minAgeDays);
+      const scan = await scanCleanup(root, minAgeDays);
+      res.json({
+        target: String(body.target),
+        path: root,
+        minAgeDays,
+        files: scan.files.length,
+        dirs: scan.dirs.length,
+        bytes: scan.bytes,
+        skipped: scan.skipped,
+        truncated: scan.truncated,
+        largest: [...scan.files]
+          .sort((a, b) => b.size - a.size)
+          .slice(0, 8)
+          .map((file) => ({ name: file.name, size: file.size, modifiedMs: file.modifiedMs })),
+      });
+    } catch (err) {
+      logRejected('/api/fs/cleanup/scan', req.body, err);
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/fs/cleanup/run', async (req, res) => {
+    try {
+      const body = req.body || {};
+      const root = resolveCleanupRoot(String(body.target || ''));
+      const minAgeDays = clampCleanupDays(body.minAgeDays);
+      // The folder is re-walked here on purpose. The client sends a target and a
+      // filter, never the list of files to delete, so this route cannot be
+      // turned into a way to remove an arbitrary path.
+      const result = await runCleanup(root, minAgeDays);
+      invalidateListings();
+      res.json({ target: String(body.target), path: root, minAgeDays, ...result });
+    } catch (err) {
+      logRejected('/api/fs/cleanup/run', req.body, err);
+      res.status(400).json({ error: err.message });
+    }
+  });
 
   app.post('/api/fs/delete', (req, res) => {
     try {
