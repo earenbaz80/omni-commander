@@ -44,7 +44,7 @@ export interface ThemeConfig {
 
 const classicBlueConfig: ThemeConfig = {
   id: 'classic_blue',
-  nameKey: 'themeNorton',
+  nameKey: 'themeOmniClassic',
   bgApp: '#000084', // Classic DOS Blue
   bgPanel: '#0000a8',
   bgPanelInactive: '#000084',
@@ -86,7 +86,7 @@ const classicBlueConfig: ThemeConfig = {
 
 const retroGrayConfig: ThemeConfig = {
   id: 'retro_gray',
-  nameKey: 'themeTotalCmd',
+  nameKey: 'themeOmniRetro',
   bgApp: '#242a35',
   bgPanel: '#1e222b',
   bgPanelInactive: '#181b22',
@@ -126,11 +126,32 @@ const retroGrayConfig: ThemeConfig = {
   isRetro: false,
 };
 
+/**
+ * Theme names that earlier builds wrote to saved settings. They are not themes
+ * of their own: each one is the same palette under its old name, so a stored
+ * value is translated on load. Without that, the settings would keep a name
+ * that no longer matches any theme and the theme menu would show no selection.
+ */
+const LEGACY_THEME_IDS: Record<string, ThemeId> = {
+  norton_classic: 'classic_blue',
+  total_commander: 'retro_gray',
+};
+
+/**
+ * Current id for a theme name saved by any version, or the default theme when
+ * the value is not a string or names a theme that no longer exists.
+ */
+export function migrateThemeId(savedId: unknown): ThemeId {
+  if (typeof savedId === 'string') {
+    const id = LEGACY_THEME_IDS[savedId] ?? savedId;
+    if (id in themes) return id as ThemeId;
+  }
+  return 'classic_blue';
+}
+
 export const themes: Record<ThemeId, ThemeConfig> = {
   classic_blue: classicBlueConfig,
-  norton_classic: classicBlueConfig,
   retro_gray: retroGrayConfig,
-  total_commander: retroGrayConfig,
   midnight_amber: {
     id: 'midnight_amber',
     nameKey: 'themeMidnight',

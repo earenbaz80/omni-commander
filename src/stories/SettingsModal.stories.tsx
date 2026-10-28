@@ -5,7 +5,7 @@ import { SettingsModal } from '../components/modals/SettingsModal';
 
 const mockTheme: ThemeConfig = {
   id: 'classic_blue',
-  nameKey: 'themeNorton',
+  nameKey: 'themeOmniClassic',
   bgApp: '#000084',
   bgPanel: '#0000a8',
   bgPanelInactive: '#000084',
@@ -64,7 +64,6 @@ const defaultSettings: UserSettings = {
   showHiddenFiles: false,
   showSystemFiles: false,
   useRecycleBin: true,
-  keybindingPreset: 'norton',
   soundEffects: true,
   appLockEnabled: false,
   // Missing fields

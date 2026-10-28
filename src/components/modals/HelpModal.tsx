@@ -5,6 +5,7 @@ import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 import { RUN_EXAMPLE_ROWS } from '../../services/runLauncher';
+import { buildShortcutGroups } from '../../services/shortcutGroups';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
@@ -21,52 +22,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({ theme, lang, onClose }) =>
     'shortcuts',
   );
 
-  const shortcutGroups = [
-    {
-      title: t.helpGroupFunctionKeys,
-      shortcuts: [
-        { key: 'F1', desc: t.helpScF1 },
-        { key: 'F2', desc: t.helpScF2 },
-        { key: 'F3', desc: t.helpScF3 },
-        { key: 'F4', desc: t.helpScF4 },
-        { key: 'F5', desc: t.helpScF5 },
-        { key: 'F6', desc: t.helpScF6 },
-        { key: 'F7', desc: t.helpScF7 },
-        { key: 'F8 / Del', desc: t.helpScF8 },
-        { key: 'F9', desc: t.helpScF9 },
-        { key: 'F10', desc: t.helpScF10 },
-      ],
-    },
-    {
-      title: t.helpGroupNavigation,
-      shortcuts: [
-        { key: 'Tab', desc: t.helpScTab },
-        { key: 'Enter', desc: t.helpScEnter },
-        { key: 'Backspace / ..', desc: t.helpScBackspace },
-        { key: 'Ctrl + T', desc: t.helpScCtrlT },
-        { key: 'Ctrl + W', desc: t.helpScCtrlW },
-        { key: 'Alt + F1', desc: t.helpScAltF1 },
-        { key: 'Alt + F2', desc: t.helpScAltF2 },
-        { key: 'Ctrl + R', desc: t.helpScCtrlR },
-        { key: 'Ctrl + Q', desc: t.helpScCtrlQ },
-        { key: 'Ctrl + Shift + R', desc: t.helpScCtrlShiftR },
-      ],
-    },
-    {
-      title: t.helpGroupSelection,
-      shortcuts: [
-        { key: t.helpKeySpaceInsert, desc: t.helpScSpaceInsert },
-        { key: 'Ctrl + A', desc: t.helpScCtrlA },
-        { key: '*', desc: t.helpScInvert },
-        { key: 'Ctrl + F', desc: t.helpScCtrlF },
-        { key: 'Alt + Enter', desc: t.helpScAltEnter },
-        { key: 'Ctrl + D', desc: t.helpScCtrlD },
-        { key: 'Ctrl + M', desc: t.helpScCtrlM },
-        { key: 'Alt + F7', desc: t.helpScAltF7 },
-        { key: 'Ctrl + H', desc: t.helpScCtrlH },
-      ],
-    },
-  ];
+  // The same groups Settings > Shortcuts shows, from one shared list.
+  const shortcutGroups = buildShortcutGroups(t);
 
   const dialogRef = useModalDialog<HTMLDivElement>(t.helpDialogLabel);
 

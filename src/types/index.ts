@@ -96,19 +96,15 @@ export interface PanelState {
 
 export type ThemeId =
   | 'classic_blue'
-  | 'norton_classic'
   | 'midnight_amber'
   | 'matrix_green'
   | 'windows11_dark'
   | 'windows11_light'
   | 'retro_gray'
-  | 'total_commander'
   | 'dracula_retro'
   | 'solarized_dark';
 
 export type LanguageCode = 'es' | 'en' | 'de' | 'fr' | 'pt' | 'it' | 'ru' | 'ja';
-
-export type KeybindingPreset = 'norton' | 'totalcmd' | 'midnight' | 'custom';
 
 export interface BookmarkItem {
   id: string;
@@ -286,7 +282,6 @@ export interface UserSettings {
   appPasswordSalt?: string; // Per-app random salt (base64) for appPasswordHash
   protectedFolders: Record<string, string>; // path -> password
   customShortcuts: Record<string, string>;
-  keybindingPreset: KeybindingPreset;
   useRecycleBin: boolean;
   /** Last folder a "Enviar a" copy landed in, so the picker reopens there. */
   sendToLastFolder?: string;

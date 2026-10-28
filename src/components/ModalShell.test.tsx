@@ -5,7 +5,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 // Mock theme object for tests
 const mockTheme: ThemeConfig = {
   id: 'classic_blue',
-  nameKey: 'themeNorton',
+  nameKey: 'themeOmniClassic',
   bgApp: '#000084',
   bgPanel: '#0000a8',
   bgPanelInactive: '#000084',
