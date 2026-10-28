@@ -8,7 +8,8 @@ import { fetchWithRetry } from '../utils/fetchWithRetry';
  * target to the shell or start a process), so this module is a thin translation
  * layer between the routes' answers and the words the dialog shows. A folder
  * comes back as a path the panel navigates to; a document or a destination is
- * already open; a program is only started after its parsed plan is approved.
+ * already open with its own program; a program is started, not previewed, which
+ * is what one Enter means in the Run box.
  */
 export type RunFailure =
   | 'not-found'
@@ -79,9 +80,6 @@ const RUN_STATUS_REASONS: Record<number, RunFailure> = {
   502: 'launch-failed',
 };
 
-/** What the confirmation dialog needs: the exact argv the server will start. */
-export type RunPlan = { argv: string[] } | { error: RunFailure; program?: string };
-
 /**
  * The reason for a refused request: the body can name one the status alone does
  * not carry (a refused UAC prompt is a 403 that is not a permissions problem),
@@ -110,25 +108,10 @@ async function postRun(body: { command: string; confirmed?: boolean; elevated?: 
 }
 
 /**
- * Asks what a command line would become, without running it. This is the plan
- * the dialog shows, and the server is the one doing the parsing, so what the
- * user approves is exactly what will be spawned.
+ * Starts a program. The server resolves the line first, so a name this machine
+ * does not know comes back as a refusal naming that word instead of a generic
+ * failure, and what it starts is the line that was typed.
  */
-export async function planRunCommand(command: string, elevated = false): Promise<RunPlan> {
-  const answer = await postRun(elevated ? { command, elevated: true } : { command });
-  if (!answer) return { error: 'unreachable' };
-  if (answer.status === 409 && Array.isArray(answer.body?.argv)) {
-    return { argv: answer.body.argv.map((entry: unknown) => String(entry)) };
-  }
-  return {
-    error: reasonFor(answer.status, answer.body, 'unreachable'),
-    // A name the machine does not know is refused while planning now, so the
-    // dialog can say which word failed instead of asking to confirm a ghost.
-    program: typeof answer.body?.program === 'string' ? answer.body.program : undefined,
-  };
-}
-
-/** Starts a program. Nothing runs until this is called with the parsed plan approved. */
 export async function runCommand(command: string, elevated = false): Promise<RunLaunch> {
   const answer = await postRun(elevated ? { command, confirmed: true, elevated: true } : { command, confirmed: true });
   if (!answer) return { kind: 'error', reason: 'unreachable' };
@@ -193,7 +176,7 @@ export interface RunExampleRow {
  * help manual: one list, so the two places cannot drift apart.
  */
 export const RUN_EXAMPLE_ROWS: RunExampleRow[] = [
-  { examples: ['C:\\Users'], descriptionKey: 'helpRunExampleFolders' },
+  { examples: ['C:\\Users', 'temp', 'prefetch'], descriptionKey: 'helpRunExampleFolders' },
   { examples: ['C:\\notas.txt'], descriptionKey: 'helpRunExampleFiles' },
   { examples: ['notepad', 'google chrome'], descriptionKey: 'helpRunExamplePrograms' },
   { examples: ['services.msc', 'appwiz.cpl'], descriptionKey: 'helpRunExampleServices' },

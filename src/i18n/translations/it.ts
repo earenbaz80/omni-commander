@@ -1068,28 +1068,25 @@ export const it = {
   panelLayoutRows: 'Pannelli impilati (sopra/sotto)',
   panelLayoutColumns: 'Pannelli affiancati',
 
-  // Casella Esegui: apre percorsi e destinazioni e chiede conferma prima di avviare un programma.
+  // Casella Esegui: apre percorsi e destinazioni e avvia un programma con Invio.
   runTitle: 'Esegui…',
   runPlaceholder: 'Percorso, notepad, ms-settings:, https://…',
-  runHint: 'Apre percorsi e destinazioni; un programma o comando chiede sempre conferma.',
+  runHint: 'Apre percorsi e destinazioni; un programma parte con Invio.',
   runSuggestions: 'Suggerimenti',
   runFavoriteHint: 'Tab completa · Ctrl+D aggiunge o toglie',
   runKeysTitle: 'Scorciatoie del launcher',
   runKeysButtonLabel: 'Mostra le scorciatoie del launcher',
   runKeysEnter: 'Esegue la riga; a campo vuoto, la riga evidenziata',
-  runKeysCtrlR: 'Esegue la riga o conferma il programma in attesa',
+  runKeysCtrlR: 'Esegue la riga, come Invio',
   runKeysTab: 'Completa il suggerimento evidenziato',
   runKeysArrows: 'Scorre l’elenco o la cronologia',
   runKeysPin: 'Fissa o rimuove la destinazione evidenziata',
-  runKeysEscape: 'Chiude la conferma, l’elenco o la riga',
-  runKeysElevate: 'Prepara la riga come amministratore, così Windows chiede il permesso',
+  runKeysEscape: 'Chiude l’elenco o la riga',
+  runKeysElevate: 'Avvia la riga come amministratore, così Windows chiede il permesso',
   runFavMoveUp: 'Sposta il preferito su',
   runFavMoveDown: 'Sposta il preferito giù',
   runFavRemove: 'Rimuovi dai preferiti',
   runDismiss: 'Chiudi la riga di esecuzione',
-  runConfirmLead: 'Questo è esattamente ciò che verrà avviato:',
-  runConfirmRun: 'Esegui',
-  runConfirmCancel: 'Annulla',
   runErrorProgramNotFound: 'Il programma «{program}» non è stato trovato.',
   runErrorProgramNotAccessible: 'Windows non consente di eseguire quel programma.',
   runErrorNotFound: 'Non esiste alcun percorso con questo nome.',
@@ -1098,13 +1095,12 @@ export const it = {
   runErrorInvalid: 'Quella destinazione non è valida: controlla virgolette, ritorni a capo o lunghezza.',
   runErrorFailed: 'Windows non è riuscito ad aprire la destinazione.',
   runErrorUnreachable: 'Il server locale non risponde, quindi non c’è nulla da aprire.',
-  runElevate: 'Esegui come amministratore (UAC)',
   runErrorElevationDenied: 'Windows ha annullato la richiesta di amministratore, quindi non è stato eseguito nulla.',
 
   // Guida: esempi di cosa accetta il campo Esegui.
   helpRunExamplesTitle: 'Avvio (Esegui…): cosa accetta',
   helpRunExamplesIntro:
-    'Il campo accetta un percorso, un programma, uno strumento di Windows o un indirizzo web. Un programma viene confermato prima di partire.',
+    'Il campo accetta un percorso, un programma, uno strumento di Windows o un indirizzo web. Un programma parte con Invio.',
   helpRunExampleFolders: 'Una cartella: il pannello attivo si sposta lì.',
   helpRunExampleFiles: 'Un file: si apre con il programma predefinito.',
   helpRunExamplePrograms:
