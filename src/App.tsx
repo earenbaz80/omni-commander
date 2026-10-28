@@ -373,6 +373,9 @@ export default function App() {
   // Keyboard navigation engine
   useKeyboardShortcuts({
     activePanel,
+    // While a panel shows the folder-size tree, its file shortcuts must not
+    // reach the list hidden behind it.
+    activePanelShowsDiskUsage: activePanelState.panelView === 'diskUsage',
     currentActiveTab,
     activeItems,
     activeFocusedItem,
@@ -1316,6 +1319,9 @@ export default function App() {
         <FunctionKeyBar
           theme={currentTheme}
           lang={lang}
+          // Same condition as the keyboard: with the size tree on screen the
+          // file keys have nothing visible to act on.
+          fileActionsDisabled={activePanelState.panelView === 'diskUsage'}
           onOpenModal={(m) => {
             if (m === 'viewer' || m === 'editor' || m === 'checksum' || m === 'properties') {
               if (activeFocusedItem) setSelectedFileForModal(activeFocusedItem);

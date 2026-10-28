@@ -5,13 +5,17 @@ import { soundManager } from '../services/soundEffects';
 import { TreeNavigationPane } from './TreeNavigationPane';
 import { DriveBar } from './DriveBar';
 import { PanelTabs } from './PanelTabs';
+import { DiskUsagePane } from './DiskUsagePane';
 import { PathBar } from './PathBar';
 import { QuickViewPane } from './QuickViewPane';
 import { FileList } from './FileList';
 
 interface PanelViewProps {
   side: 'left' | 'right';
+  /** Share of the split along the axis the panels are arranged on. */
   widthPercent: number;
+  /** Panels stacked (top/bottom) instead of side by side. */
+  stacked?: boolean;
   currentTheme: ThemeConfig;
   themeForFileList: ThemeConfig;
   lang: LanguageCode;
@@ -66,6 +70,7 @@ interface PanelViewProps {
 export const PanelView: React.FC<PanelViewProps> = ({
   side,
   widthPercent,
+  stacked = false,
   currentTheme,
   themeForFileList,
   lang,
@@ -114,7 +119,14 @@ export const PanelView: React.FC<PanelViewProps> = ({
         isActive ? 'ring-2' : 'opacity-90'
       }`}
       style={{
-        width: typeof window !== 'undefined' && window.innerWidth >= 768 ? `${widthPercent}%` : '100%',
+        // Stacked panes are sized by flex share rather than by percentage
+        // height: two 50% children plus the divider and the container's padding
+        // add up to more than the container, and the bottom pane would be
+        // clipped by exactly that overflow. Sharing the leftover space applies
+        // the same ratio without ever exceeding the box.
+        ...(stacked
+          ? { flexGrow: widthPercent, flexShrink: 1, flexBasis: 0, width: '100%' }
+          : { width: typeof window !== 'undefined' && window.innerWidth >= 768 ? `${widthPercent}%` : '100%' }),
         borderColor: isActive ? currentTheme.borderFocus : currentTheme.borderPanel,
         outlineColor: currentTheme.borderFocus,
       }}
@@ -155,94 +167,107 @@ export const PanelView: React.FC<PanelViewProps> = ({
           isActive={isActive}
         />
 
-        <PanelTabs
-          theme={currentTheme}
-          tabs={panel.tabs}
-          activeTabId={panel.activeTabId}
-          onSelectTab={onSelectTab}
-          onNewTab={onNewTab}
-          onCloseTab={onCloseTab}
-          onToggleLockTab={onToggleLockTab}
-          onDuplicateTab={onDuplicateTab}
-          isActive={isActive}
-        />
-
-        <PathBar
-          lang={lang}
-          theme={currentTheme}
-          currentPath={tab.currentPath}
-          driveLetter={drive.letter}
-          onNavigate={onNavigate}
-          onGoParent={onGoParent}
-          onGoBack={onGoBack}
-          onGoForward={onGoForward}
-          canGoBack={tab.historyIndex > 0}
-          canGoForward={tab.historyIndex < tab.history.length - 1}
-          onRefresh={onRefresh}
-          filterText={tab.filterText}
-          onFilterChange={(txt) =>
-            setPanel((p) => ({
-              ...p,
-              tabs: p.tabs.map((t) => (t.id === p.activeTabId ? { ...t, filterText: txt } : t)),
-            }))
-          }
-          viewMode={tab.viewMode}
-          onChangeViewMode={(mode) =>
-            setPanel((p) => ({
-              ...p,
-              tabs: p.tabs.map((t) => (t.id === p.activeTabId ? { ...t, viewMode: mode } : t)),
-            }))
-          }
-          isActive={isActive}
-          isTreeVisible={isTreeVisible}
-          onToggleTree={onToggleTree}
-        />
-
-        {panel.isQuickView ? (
-          <QuickViewPane
-            lang={lang}
+        {panel.panelView === 'diskUsage' ? (
+          <DiskUsagePane
             theme={currentTheme}
-            targetItem={otherItems[otherTab.focusedIndex] || null}
-            onClose={() => setPanel((p) => ({ ...p, isQuickView: false }))}
+            lang={lang}
+            followDriveId={otherTab.driveId}
+            followPath={otherTab.currentPath}
+            onClose={() => setPanel((p) => ({ ...p, panelView: 'files' }))}
           />
         ) : (
-          <FileList
-            theme={themeForFileList}
-            lang={lang}
-            items={items}
-            currentPath={tab.currentPath}
-            currentDriveId={tab.driveId}
-            isRoot={!tab.currentPath.includes('\\')}
-            focusedIndex={tab.focusedIndex}
-            selectedIds={tab.selectedIds}
-            viewMode={tab.viewMode}
-            sortField={tab.sortField}
-            sortDirection={tab.sortDirection}
-            onSort={onSort}
-            onSelectIndex={onSelectIndex}
-            onToggleSelect={onToggleSelect}
-            onOpenItem={onOpenItem}
-            onGoParent={onGoParent}
-            onContextMenu={onContextMenu}
-            onItemHover={onItemHover}
-            isActive={isActive}
-            onActivate={() => setActivePanel(side)}
-            panelSide={side}
-            onDropItems={onDropItems}
-            onDropNativeFiles={onDropNativeFiles}
-            blinkingCursorEnabled={settings.blinkingCursorEnabled}
-            blinkingCursorColor={settings.cursorBlinkColor}
-            quickSearchQuery={isActive ? quickSearchQuery : ''}
-            isFilterBarOpen={isActive && isFilterOpen}
-            filterText={tab.filterText}
-            onFilterChange={(txt) =>
-              setPanel((p) => ({
-                ...p,
-                tabs: p.tabs.map((t) => (t.id === p.activeTabId ? { ...t, filterText: txt } : t)),
-              }))
-            }
-            onCloseFilterBar={() => setIsFilterOpen(false)}
-          />
+          <>
+            <PanelTabs
+              theme={currentTheme}
+              lang={lang}
+              tabs={panel.tabs}
+              activeTabId={panel.activeTabId}
+              onSelectTab={onSelectTab}
+              onNewTab={onNewTab}
+              onCloseTab={onCloseTab}
+              onToggleLockTab={onToggleLockTab}
+              onDuplicateTab={onDuplicateTab}
+              isActive={isActive}
+            />
+
+            <PathBar
+              lang={lang}
+              theme={currentTheme}
+              currentPath={tab.currentPath}
+              driveLetter={drive.letter}
+              onNavigate={onNavigate}
+              onGoParent={onGoParent}
+              onGoBack={onGoBack}
+              onGoForward={onGoForward}
+              canGoBack={tab.historyIndex > 0}
+              canGoForward={tab.historyIndex < tab.history.length - 1}
+              onRefresh={onRefresh}
+              filterText={tab.filterText}
+              onFilterChange={(txt) =>
+                setPanel((p) => ({
+                  ...p,
+                  tabs: p.tabs.map((t) => (t.id === p.activeTabId ? { ...t, filterText: txt } : t)),
+                }))
+              }
+              viewMode={tab.viewMode}
+              onChangeViewMode={(mode) =>
+                setPanel((p) => ({
+                  ...p,
+                  tabs: p.tabs.map((t) => (t.id === p.activeTabId ? { ...t, viewMode: mode } : t)),
+                }))
+              }
+              isActive={isActive}
+              isTreeVisible={isTreeVisible}
+              onToggleTree={onToggleTree}
+            />
+
+            {panel.isQuickView ? (
+              <QuickViewPane
+                lang={lang}
+                theme={currentTheme}
+                targetItem={otherItems[otherTab.focusedIndex] || null}
+                onClose={() => setPanel((p) => ({ ...p, isQuickView: false }))}
+              />
+            ) : (
+              <FileList
+                theme={themeForFileList}
+                lang={lang}
+                items={items}
+                currentPath={tab.currentPath}
+                currentDriveId={tab.driveId}
+                isRoot={!tab.currentPath.includes('\\')}
+                focusedIndex={tab.focusedIndex}
+                selectedIds={tab.selectedIds}
+                viewMode={tab.viewMode}
+                sortField={tab.sortField}
+                sortDirection={tab.sortDirection}
+                onSort={onSort}
+                onSelectIndex={onSelectIndex}
+                onToggleSelect={onToggleSelect}
+                onOpenItem={onOpenItem}
+                onGoParent={onGoParent}
+                onContextMenu={onContextMenu}
+                onItemHover={onItemHover}
+                isActive={isActive}
+                onActivate={() => setActivePanel(side)}
+                panelSide={side}
+                onDropItems={onDropItems}
+                onDropNativeFiles={onDropNativeFiles}
+                blinkingCursorEnabled={settings.blinkingCursorEnabled}
+                blinkingCursorColor={settings.cursorBlinkColor}
+                quickSearchQuery={isActive ? quickSearchQuery : ''}
+                isFilterBarOpen={isActive && isFilterOpen}
+                filterText={tab.filterText}
+                onFilterChange={(txt) =>
+                  setPanel((p) => ({
+                    ...p,
+                    tabs: p.tabs.map((t) => (t.id === p.activeTabId ? { ...t, filterText: txt } : t)),
+                  }))
+                }
+                onCloseFilterBar={() => setIsFilterOpen(false)}
+              />
+            )}
+          </>
         )}
       </div>
     </div>
