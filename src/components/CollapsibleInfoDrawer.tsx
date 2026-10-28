@@ -15,6 +15,7 @@ import {
 import { ThemeConfig } from '../services/themeManager';
 import { FileItem, Drive, LanguageCode } from '../types';
 import { getTranslations } from '../i18n/translations';
+import { useSystemStats } from '../hooks/useSystemStats';
 
 interface CollapsibleInfoDrawerProps {
   theme: ThemeConfig;
@@ -71,6 +72,19 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
 
   const usedBytes = activeDrive.totalBytes - activeDrive.freeBytes;
   const usedPercent = Math.min(100, Math.round((usedBytes / activeDrive.totalBytes) * 100));
+
+  // Real load of this machine, not the fixed figures that used to sit here. It
+  // is only polled while the drawer is open, and a dash means the server has
+  // not answered yet rather than "0% busy".
+  const systemStats = useSystemStats(isExpanded);
+  const cpuText =
+    systemStats && systemStats.cpuPercent != null
+      ? `${Math.round(systemStats.cpuPercent)}% (${systemStats.cores} ${t.coresLabel})`
+      : '—';
+  const ramText =
+    systemStats && systemStats.ramTotalBytes > 0
+      ? `${formatSize(systemStats.ramUsedBytes)} / ${formatSize(systemStats.ramTotalBytes)}`
+      : '—';
 
   return (
     <div
@@ -188,15 +202,15 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
             <div className="space-y-[var(--space-1)] text-[10px]">
               <div className="flex justify-between">
                 <span className="opacity-70">{t.cpuLoad}</span>
-                <span className="font-bold text-emerald-400">14% (16 Cores)</span>
+                <span className="font-bold text-emerald-400 tabular-nums">{cpuText}</span>
               </div>
               <div className="flex justify-between">
                 <span className="opacity-70">{t.ramUsed}</span>
-                <span className="font-bold text-cyan-400">16.4 GB / 64 GB</span>
+                <span className="font-bold text-cyan-400 tabular-nums">{ramText}</span>
               </div>
               <div className="flex justify-between">
                 <span className="opacity-70">{t.vfsEngine}</span>
-                <span className="text-white">Active (Virtual + Host)</span>
+                <span className="text-white">{t.vfsEngineActive}</span>
               </div>
             </div>
           </div>
@@ -258,11 +272,11 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
             <div className="space-y-[var(--space-1)] text-[10px]">
               <div className="flex justify-between">
                 <span className="opacity-70">{t.sharedNetworks}</span>
-                <span className="text-emerald-400 font-bold">SMB Online</span>
+                <span className="text-emerald-400 font-bold">{t.smbOnline}</span>
               </div>
               <div className="flex justify-between">
                 <span className="opacity-70">{t.appEncryption}</span>
-                <span className="text-sky-300 font-bold">AES-256 Active</span>
+                <span className="text-sky-300 font-bold">{t.aesActive}</span>
               </div>
               <div className="flex justify-between">
                 <span className="opacity-70">{t.terminalMode}</span>

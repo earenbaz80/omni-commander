@@ -31,6 +31,19 @@ export interface FileItem {
 
 export type DriveType = 'local' | 'usb' | 'network' | 'ram' | 'host_fs';
 
+/**
+ * Live load of the machine the local server runs on, for the info drawer.
+ * Every field is measured: there is no sensible placeholder for a CPU share.
+ */
+export interface SystemStats {
+  /** Logical processors the percentage is averaged over. */
+  cores: number;
+  /** Busy share of all cores, 0-100, or null before a usable sample exists. */
+  cpuPercent: number | null;
+  ramUsedBytes: number;
+  ramTotalBytes: number;
+}
+
 export interface Drive {
   id: string;
   letter: string; // "C:", "D:", "GD:", "Z:"
