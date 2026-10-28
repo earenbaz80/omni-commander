@@ -11,7 +11,9 @@
     ],
     "asarUnpack": [
       "server.cjs",
-      "dist/**/*"
+      "dist/**/*",
+      "node_modules/libarchive.js/**",
+      "node_modules/node-unrar-js/**"
     ],
     "directories": {
       "output": "release"
@@ -85,6 +87,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
     "@types/react": "^19.3.0",

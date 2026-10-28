@@ -72,8 +72,14 @@ export default defineConfig(({ mode }) => {
       exclude: ['libarchive.js'],
     },
     server: {
+      // HMR and file watching are separate switches on purpose. Turning HMR off
+      // used to disable the watcher too, and without a watcher the dev server
+      // never invalidates a transformed module: a browser reload kept getting
+      // the code from before the server started, so a fixed component looked
+      // broken until the process was restarted. Only the live-reload channel is
+      // optional; invalidation is not.
       hmr: process.env.DISABLE_HMR !== 'true',
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      watch: {},
       proxy: {
         // Follows the same port the local server binds. Override with OMNI_API_PORT
         // when the server had to walk past a busy 3001. The numeric coercion keeps
