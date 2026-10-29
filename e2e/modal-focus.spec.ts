@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -18,9 +18,11 @@ import path from 'node:path';
  * says which element took focus rather than "focus was wrong".
  *
  * Two families of window are covered: the ones a key opens on its own, and the
- * ones that only make sense with a file focused first (copy, move, delete).
- * View and edit (F3, F4) are not here because a viewer that reads a file and an
- * editor that writes one are their own subjects.
+ * ones that only make sense with a file focused first (view, edit, copy, move,
+ * delete). The viewer and the editor get an extra check because they are the
+ * two that read the file's bytes: a real drive's listing carries no content, so
+ * they can be perfectly focused over an empty frame, and that is what the
+ * scratch folder's text file is for.
  */
 
 /** The panels address storage by drive letter, so this spec needs one to point. */
@@ -93,16 +95,49 @@ async function focusFile(page: Page) {
   await row.click();
 }
 
+interface KeyWindow {
+  label: string;
+  key: string;
+  /** The subject is the focused entry: without one, the window has nothing to act on. */
+  file?: boolean;
+  /** What only this window can show, checked once focus has already landed. */
+  opened?: (dialog: Locator) => Promise<void>;
+}
+
+/** What `nota.txt` holds, written by the fixture above. */
+const NOTE_TEXT = 'una nota';
+
 /**
  * Windows that a person opens with a key. `file` marks the ones whose subject is
- * the focused entry: without something under the cursor, copy, move and delete
- * have nothing to act on.
+ * the focused entry: without something under the cursor, view, edit, copy, move
+ * and delete have nothing to act on.
  */
-const KEY_WINDOWS: Array<{ label: string; key: string; file?: boolean }> = [
+const KEY_WINDOWS: KeyWindow[] = [
   { label: 'help', key: 'F1' },
   { label: 'user menu', key: 'F2' },
   { label: 'new folder', key: 'F7' },
   { label: 'search and grep', key: 'Alt+F7' },
+  {
+    label: 'viewer',
+    key: 'F3',
+    file: true,
+    // The text on screen has to be the one on disk. The viewer used to paint
+    // `file.content`, a field the listing of a real drive never fills, so every
+    // other check here would have passed over an empty frame.
+    opened: async (dialog) => {
+      await expect(dialog.getByText(NOTE_TEXT)).toBeVisible();
+    },
+  },
+  {
+    label: 'editor',
+    key: 'F4',
+    file: true,
+    // Same reason, for the buffer: saving one that never loaded is what
+    // truncated files, and the buffer is the window's whole purpose.
+    opened: async (dialog) => {
+      await expect(dialog.getByRole('textbox')).toHaveValue(`${NOTE_TEXT}\n`);
+    },
+  },
   { label: 'copy', key: 'F5', file: true },
   { label: 'move', key: 'F6', file: true },
   { label: 'delete', key: 'F8', file: true },
@@ -139,6 +174,8 @@ for (const win of KEY_WINDOWS) {
     // A focused container would technically be "inside" while telling a screen
     // reader nothing, so the landing spot has to be a real control.
     expect(['button', 'input', 'select', 'textarea', 'a']).toContain(landed.tag);
+
+    if (win.opened) await win.opened(dialog);
 
     // Tab is trapped by the shell's own panel, which still wraps the body.
     await page.keyboard.press('Tab');
