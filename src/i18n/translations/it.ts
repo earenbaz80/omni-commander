@@ -635,6 +635,7 @@ export const it = {
   cmdMem: 'Memoria (KB)',
   cmdNoAdapters: 'Il server locale non ha segnalato alcun adattatore IPv4.',
   cmdNoProcesses: 'Non è stato possibile leggere l’elenco dei processi.',
+  cmdFailed: 'Il comando non è riuscito: {error}',
   cmdTreeEmpty: '(nessuna sottocartella)',
   cmdTreeTruncated: '... elenco troncato a 300 cartelle o 4 livelli',
   cmdCdUp: 'Passato alla directory superiore',

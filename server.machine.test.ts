@@ -65,9 +65,10 @@ describe('GET /api/processes', () => {
     }
     // The old table was this exact fixed set; a real list is never this.
     expect(processes.length).not.toBe(4);
-    // `tasklist` shells out to Windows, and under coverage instrumentation that
-    // takes longer than the default budget.
-  }, 30000);
+    // `tasklist` shells out to Windows and has been measured past 30 s on a busy
+    // machine, so this waits past the server's own 60 s budget instead of
+    // failing on the harness clock while the read is still running.
+  }, 120000);
 });
 
 describe('GET /api/tree', () => {

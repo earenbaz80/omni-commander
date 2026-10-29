@@ -636,6 +636,7 @@ export const ja = {
   cmdMem: 'メモリ (KB)',
   cmdNoAdapters: 'ローカルサーバーは IPv4 アダプターを報告しませんでした。',
   cmdNoProcesses: 'プロセス一覧を読み取れませんでした。',
+  cmdFailed: 'コマンドは失敗しました: {error}',
   cmdTreeEmpty: '(サブフォルダーなし)',
   cmdTreeTruncated: '... 300 フォルダーまたは 4 階層で打ち切り',
   cmdCdUp: '親ディレクトリに移動しました',

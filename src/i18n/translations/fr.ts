@@ -641,6 +641,7 @@ export const fr = {
   cmdMem: 'Mémoire (Ko)',
   cmdNoAdapters: 'Le serveur local n’a signalé aucun adaptateur IPv4.',
   cmdNoProcesses: 'La liste des processus n’a pas pu être lue.',
+  cmdFailed: 'La commande a échoué : {error}',
   cmdTreeEmpty: '(aucun sous-dossier)',
   cmdTreeTruncated: '... liste coupée à 300 dossiers ou 4 niveaux',
   cmdCdUp: 'Répertoire parent sélectionné',
