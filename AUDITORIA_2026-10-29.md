@@ -9,7 +9,7 @@
 
 ## 0. Resumen
 
-La app está **sana en lo que se puede medir automáticamente**: tipos, lint, 565 pruebas, build y los 17 E2E en verde, y sin vulnerabilidades en dependencias de producción. Sobre la anterior, se cerraron los tres bloqueantes y la deuda funcional que quedaba.
+La app está **sana en lo que se puede medir automáticamente**: tipos, lint, 565 pruebas, build y los 19 E2E en verde, y sin vulnerabilidades en dependencias de producción. Sobre la anterior, se cerraron los tres bloqueantes y la deuda funcional que quedaba.
 
 El trabajo de esta jornada se centró en otra clase de defecto que la auditoría anterior no cubría: **datos inventados**. La app presentaba como mediciones un handshake SSH que nunca ocurrió, un `ipconfig` con una IP fija, un `tasklist` con procesos que no existían, un `tree` de cuatro carpetas dibujadas, un volcado hexadecimal fabricado a partir del nombre del archivo, un reproductor con 180 s fijos, un progreso de sincronización con pausas de 60 ms y una versión `v5.50.2026` en un paquete `1.0.4`. Todo eso o se convirtió en una lectura real o desapareció; ninguna de esas pantallas puede volver a afirmar algo que no midió.
 
@@ -26,7 +26,7 @@ Lo que sigue abierto es deuda de higiene y de CI, no de comportamiento: `release
 | Pruebas | `npx vitest run` | ✅ 80 ficheros / **565 pruebas** (115 s), exit 0 |
 | Cobertura | `npx vitest run --coverage` | ⚠️ medida: **54,01 %** sentencias, 47,27 % ramas, 43,69 % funciones, 56,80 % líneas. Sin umbral |
 | Build | `npx vite build` | ✅ 12,6 s; `dist` **1,7 MB**; chunk principal **516 kB** (`ModalShell` 440 kB aparte) |
-| E2E | `npx playwright test` | ✅ **17 pruebas** (8,4 min): humo, a11y, a11y de modales, los cuatro casos de archivo, los tres de la barra de comandos, los cuatro de la vista rápida y los dos de sincronización |
+| E2E | `npx playwright test` | ✅ **19 pruebas** (4,5 min; 8,4 min cuando `tasklist` tarda los cuatro minutos que mide la fila de presupuesto): humo, a11y, a11y de modales, los cuatro casos de archivo, los tres de la barra de comandos, los cuatro de la vista rápida, los dos de sincronización y los dos de copia/movimiento con colisión |
 | Deps de producción | `npm audit --omit=dev` | ✅ 0 vulnerabilidades |
 | Deps totales | `npm audit` | ⚠️ 4 bajas (`deepmerge` vía `workbox-build`/`vite-plugin-pwa`) |
 | TypeScript estricto | `npx tsc --noEmit -p tsconfig.strict.json` | ❌ **12 errores**; el CI no lo ejecuta |
@@ -102,7 +102,7 @@ Los endpoints nuevos aceptan solo lectura, están detrás del mismo servidor de 
 | Cobertura de sentencias | 54,01 % |
 | Cobertura de líneas | 56,80 % |
 | Specs del servidor | 16 ficheros `server.*.test.ts` |
-| E2E | 17 pruebas, 7 specs |
+| E2E | 19 pruebas, 8 specs |
 
 Sin umbral y sin script `coverage` en `package.json`, aunque `@vitest/coverage-v8` está instalado: la cobertura existe como medición manual, no como compuerta.
 
@@ -113,6 +113,10 @@ La barra de comandos tiene además seis casos de mutación: [`scripts/commandOut
 La sincronización de carpetas tiene su propio E2E desde esta unidad: [`e2e/sync.spec.ts`](e2e/sync.spec.ts) crea dos carpetas temporales con diferencias conocidas —uno solo a la izquierda, uno solo a la derecha, uno idéntico por tamaño y fecha y uno que la prueba decide omitir—, apunta los dos paneles a ellas, abre el diálogo desde el menú Comandos y lo ejecuta. El primer caso lee la tabla por sus ganchos nuevos (`data-sync-name`, `data-sync-status`, `data-sync-direction` en [`SyncFoldersModal.tsx`](src/components/modals/SyncFoldersModal.tsx)) y exige el estado y la dirección que el diálogo calculó solo; el segundo comprueba **el disco**: cada archivo copiado contiene los bytes de su origen, el omitido no existe al otro lado, no apareció nada más y el idéntico conserva su `mtime` (no se reescribió «por si acaso»).
 
 Escribirlo encontró un fallo real, que era el motivo por el que una sincronización de dos direcciones no terminaba: el diálogo guardaba los `id` de catálogo de ambos paneles al abrirse, y cada copia recarga el panel destino, que **renueva los ids** de todos sus ficheros ([`fileSystem.ts:340`](src/services/fileSystem.ts#L340)). La segunda copia, con el id del snapshot, ya no resolvía y el run abortaba con «El archivo ya no está en el panel»: medido en el log como `Copy skipped: no catalogue entry for sys_real_C_0_…` tras copiar el primer archivo. Ahora cada entrada de una unidad real se copia por su ruta absoluta (`transferPaths`, la misma puerta que usa una transferencia replicada) y solo las virtuales y de archivo pasan por el id. Como mutación, volver al id del snapshot deja el caso en rojo con el diálogo todavía abierto (`Expected: 0, Received: 1`); restaurado, 2/2 en verde.
+
+La copia y el movimiento con diálogo de colisión tienen E2E desde esta unidad: [`e2e/copy-move.spec.ts`](e2e/copy-move.spec.ts) prepara dos carpetas con los **mismos** nombres y contenidos distintos, enfoca la fila del panel izquierdo, pulsa F5 o F6 como una persona, cambia la política a «Preguntar» (el defecto de la app es sobrescribir), y responde al aviso real. El primer caso exige que el aviso **nombre las dos rutas y mida los dos tamaños** —«16 B» frente a «6.0 B»— y, tras «Sobrescribir», que el destino contenga los bytes del origen, que el origen siga ahí y que no haya aparecido una segunda copia; el segundo, un **movimiento** contestado con «Conservar ambos», exige que el destino quede con `mover.txt` intacto y `mover (2).txt` con los bytes que viajaron, y que el origen desaparezca.
+
+Dos mutaciones ejecutadas, una por caso: con el aviso contestando siempre `'overwrite'` (ignorando el botón), el caso de «Conservar ambos» falla con `Expected: "viaja\n", Received: null` porque el archivo renombrado nunca llega a existir; con la política forzada a `'overwrite'` en la ventana de transferencia —el aviso no llega a abrirse— el caso de la copia falla con `element(s) not found` al esperarlo. Restaurado el código, 2/2 en verde.
 
 **Carrera de teardown (resuelta en su causa):** con `--coverage`, una de cada varias corridas terminaba con exit 1 por `EnvironmentTeardownError: Closing rpc while "onUserConsoleLog" was pending` mientras todas las pruebas pasaban. El registro que se escapaba era real: el poll de unidades de `App` seguía reintentando después del desmontaje y, al fallar el último intento, registraba «Could not load real drives from API» con la ventana ya cerrada. Ahora `fetchWithRetry` acepta la señal del llamador, deja de reintentar al cancelarse y limpia el listener; `App` aborta en su cleanup y `loadRealDrivesFromApi` no registra un fallo que nadie espera. Medido con la consola activada (`VITEST_CONSOLE=1`, el modo donde el aviso sería visible): sin la señal aparece una vez; con ella, tres corridas consecutivas sin ningún aviso y exit 0.
 
@@ -136,10 +140,11 @@ Zonas con poca cobertura medidas hoy: `soundEffects.ts` (27 %), `systemStats.ts`
 | P2-12 · Cobertura | ⚠️ Parcial | Medida al 54,01 %, sin script ni umbral |
 | Nuevo · E2E de la shell | ✅ Resuelto | [`e2e/commands.spec.ts`](e2e/commands.spec.ts) recorre la barra y contrasta `ipconfig` con `os.networkInterfaces()`, `tasklist` con un listado propio y `tree` con carpetas creadas en un temporal |
 | Nuevo · E2E de la vista rápida | ✅ Resuelto | [`e2e/quickview.spec.ts`](e2e/quickview.spec.ts): cuatro casos contra los ficheros que escribe la prueba, con la mutación del volcado inventado comprobada |
-| Nuevo · Presupuesto de `tasklist` | ✅ Resuelto | La lectura en frío mide **38 s** en una máquina ociosa y pasó de **2 min** con la suite al lado; 60 s devolvía «Command failed» y dejaba el E2E en rojo. Servidor a **180 s**, cliente a **210 s**. El spec seguía esperando 120 s —menos que la propia app— y volvió a fallar con la suite entera encima; alineado a 210 s, el caso mide **4,7 min** de prueba completa y la suite da 17/17 |
+| Nuevo · Presupuesto de `tasklist` | ✅ Resuelto | La lectura en frío mide **38 s** en una máquina ociosa y pasó de **2 min** con la suite al lado; 60 s devolvía «Command failed» y dejaba el E2E en rojo. Servidor a **180 s**, cliente a **210 s**. El spec seguía esperando 120 s —menos que la propia app— y volvió a fallar con la suite entera encima; alineado a 210 s, el caso mide **4,7 min** de prueba completa y la suite da 19/19 |
+| Nuevo · E2E de copia/movimiento con colisión | ✅ Resuelto | [`e2e/copy-move.spec.ts`](e2e/copy-move.spec.ts): sobrescribir en una copia y «Conservar ambos» en un movimiento, ambos comprobados contra el disco y con dos mutaciones ejecutadas |
 | Nuevo · E2E de sincronización | ✅ Resuelto | [`e2e/sync.spec.ts`](e2e/sync.spec.ts): dos casos contra los ficheros que escribe la prueba, con la mutación del id obsoleto comprobada; encontró y cerró el fallo que cortaba la sincronización de dos direcciones en el primer archivo |
 
-**Prioridad sugerida:** (1) sacar las rutas de máquina a un módulo y seguir con la división de `server.cjs`; (2) limpiar `release/`, los `.txt` y `@zip.js/zip.js`; (3) umbral de cobertura y `typecheck:strict` en el CI. El hueco de E2E que quedaba —la sincronización— está cerrado; lo que no tiene E2E es la copia/movimiento con diálogo de colisión y la cola de tareas, que hoy solo se cubren con unidades.
+**Prioridad sugerida:** (1) sacar las rutas de máquina a un módulo y seguir con la división de `server.cjs`; (2) limpiar `release/`, los `.txt` y `@zip.js/zip.js`; (3) umbral de cobertura y `typecheck:strict` en el CI. Los huecos de E2E que quedaban —la sincronización y la copia/movimiento con diálogo de colisión— están cerrados; lo que sigue sin E2E es la cola de tareas en segundo plano, que hoy solo se cubre con unidades.
 
 ---
 
@@ -151,7 +156,7 @@ npx eslint src --max-warnings 0                   → exit 0 (0 errores, 0 warni
 npx vitest run                                    → 80 ficheros, 565 pruebas, 115 s, exit 0
 npx vitest run --coverage                         → 54,01 % sentencias (sin umbral), exit 0
 npx vite build                                    → exit 0, dist 1,7 MB
-npx playwright test                               → 17 pruebas, 8,4 min, exit 0
+npx playwright test                               → 19 pruebas, 4,5 min, exit 0
 npm audit --omit=dev                              → 0 vulnerabilidades
 npm audit                                         → 4 bajas
 npx tsc --noEmit -p tsconfig.strict.json          → 12 errores
