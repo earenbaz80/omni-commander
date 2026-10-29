@@ -404,10 +404,19 @@ class FileSystemEngine {
    * USB device plugged in after startup shows up without a restart. Subscribers
    * and storage are only touched when the list actually changed.
    * Resolves `true` when the server answered, `false` when it did not.
+   *
+   * `signal` lets the caller abandon the poll when it unmounts. The read is then
+   * cancelled instead of retrying, and the failure is not logged: a diagnostic
+   * for a window that no longer exists is what used to escape after unmount and
+   * race the test worker's teardown.
    */
-  public async loadRealDrivesFromApi(): Promise<boolean> {
+  public async loadRealDrivesFromApi(options: { signal?: AbortSignal } = {}): Promise<boolean> {
     try {
-      const response = await fetchWithRetry(`${API_BASE}/api/drives`, { timeoutMs: 10000, retries: 2 });
+      const response = await fetchWithRetry(`${API_BASE}/api/drives`, {
+        timeoutMs: 10000,
+        retries: 2,
+        signal: options.signal,
+      });
       if (!response.ok) return false;
       const data = await response.json();
       if (!Array.isArray(data)) return false;
@@ -420,7 +429,7 @@ class FileSystemEngine {
       }
       return true;
     } catch (e) {
-      log.warn('Could not load real drives from API', e);
+      if (!options.signal?.aborted) log.warn('Could not load real drives from API', e);
       return false;
     }
   }

@@ -22,7 +22,10 @@ export async function fetchWithRetry(
   url: string,
   options?: RequestInit & { timeoutMs?: number; retries?: number },
 ): Promise<Response> {
-  const { timeoutMs = 10000, retries = 2, ...fetchOptions } = options || {};
+  // `signal` is the caller's, not the timeout's: a component that unmounts must
+  // be able to abandon a retrying poll, and that abandonment must be final
+  // rather than a third attempt fired at a signal nobody is listening to.
+  const { timeoutMs = 10000, retries = 2, signal, ...fetchOptions } = options || {};
   let lastError: Error | null = null;
 
   const headers = {
@@ -31,7 +34,12 @@ export async function fetchWithRetry(
   };
 
   for (let attempt = 0; attempt <= retries; attempt++) {
+    // The caller may have cancelled while the previous attempt was backing off.
+    if (signal?.aborted) throw lastError || abortError();
+
     const controller = new AbortController();
+    const onAbort = () => controller.abort();
+    signal?.addEventListener('abort', onAbort);
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
@@ -40,7 +48,6 @@ export async function fetchWithRetry(
         headers,
         signal: controller.signal,
       });
-      clearTimeout(timeoutId);
       if (response.ok) return response;
       // Retry on server errors (5xx)
       if (response.status >= 500 && attempt < retries) {
@@ -50,14 +57,26 @@ export async function fetchWithRetry(
       }
       return response;
     } catch (e: any) {
-      clearTimeout(timeoutId);
       lastError = e;
+      // Cancelled by the caller: report it now instead of retrying work that
+      // was abandoned, and let the caller decide that it is not a failure.
+      if (signal?.aborted) throw e;
       if (attempt < retries) {
         await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
         continue;
       }
+    } finally {
+      clearTimeout(timeoutId);
+      signal?.removeEventListener('abort', onAbort);
     }
   }
 
   throw lastError || new Error('Fetch failed');
+}
+
+/** The error a cancelled read rejects with, so callers can tell it apart. */
+function abortError(): Error {
+  const error = new Error('The request was cancelled');
+  error.name = 'AbortError';
+  return error;
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { fsEngine, lostJobRetryPolicy } from './fileSystem';
+import { log } from '../utils/logger';
 import { Drive, FileProgressEntry, PendingConflict, TransferPlan } from '../types';
 
 /**
@@ -592,5 +593,36 @@ describe('FileSystemEngine drive hot-plug refresh', () => {
 
     expect(ok).toBe(false);
     expect(fsEngine.getDrives().map((d) => d.letter)).toEqual(['T:']);
+  });
+
+  it('abandons the poll and stays quiet when its caller unmounts', async () => {
+    // A poll in flight when the window closes must not keep retrying, and must
+    // not warn about a failure nobody is listening for: that late log was what
+    // escaped after unmount and raced the test worker's teardown.
+    const warn = vi.spyOn(log, 'warn').mockImplementation(() => {});
+    const controller = new AbortController();
+    let attempts = 0;
+    try {
+      vi.stubGlobal('fetch', (_input: unknown, init?: RequestInit) => {
+        attempts += 1;
+        return new Promise((_resolve, reject) => {
+          const signal = init?.signal;
+          if (!signal) return reject(new TypeError('the poll was not cancellable'));
+          if (signal.aborted) return reject(new DOMException('Aborted', 'AbortError'));
+          signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+        });
+      });
+
+      const pending = fsEngine.loadRealDrivesFromApi({ signal: controller.signal });
+      // Let the first attempt reach fetch, then abandon it the way an unmount does.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      controller.abort();
+
+      await expect(pending).resolves.toBe(false);
+      expect(attempts).toBe(1);
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

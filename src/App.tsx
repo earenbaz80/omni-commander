@@ -214,14 +214,18 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // The poll is cancelled for real on unmount, not just ignored: otherwise a
+    // retrying read outlives the window and logs a failure for it.
+    const controller = new AbortController();
     const poll = async () => {
-      const answered = await fsEngine.loadRealDrivesFromApi();
+      const answered = await fsEngine.loadRealDrivesFromApi({ signal: controller.signal });
       if (cancelled) return;
       timer = setTimeout(poll, answered ? DRIVE_POLL_MS : DRIVE_POLL_RETRY_MS);
     };
     void poll();
     return () => {
       cancelled = true;
+      controller.abort();
       if (timer) clearTimeout(timer);
     };
   }, []);
