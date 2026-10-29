@@ -640,8 +640,13 @@ app.get('/api/list', async (req, res) => {
 // ---------------------------------------------------------------------------
 // `tasklist` answers in about a second on an idle desktop and has been measured
 // past 25 s on a loaded one, so the budget is wide: a slow read is not a failed
-// read. The client waits longer than this rather than giving up first.
-const PROCESS_LIST_TIMEOUT_MS = 60000;
+// read. Sixty seconds was measured too tight: on this machine, with the E2E
+// suite running beside it, the same call went past a minute twice and the shell
+// reported "Command failed" while the process list was still being read. The
+// first read after a quiet period is the slow one -- measured at 38 s on an
+// otherwise idle box and past two minutes under the suite's load -- so the
+// budget has to cover that cold read, not the warm ones around it.
+const PROCESS_LIST_TIMEOUT_MS = 180000;
 const PROCESS_LIST_LIMIT = 500;
 
 /** One `tasklist /fo csv` row: quoted fields, `""` escapes, commas inside quotes. */
