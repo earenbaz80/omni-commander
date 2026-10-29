@@ -4,7 +4,7 @@ import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
   // Vite does not populate process.env from .env on its own, so a PORT set there
   // would be ignored here and the dev proxy would keep pointing at 3001 while the
   // API server listens somewhere else. Load the same file that `npm run server`
@@ -34,6 +34,48 @@ export default defineConfig(({ mode }) => {
   // Inside Electron the app is already installed locally, so the PWA service
   // worker adds nothing and can serve stale cached assets. Skip it there.
   const isElectronBuild = mode === 'electron';
+
+  // The product works with no connection, so the document says so to the
+  // browser: nothing but its own files and the local API may load. This is
+  // injected here rather than written in index.html because the dev server
+  // needs two exceptions that the shipped build must not carry -- Vite hands
+  // React's refresh preamble over as an inline script, and HMR talks over a
+  // websocket -- so the policy is built per mode and injected into <head>
+  // before any resource tag, which is where a meta policy still applies.
+  const isDevServer = command === 'serve';
+  const contentSecurityPolicy = [
+    "default-src 'self'",
+    isDevServer ? "script-src 'self' 'unsafe-inline'" : "script-src 'self'",
+    // Every theme is applied as inline style attributes, and in development
+    // Vite delivers the CSS in <style> tags: narrowing this would mean
+    // repainting the whole interface through classes first.
+    "style-src 'self' 'unsafe-inline'",
+    // Previews come from blob: object URLs, and the SVG viewer builds a data: URL.
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    // The archive bridge and libarchive's wasm worker load from the bundle.
+    "worker-src 'self' blob:",
+    // The only server this page may reach is the local API, on whichever port it
+    // managed to bind; the dev server additionally needs its own websocket.
+    `connect-src 'self' http://127.0.0.1:* http://localhost:*${isDevServer ? ' ws://localhost:* ws://127.0.0.1:*' : ''}`,
+    "object-src 'none'",
+    "frame-src 'none'",
+    "form-action 'none'",
+    "base-uri 'self'",
+  ].join('; ');
+
+  const contentSecurityPolicyMeta = {
+    name: 'omni-content-security-policy',
+    transformIndexHtml: {
+      order: 'post' as const,
+      handler: (html: string) =>
+        html.replace(
+          /<head(\s[^>]*)?>/i,
+          (head) => `${head}\n    <meta http-equiv="Content-Security-Policy" content="${contentSecurityPolicy}" />`,
+        ),
+    },
+  };
+
   return {
     // The packaged Electron renderer is loaded via file://, where absolute
     // "/assets/..." URLs resolve to the drive root and never load (blank window).
@@ -42,6 +84,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       tailwindcss(),
+      contentSecurityPolicyMeta,
       ...(isElectronBuild
         ? []
         : [
