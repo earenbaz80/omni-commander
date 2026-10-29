@@ -171,7 +171,10 @@ describe('SettingsModal app password', () => {
         salt: saved.appPasswordSalt!,
       }),
     ).resolves.toBe(false);
-  });
+    // Three PBKDF2 derivations at 100k iterations each, in real WebCrypto: on a
+    // loaded machine those alone have been measured past the 5 s default, which
+    // is a budget for the crypto, not a looser assertion.
+  }, 30000);
 
   it('refuses to save when the confirmation does not match', async () => {
     const onUpdate = renderModal(baseSettings);
