@@ -624,17 +624,23 @@ export const de = {
   appSendingTrash: 'In den Papierkorb verschieben',
   appResetConfirm: 'Dateisystem auf die Ausgangswerte zurücksetzen?',
   appResizerTitle: 'Nach links/rechts ziehen, um die Panelbreite manuell anzupassen',
-  cmdElevatedMsg:
-    '[ELEVATED ADMIN MODE ACTIVATED]\nAktueller Benutzer zu Systemadministrator hochgestuft. Uneingeschränkte Berechtigungen auf C: und Z:',
+  cmdElevatedMsg: 'Administratorrechte werden angefordert: Die App startet neu und Windows fragt nach.',
+  cmdElevationUnavailable:
+    'Diese Version kann keine Rechteerhöhung anfordern: Sie läuft mit den Rechten, mit denen sie gestartet wurde.',
   cmdAvailableCommands:
     'Verfügbare Befehle: dir, ls, cd, mkdir, md, del, rm, copy, type, cat, echo, cls, clear, ver, date, time, ping, tree, calc, sudo, runas, admin, chown, chmod, ipconfig, tasklist',
-  cmdShellBanner: 'OmniCommander Pro Shell [Version 5.50.2026]',
-  cmdElevatedMode: 'Erhöhter Admin-Modus aktiviert',
-  cmdStandardMode: 'Standard-Benutzermodus',
-  cmdIpconfigOut:
-    'Ethernet-Adapter Ethernet0:\n  IPv4: 192.168.1.150\n  Subnetzmaske: 255.255.255.0\n  Standardgateway: 192.168.1.1',
-  cmdTasklistOut:
-    'PID    Abbildname               Arbeitsspeicher\n=========================================\n0004   System                   128 KB\n0412   omnicmd.exe              14,920 KB\n1024   explorer.exe             45,120 KB\n2048   node.exe                 88,400 KB',
+  cmdShellBanner: 'OmniCommander Pro Shell',
+  cmdElevatedMode: 'Läuft mit Administratorrechten',
+  cmdStandardMode: 'Läuft mit Standardbenutzerrechten',
+  cmdIpv4: 'IPv4',
+  cmdNetmask: 'Subnetzmaske',
+  cmdPid: 'PID',
+  cmdImage: 'Abbild',
+  cmdMem: 'Speicher (KB)',
+  cmdNoAdapters: 'Der lokale Server meldete keine IPv4-Adapter.',
+  cmdNoProcesses: 'Die Prozessliste konnte nicht gelesen werden.',
+  cmdTreeEmpty: '(keine Unterordner)',
+  cmdTreeTruncated: '... Liste bei 300 Ordnern oder 4 Ebenen abgeschnitten',
   cmdCdUp: 'Zum übergeordneten Verzeichnis gewechselt',
   cmdCdTo: 'Gewechselt zu {path}',
   cmdMkdirSyntax: 'Syntax: mkdir <name>',
@@ -1126,6 +1132,6 @@ export const de = {
   cmdMatches: 'Treffer ({n}):',
   coresLabel: 'Kerne',
   vfsEngineActive: 'Aktiv (virtuell + Host)',
-  smbOnline: 'SMB online',
-  aesActive: 'AES-256 aktiv',
+  smbOnline: 'Blockiert',
+  aesActive: 'Nicht genutzt',
 } as const;

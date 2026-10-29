@@ -18,7 +18,9 @@ export const AboutModal: React.FC<AboutModalProps> = ({ theme, lang, authorName,
   const t = getTranslations(lang);
 
   const creationDate = t.aboutCreationDate;
-  const buildVersion = 'v5.50.2026 Pro (Build 2026.09.24-x64)';
+  // Injected by vite.config.ts from package.json, so the box cannot drift from
+  // the package it was built from.
+  const buildVersion = `v${__APP_VERSION__}`;
   const displayAuthor = authorName || 'Edel Arencibia Baez';
 
   const dialogRef = useModalDialog<HTMLDivElement>(t.aboutTitle);

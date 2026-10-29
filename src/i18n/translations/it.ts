@@ -621,17 +621,23 @@ export const it = {
   appSendingTrash: 'Invio al cestino',
   appResetConfirm: 'Ripristinare il file system ai valori iniziali?',
   appResizerTitle: 'Trascina a sinistra/destra per regolare la larghezza manuale dei pannelli',
-  cmdElevatedMsg:
-    '[ELEVATED ADMIN MODE ACTIVATED]\nUtente corrente elevato ad Amministratore di Sistema. Permessi illimitati su C: e Z:',
+  cmdElevatedMsg: 'Richiesta dei privilegi di amministratore: l’app si riavvia e Windows chiede conferma.',
+  cmdElevationUnavailable:
+    'Questa versione non può richiedere l’elevazione: viene eseguita con i privilegi con cui è stata avviata.',
   cmdAvailableCommands:
     'Comandi disponibili: dir, ls, cd, mkdir, md, del, rm, copy, type, cat, echo, cls, clear, ver, date, time, ping, tree, calc, sudo, runas, admin, chown, chmod, ipconfig, tasklist',
-  cmdShellBanner: 'OmniCommander Pro Shell [Versione 5.50.2026]',
-  cmdElevatedMode: 'Modalità amministratore elevato attivata',
-  cmdStandardMode: 'Modalità utente standard',
-  cmdIpconfigOut:
-    'Scheda Ethernet Ethernet0:\n  IPv4: 192.168.1.150\n  Subnet mask: 255.255.255.0\n  Gateway predefinito: 192.168.1.1',
-  cmdTasklistOut:
-    'PID    Nome immagine            Memoria\n=========================================\n0004   System                   128 KB\n0412   omnicmd.exe              14,920 KB\n1024   explorer.exe             45,120 KB\n2048   node.exe                 88,400 KB',
+  cmdShellBanner: 'OmniCommander Pro Shell',
+  cmdElevatedMode: 'Esecuzione con privilegi di amministratore',
+  cmdStandardMode: 'Esecuzione con privilegi utente standard',
+  cmdIpv4: 'IPv4',
+  cmdNetmask: 'Subnet mask',
+  cmdPid: 'PID',
+  cmdImage: 'Immagine',
+  cmdMem: 'Memoria (KB)',
+  cmdNoAdapters: 'Il server locale non ha segnalato alcun adattatore IPv4.',
+  cmdNoProcesses: 'Non è stato possibile leggere l’elenco dei processi.',
+  cmdTreeEmpty: '(nessuna sottocartella)',
+  cmdTreeTruncated: '... elenco troncato a 300 cartelle o 4 livelli',
   cmdCdUp: 'Passato alla directory superiore',
   cmdCdTo: 'Passato a {path}',
   cmdMkdirSyntax: 'Sintassi: mkdir <nome>',
@@ -1123,6 +1129,6 @@ export const it = {
   cmdMatches: 'Corrispondenze ({n}):',
   coresLabel: 'core',
   vfsEngineActive: 'Attivo (virtuale + host)',
-  smbOnline: 'SMB online',
-  aesActive: 'AES-256 attivo',
+  smbOnline: 'Bloccato',
+  aesActive: 'Non usato',
 } as const;

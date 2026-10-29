@@ -18,6 +18,7 @@ import { CleanupTargetId, fsEngine, type OpenableArchiveFormat } from './service
 import { themes, ThemeConfig } from './services/themeManager';
 import { soundManager } from './services/soundEffects';
 import { createPasswordRecord } from './services/appLock';
+import { fetchSystemStats } from './services/systemStats';
 import { getTranslations, setCurrentLang } from './i18n/translations';
 
 // Components
@@ -95,8 +96,35 @@ export default function App() {
   const [hoveredItem, setHoveredItem] = useState<FileItem | null>(null);
   const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
 
-  // Admin Mode state
-  const [isAdminMode, setIsAdminMode] = useState(false);
+  // Real elevation of this process, measured by the server. The drawer used to
+  // toggle a boolean that changed nothing about the process; now it reports what
+  // the operating system says, and the button asks for a real restart with
+  // administrator rights instead of pretending one already happened.
+  const [isElevated, setIsElevated] = useState(false);
+
+  // Read once: elevation cannot change while this process runs, except by
+  // relaunching, and a relaunch replaces the process.
+  useEffect(() => {
+    let cancelled = false;
+    void fetchSystemStats().then((stats) => {
+      if (!cancelled && stats) setIsElevated(stats.elevated === true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /** Ask Windows for an elevated restart; there is no way to gain rights in-process. */
+  const requestElevation = useCallback(async () => {
+    const bridge = (window as any).electronAPI;
+    if (typeof bridge?.relaunchAsAdmin !== 'function') return;
+    try {
+      await bridge.relaunchAsAdmin();
+    } catch {
+      // The main process records the outcome in its own log; this window is on
+      // its way out either way.
+    }
+  }, []);
 
   // Quick Search state (Type-to-jump)
   const [quickSearchQuery, setQuickSearchQuery] = useState<string>('');
@@ -302,8 +330,7 @@ export default function App() {
     activeItems,
     currentActiveTab,
     activePanel,
-    isAdminMode,
-    setIsAdminMode,
+    isAdminMode: isElevated,
     handleGoParent: activePanel === 'left' ? handleLeftGoParent : handleRightGoParent,
     handleNavigate: (side, path) => handleNavigate(side, path),
     setCommandHistory,
@@ -1369,8 +1396,8 @@ export default function App() {
           selectedCount={currentActiveTab.selectedIds.length}
           totalItemsCount={activeItems.length}
           totalSelectedBytes={activeSelectedBytes}
-          isAdminMode={isAdminMode}
-          onToggleAdminMode={() => setIsAdminMode(!isAdminMode)}
+          isAdminMode={isElevated}
+          onToggleAdminMode={requestElevation}
           onLockApp={lockApp}
           isFolderProtected={
             !!(
@@ -1394,8 +1421,8 @@ export default function App() {
           onExecuteCommand={handleExecuteCommand}
           commandHistory={commandHistory}
           onClearHistory={() => setCommandHistory([])}
-          isAdminMode={isAdminMode}
-          onToggleAdminMode={() => setIsAdminMode(!isAdminMode)}
+          isAdminMode={isElevated}
+          onToggleAdminMode={requestElevation}
           availableItems={activeItems}
         />
       )}

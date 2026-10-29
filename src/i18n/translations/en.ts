@@ -648,17 +648,23 @@ export const en = {
   appSendingTrash: 'Sending to trash',
   appResetConfirm: 'Reset the file system to its initial values?',
   appResizerTitle: 'Drag left/right to adjust the manual panel width',
-  cmdElevatedMsg:
-    '[ELEVATED ADMIN MODE ACTIVATED]\nCurrent user elevated to System Administrator. Unrestricted permissions on C: and Z:',
+  cmdElevatedMsg: 'Requesting administrator rights: the app restarts and Windows asks for consent.',
+  cmdElevationUnavailable:
+    'This build cannot request elevation: it runs with the rights it was started with. There is no in-process elevation.',
   cmdAvailableCommands:
     'Available commands: dir, ls, cd, mkdir, md, del, rm, copy, type, cat, echo, cls, clear, ver, date, time, ping, tree, calc, sudo, runas, admin, chown, chmod, ipconfig, tasklist',
-  cmdShellBanner: 'OmniCommander Pro Shell [Version 5.50.2026]',
-  cmdElevatedMode: 'Elevated Admin Mode Enabled',
-  cmdStandardMode: 'Standard User Mode',
-  cmdIpconfigOut:
-    'Ethernet adapter Ethernet0:\n  IPv4: 192.168.1.150\n  Subnet mask: 255.255.255.0\n  Default gateway: 192.168.1.1',
-  cmdTasklistOut:
-    'PID    Image Name               Memory\n=========================================\n0004   System                   128 KB\n0412   omnicmd.exe              14,920 KB\n1024   explorer.exe             45,120 KB\n2048   node.exe                 88,400 KB',
+  cmdShellBanner: 'OmniCommander Pro Shell',
+  cmdElevatedMode: 'Running with administrator rights',
+  cmdStandardMode: 'Running with standard user rights',
+  cmdIpv4: 'IPv4',
+  cmdNetmask: 'Subnet mask',
+  cmdPid: 'PID',
+  cmdImage: 'Image',
+  cmdMem: 'Memory (KB)',
+  cmdNoAdapters: 'The local server reported no IPv4 adapters.',
+  cmdNoProcesses: 'The process list could not be read.',
+  cmdTreeEmpty: '(no subfolders)',
+  cmdTreeTruncated: '... list cut at 300 folders or 4 levels',
   cmdCdUp: 'Changed to parent directory',
   cmdCdTo: 'Changed to {path}',
   cmdMkdirSyntax: 'Syntax: mkdir <name>',
@@ -1147,6 +1153,6 @@ export const en = {
   cmdMatches: 'Matches ({n}):',
   coresLabel: 'cores',
   vfsEngineActive: 'Active (Virtual + Host)',
-  smbOnline: 'SMB Online',
-  aesActive: 'AES-256 Active',
+  smbOnline: 'Blocked',
+  aesActive: 'Not used',
 } as const;

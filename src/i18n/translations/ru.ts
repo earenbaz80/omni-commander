@@ -622,17 +622,23 @@ export const ru = {
   appSendingTrash: 'Отправка в корзину',
   appResetConfirm: 'Сбросить файловую систему к исходным значениям?',
   appResizerTitle: 'Перетащите влево/вправо, чтобы изменить ширину панелей вручную',
-  cmdElevatedMsg:
-    '[ELEVATED ADMIN MODE ACTIVATED]\nТекущий пользователь повышен до системного администратора. Неограниченные права на C: и Z:',
+  cmdElevatedMsg: 'Запрашиваем права администратора: приложение перезапустится, Windows спросит подтверждение.',
+  cmdElevationUnavailable:
+    'Эта сборка не может запросить повышение прав: она работает с правами, с которыми была запущена.',
   cmdAvailableCommands:
     'Доступные команды: dir, ls, cd, mkdir, md, del, rm, copy, type, cat, echo, cls, clear, ver, date, time, ping, tree, calc, sudo, runas, admin, chown, chmod, ipconfig, tasklist',
-  cmdShellBanner: 'OmniCommander Pro Shell [Версия 5.50.2026]',
-  cmdElevatedMode: 'Режим администратора повышен',
-  cmdStandardMode: 'Обычный режим пользователя',
-  cmdIpconfigOut:
-    'Адаптер Ethernet Ethernet0:\n  IPv4: 192.168.1.150\n  Маска подсети: 255.255.255.0\n  Основной шлюз: 192.168.1.1',
-  cmdTasklistOut:
-    'PID    Имя образа               Память\n=========================================\n0004   System                   128 KB\n0412   omnicmd.exe              14,920 KB\n1024   explorer.exe             45,120 KB\n2048   node.exe                 88,400 KB',
+  cmdShellBanner: 'OmniCommander Pro Shell',
+  cmdElevatedMode: 'Работа с правами администратора',
+  cmdStandardMode: 'Работа с правами обычного пользователя',
+  cmdIpv4: 'IPv4',
+  cmdNetmask: 'Маска подсети',
+  cmdPid: 'PID',
+  cmdImage: 'Образ',
+  cmdMem: 'Память (КБ)',
+  cmdNoAdapters: 'Локальный сервер не сообщил ни об одном адаптере IPv4.',
+  cmdNoProcesses: 'Не удалось прочитать список процессов.',
+  cmdTreeEmpty: '(нет подпапок)',
+  cmdTreeTruncated: '... список обрезан на 300 папках или 4 уровнях',
   cmdCdUp: 'Переход в родительский каталог',
   cmdCdTo: 'Переход в {path}',
   cmdMkdirSyntax: 'Синтаксис: mkdir <имя>',
@@ -1122,6 +1128,6 @@ export const ru = {
   cmdMatches: 'Совпадения ({n}):',
   coresLabel: 'ядер',
   vfsEngineActive: 'Активно (виртуальный + хост)',
-  smbOnline: 'SMB в сети',
-  aesActive: 'AES-256 активно',
+  smbOnline: 'Заблокировано',
+  aesActive: 'Не используется',
 } as const;
