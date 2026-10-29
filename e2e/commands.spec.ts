@@ -72,11 +72,14 @@ async function runCommand(page: Page, command: string): Promise<Locator> {
   await input.fill(command);
   await input.press('Enter');
 
-  // The server's own budget for a process listing is 60 s; this waits past it so
-  // a slow machine still sees the answer (or the failure) instead of a timeout.
-  await expect(outputs).toHaveCount(before + 1, { timeout: 120000 });
+  // The app itself allows a read 210 s (the server gives a process listing 180 s
+  // and the client adds a margin), so the spec waits the same. Waiting less than
+  // the app would turn a slow but healthy machine into a red test: tasklist was
+  // measured at 38 s idle and past two minutes with the rest of the suite beside
+  // it, which is exactly what a 120 s wait here used to report as a failure.
+  await expect(outputs).toHaveCount(before + 1, { timeout: 210000 });
   const output = outputs.last();
-  await expect(output).toHaveText(/\S/, { timeout: 120000 });
+  await expect(output).toHaveText(/\S/, { timeout: 210000 });
   return output;
 }
 
