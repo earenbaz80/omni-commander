@@ -9,7 +9,7 @@
 
 ## 0. Resumen
 
-La app está **sana en lo que se puede medir automáticamente**: tipos, lint, 599 pruebas, build y los 30 E2E en verde, y sin vulnerabilidades en dependencias de producción. Sobre la anterior, se cerraron los tres bloqueantes y la deuda funcional que quedaba.
+La app está **sana en lo que se puede medir automáticamente**: tipos, lint, 599 pruebas, build y los 32 E2E en verde, y sin vulnerabilidades en dependencias de producción. Sobre la anterior, se cerraron los tres bloqueantes y la deuda funcional que quedaba.
 
 El trabajo de esta jornada se centró en otra clase de defecto que la auditoría anterior no cubría: **datos inventados**. La app presentaba como mediciones un handshake SSH que nunca ocurrió, un `ipconfig` con una IP fija, un `tasklist` con procesos que no existían, un `tree` de cuatro carpetas dibujadas, un volcado hexadecimal fabricado a partir del nombre del archivo, un reproductor con 180 s fijos, un progreso de sincronización con pausas de 60 ms y una versión `v5.50.2026` en un paquete `1.0.4`. Todo eso o se convirtió en una lectura real o desapareció; ninguna de esas pantallas puede volver a afirmar algo que no midió.
 
@@ -26,7 +26,7 @@ Lo que sigue abierto es deuda de higiene y de CI, no de comportamiento: `release
 | Pruebas | `npx vitest run` | ✅ 80 ficheros / **599 pruebas** (127 s), exit 0 |
 | Cobertura | `npx vitest run --coverage` | ⚠️ medida: **54,01 %** sentencias, 47,27 % ramas, 43,69 % funciones, 56,80 % líneas. Sin umbral |
 | Build | `npx vite build` | ✅ 12,6 s; `dist` **1,7 MB**; chunk principal **516 kB** (`ModalShell` 440 kB aparte) |
-| E2E | `npx playwright test` | ✅ **30 pruebas** (3,8 min; 8,4 min si `tasklist` tarda lo que mide su fila de presupuesto): humo, a11y, a11y de modales, los cuatro casos de archivo, los tres de la barra de comandos, los cuatro de la vista rápida, los dos de sincronización, los dos de copia/movimiento con colisión y los once de foco de ventanas |
+| E2E | `npx playwright test` | ✅ **32 pruebas** (5,2 min; 8,4 min si `tasklist` tarda lo que mide su fila de presupuesto): humo, a11y, a11y de modales, los cuatro casos de archivo, los tres de la barra de comandos, los cuatro de la vista rápida, los dos de sincronización, los dos de copia/movimiento con colisión y los doce de foco de ventanas |
 | Deps de producción | `npm audit --omit=dev` | ✅ 0 vulnerabilidades |
 | Deps totales | `npm audit` | ⚠️ 4 bajas (`deepmerge` vía `workbox-build`/`vite-plugin-pwa`) |
 | TypeScript estricto | `npx tsc --noEmit -p tsconfig.strict.json` | ❌ **12 errores**; el CI no lo ejecuta |
@@ -102,7 +102,7 @@ Los endpoints nuevos aceptan solo lectura, están detrás del mismo servidor de 
 | Cobertura de sentencias | 54,01 % |
 | Cobertura de líneas | 56,80 % |
 | Specs del servidor | 16 ficheros `server.*.test.ts` |
-| E2E | 30 pruebas, 9 specs |
+| E2E | 32 pruebas, 9 specs |
 
 Sin umbral y sin script `coverage` en `package.json`, aunque `@vitest/coverage-v8` está instalado: la cobertura existe como medición manual, no como compuerta.
 
@@ -122,11 +122,17 @@ Ese mismo spec dejó al descubierto que el aviso montaba **dos `role="dialog"` a
 
 La guarda de accesibilidad gana 34 casos que fallan si una ventana con shell vuelve a declarar un diálogo propio, y se comprobó reponiendo la llamada en `HelpModal` (`expected true to be false`) y retirándola después (69/69). El E2E del aviso exige **exactamente un** diálogo con ese nombre, así que reponer el `role` en el cuerpo también lo devuelve a rojo (`Expected: 1, Received: 2`).
 
-El foco al abrir y cerrar ventanas tiene su propio E2E: [`e2e/modal-focus.spec.ts`](e2e/modal-focus.spec.ts) abre **nueve** ventanas —F1, F2, F7 y Alt+F7 por sí solas, y F3, F4, F5, F6 y F8 con un fichero real enfocado en una carpeta temporal— y, en lugar de conformarse con «hay un diálogo», lee `document.activeElement` y exige que sea **un control con nombre dentro del diálogo**, que dos Tab sigan dentro y que al cerrar quede un solo diálogo menos. Otro caso abre Configuración desde su botón y exige que al cerrar el foco **vuelva a ese mismo botón**, que es lo que evita que el siguiente teclazo caiga en el `body`. El undécimo comprueba que la ventana de copia deja el foco en su **campo de destino**: al escribirlo se vio que ese campo no estaba asociado a su etiqueta, así que la ventana ahora la enlaza con `htmlFor`/`id` y el campo puede decir qué es.
+El foco al abrir y cerrar ventanas tiene su propio E2E: [`e2e/modal-focus.spec.ts`](e2e/modal-focus.spec.ts) abre **nueve** ventanas —F1, F2, F7 y Alt+F7 por sí solas, y F3, F4, F5, F6 y F8 con un fichero real enfocado en una carpeta temporal— y, en lugar de conformarse con «hay un diálogo», lee `document.activeElement` y exige que sea **un control con nombre dentro del diálogo**, que dos Tab sigan dentro y que al cerrar quede un solo diálogo menos. Otro caso abre Configuración desde su botón y exige que al cerrar el foco **vuelva a ese mismo botón**, que es lo que evita que el siguiente teclazo caiga en el `body`. Otro caso comprueba que la ventana de copia deja el foco en su **campo de destino**: al escribirlo se vio que ese campo no estaba asociado a su etiqueta, así que la ventana ahora la enlaza con `htmlFor`/`id` y el campo puede decir qué es.
 
 El visor y el editor (F3, F4) son las dos ventanas que leen los bytes del fichero, y por eso llevan además una comprobación propia: el visor tiene que mostrar el texto que está en el disco y el editor tenerlo en su búfer (`toHaveValue('una nota\n')`). Sin ella, las dos podrían pasar todas las demás comprobaciones de foco sobre un marco vacío —que es exactamente el defecto que tuvieron cuando pintaban `file.content`, un campo que el listado de un disco real nunca rellena—.
 
-Tres mutaciones: quitar el foco inicial de `useModalDialog` lo deja en rojo con `the help window opened with focus on <body> ""`; quitar el `htmlFor` lo deja en rojo con `element(s) not found` al buscar el campo por su etiqueta; vaciar lo que pintan el visor y el editor deja en rojo los dos casos nuevos (`toBeVisible() failed` para el texto del visor, `Expected: "una nota\n", Received: ""` para el búfer del editor). Restaurado, 11/11.
+El visor entrega el fichero al editor con su botón «Editar (F4)», y ese relevo tiene caso propio: exige que el foco aterrice **en el editor** y no se quede en la lista de detrás, que es donde lo dejaría el cierre del visor si su restauración ganara la carrera al montaje del editor; que dos Tab sigan dentro de la ventana nueva; y que al cerrarla el foco vuelva **a la lista de la que salió el fichero** —su contenedor, que es enfocable y lleva las flechas— y no al `body`.
+
+El último punto se midió antes de darlo por defecto: al cerrar el editor el foco ya volvía a la lista, no al `body`, porque el visor restaura en su desmontaje antes de que monte el editor. No había nada que arreglar ahí, solo algo que impedir.
+
+Lo que sí faltaba es que ese destino **dijera qué es**: era un `div` enfocable sin `role` ni nombre, así que un lector de pantalla no anunciaba nada al recibir el foco —un problema real aunque el foco técnicamente estuviera bien—. Ahora lleva `role="group"` y `aria-label` «Lista de archivos en {path}», con la ruta del panel, en una clave nueva presente en los ocho idiomas. [`e2e/a11y.spec.ts`](e2e/a11y.spec.ts) audita **todas** las listas de la página: rol `group`, nombre no vacío que empieza por «Lista de archivos», `tabIndex` 0 y que el foco pueda ir a ellas. La mutación de quitar rol y nombre las deja en rojo (`{"role": null, "name": ""}` por cada una). El contenedor lleva además `data-file-list`, para que el caso del relevo nombre su destino en vez de conformarse con «algún sitio fuera del diálogo».
+
+Cinco mutaciones: quitar el foco inicial de `useModalDialog` lo deja en rojo con `the help window opened with focus on <body> ""` y, en el caso del relevo, con `the editor never took focus after replacing the viewer`; quitar el `htmlFor` lo deja en rojo con `element(s) not found` al buscar el campo por su etiqueta; vaciar lo que pintan el visor y el editor deja en rojo sus dos casos (`toBeVisible() failed` para el texto del visor, `Expected: "una nota\n", Received: ""` para el búfer del editor); quitar la restauración de foco del hook deja el cierre del editor en rojo con `closing the editor left focus on <body> ""`, que es el defecto que ese caso vigila; y quitar `role` y `aria-label` de la lista deja el audit de a11y en rojo con `{"role": null, "name": ""}` por cada lista. Restaurado todo, 12/12 y 2/2.
 
 **Carrera de teardown (resuelta en su causa):** con `--coverage`, una de cada varias corridas terminaba con exit 1 por `EnvironmentTeardownError: Closing rpc while "onUserConsoleLog" was pending` mientras todas las pruebas pasaban. El registro que se escapaba era real: el poll de unidades de `App` seguía reintentando después del desmontaje y, al fallar el último intento, registraba «Could not load real drives from API» con la ventana ya cerrada. Ahora `fetchWithRetry` acepta la señal del llamador, deja de reintentar al cancelarse y limpia el listener; `App` aborta en su cleanup y `loadRealDrivesFromApi` no registra un fallo que nadie espera. Medido con la consola activada (`VITEST_CONSOLE=1`, el modo donde el aviso sería visible): sin la señal aparece una vez; con ella, tres corridas consecutivas sin ningún aviso y exit 0.
 
@@ -166,7 +172,7 @@ npx eslint src --max-warnings 0                   → exit 0 (0 errores, 0 warni
 npx vitest run                                    → 80 ficheros, 599 pruebas, 127 s, exit 0
 npx vitest run --coverage                         → 54,01 % sentencias (sin umbral), exit 0
 npx vite build                                    → exit 0, dist 1,7 MB
-npx playwright test                               → 30 pruebas, 3,8 min, exit 0
+npx playwright test                               → 32 pruebas, 5,2 min, exit 0
 npm audit --omit=dev                              → 0 vulnerabilidades
 npm audit                                         → 4 bajas
 npx tsc --noEmit -p tsconfig.strict.json          → 12 errores

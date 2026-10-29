@@ -696,6 +696,7 @@ export const ru = {
   commonPreviewOf: 'Предпросмотр {name}.{ext}',
   fileListResizeColumn: 'Изменить размер столбца {label}',
   fileListResizeHint: 'Перетащите для изменения · двойной щелчок для автоподгонки',
+  fileListLabel: 'Список файлов в {path}',
   qvAudioTrack: 'Аудиодорожка Hi-Fi',
   qvVideoClip: 'HD-видеоклип',
   qvPlaying: 'ВОСПРОИЗВЕДЕНИЕ',

@@ -694,6 +694,7 @@ export const pt = {
   commonPreviewOf: 'Pré-visualização de {name}.{ext}',
   fileListResizeColumn: 'Redimensionar coluna {label}',
   fileListResizeHint: 'Arraste para redimensionar · duplo clique para ajustar',
+  fileListLabel: 'Lista de arquivos em {path}',
   qvAudioTrack: 'Faixa de áudio Hi-Fi',
   qvVideoClip: 'Clipe de vídeo HD',
   qvPlaying: 'REPRODUZINDO',

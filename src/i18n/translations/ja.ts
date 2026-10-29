@@ -696,6 +696,7 @@ export const ja = {
   commonPreviewOf: '{name}.{ext} のプレビュー',
   fileListResizeColumn: '列 {label} のサイズ変更',
   fileListResizeHint: 'ドラッグでサイズ変更 · ダブルクリックで自動調整',
+  fileListLabel: 'ファイル一覧: {path}',
   qvAudioTrack: 'Hi-Fi オーディオトラック',
   qvVideoClip: 'HD ビデオクリップ',
   qvPlaying: '再生中',
