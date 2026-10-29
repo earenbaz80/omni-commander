@@ -3,6 +3,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
+const { isAllowedNavigationUrl } = require('./navigationGuard.cjs');
 
 // Per-launch session token. It is the shared secret between this process, the
 // embedded API server and the renderer: every mutating request, and every GET
@@ -249,13 +250,12 @@ function createMainWindow() {
   mainWindow.webContents.setVisualZoomLevelLimits(1, 1);
 
   // The product is offline by design, so the window is only ever allowed to stay
-  // on its two legitimate local origins. Denying navigation and window.open
-  // keeps a compromised renderer from turning the shell into a browser.
-  const isAllowedLocalUrl = (target) => {
-    if (!target) return false;
-    if (isDev && target.startsWith('http://localhost:3000')) return true;
-    return target.startsWith('file://');
-  };
+  // on its two legitimate local documents. Denying navigation and window.open
+  // keeps a compromised renderer from turning the shell into a browser. The
+  // comparison is by origin, and by the bundle's own folder for file URLs: see
+  // navigationGuard.cjs for the two prefix holes that closed.
+  const rendererRoot = path.join(__dirname, '..', 'dist');
+  const isAllowedLocalUrl = (target) => isAllowedNavigationUrl(target, { isDev, distDir: rendererRoot });
   mainWindow.webContents.on('will-navigate', (event, target) => {
     if (!isAllowedLocalUrl(target)) event.preventDefault();
   });
@@ -280,7 +280,7 @@ function createMainWindow() {
     mainWindow.loadURL('http://localhost:3000');
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
-    mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
+    mainWindow.loadFile(path.join(rendererRoot, 'index.html'));
   }
 }
 
