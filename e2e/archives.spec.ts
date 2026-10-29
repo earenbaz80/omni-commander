@@ -58,7 +58,9 @@ test.afterEach(async () => {
 
 /** Types an absolute path into one panel's path bar and submits it. */
 async function enterPath(page: Page, panel: 0 | 1, target: string) {
-  await page.locator('[title="Click to edit path"]').nth(panel).click();
+  // The bar's title is translated and this suite pins Spanish, so the locator
+  // uses the stable hook instead of an English label that no longer exists.
+  await page.locator('[data-path-bar]').nth(panel).click();
   // Only the path bar being edited renders this field, so there is exactly one.
   const input = page.locator('[data-path-input]');
   await expect(input).toHaveCount(1);
@@ -114,7 +116,7 @@ for (const archive of archives) {
     await expect(archiveRow).toBeVisible({ timeout: 30000 });
 
     await enterPath(page, 1, path.join(workspace, 'destino'));
-    await expect(page.locator('[title="Click to edit path"]').nth(1)).toContainText('destino');
+    await expect(page.locator('[data-path-bar]').nth(1)).toContainText('destino');
 
     // Double-click is how the app opens a file: for an archive it lists the
     // contents in place, and only the local server can have read them.
