@@ -41,7 +41,7 @@ Las secciones siguientes son el registro de lo que se encontró en `d3b113e` y s
 | P2-3 · i18n | ⚠️ Parcial | `DiskUsageModal` traduce sus textos; las etiquetas de trabajo siguen en español (`server.cjs:2017`) |
 | P2-4 · Tipado | ⚠️ Parcial | 33 usos de `any` en `src` (eran 57); `npm run typecheck:strict` existe, pero el CI no lo ejecuta |
 | P2-5 · `includes` en render | ⚠️ Parcial | El caso del render ya usa un `Set`; el payload de arrastre sigue con `selectedIds.includes` (`FileList.tsx:339`) |
-| P2-6 · Filtro del panel | ❌ Abierto | Sigue escapando solo `.`, `*` y `?` (`usePanels.ts:196`) |
+| P2-6 · Filtro del panel | ✅ Resuelto | `*` y `?` son los únicos comodines: el resto de metacaracteres se escapa antes de compilar, así que `a+b`, `[x]` o `report\|draft` buscan ese texto y no una expresión que significaba otra cosa (`utils/panelFilter.ts`, con `panelFilter.test.ts`) |
 | P2-7 · Carpetas protegidas | ✅ Resuelto | Se guarda un registro PBKDF2 por carpeta (sal + hash) y el desbloqueo deriva el hash en vez de comparar texto; una protección antigua en claro sigue abriendo y se reescribe como registro en el primer desbloqueo (`appLock.ts`, `UnlockFolderModal.tsx`, `useSettings.ts`) |
 | P2-8 · README y metadatos | ✅ Resuelto | README real, `metadata.json` eliminado, `engines` presente, y ESLint con script propia que el CI sí ejecuta |
 | P2-9 · Dependencias sin uso | ⚠️ Parcial | `libarchive.js` y `node-unrar-js` ya se usan; `@zip.js/zip.js` sigue declarado y sin uso |

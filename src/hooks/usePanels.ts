@@ -13,6 +13,7 @@ import {
 } from '../types';
 import { tGlobal } from '../i18n/translations';
 import { ARCHIVE_EXTENSIONS } from '../services/archiveBackend';
+import { matchesPanelFilter } from '../utils/panelFilter';
 
 interface PanelDeps {
   drives: Drive[];
@@ -199,18 +200,9 @@ export function usePanels(deps: PanelDeps) {
       }
 
       if (tab.filterText.trim()) {
-        const q = tab.filterText.trim();
-        let matchesFilter = (item: FileItem) => item.name.toLowerCase().includes(q.toLowerCase());
-        try {
-          const pattern = new RegExp('^' + q.replace(/\./g, '\\.').replace(/\*/g, '.*').replace(/\?/g, '.') + '$', 'i');
-          matchesFilter = (item: FileItem) =>
-            pattern.test(item.name) ||
-            pattern.test(`${item.name}.${item.ext}`) ||
-            item.name.toLowerCase().includes(q.toLowerCase());
-        } catch {
-          // Fall back to literal filtering if the transformed expression is invalid.
-        }
-        items = items.filter(matchesFilter);
+        // Wildcards, anchoring and the escaping of every other metacharacter live
+        // in utils/panelFilter, which is tested without a hook around it.
+        items = items.filter((item: FileItem) => matchesPanelFilter(item, tab.filterText));
       }
 
       return [...items].sort((a, b) => {
