@@ -638,7 +638,10 @@ app.get('/api/list', async (req, res) => {
 // their own machine. Each of these now reports what it actually measured, and
 // fails loudly when it cannot.
 // ---------------------------------------------------------------------------
-const PROCESS_LIST_TIMEOUT_MS = 15000;
+// `tasklist` answers in about a second on an idle desktop and has been seen past
+// ten on a loaded one; a slow read is not a failed read, so the budget is wide
+// and the client waits longer than this rather than giving up first.
+const PROCESS_LIST_TIMEOUT_MS = 25000;
 const PROCESS_LIST_LIMIT = 500;
 
 /** One `tasklist /fo csv` row: quoted fields, `""` escapes, commas inside quotes. */
