@@ -64,7 +64,17 @@ test('the file list is a named group, so focus on it is announced', async ({ pag
     audit.filter((list) => list.role !== 'group' || !list.name || list.tabIndex !== 0),
     JSON.stringify(audit, null, 2),
   ).toEqual([]);
-  expect(audit.every((list) => list.name.startsWith('Lista de archivos'))).toBe(true);
+
+  // Each list names its own panel: two panels can mirror the same folder, and
+  // then the path alone would announce the same thing on both sides.
+  const panels = new Set(
+    audit.map((list) => {
+      if (list.name.includes('panel izquierdo')) return 'left';
+      if (list.name.includes('panel derecho')) return 'right';
+      return list.name;
+    }),
+  );
+  expect(panels, JSON.stringify(audit, null, 2)).toEqual(new Set(['left', 'right']));
 
   await lists.first().focus();
   await expect(lists.first()).toBeFocused();
