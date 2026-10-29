@@ -15,7 +15,7 @@
  * own list.
  */
 import { tGlobal } from '../i18n/translations';
-import { archiveEntryPath, loadArchive } from './zipArchive';
+import { archiveEntryPath, crc32, loadArchive } from './zipArchive';
 import { gunzip, isGzip, looksLikeTar, parseTar, type TarEntry } from './tarArchive';
 
 /** Every format the app can recognise, whether or not it can read it. */
@@ -215,6 +215,34 @@ function declaredSize(entry: object): number | undefined {
   return typeof size === 'number' && Number.isFinite(size) && size >= 0 ? size : undefined;
 }
 
+/**
+ * The CRC-32 the archive declares for an entry. Synthetic entries (a zero-length
+ * one, which JSZip prepares lazily) carry none, and are left unverified.
+ */
+function declaredCrc(entry: object): number | undefined {
+  const data = (entry as { _data?: { crc32?: unknown } })._data;
+  const crc = data?.crc32;
+  return typeof crc === 'number' && Number.isFinite(crc) ? crc >>> 0 : undefined;
+}
+
+/**
+ * Bytes of one ZIP entry, checked against the checksum the archive declares.
+ *
+ * Opening a ZIP no longer walks the whole file to verify it -- that pass was
+ * measured at 92-95% of the opening time -- so the checksum is verified here,
+ * entry by entry. This is the stricter place for it anyway: a damaged entry is
+ * refused before its bytes reach the viewer, an extraction or the disk, and the
+ * message names the archive, which is what the user can act on.
+ */
+async function readZipEntry(entry: { async: (type: 'uint8array') => Promise<Uint8Array> }, archiveName: string) {
+  const bytes = await entry.async('uint8array');
+  const declared = declaredCrc(entry);
+  if (declared !== undefined && crc32(bytes) !== declared) {
+    throw new Error(tGlobal('zipErrCorrupt').replace('{name}', archiveName));
+  }
+  return bytes;
+}
+
 /** Bit 0 of the general purpose flags of a ZIP local header means "encrypted". */
 function isEncryptedZip(bytes: Uint8Array): boolean {
   if (bytes.length < 8 || bytes[0] !== 0x50 || bytes[1] !== 0x4b || bytes[2] !== 0x03) return false;
@@ -245,7 +273,7 @@ async function loadZipBackend(bytes: Uint8Array, name: string, password?: string
       // `read` is what decompresses, and only for the entry someone opens.
       size: declaredSize(entry) ?? (await entry.async('uint8array')).length,
       date: entry.date,
-      read: () => entry.async('uint8array'),
+      read: () => readZipEntry(entry, name),
     });
   }
   return {
@@ -254,7 +282,7 @@ async function loadZipBackend(bytes: Uint8Array, name: string, password?: string
     readEntry: async (entryName: string) => {
       const entry = zip.file(entryName);
       if (!entry) throw new Error(tGlobal('zipErrEmpty'));
-      return entry.async('uint8array');
+      return readZipEntry(entry, name);
     },
   };
 }
