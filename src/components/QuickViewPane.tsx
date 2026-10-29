@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Eye, Music, Film, Play, Pause, Volume2, VolumeX, Repeat } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Eye, Music, Film, X } from 'lucide-react';
 import { FileItem, LanguageCode } from '../types';
 import { ThemeConfig } from '../services/themeManager';
-import { soundManager } from '../services/soundEffects';
+import { fsEngine } from '../services/fileSystem';
 import { createSvgDataUrl } from '../utils/svgPreview';
+import { formatBytes } from '../utils/formatBytes';
+import { useFileContent } from '../hooks/useFileContent';
 import { getTranslations } from '../i18n/translations';
 
 interface QuickViewPaneProps {
@@ -13,25 +15,112 @@ interface QuickViewPaneProps {
   onClose: () => void;
 }
 
+const IMAGE_EXTENSIONS = ['PNG', 'JPG', 'JPEG', 'SVG', 'WEBP', 'GIF', 'BMP', 'ICO'];
+const AUDIO_EXTENSIONS = ['MP3', 'WAV', 'OGG', 'MID', 'FLAC', 'AAC'];
+const VIDEO_EXTENSIONS = ['MP4', 'WEBM', 'MKV', 'AVI', 'MOV'];
+
+/** Playback needs the whole file in memory, so it stops here and says so. */
+const MEDIA_MAX_BYTES = 50 * 1024 * 1024;
+
+const MEDIA_TYPES: Record<string, string> = {
+  MP3: 'audio/mpeg',
+  WAV: 'audio/wav',
+  OGG: 'audio/ogg',
+  MID: 'audio/midi',
+  FLAC: 'audio/flac',
+  AAC: 'audio/aac',
+  MP4: 'video/mp4',
+  WEBM: 'video/webm',
+  MKV: 'video/x-matroska',
+  AVI: 'video/x-msvideo',
+  MOV: 'video/quicktime',
+};
+
+/** `offset  hex bytes |ascii|`, from real bytes and nothing else. */
+function hexDump(bytes: Uint8Array, limit = 512): string {
+  const lines: string[] = [];
+  const end = Math.min(bytes.length, limit);
+  for (let offset = 0; offset < end; offset += 16) {
+    const chunk = bytes.subarray(offset, Math.min(offset + 16, end));
+    const hex = Array.from(chunk)
+      .map((byte) => byte.toString(16).padStart(2, '0').toUpperCase())
+      .join(' ')
+      .padEnd(47, ' ');
+    const ascii = Array.from(chunk)
+      .map((byte) => (byte >= 32 && byte <= 126 ? String.fromCharCode(byte) : '.'))
+      .join('');
+    lines.push(`${offset.toString(16).padStart(8, '0').toUpperCase()}  ${hex} |${ascii}|`);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Quick view of the focused file.
+ *
+ * It used to paint a hex dump invented from the file name (`name.ext_FILE_DATA`)
+ * whenever the listing carried no bytes, which is always the case on a real
+ * drive, and offered a media player with a fixed 180 s duration, a sine-wave
+ * "visualizer" and a play button that only toggled a label. Both now read the
+ * file: the text and hex tabs decode the real preview bytes, and the media tab
+ * hands the real file to the browser's own player, which is the only thing that
+ * can report a real duration.
+ */
 export const QuickViewPane: React.FC<QuickViewPaneProps> = ({ theme, lang, targetItem, onClose }) => {
   const t = getTranslations(lang);
   const [viewTab, setViewTab] = useState<'text' | 'hex' | 'info' | 'media'>('text');
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [volume, setVolume] = useState(0.8);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration] = useState(180); // sample duration
-  const [isLooping, setIsLooping] = useState(false);
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const [mediaError, setMediaError] = useState<string | null>(null);
 
   const ext = targetItem?.ext?.toUpperCase() || '';
-  const isImage = ['PNG', 'JPG', 'JPEG', 'SVG', 'WEBP', 'GIF', 'BMP', 'ICO'].includes(ext);
-  const isAudio = ['MP3', 'WAV', 'OGG', 'MID', 'FLAC', 'AAC'].includes(ext);
-  const isVideo = ['MP4', 'WEBM', 'MKV', 'AVI', 'MOV'].includes(ext);
+  const isImage = IMAGE_EXTENSIONS.includes(ext);
+  const isAudio = AUDIO_EXTENSIONS.includes(ext);
+  const isVideo = VIDEO_EXTENSIONS.includes(ext);
+  const isMedia = isAudio || isVideo;
+
+  // Preview bytes for the text and hex tabs. The hook caps the read, so a huge
+  // file still opens instead of freezing the pane.
+  const { state: contentState } = useFileContent(targetItem);
+  const loadedBytes = contentState.status === 'ready' ? contentState.bytes : null;
+  // `content` is an optional preload (archive entries carry it); the bytes from
+  // disk win as soon as they arrive, and there is no invented fallback.
+  const loadedText = contentState.status === 'ready' ? contentState.text : (targetItem?.content ?? '');
 
   useEffect(() => {
-    setIsPlaying(false);
-    setCurrentTime(0);
-  }, [targetItem]);
+    setViewTab(isMedia ? 'media' : 'text');
+    setMediaError(null);
+    setMediaUrl(null);
+
+    if (!targetItem || !isMedia || targetItem.isDirectory) return;
+    if (targetItem.size > MEDIA_MAX_BYTES) {
+      setMediaError(t.qvTooLarge.replace('{size}', formatBytes(MEDIA_MAX_BYTES)));
+      return;
+    }
+
+    let cancelled = false;
+    let url: string | null = null;
+    fsEngine
+      .readFileBytes(targetItem, { maxBytes: MEDIA_MAX_BYTES })
+      .then((bytes) => {
+        if (cancelled) return;
+        // A plain ArrayBuffer of its own: `Uint8Array` may be backed by shared
+        // memory, which a Blob cannot take.
+        const buffer = new ArrayBuffer(bytes.byteLength);
+        new Uint8Array(buffer).set(bytes);
+        url = URL.createObjectURL(new Blob([buffer], { type: MEDIA_TYPES[ext] || 'application/octet-stream' }));
+        setMediaUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setMediaError(t.qvMediaFailed);
+      });
+
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+    // The read is driven by the file itself, not by the labels around it.
+  }, [targetItem?.id, targetItem?.size, ext, isMedia, t.qvTooLarge, t.qvMediaFailed]);
+
+  const hexText = useMemo(() => (loadedBytes ? hexDump(loadedBytes) : ''), [loadedBytes]);
 
   if (!targetItem) {
     return (
@@ -45,39 +134,8 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({ theme, lang, targe
     );
   }
 
-  // Toggle play/pause simulation
-  const togglePlay = () => {
-    soundManager.playKeyTick();
-    setIsPlaying(!isPlaying);
-  };
-
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
-
-  // Generate Hex Dump representation
-  const generateHexDump = (content: string) => {
-    const lines = [];
-    const maxLen = Math.min(content.length, 512);
-    for (let i = 0; i < maxLen; i += 16) {
-      const offset = i.toString(16).padStart(8, '0').toUpperCase();
-      const chunk = content.slice(i, i + 16);
-      const hex = Array.from(chunk)
-        .map((c) => c.charCodeAt(0).toString(16).padStart(2, '0').toUpperCase())
-        .join(' ')
-        .padEnd(48, ' ');
-      const ascii = Array.from(chunk)
-        .map((c) => {
-          const code = c.charCodeAt(0);
-          return code >= 32 && code <= 126 ? c : '.';
-        })
-        .join('');
-      lines.push(`${offset}  ${hex} |${ascii}|`);
-    }
-    return lines.join('\n');
-  };
+  const displayName =
+    targetItem.fullName || (targetItem.ext ? `${targetItem.name}.${targetItem.ext}` : targetItem.name);
 
   return (
     <div
@@ -91,25 +149,23 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({ theme, lang, targe
       >
         <div className="flex items-center gap-[var(--space-1)] truncate">
           <Eye className="w-3.5 h-3.5" />
-          <span className="truncate">
-            {targetItem.name}.{targetItem.ext}
-          </span>
+          <span className="truncate">{displayName}</span>
         </div>
 
         <div className="flex items-center gap-[var(--space-1)]">
-          {(isAudio || isVideo) && (
+          {isMedia && (
             <button
               onClick={() => setViewTab('media')}
               className={`px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[10px] cursor-pointer font-bold ${viewTab === 'media' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-black/20 text-white'}`}
             >
-              <Music className="w-3.5 h-3.5 inline mr-[var(--space-1)]" /> Reproductor
+              <Music className="w-3.5 h-3.5 inline mr-[var(--space-1)]" /> {t.qvPlay}
             </button>
           )}
           <button
             onClick={() => setViewTab('text')}
             className={`px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[10px] cursor-pointer ${viewTab === 'text' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-black/20'}`}
           >
-            Texto
+            {t.textLabel}
           </button>
           <button
             onClick={() => setViewTab('hex')}
@@ -125,163 +181,92 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({ theme, lang, targe
           </button>
           <button
             onClick={onClose}
+            aria-label={t.btnClose}
             className="px-[var(--space-1)].5 py-[var(--space-1)] hover:bg-black/30 text-white rounded text-[10px] cursor-pointer font-bold ml-[var(--space-1)]"
           >
-            ✕
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
       {/* Main Preview Body */}
       <div className="flex-1 overflow-auto p-[var(--space-2)]">
-        {/* Dedicated Audio & Video Mini Player */}
-        {(isAudio || isVideo || viewTab === 'media') && (
-          <div className="p-[var(--space-3)] bg-black/60 rounded border border-amber-400/40 mb-[var(--space-3)] space-y-[var(--space-3)] shadow-inner">
+        {viewTab === 'media' && (
+          <div className="p-[var(--space-3)] bg-black/60 rounded border border-amber-400/40 mb-[var(--space-3)] space-y-[var(--space-2)] shadow-inner">
             <div className="flex items-center justify-between border-b border-white/10 pb-2">
               <div className="flex items-center gap-[var(--space-2)] truncate">
                 {isAudio ? (
-                  <Music className="w-5 h-5 text-amber-300 animate-pulse shrink-0" />
+                  <Music className="w-5 h-5 text-amber-300 shrink-0" />
                 ) : (
                   <Film className="w-5 h-5 text-cyan-300 shrink-0" />
                 )}
-                <div className="truncate">
-                  <p className="font-extrabold text-white text-xs truncate">
-                    {targetItem.name}.{targetItem.ext}
-                  </p>
-                  <p className="text-[10px] opacity-60 uppercase">{isAudio ? t.qvAudioTrack : t.qvVideoClip}</p>
-                </div>
+                <p className="font-extrabold text-white text-xs truncate">{displayName}</p>
               </div>
-
-              <span className="text-[10px] font-mono bg-amber-400/20 text-amber-300 px-[var(--space-2)] py-[var(--space-1)] rounded font-bold border border-amber-400/30">
-                {isPlaying ? t.qvPlaying : t.qvPaused}
-              </span>
+              <span className="text-[10px] text-slate-300">{formatBytes(targetItem.size)}</span>
             </div>
 
-            {/* Video Container Frame if Video */}
-            {isVideo && (
-              <div className="w-full h-36 bg-black rounded border border-white/20 flex items-center justify-center overflow-hidden relative">
-                {targetItem.content?.startsWith('data:video') ? (
-                  <video src={targetItem.content} controls className="w-full h-full object-contain" />
-                ) : (
-                  <div className="flex flex-col items-center justify-center text-cyan-300">
-                    <Film className="w-10 h-10 mb-[var(--space-1)]" />
-                    <span className="text-[10px] opacity-80 font-bold">{t.simulatedVideo}</span>
-                  </div>
-                )}
-              </div>
+            {mediaError ? (
+              <p className="text-[11px] text-amber-300 leading-relaxed">{mediaError}</p>
+            ) : mediaUrl ? (
+              isAudio ? (
+                <audio src={mediaUrl} controls className="w-full" />
+              ) : (
+                <video src={mediaUrl} controls className="w-full max-h-64 bg-black rounded" />
+              )
+            ) : (
+              <p className="text-[11px] opacity-70">{t.qvLoading}</p>
             )}
-
-            {/* Simulated Audio Waveform Bar Visualizer */}
-            {isAudio && (
-              <div className="h-12 bg-black/80 rounded border border-white/10 flex items-end justify-between px-[var(--space-2)] py-[var(--space-1)] gap-[var(--space-1)] overflow-hidden">
-                {[...Array(28)].map((_, i) => {
-                  const barHeight = isPlaying ? Math.floor(Math.sin(i + currentTime) * 40 + 50) : 20;
-                  return (
-                    <div
-                      key={i}
-                      className="flex-1 bg-gradient-to-t from-amber-500 to-yellow-300 rounded-t transition-all duration-150"
-                      style={{ height: `${barHeight}%` }}
-                    />
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Progress / Seek bar */}
-            <div className="space-y-[var(--space-1)]">
-              <input
-                type="range"
-                min="0"
-                max={duration}
-                value={currentTime}
-                onChange={(e) => setCurrentTime(Number(e.target.value))}
-                className="w-full accent-amber-400 h-1 bg-white/20 rounded cursor-pointer"
-              />
-              <div className="flex items-center justify-between text-[10px] opacity-70 font-mono">
-                <span>{formatTime(currentTime)}</span>
-                <span>{formatTime(duration)}</span>
-              </div>
-            </div>
-
-            {/* Controls Bar */}
-            <div className="flex items-center justify-between gap-[var(--space-2)] pt-1">
-              <div className="flex items-center gap-[var(--space-2)]">
-                <button
-                  onClick={togglePlay}
-                  className="px-[var(--space-3)] py-[var(--space-1)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded flex items-center gap-[var(--space-1)] cursor-pointer shadow"
-                >
-                  {isPlaying ? (
-                    <Pause className="w-3.5 h-3.5 fill-black" />
-                  ) : (
-                    <Play className="w-3.5 h-3.5 fill-black" />
-                  )}
-                  <span>{isPlaying ? t.qvPause : t.qvPlay}</span>
-                </button>
-
-                <button
-                  onClick={() => setIsLooping(!isLooping)}
-                  className={`p-[var(--space-2)] rounded border cursor-pointer ${isLooping ? 'bg-amber-400/30 text-amber-300 border-amber-400' : 'bg-black/30 border-white/20 text-slate-300'}`}
-                  title={t.qvRepeatTrack}
-                >
-                  <Repeat className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {/* Volume Slider */}
-              <div className="flex items-center gap-[var(--space-2)] bg-black/40 px-[var(--space-2)] py-[var(--space-1)] rounded border border-white/10">
-                <button onClick={() => setIsMuted(!isMuted)} className="hover:text-amber-300 cursor-pointer">
-                  {isMuted || volume === 0 ? (
-                    <VolumeX className="w-3.5 h-3.5 text-red-400" />
-                  ) : (
-                    <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
-                  )}
-                </button>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={isMuted ? 0 : volume}
-                  onChange={(e) => {
-                    setVolume(Number(e.target.value));
-                    if (isMuted) setIsMuted(false);
-                  }}
-                  className="w-16 h-1 accent-amber-400 bg-white/20 rounded cursor-pointer"
-                />
-              </div>
-            </div>
           </div>
         )}
 
         {viewTab === 'text' && (
           <div>
-            {isImage && targetItem.ext.toUpperCase() === 'SVG' && targetItem.content ? (
+            {isImage && ext === 'SVG' && loadedText ? (
               <div className="flex flex-col items-center justify-center p-[var(--space-4)] bg-black/20 rounded mb-[var(--space-2)]">
                 <img
-                  src={createSvgDataUrl(targetItem.content)}
-                  alt={t.previewOf.replace('{name}', `${targetItem.name}.${targetItem.ext}`)}
+                  src={createSvgDataUrl(loadedText)}
+                  alt={t.previewOf.replace('{name}', displayName)}
                   className="w-32 h-32 object-contain"
                 />
               </div>
             ) : null}
 
-            <pre className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed select-text opacity-90">
-              {targetItem.content || t.binaryNoPreview.replace('{n}', String(targetItem.size))}
-            </pre>
+            {contentState.status === 'error' ? (
+              <p className="text-[11px] text-amber-300">{t.qvLoadFailed.replace('{error}', contentState.message)}</p>
+            ) : (
+              <pre className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed select-text opacity-90">
+                {loadedText || t.binaryNoPreview.replace('{n}', String(targetItem.size))}
+              </pre>
+            )}
           </div>
         )}
 
         {viewTab === 'hex' && (
-          <pre className="whitespace-pre font-mono text-[10px] select-text text-emerald-300 leading-tight">
-            {generateHexDump(targetItem.content || `${targetItem.name}.${targetItem.ext}_FILE_DATA`)}
-          </pre>
+          <div className="space-y-[var(--space-1)]">
+            {contentState.status === 'error' ? (
+              <p className="text-[11px] text-amber-300">{t.qvLoadFailed.replace('{error}', contentState.message)}</p>
+            ) : hexText ? (
+              <>
+                <pre className="whitespace-pre font-mono text-[10px] select-text text-emerald-300 leading-tight">
+                  {hexText}
+                </pre>
+                {contentState.status === 'ready' && contentState.truncated && (
+                  <p className="text-[10px] text-amber-300">
+                    {t.qvTruncated.replace('{size}', formatBytes(contentState.bytes.length))}
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-[11px] opacity-70">{t.qvLoading}</p>
+            )}
+          </div>
         )}
 
         {viewTab === 'info' && (
           <div className="space-y-[var(--space-2)] select-text">
             <div className="p-[var(--space-2)] bg-black/30 rounded border border-white/10 space-y-[var(--space-1)]">
               <div>
-                <span className="opacity-60">{t.pathLabel}</span> {targetItem.path}\{targetItem.name}.{targetItem.ext}
+                <span className="opacity-60">{t.pathLabel}</span> {targetItem.path}\{displayName}
               </div>
               <div>
                 <span className="opacity-60">{t.sizeLabel}</span> {targetItem.size.toLocaleString()} bytes
