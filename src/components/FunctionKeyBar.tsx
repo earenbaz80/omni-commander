@@ -80,7 +80,7 @@ export const FunctionKeyBar: React.FC<FunctionKeyBarProps> = ({
 
   const getDiskTreeKeys = (controls: DiskTreeControls): KeyEntry[] => [
     { num: '1', label: t.helpF1, action: () => onOpenModal('help') },
-    { num: '2', label: t.menuF2, action: () => onOpenModal('userMenu') },
+    { num: '2', label: t.menuF2, action: () => onOpenModal('user_menu') },
     { num: '3', label: t.diskScanStop, action: controls.stop, disabled: !controls.scanning },
     { num: '4', label: t.diskKeyExpandAll, action: controls.expandAll, disabled: !controls.hasTree },
     { num: '5', label: t.diskKeyCollapseAll, action: controls.collapseAll, disabled: !controls.hasTree },
@@ -100,7 +100,7 @@ export const FunctionKeyBar: React.FC<FunctionKeyBarProps> = ({
         { num: '4', label: t.fkeyAltEditDos, action: onEdit, fileAction: true },
         { num: '5', label: t.fkeyAltZipPack, action: () => onOpenModal('zipArchive'), fileAction: true },
         { num: '6', label: t.fkeyAltUnzip, action: () => onOpenModal('zipArchive'), fileAction: true },
-        { num: '7', label: t.fkeyAltFindGrep, action: () => onOpenModal('searchGrep') },
+        { num: '7', label: t.fkeyAltFindGrep, action: () => onOpenModal('search_grep') },
         { num: '8', label: t.fkeyAltHistory, action: () => {}, fileAction: true },
         { num: '9', label: t.fkeyAltVideo, action: () => {}, fileAction: true },
         { num: '10', label: t.fkeyAltExit, action: () => onOpenModal('quit') },
@@ -125,7 +125,7 @@ export const FunctionKeyBar: React.FC<FunctionKeyBarProps> = ({
 
     return [
       { num: '1', label: t.helpF1, action: () => onOpenModal('help') },
-      { num: '2', label: t.menuF2, action: () => onOpenModal('userMenu') },
+      { num: '2', label: t.menuF2, action: () => onOpenModal('user_menu') },
       { num: '3', label: t.viewF3, action: onView, fileAction: true },
       { num: '4', label: t.editF4, action: onEdit, fileAction: true },
       { num: '5', label: t.copyF5, action: onCopy, fileAction: true },

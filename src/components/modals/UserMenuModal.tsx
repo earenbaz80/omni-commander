@@ -16,14 +16,16 @@ interface UserMenuModalProps {
 export const UserMenuModal: React.FC<UserMenuModalProps> = ({ theme, lang, onOpenModal, onClose }) => {
   const t = getTranslations(lang);
 
-  const actions = [
-    { key: '1', title: t.userMenuBatchRename, modal: 'batchRename' as ActiveModal },
-    { key: '2', title: t.userMenuDiff, modal: 'diffCompare' as ActiveModal },
-    { key: '3', title: t.userMenuGrep, modal: 'searchGrep' as ActiveModal },
-    { key: '4', title: t.userMenuChecksum, modal: 'checksum' as ActiveModal },
-    { key: '5', title: t.userMenuZip, modal: 'zipArchive' as ActiveModal },
-    { key: '6', title: t.userMenuDiskUsage, modal: 'diskUsage' as ActiveModal },
-    { key: '9', title: t.userMenuSettings, modal: 'settings' as ActiveModal },
+  // No casts: the union has one spelling per window, so an id the host does not
+  // render fails to compile instead of closing this menu and opening nothing.
+  const actions: Array<{ key: string; title: string; modal: ActiveModal }> = [
+    { key: '1', title: t.userMenuBatchRename, modal: 'batch_rename' },
+    { key: '2', title: t.userMenuDiff, modal: 'diff_compare' },
+    { key: '3', title: t.userMenuGrep, modal: 'search_grep' },
+    { key: '4', title: t.userMenuChecksum, modal: 'checksum' },
+    { key: '5', title: t.userMenuZip, modal: 'zipArchive' },
+    { key: '6', title: t.userMenuDiskUsage, modal: 'disk_usage' },
+    { key: '9', title: t.userMenuSettings, modal: 'settings' },
   ];
 
   const handleSelect = (m: ActiveModal) => {
