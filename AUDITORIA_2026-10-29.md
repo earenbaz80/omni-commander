@@ -9,7 +9,7 @@
 
 ## 0. Resumen
 
-La app está **sana en lo que se puede medir automáticamente**: tipos, lint, 565 pruebas, build y los 15 E2E en verde, y sin vulnerabilidades en dependencias de producción. Sobre la anterior, se cerraron los tres bloqueantes y la deuda funcional que quedaba.
+La app está **sana en lo que se puede medir automáticamente**: tipos, lint, 565 pruebas, build y los 17 E2E en verde, y sin vulnerabilidades en dependencias de producción. Sobre la anterior, se cerraron los tres bloqueantes y la deuda funcional que quedaba.
 
 El trabajo de esta jornada se centró en otra clase de defecto que la auditoría anterior no cubría: **datos inventados**. La app presentaba como mediciones un handshake SSH que nunca ocurrió, un `ipconfig` con una IP fija, un `tasklist` con procesos que no existían, un `tree` de cuatro carpetas dibujadas, un volcado hexadecimal fabricado a partir del nombre del archivo, un reproductor con 180 s fijos, un progreso de sincronización con pausas de 60 ms y una versión `v5.50.2026` en un paquete `1.0.4`. Todo eso o se convirtió en una lectura real o desapareció; ninguna de esas pantallas puede volver a afirmar algo que no midió.
 
@@ -26,7 +26,7 @@ Lo que sigue abierto es deuda de higiene y de CI, no de comportamiento: `release
 | Pruebas | `npx vitest run` | ✅ 80 ficheros / **565 pruebas** (115 s), exit 0 |
 | Cobertura | `npx vitest run --coverage` | ⚠️ medida: **54,01 %** sentencias, 47,27 % ramas, 43,69 % funciones, 56,80 % líneas. Sin umbral |
 | Build | `npx vite build` | ✅ 12,6 s; `dist` **1,7 MB**; chunk principal **516 kB** (`ModalShell` 440 kB aparte) |
-| E2E | `npx playwright test` | ✅ **15 pruebas** (5,7 min): humo, a11y, a11y de modales, los cuatro casos de archivo, los tres de la barra de comandos y los cuatro de la vista rápida |
+| E2E | `npx playwright test` | ✅ **17 pruebas** (8,4 min): humo, a11y, a11y de modales, los cuatro casos de archivo, los tres de la barra de comandos, los cuatro de la vista rápida y los dos de sincronización |
 | Deps de producción | `npm audit --omit=dev` | ✅ 0 vulnerabilidades |
 | Deps totales | `npm audit` | ⚠️ 4 bajas (`deepmerge` vía `workbox-build`/`vite-plugin-pwa`) |
 | TypeScript estricto | `npx tsc --noEmit -p tsconfig.strict.json` | ❌ **12 errores**; el CI no lo ejecuta |
@@ -49,7 +49,7 @@ Este es el hallazgo central de la auditoría. Cada fila se comprobó leyendo el 
 | Modo administrador | Un booleano que cambiaba la insignia y el prompt, y un `sudo` que anunciaba “permisos sin restricciones” sin cambiar nada | `elevated` **medido por el sistema** (`WindowsPrincipal`) y servido en `/api/system/stats`; `sudo` pide el reinicio elevado de verdad ([`electron/main.cjs`](electron/main.cjs)) |
 | Vista rápida · Hex | Volcado generado a partir de `${nombre}.${ext}_FILE_DATA` cuando no había bytes | Volcado de los bytes reales (precacheados a 2 MB), con aviso de recorte |
 | Vista rápida · Multimedia | Duración fija de 180 s, “visualizador” de seno y play que solo cambiaba una etiqueta | `<audio>`/`<video>` nativos sobre un blob de los bytes reales; por encima de 50 MB dice que no lo abre |
-| Sincronización de carpetas | `copyItem` sin `await` y una pausa de 60 ms “para simular progreso” | Copia esperada, contador real y fallo visible; si un elemento desapareció, se dice |
+| Sincronización de carpetas | `copyItem` sin `await` y una pausa de 60 ms “para simular progreso” | Copia esperada, contador real y fallo visible; y la fuente se direcciona por su ruta en disco, no por el id del listado, porque el propio ciclo recarga los paneles y renueva esos ids |
 | Cola de tareas | `totalBytes \|\| 1024 * 1024`: 1 MB inventado para lo que no se midió | 0 = “sin medir”; el total real llega del servidor |
 | Buscar/Grep | Patrón con el mismo escapado roto que el filtro del panel; grep sobre `file.content`, vacío en unidades reales → “sin resultados” siempre | Reglas de comodines compartidas (`utils/panelFilter`) y lectura real de contenidos con topes; los ficheros no leídos se cuentan en el pie |
 | Drawer · Red y seguridad | “SMB Online” y “AES-256 Active”, ambos falsos (las rutas UNC se rechazan y los archivos no se cifran) | “Bloqueado” y “Sin uso” |
@@ -102,13 +102,17 @@ Los endpoints nuevos aceptan solo lectura, están detrás del mismo servidor de 
 | Cobertura de sentencias | 54,01 % |
 | Cobertura de líneas | 56,80 % |
 | Specs del servidor | 16 ficheros `server.*.test.ts` |
-| E2E | 15 pruebas, 6 specs |
+| E2E | 17 pruebas, 7 specs |
 
 Sin umbral y sin script `coverage` en `package.json`, aunque `@vitest/coverage-v8` está instalado: la cobertura existe como medición manual, no como compuerta.
 
 La vista rápida tiene su propio E2E desde esta unidad: [`e2e/quickview.spec.ts`](e2e/quickview.spec.ts) escribe tres ficheros en un temporal —texto con acentos, un binario con NUL y un WAV PCM real—, los enfoca en el panel derecho, abre el panel con el mismo Ctrl+Q que usa una persona y exige que el pane muestre **sus** bytes: el texto exacto leído del DOM, `00000000  4F 4D 4E 49 00 FF |OMNI..|` en Hex con el marcador de binario y sus 6 bytes, y un `<audio>` con `src` `blob:` más el tamaño real en Info. El pane lleva ahora `data-quick-view` y `data-quick-view-tab` para que la prueba pueda distinguirlo de la lista y leer qué pestaña eligió sola. Como mutación real, volver a pintar el volcado inventado (`binario.BIN_FILE_DATA`) hace fallar el caso del binario con ese texto exacto frente al esperado; restaurado, los cuatro vuelven a verde.
 
 La barra de comandos tiene además seis casos de mutación: [`scripts/commandOutput.mutation.test.ts`](scripts/commandOutput.mutation.test.ts) pasa las respuestas fijas antiguas —el adaptador 192.168.1.150, la tabla de cuatro filas con `omnicmd.exe`, el árbol dibujado— por las mismas comprobaciones que ejecuta el E2E y exige que las rechacen; los casos de control construyen una respuesta medida y exigen cero quejas, para que «rechaza todo» no se confunda con «detecta la mutación». Ejecutado también como mutación real: con la app devolviendo las cuatro respuestas fijas, `e2e/commands.spec.ts` dio **3 fallos** con esos mensajes exactos y volvió a verde al restaurar el código.
+
+La sincronización de carpetas tiene su propio E2E desde esta unidad: [`e2e/sync.spec.ts`](e2e/sync.spec.ts) crea dos carpetas temporales con diferencias conocidas —uno solo a la izquierda, uno solo a la derecha, uno idéntico por tamaño y fecha y uno que la prueba decide omitir—, apunta los dos paneles a ellas, abre el diálogo desde el menú Comandos y lo ejecuta. El primer caso lee la tabla por sus ganchos nuevos (`data-sync-name`, `data-sync-status`, `data-sync-direction` en [`SyncFoldersModal.tsx`](src/components/modals/SyncFoldersModal.tsx)) y exige el estado y la dirección que el diálogo calculó solo; el segundo comprueba **el disco**: cada archivo copiado contiene los bytes de su origen, el omitido no existe al otro lado, no apareció nada más y el idéntico conserva su `mtime` (no se reescribió «por si acaso»).
+
+Escribirlo encontró un fallo real, que era el motivo por el que una sincronización de dos direcciones no terminaba: el diálogo guardaba los `id` de catálogo de ambos paneles al abrirse, y cada copia recarga el panel destino, que **renueva los ids** de todos sus ficheros ([`fileSystem.ts:340`](src/services/fileSystem.ts#L340)). La segunda copia, con el id del snapshot, ya no resolvía y el run abortaba con «El archivo ya no está en el panel»: medido en el log como `Copy skipped: no catalogue entry for sys_real_C_0_…` tras copiar el primer archivo. Ahora cada entrada de una unidad real se copia por su ruta absoluta (`transferPaths`, la misma puerta que usa una transferencia replicada) y solo las virtuales y de archivo pasan por el id. Como mutación, volver al id del snapshot deja el caso en rojo con el diálogo todavía abierto (`Expected: 0, Received: 1`); restaurado, 2/2 en verde.
 
 **Carrera de teardown (resuelta en su causa):** con `--coverage`, una de cada varias corridas terminaba con exit 1 por `EnvironmentTeardownError: Closing rpc while "onUserConsoleLog" was pending` mientras todas las pruebas pasaban. El registro que se escapaba era real: el poll de unidades de `App` seguía reintentando después del desmontaje y, al fallar el último intento, registraba «Could not load real drives from API» con la ventana ya cerrada. Ahora `fetchWithRetry` acepta la señal del llamador, deja de reintentar al cancelarse y limpia el listener; `App` aborta en su cleanup y `loadRealDrivesFromApi` no registra un fallo que nadie espera. Medido con la consola activada (`VITEST_CONSOLE=1`, el modo donde el aviso sería visible): sin la señal aparece una vez; con ella, tres corridas consecutivas sin ningún aviso y exit 0.
 
@@ -132,9 +136,10 @@ Zonas con poca cobertura medidas hoy: `soundEffects.ts` (27 %), `systemStats.ts`
 | P2-12 · Cobertura | ⚠️ Parcial | Medida al 54,01 %, sin script ni umbral |
 | Nuevo · E2E de la shell | ✅ Resuelto | [`e2e/commands.spec.ts`](e2e/commands.spec.ts) recorre la barra y contrasta `ipconfig` con `os.networkInterfaces()`, `tasklist` con un listado propio y `tree` con carpetas creadas en un temporal |
 | Nuevo · E2E de la vista rápida | ✅ Resuelto | [`e2e/quickview.spec.ts`](e2e/quickview.spec.ts): cuatro casos contra los ficheros que escribe la prueba, con la mutación del volcado inventado comprobada |
-| Nuevo · Presupuesto de `tasklist` | ✅ Resuelto | La lectura en frío mide **38 s** en una máquina ociosa y pasó de **2 min** con la suite al lado; 60 s devolvía «Command failed» y dejaba el E2E en rojo. Servidor a **180 s**, cliente a **210 s**; suite completa 15/15 |
+| Nuevo · Presupuesto de `tasklist` | ✅ Resuelto | La lectura en frío mide **38 s** en una máquina ociosa y pasó de **2 min** con la suite al lado; 60 s devolvía «Command failed» y dejaba el E2E en rojo. Servidor a **180 s**, cliente a **210 s** |
+| Nuevo · E2E de sincronización | ✅ Resuelto | [`e2e/sync.spec.ts`](e2e/sync.spec.ts): dos casos contra los ficheros que escribe la prueba, con la mutación del id obsoleto comprobada; encontró y cerró el fallo que cortaba la sincronización de dos direcciones en el primer archivo |
 
-**Prioridad sugerida:** (1) sacar las rutas de máquina a un módulo y seguir con la división de `server.cjs`; (2) limpiar `release/`, los `.txt` y `@zip.js/zip.js`; (3) umbral de cobertura y `typecheck:strict` en el CI; (4) E2E para la sincronización, que hoy solo tiene unidades.
+**Prioridad sugerida:** (1) sacar las rutas de máquina a un módulo y seguir con la división de `server.cjs`; (2) limpiar `release/`, los `.txt` y `@zip.js/zip.js`; (3) umbral de cobertura y `typecheck:strict` en el CI. El hueco de E2E que quedaba —la sincronización— está cerrado; lo que no tiene E2E es la copia/movimiento con diálogo de colisión y la cola de tareas, que hoy solo se cubren con unidades.
 
 ---
 
@@ -146,7 +151,7 @@ npx eslint src --max-warnings 0                   → exit 0 (0 errores, 0 warni
 npx vitest run                                    → 80 ficheros, 565 pruebas, 115 s, exit 0
 npx vitest run --coverage                         → 54,01 % sentencias (sin umbral), exit 0
 npx vite build                                    → exit 0, dist 1,7 MB
-npx playwright test                               → 15 pruebas, 5,7 min, exit 0
+npx playwright test                               → 17 pruebas, 8,4 min, exit 0
 npm audit --omit=dev                              → 0 vulnerabilidades
 npm audit                                         → 4 bajas
 npx tsc --noEmit -p tsconfig.strict.json          → 12 errores
