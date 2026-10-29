@@ -66,6 +66,13 @@ jobs:
       - name: Typecheck
         run: npm run lint
 
+      # tsconfig.strict.json adds the flags the app-wide config leaves off
+      # (strict, unused locals and parameters, fallthrough, override). It was a
+      # script nobody ran and had drifted to eleven errors; a person cannot keep
+      # it at zero, so it runs on every push.
+      - name: Strict typecheck
+        run: npm run typecheck:strict
+
       - name: Lint
         run: npm run lint:eslint
 

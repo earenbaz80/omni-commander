@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { FunctionBar } from '../components/FunctionBar';
+import { FunctionBar, type FunctionKey } from '../components/FunctionBar';
 import { ThemeConfig } from '../services/themeManager';
 
 const mockTheme: ThemeConfig = {
@@ -44,7 +44,7 @@ const mockTheme: ThemeConfig = {
   isRetro: true,
 };
 
-const defaultKeys = [
+const defaultKeys: FunctionKey[] = [
   { key: 'F1', label: 'helpF1', action: () => console.log('F1') },
   { key: 'F2', label: 'menuF2', action: () => console.log('F2') },
   { key: 'F3', label: 'viewF3', action: () => console.log('F3') },

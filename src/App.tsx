@@ -512,7 +512,7 @@ export default function App() {
     options: TransferOptions,
   ): TransferPlan | undefined => {
     // Guardrail: Handle null/undefined items gracefully
-    const normalizedItems = (items ?? []) as FileItem[];
+    const normalizedItems = items ?? [];
 
     if (normalizedItems.length === 0 || !normalizedItems.every((item) => fsEngine.isRealFile(item))) return undefined;
     return {
@@ -523,7 +523,7 @@ export default function App() {
       overwrite: options.collision === 'overwrite',
       collision: options.collision,
       throttleBps: options.throttleBps,
-      entries: items.map((item) => ({
+      entries: normalizedItems.map((item) => ({
         path: fsEngine.absolutePathOf(item),
         name: item.name,
         isDirectory: !!item.isDirectory,

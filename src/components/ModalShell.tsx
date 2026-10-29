@@ -35,7 +35,7 @@ function ModalShell({
   // Use the shared modal dialog hook for consistent behavior
   // Prefer explicit `label` for accessibility (aria-label), fallback to `title`
   const titleText = label || title || 'Modal';
-  useModalDialog(titleText, modalRef);
+  useModalDialog<HTMLDivElement>(titleText, modalRef);
 
   return (
     <div

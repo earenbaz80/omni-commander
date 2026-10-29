@@ -348,7 +348,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             );
           })}
         </div>
-        <ThemePreview themeId={formData.theme} lang={lang} />
+        {/* The form only omits the theme when the saved settings do, and the
+            preview then shows the one the app is running. */}
+        <ThemePreview themeId={formData.theme ?? theme.id} lang={lang} />
       </SectionCard>
     </div>
   );

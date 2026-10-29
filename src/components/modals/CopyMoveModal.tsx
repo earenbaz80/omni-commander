@@ -170,7 +170,9 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
     transfers.find((t) => t.status === 'running') ??
     transfers.find((t) => t.status === 'paused') ??
     transfers.find((t) => t.status === 'queued');
-  const currentSpeedMb = active ? Math.round(active.throttleBps / 1048576) : 0;
+  // A task queued without a throttle has none recorded, not zero bytes: the
+  // monitor shows 0 MB/s for both, so the fallback keeps the sum defined.
+  const currentSpeedMb = active ? Math.round((active.throttleBps ?? 0) / 1048576) : 0;
   const canControl = !!active && (active.status === 'running' || active.status === 'paused');
 
   const applySpeed = (mb: number) => {

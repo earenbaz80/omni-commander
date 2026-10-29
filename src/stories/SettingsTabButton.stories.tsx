@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import React from 'react';
 import { SettingsTabButton } from '../components/modals/SettingsModal';
 
 const meta = {
