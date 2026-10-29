@@ -1647,7 +1647,7 @@ class FileSystemEngine {
   public async getProcesses(): Promise<{ pid: number; name: string; memoryKb: number }[]> {
     // Longer than the server's own budget: the client must wait for a verdict
     // instead of abandoning a read that was still running.
-    const response = await fetchWithRetry(`${API_BASE}/api/processes`, { timeoutMs: 90000, retries: 0 });
+    const response = await fetchWithRetry(`${API_BASE}/api/processes`, { timeoutMs: 210000, retries: 0 });
     if (!response.ok) throw new Error((await response.json()).error);
     const rows = await response.json();
     return Array.isArray(rows) ? rows : [];
