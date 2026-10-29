@@ -1610,7 +1610,6 @@ export default function App() {
         handleCompressZip={handleCompressZip}
         handleExtractZip={handleExtractZip}
         handleSetFolderPassword={handleSetFolderPassword}
-        handleSelectDrive={handleSelectDrive}
         handleExecuteCommand={handleExecuteCommand}
       />
 
