@@ -173,6 +173,26 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
     return `${bytes} B`;
   };
 
+  /**
+   * Copies one entry to the other panel.
+   *
+   * A real drive is addressed by its path on disk, not by the catalogue id this
+   * dialog captured when it opened: every copy reloads a panel, and a reload
+   * hands out fresh ids, so a two-way run used to die on its second file with
+   * "the file is no longer in the panel". Virtual and archive entries have no
+   * disk path to replay, so they still go through the id.
+   */
+  const copyEntry = async (source: FileItem, targetDriveId: string, targetPath: string): Promise<void> => {
+    if (fsEngine.isRealFile(source)) {
+      await fsEngine.transferPaths('copy', [fsEngine.absolutePathOf(source)], targetPath, true);
+      await fsEngine.loadSystemDriveDirectory(targetDriveId, targetPath);
+      return;
+    }
+
+    const copied = await fsEngine.copyItem(source.id, targetDriveId, targetPath, true);
+    if (!copied) throw new Error(t.syncItemMissing.replace('{name}', source.name));
+  };
+
   // Execute sync operations
   const handleExecuteSync = async () => {
     const toProcess = diffItems.filter((i) => i.direction !== 'SKIP');
@@ -197,14 +217,13 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
         // The copy is awaited, so the counter advances when a file was actually
         // written. It used to be fired and followed by a 60 ms sleep: the bar
         // moved whether or not anything happened, and a failed copy was lost.
-        const copied =
-          item.direction === 'L_TO_R' && item.leftItem
-            ? await fsEngine.copyItem(item.leftItem.id, rightDriveId, rightPath, true)
-            : item.direction === 'R_TO_L' && item.rightItem
-              ? await fsEngine.copyItem(item.rightItem.id, leftDriveId, leftPath, true)
-              : undefined;
-
-        if (!copied) throw new Error(t.syncItemMissing.replace('{name}', item.name));
+        if (item.direction === 'L_TO_R' && item.leftItem) {
+          await copyEntry(item.leftItem, rightDriveId, rightPath);
+        } else if (item.direction === 'R_TO_L' && item.rightItem) {
+          await copyEntry(item.rightItem, leftDriveId, leftPath);
+        } else {
+          throw new Error(t.syncItemMissing.replace('{name}', item.name));
+        }
       }
 
       soundManager.playSuccess();
@@ -347,6 +366,11 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
                   return (
                     <tr
                       key={item.id}
+                      // Read by the e2e spec: the name is the one the panels use, and
+                      // the direction is what the run will actually do.
+                      data-sync-name={item.name}
+                      data-sync-status={item.status}
+                      data-sync-direction={item.direction}
                       className={`hover:bg-white/10 transition-colors ${
                         item.direction !== 'SKIP' ? 'bg-amber-500/10 font-bold' : 'opacity-80'
                       }`}
