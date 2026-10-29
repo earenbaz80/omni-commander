@@ -6,6 +6,7 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "!electron/**/*.test.ts",
       "server.cjs",
       "package.json"
     ],

@@ -35,7 +35,7 @@ Las secciones siguientes son el registro de lo que se encontró en `d3b113e` y s
 | P1-2 · Archivos grandes | ⚠️ Parcial | `read-bytes` acepta `maxBytes` con tope de 64 MiB y el visor lo pasa; sin `maxBytes` sigue leyendo el archivo entero, y las entradas ZIP se siguen descomprimiendo para medirlas (`archiveBackend.ts:226`) |
 | P1-3 · CI sin compuertas | ✅ Resuelto | `verify` ejecuta formato, tipos, ESLint y tests en matriz de dos versiones, y el release depende de él |
 | P1-4 · GET sin token | ✅ Resuelto | El token cubre mutaciones y los GET que describen el disco (`/api/list`, `/api/treesize`, `/api/fs/hash`, `/api/fs/jobs`, detalle de trabajo, panel, unidades y sugerencias del lanzador); el origen debe ser loopback en el puerto 3000 exacto, y el proxy de Vite presenta ese origen para cualquier puerto de desarrollo (`server.cjs:26-96`, `vite.config.ts`) |
-| P1-5 · Electron | ❌ Abierto | `isAllowedLocalUrl` sigue comparando con `startsWith('http://localhost:3000')` (`electron/main.cjs:253`) y no hay CSP en `index.html` ni cabecera equivalente |
+| P1-5 · Electron | ✅ Resuelto | La navegación se valida por origen exacto y solo admite ficheros dentro de `dist` (`electron/navigationGuard.cjs`, con `navigationGuard.test.ts`), y la CSP del documento solo permite recursos propios y el API en loopback (`vite.config.ts`) |
 | P2-1 · Pre-flight de espacio | ❌ Abierto | Límite de 100 planes × 5000 fuentes, pero los árboles se miden en serie dentro de la petición (`server.cjs:3525`) |
 | P2-2 · `getFolderSizes` | ⚠️ Parcial | Ya usa el índice por carpeta y exige `driveId`; `DiskUsageModal.tsx:32` sigue leyendo `(fsEngine as any).files` |
 | P2-3 · i18n | ⚠️ Parcial | `DiskUsageModal` traduce sus textos; las etiquetas de trabajo siguen en español (`server.cjs:2017`) |
@@ -51,12 +51,11 @@ Las secciones siguientes son el registro de lo que se encontró en `d3b113e` y s
 
 ### 0.3 Lo que queda, por prioridad
 
-1. **CSP y comparación por `new URL().origin`** en Electron (P1-5).
-2. **Tope por defecto en `read-bytes`** y tamaño de entradas ZIP sin descomprimir (P1-2).
-3. **Contraseña de carpetas protegidas** con PBKDF2 de `appLock.ts` (P2-7).
-4. **Pre-flight acotado** y división de `server.cjs` (P2-1, P2-11).
-5. **Limpieza**: `release/`, `.txt` de la raíz y `@zip.js/zip.js` (P2-9, P2-10).
-6. **Cobertura con umbral** (P2-12) y `typecheck:strict` en el CI (P2-4).
+1. **Tope por defecto en `read-bytes`** y tamaño de entradas ZIP sin descomprimir (P1-2).
+2. **Contraseña de carpetas protegidas** con PBKDF2 de `appLock.ts` (P2-7).
+3. **Pre-flight acotado** y división de `server.cjs` (P2-1, P2-11).
+4. **Limpieza**: `release/`, `.txt` de la raíz y `@zip.js/zip.js` (P2-9, P2-10).
+5. **Cobertura con umbral** (P2-12) y `typecheck:strict` en el CI (P2-4).
 
 ---
 
@@ -158,10 +157,11 @@ Los tests no detectan esto porque Vitest transpila sin comprobar tipos; `tsc` es
 - **Arreglo:** exigir token también en `/api/fs/*` (o al menos en `list`, `hash`, `jobs`), y limitar el origen al puerto de desarrollo exacto en vez de "cualquier localhost".
 
 ### P1-5 · Endurecimiento de Electron incompleto
-- `electron/main.cjs:266-277`: la allowlist usa `target.startsWith('http://localhost:3000')`. Una URL como `http://localhost:3000@evil.com` (usuario `localhost:3000`, host `evil.com`) **pasa el filtro**; el `window.open` permitido cargaría contenido remoto en la ventana privilegiada, con el preload activo y `window.electronAPI.apiToken` accesible. El servidor seguiría rechazando peticiones por `Origin`, pero es una capa que no debería depender de la otra.
-- No hay **CSP** en `index.html` ni cabecera equivalente: no hay defensa en profundidad si algún día se renderiza contenido no confiable.
-- El token vive en un global del renderer (`window.electronAPI.apiToken`), decisión razonable para IPC pero que convierte cualquier XSS en acceso total al disco. Conviene documentarlo y añadir CSP + validación estricta de URL.
-- **Arreglo:** comparar `new URL(target).origin` con una lista exacta de orígenes; CSP `default-src 'self'` con excepciones mínimas; mantener `nodeIntegration:false`, `sandbox:true` y `contextIsolation:true` (ya correctos).
+- ~~`electron/main.cjs:266-277`: la allowlist usa `target.startsWith('http://localhost:3000')`~~: la comprobación vive ahora en `electron/navigationGuard.cjs` y compara el **origen** exacto, así que `http://localhost:3000@evil.com` (usuario `localhost:3000`, host `evil.com`) se rechaza, igual que otro puerto, otro host o `https`. Para `file://` ya no basta el prefijo: el fichero tiene que estar dentro de `dist` y no puede nombrar un host, con lo que quedan fuera el resto del disco y las rutas de red tipo `file://server/share/...`. Comprobado en Electron con `will-navigate` y `setWindowOpenHandler` reales: los cuatro intentos de fuga quedan bloqueados y la ventana sigue en su documento.
+- ~~No hay **CSP** en `index.html`~~: ya se inyecta una política en `<head>` desde `vite.config.ts`, antes de cualquier recurso, con `default-src 'self'`, `script-src 'self'` en el build, `connect-src` limitado a loopback y `object-src`/`frame-src`/`form-action` cerrados. El servidor de desarrollo recibe dos excepciones que el paquete no lleva: el preámbulo en línea de React y el websocket de HMR. Comprobado en Chromium sobre el build servido y sobre el `dist` empaquetado en Electron: la app carga sus ficheros y rechaza `fetch`, imagen y script remotos.
+- El token vive en un global del renderer (`window.electronAPI.apiToken`), decisión razonable para IPC pero que convierte cualquier XSS en acceso total al disco. La CSP reduce ese riesgo a código propio, porque un script en línea ya no se ejecuta en el build.
+- Se mantienen `nodeIntegration:false`, `sandbox:true` y `contextIsolation:true`.
+- **Arreglo aplicado:** origen exacto en lugar de prefijo, `file://` acotado a `dist`, y CSP solo para lo propio y el API local.
 
 ## 5. Hallazgos P2 — calidad, rendimiento y mantenibilidad
 
