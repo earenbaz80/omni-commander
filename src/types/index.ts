@@ -244,6 +244,19 @@ export interface FreeSpaceReport {
   volumes: FreeSpaceVolume[];
 }
 
+/**
+ * What a protected folder keeps: the PBKDF2 salt and derived hash, both base64.
+ *
+ * An empty salt marks a value saved by an older build, which stored the password
+ * as it was typed. Those still open their folder -- verification falls back to a
+ * plain comparison -- and are replaced by a derived record the first time the
+ * password is used, so the plaintext leaves the settings as folders are opened.
+ */
+export interface FolderPasswordRecord {
+  salt: string;
+  hash: string;
+}
+
 export interface UserSettings {
   theme: ThemeId;
   language: LanguageCode;
@@ -282,7 +295,8 @@ export interface UserSettings {
   appUsername: string;
   appPasswordHash: string; // PBKDF2-SHA256 hash (base64). Legacy plaintext when no salt is set.
   appPasswordSalt?: string; // Per-app random salt (base64) for appPasswordHash
-  protectedFolders: Record<string, string>; // path -> password
+  /** Folder path -> its password record. Never the password itself. */
+  protectedFolders: Record<string, FolderPasswordRecord>;
   customShortcuts: Record<string, string>;
   useRecycleBin: boolean;
   /** Last folder a "Enviar a" copy landed in, so the picker reopens there. */

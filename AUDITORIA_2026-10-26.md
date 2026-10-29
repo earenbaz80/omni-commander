@@ -42,7 +42,7 @@ Las secciones siguientes son el registro de lo que se encontró en `d3b113e` y s
 | P2-4 · Tipado | ⚠️ Parcial | 33 usos de `any` en `src` (eran 57); `npm run typecheck:strict` existe, pero el CI no lo ejecuta |
 | P2-5 · `includes` en render | ⚠️ Parcial | El caso del render ya usa un `Set`; el payload de arrastre sigue con `selectedIds.includes` (`FileList.tsx:339`) |
 | P2-6 · Filtro del panel | ❌ Abierto | Sigue escapando solo `.`, `*` y `?` (`usePanels.ts:196`) |
-| P2-7 · Carpetas protegidas | ❌ Abierto | La contraseña se guarda en claro (`App.tsx:1084`) y se compara en claro (`usePanels.ts:260`) |
+| P2-7 · Carpetas protegidas | ✅ Resuelto | Se guarda un registro PBKDF2 por carpeta (sal + hash) y el desbloqueo deriva el hash en vez de comparar texto; una protección antigua en claro sigue abriendo y se reescribe como registro en el primer desbloqueo (`appLock.ts`, `UnlockFolderModal.tsx`, `useSettings.ts`) |
 | P2-8 · README y metadatos | ✅ Resuelto | README real, `metadata.json` eliminado, `engines` presente, y ESLint con script propia que el CI sí ejecuta |
 | P2-9 · Dependencias sin uso | ⚠️ Parcial | `libarchive.js` y `node-unrar-js` ya se usan; `@zip.js/zip.js` sigue declarado y sin uso |
 | P2-10 · Higiene local | ❌ Abierto | `release/` ocupa 657 MB y los `.txt` de depuración siguen en la raíz |
@@ -51,10 +51,9 @@ Las secciones siguientes son el registro de lo que se encontró en `d3b113e` y s
 
 ### 0.3 Lo que queda, por prioridad
 
-1. **Contraseña de carpetas protegidas** con PBKDF2 de `appLock.ts` (P2-7).
-2. **Pre-flight acotado** y división de `server.cjs` (P2-1, P2-11).
-3. **Limpieza**: `release/`, `.txt` de la raíz y `@zip.js/zip.js` (P2-9, P2-10).
-4. **Cobertura con umbral** (P2-12) y `typecheck:strict` en el CI (P2-4).
+1. **Pre-flight acotado** y división de `server.cjs` (P2-1, P2-11).
+2. **Limpieza**: `release/`, `.txt` de la raíz y `@zip.js/zip.js` (P2-9, P2-10).
+3. **Cobertura con umbral** (P2-12) y `typecheck:strict` en el CI (P2-4).
 
 ---
 
@@ -179,7 +178,7 @@ Los tests no detectan esto porque Vitest transpila sin comprobar tipos; `tsc` es
 4. **Tipado:** `modalData: any` y 57 usos de `any` en `src`; `tsconfig.json` no activa `strict` (existe `tsconfig.strict.json`, pero no está en ninguna compuerta). Activar strict por capas (servicios primero).
 5. **Restos de O(n·m) en render:** `FileList.tsx:323` sigue usando `selectedIds.includes` dentro de un `filter` (existe ya un `Set` en `:480`; usarlo también ahí).
 6. **Filtro de panel:** `usePanels.ts:171-181` transforma el texto en regex escapando solo `.`, `*` y `?`; otros metacaracteres (`+`, `(`, `[`) alteran el resultado aunque el `try/catch` evite el crash. Escapar todo o hacer coincidencia literal con comodines.
-7. **Protección de carpetas:** `App.tsx:946-957` guarda la contraseña **en claro** en `protectedFolders` (localStorage) y solo se comprueba en `handleNavigate`. Ya existe PBKDF2 en `appLock.ts`: reutilizarlo o presentarlo explícitamente como "conveniencia", no como seguridad.
+7. **Protección de carpetas:** ~~`App.tsx:946-957` guarda la contraseña **en claro** en `protectedFolders` (localStorage) y solo se comprueba en `handleNavigate`.~~ Se guarda un registro PBKDF2 (sal y hash, uno por carpeta) y el desbloqueo lo verifica derivando el hash de lo que se teclea; el modal es el único sitio que ve la contraseña. Un valor guardado en claro por una versión anterior se lee como registro sin sal —sigue abriendo su carpeta— y se reescribe como registro en el primer desbloqueo que lo demuestra. **Lo que no cambia:** los ficheros no se cifran y la comprobación sigue viviendo solo en `handleNavigate`, así que es una barrera contra el acceso casual, no frente a quien abra la carpeta por otra vía.
 8. **Metadatos y documentación obsoletos:** `README.md` sigue siendo la plantilla de AI Studio (habla de `GEMINI_API_KEY`, que la app no usa); `metadata.json` dice "Norton Commander Pro" y declara `MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API`; no hay `engines`. El script `lint` ejecuta `tsc`, lo que oculta que ESLint está en rojo.
 9. **Dependencias sin uso:** `@zip.js/zip.js`, `libarchive.js`, `node-unrar-js` (añaden peso de instalación y empaquetado; `libarchive.js` además trae WASM).
 10. **Higiene local:** `release/` acumula ~450 MB de artefactos 1.0.3/1.0.4, y la raíz tiene decenas de `.txt` de depuración (`ebuild*.txt`, `main.txt`, `pkg.txt`…). Están ignorados por git, pero ensucian el proyecto y confunden búsquedas.

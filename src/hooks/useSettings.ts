@@ -1,6 +1,31 @@
 import { useEffect, useState } from 'react';
-import { UserSettings } from '../types';
+import { FolderPasswordRecord, UserSettings } from '../types';
 import { migrateThemeId } from '../services/themeManager';
+
+/**
+ * Reads the saved folder protections into the shape the app verifies against.
+ *
+ * Older builds stored the password exactly as typed, so a saved string becomes a
+ * record with an empty salt: it still opens its folder, because a saltless value
+ * is verified as the plaintext it is, and the first successful unlock replaces it
+ * with a derived one. Anything that is neither a record nor a string is dropped
+ * rather than half-trusted.
+ */
+export function normalizeProtectedFolders(saved: unknown): Record<string, FolderPasswordRecord> {
+  if (!saved || typeof saved !== 'object') return {};
+  const records: Record<string, FolderPasswordRecord> = {};
+  for (const [folderPath, value] of Object.entries(saved as Record<string, unknown>)) {
+    if (typeof value === 'string') {
+      if (value) records[folderPath] = { salt: '', hash: value };
+      continue;
+    }
+    if (!value || typeof value !== 'object') continue;
+    const record = value as { salt?: unknown; hash?: unknown };
+    if (typeof record.hash !== 'string' || !record.hash) continue;
+    records[folderPath] = { salt: typeof record.salt === 'string' ? record.salt : '', hash: record.hash };
+  }
+  return records;
+}
 
 /**
  * Global system settings: loads from localStorage on first render and persists
@@ -57,7 +82,7 @@ export function useSettings() {
             ...parsed,
             // Saved by an older build that named the theme differently.
             theme: migrateThemeId(parsed?.theme),
-            protectedFolders: parsed?.protectedFolders || {},
+            protectedFolders: normalizeProtectedFolders(parsed?.protectedFolders),
           };
         }
       } catch {

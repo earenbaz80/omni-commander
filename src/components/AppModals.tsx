@@ -4,6 +4,7 @@ import {
   ActiveModal,
   Drive,
   FileItem,
+  FolderPasswordRecord,
   LanguageCode,
   PanelState,
   PanelTab,
@@ -80,7 +81,7 @@ const ArchiveInfoModal = React.lazy(() =>
 type UnlockTarget = {
   side: 'left' | 'right';
   path: string;
-  expectedPass: string;
+  record: FolderPasswordRecord;
 };
 
 interface AppModalsProps {
@@ -127,7 +128,7 @@ interface AppModalsProps {
   handleSelectIndex: (panelSide: 'left' | 'right', index: number) => void;
   handleCompressZip: (archiveName: string, format: OpenableArchiveFormat) => Promise<void>;
   handleExtractZip: (zipFile: FileItem) => Promise<void>;
-  handleSetFolderPassword: (folderPath: string, password: string | null) => void;
+  handleSetFolderPassword: (folderPath: string, password: string | null) => void | Promise<void>;
   handleSelectDrive: (panelSide: 'left' | 'right', driveId: string) => Promise<void>;
   handleExecuteCommand: (cmd: string) => void;
   onRunCopyList: (plans: TransferPlan[]) => void;
@@ -460,7 +461,8 @@ export const AppModals: React.FC<AppModalsProps> = ({
             theme={currentTheme}
             lang={lang}
             folderPath={unlockTarget.path}
-            expectedPassword={unlockTarget.expectedPass}
+            record={unlockTarget.record}
+            onUpgrade={(password) => void handleSetFolderPassword(unlockTarget.path, password)}
             onSuccess={() => {
               setActiveModal(null);
               const side = unlockTarget.side;

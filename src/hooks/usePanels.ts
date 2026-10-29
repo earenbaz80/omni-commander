@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fsEngine } from '../services/fileSystem';
 import { soundManager } from '../services/soundEffects';
-import { ActiveModal, Drive, FileItem, PanelState, PanelTab, SortField, UserSettings } from '../types';
+import {
+  ActiveModal,
+  Drive,
+  FileItem,
+  FolderPasswordRecord,
+  PanelState,
+  PanelTab,
+  SortField,
+  UserSettings,
+} from '../types';
 import { tGlobal } from '../i18n/translations';
 import { ARCHIVE_EXTENSIONS } from '../services/archiveBackend';
 
@@ -15,7 +24,7 @@ interface PanelDeps {
   quickSearchTimerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
   setSelectedFileForModal: React.Dispatch<React.SetStateAction<FileItem | null>>;
   setUnlockTarget: React.Dispatch<
-    React.SetStateAction<{ side: 'left' | 'right'; path: string; expectedPass: string } | null>
+    React.SetStateAction<{ side: 'left' | 'right'; path: string; record: FolderPasswordRecord } | null>
   >;
   setHoveredItem: React.Dispatch<React.SetStateAction<FileItem | null>>;
   setHoverPos: React.Dispatch<React.SetStateAction<{ x: number; y: number }>>;
@@ -254,9 +263,9 @@ export function usePanels(deps: PanelDeps) {
   const checkFolderPasswordProtection = useCallback(
     (panelSide: 'left' | 'right', targetPath: string): boolean => {
       const protectedMap = settings.protectedFolders || {};
-      const pass = protectedMap[targetPath];
-      if (pass) {
-        setUnlockTarget({ side: panelSide, path: targetPath, expectedPass: pass });
+      const record = protectedMap[targetPath];
+      if (record) {
+        setUnlockTarget({ side: panelSide, path: targetPath, record });
         setActiveModal('unlock_folder');
         return true; // Is protected and intercepted
       }

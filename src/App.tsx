@@ -6,6 +6,7 @@ import {
   CommandHistoryItem,
   ConflictResolution,
   FileProgressEntry,
+  FolderPasswordRecord,
   FreeSpaceVolume,
   LanguageCode,
   PendingConflict,
@@ -108,11 +109,12 @@ export default function App() {
   // or trap the user behind a lock no credential can open.
   const [isAppLocked, setIsAppLocked] = useState<boolean>(() => settings.appLockEnabled && !!settings.appPasswordHash);
 
-  // Password Unlock Flow state
+  // Password Unlock Flow state. What travels is the stored record, never the
+  // password: the modal derives a hash from what the user types and compares it.
   const [unlockTarget, setUnlockTarget] = useState<{
     side: 'left' | 'right';
     path: string;
-    expectedPass: string;
+    record: FolderPasswordRecord;
   } | null>(null);
 
   // Single activation funnel for the lock: without a stored password there is
@@ -1076,12 +1078,15 @@ export default function App() {
     [],
   );
 
-  // Password Folder Protection Handler
-  const handleSetFolderPassword = (folderPath: string, password: string | null) => {
+  // Password Folder Protection Handler. Settings are stored as JSON in
+  // localStorage, so what goes in has to be the derived record and not the
+  // password: the same PBKDF2 the app lock uses, with its own salt per folder.
+  const handleSetFolderPassword = async (folderPath: string, password: string | null) => {
+    const record = password ? await createPasswordRecord(password) : null;
     setSettings((prev) => {
       const updated = { ...(prev.protectedFolders || {}) };
-      if (password) {
-        updated[folderPath] = password;
+      if (record) {
+        updated[folderPath] = record;
       } else {
         delete updated[folderPath];
       }
