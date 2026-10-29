@@ -32,7 +32,7 @@ Las secciones siguientes son el registro de lo que se encontró en `d3b113e` y s
 | P0-3 · RAR/7Z/TAR | ✅ Resuelto | Se abren en el servidor con `libarchive.js` y `node-unrar-js` (`server.cjs:2234-2600`); `server.archives.test.ts` y `e2e/archives.spec.ts` |
 | P0-4 · Release desde árbol roto | ✅ Resuelto | El job de release depende de `verify`, que corre en cada push a `master` y en cada PR (`.github/workflows/release.yml`) |
 | P1-1 · Dependencias | ✅ Resuelto | `npm audit fix` subió `body-parser` a 1.20.9 (producción sin avisos), `electron` a 44.10.0, `fast-uri` a 3.1.9 y `serialize-javascript` a 7.1.4; quedan 4 avisos bajos que exigen un cambio mayor de `vite-plugin-pwa` |
-| P1-2 · Archivos grandes | ⚠️ Parcial | `read-bytes` acepta `maxBytes` con tope de 64 MiB y el visor lo pasa; sin `maxBytes` sigue leyendo el archivo entero, y las entradas ZIP se siguen descomprimiendo para medirlas (`archiveBackend.ts:226`) |
+| P1-2 · Archivos grandes | ✅ Resuelto | `read-bytes` responde 413 por encima de 64 MiB cuando nadie pide un tope ni el archivo entero, trunca las previsualizaciones y lee entero solo con `unlimited` (motor de archivos); las entradas ZIP se miden por el tamaño declarado (`declaredSize`, `archiveBackend.ts`). La apertura sigue recorriendo el archivo una vez por el CRC: ver §P1-2 |
 | P1-3 · CI sin compuertas | ✅ Resuelto | `verify` ejecuta formato, tipos, ESLint y tests en matriz de dos versiones, y el release depende de él |
 | P1-4 · GET sin token | ✅ Resuelto | El token cubre mutaciones y los GET que describen el disco (`/api/list`, `/api/treesize`, `/api/fs/hash`, `/api/fs/jobs`, detalle de trabajo, panel, unidades y sugerencias del lanzador); el origen debe ser loopback en el puerto 3000 exacto, y el proxy de Vite presenta ese origen para cualquier puerto de desarrollo (`server.cjs:26-96`, `vite.config.ts`) |
 | P1-5 · Electron | ✅ Resuelto | La navegación se valida por origen exacto y solo admite ficheros dentro de `dist` (`electron/navigationGuard.cjs`, con `navigationGuard.test.ts`), y la CSP del documento solo permite recursos propios y el API en loopback (`vite.config.ts`) |
@@ -51,11 +51,10 @@ Las secciones siguientes son el registro de lo que se encontró en `d3b113e` y s
 
 ### 0.3 Lo que queda, por prioridad
 
-1. **Tope por defecto en `read-bytes`** y tamaño de entradas ZIP sin descomprimir (P1-2).
-2. **Contraseña de carpetas protegidas** con PBKDF2 de `appLock.ts` (P2-7).
-3. **Pre-flight acotado** y división de `server.cjs` (P2-1, P2-11).
-4. **Limpieza**: `release/`, `.txt` de la raíz y `@zip.js/zip.js` (P2-9, P2-10).
-5. **Cobertura con umbral** (P2-12) y `typecheck:strict` en el CI (P2-4).
+1. **Contraseña de carpetas protegidas** con PBKDF2 de `appLock.ts` (P2-7).
+2. **Pre-flight acotado** y división de `server.cjs` (P2-1, P2-11).
+3. **Limpieza**: `release/`, `.txt` de la raíz y `@zip.js/zip.js` (P2-9, P2-10).
+4. **Cobertura con umbral** (P2-12) y `typecheck:strict` en el CI (P2-4).
 
 ---
 
@@ -142,9 +141,10 @@ Los tests no detectan esto porque Vitest transpila sin comprobar tipos; `tsc` es
 - No hay `engines` en `package.json` pese a la sensibilidad del entorno (iones/Electron/Vite 8 ya rompieron builds antes).
 
 ### P1-2 · Archivos grandes sin límite de memoria
-- `server.cjs:1462-1469` (`POST /api/fs/read-bytes`) hace `fs.promises.readFile` del archivo completo y lo envía: sin tope de tamaño, tanto el proceso servidor como el renderer cargan el archivo entero en RAM. Un vídeo/ISO de varios GB puede tumbar la app.
-- `openZipArchive` (`fileSystem.ts:1360-1376`) **descomprime cada entrada** (`await entry.async('uint8array')`) solo para calcular el tamaño: abrir un ZIP grande con miles de entradas bloquea el hilo y multiplica el uso de memoria; además el ZIP completo ya se cargó como `Uint8Array`.
-- **Arreglo:** `stat` previo con límite y respuesta 413; streaming para el visor; usar el tamaño declarado de la entrada ZIP (p. ej. `uncompressedSize`) en lugar de descomprimir; límite de entradas/tiempo al montar un archivo.
+- ~~`POST /api/fs/read-bytes` hacía `fs.promises.readFile` del archivo completo y lo enviaba: sin tope, tanto el servidor como el renderer cargaban el archivo entero en RAM, y un ISO de varios GB podía tumbar la app.~~ Ahora el tope es la regla y no la excepción: sin `maxBytes`, el servidor comprueba el tamaño y responde **413 con `size` y `limit`** por encima de 64 MiB (`OMNI_READ_BYTES_LIMIT` solo existe para que una prueba cruce el umbral con un archivo pequeño). Quedan tres intenciones explícitas: `maxBytes` trunca sin protestar —el visor pide un byte más de lo que muestra a propósito, y su tope nunca supera el límite—, `unlimited` lee el archivo entero para el motor de archivos, que no puede analizar medio ZIP, y omitir ambos significa "el archivo si cabe".
+- ~~`loadZipBackend` **descomprimía cada entrada** (`await entry.async('uint8array')`) solo para calcular el tamaño.~~ El tamaño sale ahora del directorio central que JSZip ya parseó (`declaredSize` en `archiveBackend.ts`), con el inflado como respaldo únicamente cuando la entrada no lo trae; un archivo de cero bytes se declara como tal, que es lo que JSZip guarda para él. La prueba espía `ZipObject.prototype.async` y comprueba que listar un ZIP con contenido no lo llama ni una vez.
+- **Lo que sigue costando:** `loadArchive` abre con `checkCRC32: true`, y esa comprobación **sí recorre y descomprime todo el archivo una vez** en streaming (no retiene los bytes, pero cuesta tiempo). Se mantuvo a propósito porque es lo que convierte un ZIP corrupto en el mensaje "archivo dañado" en vez de un fallo al abrir una entrada concreta, y además valida que los tamaños declarados no mienten. Quitarlo es una decisión aparte: quitaría la detección temprana de corrupción.
+- **Lo que no se hizo:** streaming del visor (sigue leyendo en memoria lo que pide, ya acotado) y límite de entradas/tiempo al montar un archivo.
 
 ### P1-3 · CI sin compuertas de calidad
 - `.github/workflows/release.yml` solo se dispara con tags `v*` y ejecuta `npm ci` → `build:electron` → `electron-builder`. **No ejecuta `tsc`, ESLint, tests ni E2E.**

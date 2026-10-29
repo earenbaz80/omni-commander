@@ -1581,10 +1581,15 @@ class FileSystemEngine {
   /**
    * Raw bytes of a file. `maxBytes` caps what comes back and is forwarded to the
    * server as well, so a caller that only needs a preview (the viewer and the
-   * editor) never drags a huge file into memory; callers that must see every
-   * byte, like the checksums, omit it.
+   * editor) never drags a huge file into memory. Omitting it asks for the whole
+   * file, which the server only serves while the file fits its own limit and
+   * refuses with a 413 past it; `unlimited` is for the archive engine, which
+   * cannot parse an archive it only half received.
    */
-  public async readFileBytes(file: FileItem, options?: { maxBytes?: number }): Promise<Uint8Array> {
+  public async readFileBytes(
+    file: FileItem,
+    options?: { maxBytes?: number; unlimited?: boolean },
+  ): Promise<Uint8Array> {
     const maxBytes = options?.maxBytes;
     const cap = (bytes: Uint8Array): Uint8Array =>
       maxBytes && bytes.length > maxBytes ? bytes.subarray(0, maxBytes) : bytes;
@@ -1598,7 +1603,11 @@ class FileSystemEngine {
       const response = await fetchWithRetry(`${API_BASE}/api/fs/read-bytes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: this.realAbsolutePath(file), maxBytes }),
+        body: JSON.stringify({
+          path: this.realAbsolutePath(file),
+          maxBytes,
+          unlimited: options?.unlimited === true,
+        }),
         retries: 0,
         timeoutMs: 120000,
       });
@@ -1679,7 +1688,7 @@ class FileSystemEngine {
       return loadServerArchiveBackend(this.realAbsolutePath(source), fileName, declared, password);
     }
     try {
-      return await loadArchiveBackend(await this.readFileBytes(source), fileName, password);
+      return await loadArchiveBackend(await this.readFileBytes(source, { unlimited: true }), fileName, password);
     } catch (error) {
       if (onDisk && error instanceof UnsupportedArchiveError && isServerReadable(error.format)) {
         return loadServerArchiveBackend(this.realAbsolutePath(source), fileName, error.format, password);
@@ -1766,7 +1775,9 @@ class FileSystemEngine {
       collected.push({
         path: relative,
         dir: false,
-        bytes: await this.readFileBytes(item),
+        // An archive is only an archive with every byte: the central directory
+        // that lists its entries sits at the end of the file.
+        bytes: await this.readFileBytes(item, { unlimited: true }),
         mtime: new Date(item.modifiedAt || Date.now()),
       });
     };
