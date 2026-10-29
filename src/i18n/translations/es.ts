@@ -1014,6 +1014,8 @@ export const es = {
   searchLine: 'Línea {n}:',
   searchMoreMatches: '+{n} coincidencias más...',
   searchFound: 'Encontrados: {n} elemento(s)',
+  searchSkipped: 'Sin buscar: {n} archivo(s) (binarios, de más de 1 MB o posteriores a los primeros 100).',
+  syncItemMissing: 'El archivo ya no está en el panel: {name}',
   protectInvalidPass: 'Por favor ingrese una contraseña válida',
   protectMismatch: 'Las contraseñas no coinciden',
   protectDialogTitle: 'Proteger carpeta',

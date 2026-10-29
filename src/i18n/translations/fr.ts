@@ -991,6 +991,8 @@ export const fr = {
   searchLine: 'Ligne {n} :',
   searchMoreMatches: '+{n} autres résultats...',
   searchFound: 'Trouvés : {n} élément(s)',
+  searchSkipped: 'Non analysés : {n} fichier(s) (binaires, plus de 1 Mo, ou au-delà des 100 premiers).',
+  syncItemMissing: 'Le fichier n’est plus dans le panneau : {name}',
   protectInvalidPass: 'Veuillez saisir un mot de passe valide',
   protectMismatch: 'Les mots de passe ne correspondent pas',
   protectDialogTitle: 'Protéger le dossier',

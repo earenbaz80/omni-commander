@@ -985,6 +985,8 @@ export const ja = {
   searchLine: '{n} 行目:',
   searchMoreMatches: '他に {n} 件の一致...',
   searchFound: '見つかった件数: {n}',
+  searchSkipped: '未検索: {n} ファイル（バイナリ、1 MB 超、または先頭 100 件以降）。',
+  syncItemMissing: 'ファイルはパネルにありません: {name}',
   protectInvalidPass: '有効なパスワードを入力してください',
   protectMismatch: 'パスワードが一致しません',
   protectDialogTitle: 'フォルダーを保護',

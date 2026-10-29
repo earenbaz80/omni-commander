@@ -989,6 +989,8 @@ export const de = {
   searchLine: 'Zeile {n}:',
   searchMoreMatches: '+{n} weitere Treffer...',
   searchFound: 'Gefunden: {n} Element(e)',
+  searchSkipped: 'Nicht durchsucht: {n} Datei(en) (binär, über 1 MB oder nach den ersten 100).',
+  syncItemMissing: 'Die Datei ist nicht mehr im Bereich: {name}',
   protectInvalidPass: 'Bitte geben Sie ein gültiges Passwort ein',
   protectMismatch: 'Passwörter stimmen nicht überein',
   protectDialogTitle: 'Ordner schützen',

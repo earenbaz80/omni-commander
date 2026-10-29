@@ -982,6 +982,8 @@ export const pt = {
   searchLine: 'Linha {n}:',
   searchMoreMatches: '+{n} correspondências a mais...',
   searchFound: 'Encontrados: {n} item(ns)',
+  searchSkipped: 'Não pesquisados: {n} arquivo(s) (binários, acima de 1 MB ou além dos primeiros 100).',
+  syncItemMissing: 'O arquivo não está mais no painel: {name}',
   protectInvalidPass: 'Digite uma senha válida',
   protectMismatch: 'As senhas não coincidem',
   protectDialogTitle: 'Proteger pasta',

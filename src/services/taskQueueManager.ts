@@ -84,7 +84,10 @@ class TaskQueueManager {
       status: 'queued',
       speed: '0 MB/s',
       transferredBytes: 0,
-      totalBytes: totalBytes || 1024 * 1024,
+      // Zero means "not measured yet", not one megabyte: the executor reports
+      // the real total as soon as the server has it, and the bar stays at 0%
+      // until then instead of showing progress through a made-up size.
+      totalBytes: totalBytes && totalBytes > 0 ? totalBytes : 0,
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       plan,
     };

@@ -5,6 +5,12 @@ import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { fsEngine } from '../../services/fileSystem';
 import { soundManager } from '../../services/soundEffects';
+import { panelFilterPattern } from '../../utils/panelFilter';
+import { decodeFileBytes } from '../../utils/fileContent';
+
+/** Reading contents is bounded: one search must not try to grep a whole drive. */
+const GREP_MAX_FILES = 100;
+const GREP_MAX_BYTES = 1024 * 1024;
 
 import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
@@ -84,6 +90,8 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
 
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
+  // Files the content search could not read, so "no matches" never hides them.
+  const [skippedFiles, setSkippedFiles] = useState(0);
 
   // History State
   const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>(() => loadSearchHistory());
@@ -102,70 +110,82 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
     soundManager.playSelectSound();
   };
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     soundManager.playDiskAccess();
     setIsSearching(true);
+    setSkippedFiles(0);
 
-    setTimeout(() => {
+    {
       const allFiles = fsEngine.getSearchIndex(searchAllDrives, currentDriveId);
-      const patternRegex = new RegExp(
-        '^' + filePattern.replace(/\./g, '\\.').replace(/\*/g, '.*').replace(/\?/g, '.') + '$',
-        'i',
-      );
+      // The same wildcard rules as the panel filter: `*` and `?`, nothing else.
+      const pattern = panelFilterPattern(filePattern.trim() || '*');
+      const needle = caseSensitive ? grepText : grepText.toLowerCase();
 
       const found: SearchResult[] = [];
+      let skipped = 0;
+      let scanned = 0;
       const now = new Date();
 
-      allFiles.forEach((file) => {
-        if (!searchAllDrives && file.driveId !== currentDriveId) return;
+      for (const file of allFiles) {
+        if (!searchAllDrives && file.driveId !== currentDriveId) continue;
 
         const fullName = file.ext ? `${file.name}.${file.ext}` : file.name;
-        const nameMatches = patternRegex.test(fullName) || patternRegex.test(file.name);
-
-        if (!nameMatches) return;
+        if (!pattern.test(fullName) && !pattern.test(file.name)) continue;
 
         // Size Filter
         const sizeKB = file.size / 1024;
-        if (minSizeKB && sizeKB < Number(minSizeKB)) return;
-        if (maxSizeKB && sizeKB > Number(maxSizeKB)) return;
+        if (minSizeKB && sizeKB < Number(minSizeKB)) continue;
+        if (maxSizeKB && sizeKB > Number(maxSizeKB)) continue;
 
         // Attribute Filter
-        if (filterReadOnly && !file.attributes.readOnly) return;
-        if (filterHidden && !file.attributes.hidden) return;
-        if (filterSystem && !file.attributes.system) return;
+        if (filterReadOnly && !file.attributes.readOnly) continue;
+        if (filterHidden && !file.attributes.hidden) continue;
+        if (filterSystem && !file.attributes.system) continue;
 
         // Date Filter
         if (datePreset !== 'all' && file.modifiedAt) {
           const modDate = new Date(file.modifiedAt);
           const diffDays = (now.getTime() - modDate.getTime()) / (1000 * 3600 * 24);
-          if (datePreset === 'today' && diffDays > 1) return;
-          if (datePreset === 'last_7' && diffDays > 7) return;
-          if (datePreset === 'last_30' && diffDays > 30) return;
+          if (datePreset === 'today' && diffDays > 1) continue;
+          if (datePreset === 'last_7' && diffDays > 7) continue;
+          if (datePreset === 'last_30' && diffDays > 30) continue;
         }
 
-        // If grep text specified
-        if (grepText) {
-          if (!file.content || file.isDirectory) return;
-          const lines = file.content.split('\n');
-          const fileMatches: { line: number; text: string }[] = [];
-
-          lines.forEach((l, idx) => {
-            const hasMatch = caseSensitive ? l.includes(grepText) : l.toLowerCase().includes(grepText.toLowerCase());
-            if (hasMatch) {
-              fileMatches.push({ line: idx + 1, text: l.trim() });
-            }
-          });
-
-          if (fileMatches.length > 0) {
-            found.push({ file, matches: fileMatches });
-          }
-        } else {
+        if (!needle) {
           found.push({ file, matches: [] });
+          continue;
         }
-      });
+
+        // The name matched, so the text has to come from the file itself: the
+        // listing carries no bytes, and the old check on `file.content` skipped
+        // every real file, which looked exactly like "no matches".
+        if (file.isDirectory || file.size > GREP_MAX_BYTES || scanned >= GREP_MAX_FILES) {
+          skipped += 1;
+          continue;
+        }
+        scanned += 1;
+
+        try {
+          const bytes = await fsEngine.readFileBytes(file, { maxBytes: GREP_MAX_BYTES });
+          const decoded = decodeFileBytes(bytes, GREP_MAX_BYTES);
+          if (decoded.binary) {
+            skipped += 1;
+            continue;
+          }
+          const fileMatches: { line: number; text: string }[] = [];
+          decoded.text.split('\n').forEach((line, index) => {
+            const haystack = caseSensitive ? line : line.toLowerCase();
+            if (haystack.includes(needle)) fileMatches.push({ line: index + 1, text: line.trim() });
+          });
+          if (fileMatches.length > 0) found.push({ file, matches: fileMatches });
+        } catch {
+          skipped += 1;
+        }
+      }
 
       setResults(found);
+      setSkippedFiles(skipped);
       setIsSearching(false);
       soundManager.playSuccess();
 
@@ -204,7 +224,7 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
       const updatedHistory = [newEntry, ...filteredHistory].slice(0, 5);
       setSearchHistory(updatedHistory);
       saveSearchHistory(updatedHistory);
-    }, 120);
+    }
   };
 
   const dialogRef = useModalDialog<HTMLDivElement>(t.searchDialogTitle);
@@ -435,7 +455,14 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
             borderColor: theme.modalBorder,
           }}
         >
-          <span className="font-bold text-amber-300">{t.searchFound.replace('{n}', String(results.length))}</span>
+          <span className="font-bold text-amber-300">
+            {t.searchFound.replace('{n}', String(results.length))}
+            {skippedFiles > 0 && (
+              <span className="ml-[var(--space-2)] font-normal text-amber-200/80">
+                {t.searchSkipped.replace('{n}', String(skippedFiles))}
+              </span>
+            )}
+          </span>
           <button
             onClick={onClose}
             className="px-[var(--space-4)] py-[var(--space-1)] bg-white/10 hover:bg-white/20 rounded cursor-pointer font-bold"
