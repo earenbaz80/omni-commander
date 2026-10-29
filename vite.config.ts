@@ -179,6 +179,12 @@ export default defineConfig(({ command, mode }) => {
       // fail components that are only slow to render. See the file for why.
       setupFiles: ['./src/test/setup.ts'],
       exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
+      // Five seconds is a budget for an assertion, not for spawning a process,
+      // deriving a key or asking the local server who is running: those have
+      // been measured past it while the rest of the suite saturates the machine,
+      // and the result was a red run in which nothing was broken. A hang is
+      // still a hang, reported twenty seconds later instead of five.
+      testTimeout: 20000,
     },
   };
 });
