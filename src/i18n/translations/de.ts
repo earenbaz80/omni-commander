@@ -698,6 +698,7 @@ export const de = {
   commonPreviewOf: 'Vorschau von {name}.{ext}',
   fileListResizeColumn: 'Spalte {label} anpassen',
   fileListResizeHint: 'Ziehen zum Anpassen · Doppelklick für automatische Breite',
+  fileListLabel: 'Dateiliste in {path}',
   qvAudioTrack: 'Hi-Fi-Audiospur',
   qvVideoClip: 'HD-Videoclip',
   qvPlaying: 'WIEDERGABE',

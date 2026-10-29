@@ -722,6 +722,7 @@ export const en = {
   commonPreviewOf: 'Preview of {name}.{ext}',
   fileListResizeColumn: 'Resize column {label}',
   fileListResizeHint: 'Drag to resize · double-click to auto-fit',
+  fileListLabel: 'File list in {path}',
   qvAudioTrack: 'Hi-Fi Audio Track',
   qvVideoClip: 'HD Video Clip',
   qvPlaying: 'PLAYING',

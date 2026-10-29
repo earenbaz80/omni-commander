@@ -701,6 +701,7 @@ export const fr = {
   commonPreviewOf: 'Aperçu de {name}.{ext}',
   fileListResizeColumn: 'Redimensionner la colonne {label}',
   fileListResizeHint: 'Glisser pour redimensionner · double-clic pour ajuster',
+  fileListLabel: 'Liste de fichiers dans {path}',
   qvAudioTrack: 'Piste audio Hi-Fi',
   qvVideoClip: 'Clip vidéo HD',
   qvPlaying: 'LECTURE',

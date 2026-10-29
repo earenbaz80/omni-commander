@@ -23,6 +23,11 @@ import path from 'node:path';
  * two that read the file's bytes: a real drive's listing carries no content, so
  * they can be perfectly focused over an empty frame, and that is what the
  * scratch folder's text file is for.
+ *
+ * One case follows a window replacing another: the viewer's "edit" button
+ * swaps it for the editor, and the shell's habit of restoring focus on unmount
+ * has to lose that race to the incoming window rather than drop focus on the
+ * list behind it.
  */
 
 /** The panels address storage by drive letter, so this spec needs one to point. */
@@ -206,6 +211,58 @@ test('closing a window hands focus back to the control that opened it', async ({
   const back = await focusInfo(page);
   expect(back.insideDialog, `focus ended on <${back.tag}> "${back.text}"`).toBe(false);
   await expect(opener, 'the control that opened the window has to be the one focused again').toBeFocused();
+});
+
+test('editing from the viewer hands focus to the editor', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('[data-name]').first()).toBeVisible();
+  await focusFile(page);
+
+  await page.keyboard.press('F3');
+  const viewer = page.getByRole('dialog', { name: 'Visor de archivos' });
+  await expect(viewer).toBeVisible({ timeout: 30000 });
+
+  await viewer.getByRole('button', { name: 'Editar (F4)' }).click();
+
+  // The viewer unmounts and the editor mounts in the same commit, and the
+  // viewer's shell puts focus back on whatever opened it as it goes. That
+  // restore must not win: focus belongs in the window that is now on screen.
+  const editor = page.getByRole('dialog', { name: 'Editor de texto' });
+  await expect(editor).toBeVisible({ timeout: 30000 });
+  await expect(viewer).toHaveCount(0);
+
+  await expect
+    .poll(async () => (await focusInfo(page)).insideDialog, {
+      message: 'the editor never took focus after replacing the viewer',
+    })
+    .toBe(true);
+
+  const landed = await focusInfo(page);
+  expect(landed, `the editor opened with focus on <${landed.tag}> "${landed.text}"`).toMatchObject({
+    insideDialog: true,
+    named: true,
+  });
+
+  // The trap in force is the editor's own, not the one the viewer left behind.
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  expect(await focusInfo(page)).toMatchObject({ insideDialog: true });
+
+  await page.keyboard.press('Escape');
+  await expect(editor).toHaveCount(0);
+
+  // Closing the editor has to land back on something real. The button that
+  // opened the viewer is gone by then, so a restore aimed at it does nothing and
+  // focus falls to the document body, where the next keystroke goes nowhere.
+  const back = await focusInfo(page);
+  expect(back, `closing the editor left focus on <${back.tag}> "${back.text}"`).toMatchObject({
+    insideDialog: false,
+  });
+  expect(back.tag, `closing the editor left focus on <${back.tag}> "${back.text}"`).not.toBe('body');
+
+  // Specifically, back on the list the file came from: it is focusable and owns
+  // the arrows, so the user resumes where they were instead of starting over.
+  await expect(page.locator('[data-file-list]').first()).toBeFocused();
 });
 
 test('the copy window opens with focus on its destination field', async ({ page }) => {

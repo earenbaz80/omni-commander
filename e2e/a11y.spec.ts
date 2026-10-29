@@ -41,6 +41,35 @@ const AUDIT = `(() => {
   };
 })()`;
 
+test('the file list is a named group, so focus on it is announced', async ({ page }) => {
+  await page.goto('/');
+
+  // Both panels render their own list, and focus lands on it every time a
+  // window closes back onto it.
+  const lists = page.locator('[data-file-list]');
+  await expect(lists.first()).toBeVisible({ timeout: 60000 });
+
+  const audit = await lists.evaluateAll((els) =>
+    els.map((el) => ({
+      role: el.getAttribute('role'),
+      name: (el.getAttribute('aria-label') || '').trim(),
+      tabIndex: (el as HTMLElement).tabIndex,
+    })),
+  );
+
+  expect(audit.length).toBeGreaterThanOrEqual(2);
+  // A focusable div with no role and no name is announced as nothing at all,
+  // which is what a screen reader would have said when a window closed.
+  expect(
+    audit.filter((list) => list.role !== 'group' || !list.name || list.tabIndex !== 0),
+    JSON.stringify(audit, null, 2),
+  ).toEqual([]);
+  expect(audit.every((list) => list.name.startsWith('Lista de archivos'))).toBe(true);
+
+  await lists.first().focus();
+  await expect(lists.first()).toBeFocused();
+});
+
 test('every visible button has an accessible name', async ({ page }) => {
   test.setTimeout(120000);
   await page.goto('/');
