@@ -53,8 +53,11 @@ describe('GET /api/net/adapters', () => {
 describe('GET /api/processes', () => {
   it('reads the real process list', async () => {
     const res = await fetch(server.url('/api/processes'));
-    expect(res.status).toBe(200);
-    const processes = (await res.json()) as { pid: number; name: string; memoryKb: number }[];
+    // The body is what says why a read failed — a timed-out child and a refused
+    // spawn look identical from the status code alone.
+    const body = await res.text();
+    expect(res.status, `the server answered ${res.status}: ${body}`).toBe(200);
+    const processes = JSON.parse(body) as { pid: number; name: string; memoryKb: number }[];
 
     expect(processes.length).toBeGreaterThan(1);
     for (const process of processes) {
