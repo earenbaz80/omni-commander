@@ -80,6 +80,94 @@ test('the file list is a named group, so focus on it is announced', async ({ pag
   await expect(lists.first()).toBeFocused();
 });
 
+/**
+ * Roles that group or landmark something. Unlike a plain div, each of these is
+ * announced by name, so a nameless one leaves a screen reader reading "group"
+ * and nothing else. Dialogs are named by the modal shell and audited in
+ * `a11y.modals.spec.ts`, so they are not repeated here.
+ */
+const GROUPING_ROLES = [
+  'group',
+  'region',
+  'toolbar',
+  'tablist',
+  'list',
+  'listbox',
+  'tree',
+  'grid',
+  'menu',
+  'navigation',
+  'main',
+  'banner',
+  'complementary',
+  'contentinfo',
+  'search',
+  'form',
+];
+
+test('every grouping or landmark is named', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('[data-file-list]').first()).toBeVisible({ timeout: 60000 });
+
+  const auditContainers = () =>
+    page.evaluate((roles: string[]) => {
+      // Same simplified resolution order the button audit uses, minus the text
+      // fallback: a container's text is its whole content, not a name.
+      const nameOf = (el: Element) => {
+        const aria = el.getAttribute('aria-label');
+        if (aria && aria.trim()) return aria.trim();
+        const labelledBy = el.getAttribute('aria-labelledby');
+        if (labelledBy) {
+          const text = labelledBy
+            .split(/\s+/)
+            .map((id) => document.getElementById(id)?.textContent || '')
+            .join(' ')
+            .trim();
+          if (text) return text;
+        }
+        const title = el.getAttribute('title');
+        return title && title.trim() ? title.trim() : '';
+      };
+
+      return Array.from(document.querySelectorAll('[role]'))
+        .filter((el) => roles.includes(el.getAttribute('role') || ''))
+        .map((el) => ({
+          role: el.getAttribute('role'),
+          name: nameOf(el),
+          html: el.outerHTML.replace(/\s+/g, ' ').slice(0, 160),
+        }));
+    }, GROUPING_ROLES);
+
+  const onLoad = await auditContainers();
+  // The two panels' lists alone already prove the query ran.
+  expect(onLoad.length).toBeGreaterThanOrEqual(2);
+
+  // A menu only exists while it is open, so the page as loaded would never
+  // audit one. This is the only place in the app that declares `role="menu"`.
+  const cleanupButton = page.getByTitle('Limpiar carpetas temporales');
+  await expect(cleanupButton).toBeVisible({ timeout: 60000 });
+  await cleanupButton.click();
+  await expect(page.getByRole('menu')).toBeVisible();
+  const withMenuOpen = await auditContainers();
+  await cleanupButton.click();
+  await expect(page.getByRole('menu')).toHaveCount(0);
+
+  expect(
+    withMenuOpen.some((container) => container.role === 'menu'),
+    'the open menu was never audited',
+  ).toBe(true);
+
+  const audit = [...onLoad, ...withMenuOpen];
+  expect(
+    audit.filter((container) => !container.name),
+    `Groupings announced by role alone:\n${JSON.stringify(
+      audit.filter((container) => !container.name),
+      null,
+      2,
+    )}`,
+  ).toEqual([]);
+});
+
 test('every visible button has an accessible name', async ({ page }) => {
   test.setTimeout(120000);
   await page.goto('/');
