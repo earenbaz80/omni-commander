@@ -10,7 +10,6 @@ import { canPickPaths, pickPathsFromDisk, PickMode } from '../../services/native
 import { fsEngine } from '../../services/fileSystem';
 import { RetroProgressBar } from '../RetroProgressBar';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface CopyMoveModalProps {
@@ -364,8 +363,6 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
       submittingRef.current = false;
     }
   };
-
-  const dialogRef = useModalDialog<HTMLDivElement>(t.copyMoveModalTitle);
 
   // Idle = opened from the pill, no items in hand. Show the monitor instead of
   // the form, so this single window is both the transfer list and the form.
@@ -728,8 +725,6 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
       closeButtonLabel={t.btnCancel}
     >
       <div
-        ref={dialogRef}
-        tabIndex={-1}
         className="font-mono select-none"
         onKeyDownCapture={(event) => {
           if (event.key !== 'Enter' || event.shiftKey || taskId) return;

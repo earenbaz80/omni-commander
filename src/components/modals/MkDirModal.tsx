@@ -4,7 +4,6 @@ import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface MkDirModalProps {
@@ -39,8 +38,6 @@ export const MkDirModal: React.FC<MkDirModalProps> = ({
     onConfirm(name.trim());
   };
 
-  const dialogRef = useModalDialog<HTMLDivElement>(isRename ? t.renameItemTitle : t.toolbarNewFolder);
-
   return (
     <ModalShell
       title={isRename ? t.renameItemTitle : isNewFile ? t.newFileTitle : `${t.mkdirTitle} (F7)`}
@@ -48,7 +45,7 @@ export const MkDirModal: React.FC<MkDirModalProps> = ({
       onClose={onClose}
       closeButtonLabel={t.btnCancel}
     >
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         <form onSubmit={handleSubmit} className="p-[var(--space-4)] space-y-[var(--space-4)]">
           <div>
             {/* A rename has no destination to announce: the item stays where it is. */}

@@ -6,7 +6,6 @@ import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 import { fsEngine } from '../../services/fileSystem';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface ChooseFolderModalProps {
@@ -71,7 +70,6 @@ export const ChooseFolderModal: React.FC<ChooseFolderModalProps> = ({
   const fallbackPending = useRef(!!remembered);
 
   const currentPath = stack[stack.length - 1];
-  const dialogRef = useModalDialog<HTMLDivElement>(t.chooseFolderTitle);
 
   useEffect(() => {
     let alive = true;
@@ -123,7 +121,7 @@ export const ChooseFolderModal: React.FC<ChooseFolderModalProps> = ({
 
   return (
     <ModalShell title={t.chooseFolderTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         <form onSubmit={handleSubmit} className="p-[var(--space-4)] space-y-[var(--space-3)]">
           <div className="text-xs">
             <span className="opacity-75">{t.chooseFolderCopyOf} </span>

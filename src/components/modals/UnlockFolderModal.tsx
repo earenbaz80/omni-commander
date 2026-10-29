@@ -6,7 +6,6 @@ import { checkPassword } from '../../services/appLock';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface UnlockFolderModalProps {
@@ -70,11 +69,9 @@ export const UnlockFolderModal: React.FC<UnlockFolderModalProps> = ({
     }
   };
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.unlockFolderModalTitle);
-
   return (
     <ModalShell title={t.unlockTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         <form onSubmit={handleSubmit} className="p-[var(--space-4)] space-y-[var(--space-4)]">
           <div className="text-center space-y-[var(--space-1)]">
             <div className="w-12 h-12 mx-auto rounded-full bg-red-950/80 border-2 border-amber-400 flex items-center justify-center text-amber-300">

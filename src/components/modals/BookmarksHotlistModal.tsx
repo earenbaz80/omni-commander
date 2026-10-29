@@ -4,7 +4,6 @@ import { BookmarkItem, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { soundManager } from '../../services/soundEffects';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import { getTranslations } from '../../i18n/translations';
 import ModalShell from '../ModalShell';
 
@@ -82,11 +81,9 @@ export const BookmarksHotlistModal: React.FC<BookmarksHotlistModalProps> = ({
     onClose();
   };
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.hotlistModalTitle);
-
   return (
     <ModalShell title={t.hotlistTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         <div className="flex flex-col overflow-hidden max-h-[85vh]">
           {/* Current Path Info & Add Button */}
           <div className="p-[var(--space-3)] bg-black/40 border-b border-white/10 flex flex-col gap-[var(--space-2)]">

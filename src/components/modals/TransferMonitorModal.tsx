@@ -7,7 +7,6 @@ import { soundManager } from '../../services/soundEffects';
 import { taskQueue } from '../../services/taskQueueManager';
 import { fsEngine } from '../../services/fileSystem';
 import { RetroProgressBar } from '../RetroProgressBar';
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface TransferMonitorModalProps {
@@ -108,8 +107,6 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({ them
     });
   }, [tasks]);
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.taskQueueShort);
-
   const transfers = tasks.filter((entry) => TRANSFER_TYPES.includes(entry.type));
   const active =
     transfers.find((entry) => entry.status === 'running') ||
@@ -142,7 +139,7 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({ them
 
   return (
     <ModalShell title={t.taskQueueShort} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         {/* Progress of whatever is running right now, always visible. */}
         {active && (
           <div className="px-[var(--space-3)] pt-2 flex flex-col gap-[var(--space-1)] shrink-0">

@@ -6,7 +6,6 @@ import { getTranslations } from '../../i18n/translations';
 import { fsEngine } from '../../services/fileSystem';
 import { soundManager } from '../../services/soundEffects';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface FileSplitterJoinerModalProps {
@@ -94,8 +93,6 @@ export const FileSplitterJoinerModal: React.FC<FileSplitterJoinerModalProps> = (
     }
   };
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.splitterDialogTitle);
-
   return (
     <ModalShell
       title={mode === 'split' ? t.splitterSplitTitle : t.splitterJoinTitle}
@@ -103,7 +100,7 @@ export const FileSplitterJoinerModal: React.FC<FileSplitterJoinerModalProps> = (
       onClose={onClose}
       closeButtonLabel={t.btnCancel}
     >
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         <div className="flex flex-col overflow-hidden text-xs">
           {/* Toggle Mode Bar */}
           <div className="p-[var(--space-3)] bg-black/40 border-b border-white/10 flex items-center justify-center gap-[var(--space-2)]">

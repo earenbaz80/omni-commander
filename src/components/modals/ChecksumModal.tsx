@@ -6,7 +6,6 @@ import { getTranslations, tGlobal } from '../../i18n/translations';
 import { fsEngine } from '../../services/fileSystem';
 import { soundManager } from '../../services/soundEffects';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface ChecksumModalProps {
@@ -54,11 +53,9 @@ export const ChecksumModal: React.FC<ChecksumModalProps> = ({ theme, lang, file,
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.checksumModalTitle);
-
   return (
     <ModalShell title={t.checksumModalTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         <div className="p-[var(--space-4)] space-y-[var(--space-4)]">
           <div className="p-[var(--space-2)].5 bg-black/40 rounded border border-white/10 flex items-center gap-[var(--space-3)]">
             <ShieldCheck className="w-8 h-8 text-emerald-400 shrink-0" />

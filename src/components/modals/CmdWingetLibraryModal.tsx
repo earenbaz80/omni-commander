@@ -3,7 +3,6 @@ import { Search, Copy, Check, Play, Sparkles } from 'lucide-react';
 import { ThemeConfig } from '../../services/themeManager';
 import { LanguageCode } from '../../types';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import { getTranslations } from '../../i18n/translations';
 import ModalShell from '../ModalShell';
 
@@ -302,11 +301,9 @@ export const CmdWingetLibraryModal: React.FC<CmdWingetLibraryModalProps> = ({
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.wingetDialogLabel);
-
   return (
     <ModalShell title={t.cmdLibTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         {/* Filter Bar & Search */}
         <div
           className="p-[var(--space-3)] border-b flex flex-col sm:flex-row items-center gap-[var(--space-3)] bg-black/30"

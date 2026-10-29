@@ -3,7 +3,6 @@ import { FileItem, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface DiffCompareModalProps {
@@ -21,11 +20,9 @@ export const DiffCompareModal: React.FC<DiffCompareModalProps> = ({ theme, lang,
   const rightLines = (rightFile?.content || '').split('\n');
   const maxLines = Math.max(leftLines.length, rightLines.length);
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.diffModalTitle);
-
   return (
     <ModalShell title={t.diffTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         {/* File names header */}
         <div className="grid grid-cols-2 border-b border-white/20 bg-black/40 px-[var(--space-3)] py-[var(--space-2)] font-bold shrink-0">
           <div className="truncate text-amber-300">

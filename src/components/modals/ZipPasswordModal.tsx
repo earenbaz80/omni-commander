@@ -4,7 +4,6 @@ import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface ZipPasswordModalProps {
@@ -28,7 +27,6 @@ export const ZipPasswordModal: React.FC<ZipPasswordModalProps> = ({
 }) => {
   const t = getTranslations(lang);
   const [password, setPassword] = useState('');
-  const dialogRef = useModalDialog<HTMLDivElement>(t.zipTitle);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +36,7 @@ export const ZipPasswordModal: React.FC<ZipPasswordModalProps> = ({
 
   return (
     <ModalShell title={t.zipTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         <form onSubmit={handleSubmit} className="p-[var(--space-4)] space-y-[var(--space-4)]">
           <div className="flex items-center gap-[var(--space-2)] opacity-90">
             <Lock className="w-4 h-4" />

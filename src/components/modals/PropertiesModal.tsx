@@ -5,7 +5,6 @@ import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface PropertiesModalProps {
@@ -39,8 +38,6 @@ export const PropertiesModal: React.FC<PropertiesModalProps> = ({ theme, lang, f
     return `${bytes.toLocaleString()} bytes`;
   };
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.properties);
-
   return (
     <ModalShell
       title={`${t.properties}: ${file.name}.${file.ext}`}
@@ -48,7 +45,7 @@ export const PropertiesModal: React.FC<PropertiesModalProps> = ({ theme, lang, f
       onClose={onClose}
       closeButtonLabel={t.btnCancel}
     >
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         <div className="p-[var(--space-4)] space-y-[var(--space-4)] font-mono text-[var(--fs-sm)]">
           {/* Header Icon + Name */}
           <div className="flex items-center gap-[var(--space-3)] pb-3 border-b border-white/10">

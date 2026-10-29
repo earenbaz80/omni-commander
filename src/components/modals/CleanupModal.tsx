@@ -7,7 +7,6 @@ import { fsEngine, CleanupRun, CleanupScan, CleanupTargetId } from '../../servic
 import { soundManager } from '../../services/soundEffects';
 import { cleanupTargetLabel } from '../../utils/cleanupTargets';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 /** Age filters offered for the cleanup, in days (0 = everything). */
@@ -49,8 +48,6 @@ export const CleanupModal: React.FC<CleanupModalProps> = ({ theme, lang, target,
   const [run, setRun] = React.useState<CleanupRun | null>(null);
   const [errorText, setErrorText] = React.useState('');
   const [scanTick, setScanTick] = React.useState(0);
-
-  const dialogRef = useModalDialog<HTMLDivElement>(t.cleanupTitle);
 
   // Measuring is the only thing that happens on its own; `scanTick` re-runs it on
   // demand after a cleanup or when the user asks for a fresh count.
@@ -105,7 +102,7 @@ export const CleanupModal: React.FC<CleanupModalProps> = ({ theme, lang, target,
 
   return (
     <ModalShell title={t.cleanupTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         <div className="space-y-[var(--space-3)]">
           <div className="flex items-center justify-between gap-[var(--space-2)]">
             <span className="font-bold text-amber-300 text-sm">{cleanupTargetLabel(target, t)}</span>

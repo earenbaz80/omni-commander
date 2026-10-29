@@ -4,7 +4,6 @@ import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface AboutModalProps {
@@ -23,11 +22,9 @@ export const AboutModal: React.FC<AboutModalProps> = ({ theme, lang, authorName,
   const buildVersion = `v${__APP_VERSION__}`;
   const displayAuthor = authorName || 'Edel Arencibia Baez';
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.aboutTitle);
-
   return (
     <ModalShell title={t.aboutTitle} theme={theme} onClose={onClose}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         {/* Brand Banner */}
         <div className="flex items-center gap-[var(--space-4)] p-[var(--space-3)] bg-black/40 rounded border border-white/10">
           <div className="w-14 h-14 rounded bg-sky-950/80 border-2 border-amber-400 flex items-center justify-center font-black text-2xl text-amber-300 shadow-inner">

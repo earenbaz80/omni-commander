@@ -5,7 +5,6 @@ import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface DeleteModalProps {
@@ -25,11 +24,9 @@ export const DeleteModal: React.FC<DeleteModalProps> = ({ theme, lang, items, on
     onConfirm();
   };
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.deleteDialogLabel);
-
   return (
     <ModalShell title={t.deleteDialogLabel} theme={theme} onClose={onClose}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         <div
           className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-b font-bold shrink-0 bg-red-900/60 text-white"
           style={{ borderColor: theme.modalBorder }}

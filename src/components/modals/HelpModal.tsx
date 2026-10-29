@@ -7,7 +7,6 @@ import { soundManager } from '../../services/soundEffects';
 import { RUN_EXAMPLE_ROWS } from '../../services/runLauncher';
 import { buildShortcutGroups } from '../../services/shortcutGroups';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface HelpModalProps {
@@ -25,11 +24,9 @@ export const HelpModal: React.FC<HelpModalProps> = ({ theme, lang, onClose }) =>
   // The same groups Settings > Shortcuts shows, from one shared list.
   const shortcutGroups = buildShortcutGroups(t);
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.helpDialogLabel);
-
   return (
     <ModalShell title={t.helpManualTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         {/* Tab Navigation */}
         <div className="flex items-center gap-[var(--space-1)] px-[var(--space-3)] py-[var(--space-2)] bg-black/40 border-b border-white/10 shrink-0 overflow-x-auto no-scrollbar">
           <button

@@ -4,7 +4,6 @@ import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface UserMenuModalProps {
@@ -33,11 +32,9 @@ export const UserMenuModal: React.FC<UserMenuModalProps> = ({ theme, lang, onOpe
     onOpenModal(m);
   };
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.userMenuAriaLabel);
-
   return (
     <ModalShell title={t.userMenuTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         <div className="p-[var(--space-3)] space-y-[var(--space-2)]">
           {actions.map((act) => (
             <button

@@ -5,7 +5,6 @@ import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { formatFromExtension, formatLabel, isOpenable } from '../../services/archiveBackend';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface ArchiveInfoModalProps {
@@ -28,7 +27,6 @@ export const ArchiveInfoModal: React.FC<ArchiveInfoModalProps> = ({
   onClose,
 }) => {
   const t = getTranslations(lang);
-  const dialogRef = useModalDialog<HTMLDivElement>(t.zipTitle);
   // The format comes from the name the user selected, never from a guess: the
   // window used to offer "Extract All" for RAR and 7Z too, and both ended in a
   // corrupt-archive error because no reader exists for them.
@@ -37,7 +35,7 @@ export const ArchiveInfoModal: React.FC<ArchiveInfoModalProps> = ({
 
   return (
     <ModalShell title={t.zipTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         <div className="p-[var(--space-5)] space-y-[var(--space-5)]">
           {/* Header */}
           <div className="flex items-start gap-[var(--space-3)] opacity-90">
