@@ -236,10 +236,13 @@ export const PathBar: React.FC<PathBarProps> = ({
                 />
               </form>
             ) : (
+              // The title is translated, so a suite that pins a language cannot
+              // find this bar by it; the hook is what it clicks instead.
               <div
                 onClick={() => setIsEditing(true)}
                 className="flex items-center gap-[var(--space-1)] whitespace-nowrap cursor-text w-full py-[var(--space-1)]"
                 title={t.pathEditHint}
+                data-path-bar
               >
                 <span className="font-bold text-amber-300 shrink-0">{driveLetter}\</span>
                 {segments.map((seg, idx) => {
