@@ -399,12 +399,22 @@ export type TreeSizeFailure = 'unreachable' | 'forbidden' | 'notFound' | 'refuse
  */
 export type TreeSizeResult = { status: 'ok'; tree: DiskUsageScan } | { status: 'failed'; reason: TreeSizeFailure };
 
+/**
+ * One name per window, and nothing else.
+ *
+ * This union used to carry both spellings of several windows (`batch_rename`
+ * and `batchRename`, `search_grep` and `searchGrep`, …). Both compiled, but only
+ * one of each pair was rendered, so a menu could send the other and the click
+ * silently did nothing — Renombrado Masivo, Buscar/Grep, Comparar Archivos, Uso
+ * de Disco and the F2 menu were all dead that way. Keeping a single spelling
+ * turns any such divergence into a compile error instead of a command that
+ * looks live and is not.
+ */
 export type ActiveModal =
   | null
   | 'help'
   | 'about'
   | 'user_menu'
-  | 'userMenu'
   | 'viewer'
   | 'editor'
   | 'copy'
@@ -413,18 +423,13 @@ export type ActiveModal =
   | 'delete'
   | 'quit'
   | 'batch_rename'
-  | 'batchRename'
   | 'diff_compare'
-  | 'diffCompare'
   | 'search_grep'
-  | 'searchGrep'
   | 'checksum'
   | 'properties'
-  | 'zip_archive'
   | 'zipArchive'
   | 'zipPassword'
   | 'disk_usage'
-  | 'diskUsage'
   | 'cleanup'
   | 'settings'
   | 'new_file'
@@ -435,24 +440,15 @@ export type ActiveModal =
   | 'unlock_folder'
   | 'app_lock'
   | 'sync_folders'
-  | 'syncFolders'
   | 'ftp_manager'
-  | 'ftpManager'
   | 'file_splitter'
-  | 'fileSplitter'
   | 'file_joiner'
-  | 'fileJoiner'
   | 'cmd_winget_library'
-  | 'cmdWingetLibrary'
   | 'recycle_bin'
-  | 'recycleBin'
   | 'hotlist_bookmarks'
-  | 'hotlistBookmarks'
   | 'background_tasks'
-  | 'backgroundTasks'
   | 'transfer_monitor'
-  | 'archive_info'
-  | 'archiveInfo';
+  | 'archive_info';
 
 export interface CommandHistoryItem {
   id: string;

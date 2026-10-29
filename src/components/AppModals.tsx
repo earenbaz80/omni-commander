@@ -491,7 +491,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
           />
         )}
 
-        {(activeModal === 'sync_folders' || activeModal === 'syncFolders') && (
+        {activeModal === 'sync_folders' && (
           <SyncFoldersModal
             theme={currentTheme}
             lang={lang}
@@ -508,18 +508,15 @@ export const AppModals: React.FC<AppModalsProps> = ({
           />
         )}
 
-        {(activeModal === 'ftp_manager' || activeModal === 'ftpManager') && (
+        {activeModal === 'ftp_manager' && (
           <FTPManagerModal theme={currentTheme} lang={lang} onClose={() => setActiveModal(null)} />
         )}
 
-        {(activeModal === 'file_splitter' ||
-          activeModal === 'fileSplitter' ||
-          activeModal === 'file_joiner' ||
-          activeModal === 'fileJoiner') && (
+        {(activeModal === 'file_splitter' || activeModal === 'file_joiner') && (
           <FileSplitterJoinerModal
             theme={currentTheme}
             lang={lang}
-            mode={activeModal === 'file_joiner' || activeModal === 'fileJoiner' ? 'join' : 'split'}
+            mode={activeModal === 'file_joiner' ? 'join' : 'split'}
             sourceFile={selectedFileForModal || activeFocusedItem}
             targetDriveId={currentInactiveTab.driveId}
             targetPath={currentInactiveTab.currentPath}
@@ -530,7 +527,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
           />
         )}
 
-        {(activeModal === 'cmd_winget_library' || activeModal === ('cmdWingetLibrary' as any)) && (
+        {activeModal === 'cmd_winget_library' && (
           <CmdWingetLibraryModal
             theme={currentTheme}
             lang={lang}
@@ -542,7 +539,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
           />
         )}
 
-        {(activeModal === 'hotlist_bookmarks' || activeModal === 'hotlistBookmarks') && (
+        {activeModal === 'hotlist_bookmarks' && (
           <BookmarksHotlistModal
             theme={currentTheme}
             lang={lang}
@@ -553,7 +550,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
           />
         )}
 
-        {(activeModal === 'recycle_bin' || activeModal === 'recycleBin') && (
+        {activeModal === 'recycle_bin' && (
           <RecycleBinModal
             theme={currentTheme}
             lang={lang}
@@ -562,7 +559,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
           />
         )}
 
-        {(activeModal === 'background_tasks' || activeModal === 'backgroundTasks') && (
+        {activeModal === 'background_tasks' && (
           <BackgroundTasksModal
             theme={currentTheme}
             lang={lang}

@@ -259,7 +259,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
               </button>
               <div className="h-px bg-current opacity-20 my-1"></div>
               <button
-                onClick={() => handleAction(() => onOpenModal('batchRename'))}
+                onClick={() => handleAction(() => onOpenModal('batch_rename'))}
                 className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between"
               >
                 <span>{t.batchRename}</span> <span className="opacity-60">Ctrl+M</span>
@@ -328,13 +328,13 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
               </button>
               <div className="h-px bg-current opacity-20 my-1"></div>
               <button
-                onClick={() => handleAction(() => onOpenModal('searchGrep'))}
+                onClick={() => handleAction(() => onOpenModal('search_grep'))}
                 className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between"
               >
                 <span>{t.searchGrep}</span> <span className="opacity-60">Alt+F7</span>
               </button>
               <button
-                onClick={() => handleAction(() => onOpenModal('diffCompare'))}
+                onClick={() => handleAction(() => onOpenModal('diff_compare'))}
                 className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between"
               >
                 <span>{t.compareFiles}</span> <span className="opacity-60">Diff</span>
@@ -352,7 +352,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
                 <span>{t.splitJoinFileMenu}</span> <span className="opacity-60">Split</span>
               </button>
               <button
-                onClick={() => handleAction(() => onOpenModal('diskUsage'))}
+                onClick={() => handleAction(() => onOpenModal('disk_usage'))}
                 className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between"
               >
                 <span>{t.diskUsage}</span> <span className="opacity-60">Ctrl+L</span>
@@ -372,7 +372,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
               </button>
               <div className="h-px bg-current opacity-20 my-1"></div>
               <button
-                onClick={() => handleAction(() => onOpenModal('userMenu'))}
+                onClick={() => handleAction(() => onOpenModal('user_menu'))}
                 className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between"
               >
                 <span>{t.userMenu}</span> <span className="opacity-60">F2</span>
