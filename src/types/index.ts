@@ -238,6 +238,12 @@ export interface FreeSpaceVolume {
   free: number | null;
   /** Bytes missing to fit, 0 when the transfer fits or cannot be judged. */
   lacking: number;
+  /**
+   * False when the pre-flight stopped before measuring every source. `size` and
+   * `lacking` are then lower bounds: a shortfall found is still real, but a fit
+   * is not proven.
+   */
+  complete?: boolean;
 }
 
 export interface FreeSpaceReport {

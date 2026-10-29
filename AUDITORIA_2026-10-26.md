@@ -36,7 +36,7 @@ Las secciones siguientes son el registro de lo que se encontró en `d3b113e` y s
 | P1-3 · CI sin compuertas | ✅ Resuelto | `verify` ejecuta formato, tipos, ESLint y tests en matriz de dos versiones, y el release depende de él |
 | P1-4 · GET sin token | ✅ Resuelto | El token cubre mutaciones y los GET que describen el disco (`/api/list`, `/api/treesize`, `/api/fs/hash`, `/api/fs/jobs`, detalle de trabajo, panel, unidades y sugerencias del lanzador); el origen debe ser loopback en el puerto 3000 exacto, y el proxy de Vite presenta ese origen para cualquier puerto de desarrollo (`server.cjs:26-96`, `vite.config.ts`) |
 | P1-5 · Electron | ✅ Resuelto | La navegación se valida por origen exacto y solo admite ficheros dentro de `dist` (`electron/navigationGuard.cjs`, con `navigationGuard.test.ts`), y la CSP del documento solo permite recursos propios y el API en loopback (`vite.config.ts`) |
-| P2-1 · Pre-flight de espacio | ❌ Abierto | Límite de 100 planes × 5000 fuentes, pero los árboles se miden en serie dentro de la petición (`server.cjs:3525`) |
+| P2-1 · Pre-flight de espacio | ✅ Resuelto | Presupuesto de 10.000 fuentes distintas por petición (`OMNI_PREFLIGHT_SOURCE_BUDGET`), un solo paseo por fuente aunque se repita y 8 paseos en paralelo; el volumen que no se terminó de medir viaja con `complete: false` y el aviso de espacio lo enseña como mínimo. Ver §5.1 |
 | P2-2 · `getFolderSizes` | ⚠️ Parcial | Ya usa el índice por carpeta y exige `driveId`; `DiskUsageModal.tsx:32` sigue leyendo `(fsEngine as any).files` |
 | P2-3 · i18n | ⚠️ Parcial | `DiskUsageModal` traduce sus textos; las etiquetas de trabajo siguen en español (`server.cjs:2017`) |
 | P2-4 · Tipado | ⚠️ Parcial | 33 usos de `any` en `src` (eran 57); `npm run typecheck:strict` existe, pero el CI no lo ejecuta |
@@ -51,7 +51,7 @@ Las secciones siguientes son el registro de lo que se encontró en `d3b113e` y s
 
 ### 0.3 Lo que queda, por prioridad
 
-1. **Pre-flight acotado** y división de `server.cjs` (P2-1, P2-11).
+1. **División de `server.cjs`** en módulos (P2-11).
 2. **Limpieza**: `release/`, `.txt` de la raíz y `@zip.js/zip.js` (P2-9, P2-10).
 3. **Cobertura con umbral** (P2-12) y `typecheck:strict` en el CI (P2-4).
 
@@ -172,7 +172,7 @@ Los tests no detectan esto porque Vitest transpila sin comprobar tipos; `tsc` es
 
 ## 5. Hallazgos P2 — calidad, rendimiento y mantenibilidad
 
-1. **Pre-flight de espacio sin cota** (`server.cjs:1540-1590`): hasta 100 planes × 5000 fuentes, midiendo árboles secuencialmente en una sola petición; puede tardar minutos y consume el hilo. Reutilizar la medición del job o limitar el total.
+1. **Pre-flight de espacio sin cota:** ~~hasta 100 planes × 5000 fuentes, midiendo árboles secuencialmente en una sola petición; podía tardar minutos y consume el hilo.~~ Ahora mide como mucho **10.000 fuentes distintas por petición** (`OMNI_PREFLIGHT_SOURCE_BUDGET`), comparte el paseo entre repeticiones de la misma ruta —cobrando los bytes una vez por aparición, que es lo que el trabajo escribirá— y reparte los paseos **8 en paralelo** en lugar de uno detrás de otro. Cuando el presupuesto se agota, el volumen afectado viaja con `complete: false`: el faltante calculado con lo medido sigue siendo real y se avisa, pero el tamaño se muestra como **mínimo** ("≥") en vez de como total. Cubierto en `server.freespace.test.ts` (presupuesto, incompleto y repeticiones) y `FreeSpaceModal.test.tsx`.
 2. **`getFolderSizes` algorítmicamente pobre** (`fileSystem.ts:1525-1550`): recursión que filtra todo el índice por carpeta (O(n²) en árboles grandes), variable `fullPath` sin usar, acceso a `(fsEngine as any).files` desde el modal (evita la versión de datos y no se re-renderiza). Rehacerlo con el índice por carpeta y memoización, o en servidor.
 3. **i18n incompleta:** `DiskUsageModal` incluye textos fijos en inglés ("TreeSize — Folder Hierarchy", "No data", "Method not available") y `server.cjs` genera etiquetas de trabajo en español ("Eliminar…", "Copiar…", "Mover…"), en una app con 8 idiomas.
 4. **Tipado:** `modalData: any` y 57 usos de `any` en `src`; `tsconfig.json` no activa `strict` (existe `tsconfig.strict.json`, pero no está en ninguna compuerta). Activar strict por capas (servicios primero).
@@ -212,7 +212,7 @@ Los tests no detectan esto porque Vitest transpila sin comprobar tipos; `tsc` es
 
 **P2 — deuda continua**
 9. Strict TS progresivo, eliminar `any` de modales, i18n de TreeSize y etiquetas del servidor.
-10. Refactor de `server.cjs` en módulos; cota del pre-flight de espacio.
+10. Refactor de `server.cjs` en módulos.
 11. README/metadatos reales, limpiar dependencias sin uso y artefactos antiguos.
 
 ## 8. Verificación de esta auditoría

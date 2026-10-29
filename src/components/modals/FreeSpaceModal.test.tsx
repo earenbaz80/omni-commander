@@ -41,6 +41,21 @@ describe('FreeSpaceModal', () => {
     expect(screen.getByText('1.0 KB')).toBeTruthy();
   });
 
+  it('marca el tamaño como mínimo cuando el pre-flight no midió todo', () => {
+    const { container } = render(
+      <FreeSpaceModal
+        volumes={[{ volume: 'C:\\', size: 1024, free: 512, lacking: 512, complete: false }]}
+        theme={themes.classic_blue}
+        lang="en"
+        onForce={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    // A lower bound must not be read as the total the copy will write.
+    expect(container.textContent).toContain('≥ 1.0 KB');
+  });
+
   it('starts the copy only when the user forces it', () => {
     const { onForce, onCancel } = renderModal();
 

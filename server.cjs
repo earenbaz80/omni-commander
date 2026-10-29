@@ -3586,6 +3586,20 @@ function registerFsRoutes() {
   // that dies at 80% with ENOSPC leaves a half-written file behind. Trees are
   // measured with the same walker the job uses, so "Size" matches what the job
   // will report once it starts.
+  //
+  // Measuring is bounded on purpose. A batch list can carry 100 plans of 5000
+  // sources, and walking all of them inside one request kept the answer minutes
+  // away. The number of distinct sources walked per request is capped, repeated
+  // sources are walked once, and the walks run a few at a time; a volume whose
+  // sources were not all measured says so, because its size is then a lower
+  // bound rather than the total.
+  const PREFLIGHT_SOURCE_BUDGET = (() => {
+    // Settable so a test can cross it with two files; the app never sets it.
+    const configured = Number(process.env.OMNI_PREFLIGHT_SOURCE_BUDGET);
+    return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 10_000;
+  })();
+  const PREFLIGHT_CONCURRENCY = 8;
+
   app.post('/api/fs/freespace', async (req, res) => {
     try {
       const plans = (req.body || {}).plans;
@@ -3596,10 +3610,18 @@ function registerFsRoutes() {
       // copy list can span volumes. Group by volume root so the table has one
       // row per disk instead of one row per batch.
       const volumes = new Map();
+      // Every charge is one occurrence of a source; the bytes it adds are the
+      // same for all occurrences, but the walk behind them happens once.
+      const charges = [];
+      const distinct = new Map();
+
       for (const plan of plans) {
         const targetDir = assertSafePath(plan.targetDir);
         const root = path.win32.parse(targetDir).root.toUpperCase();
-        const group = volumes.get(root) || { volume: root, size: 0, free: null, lacking: 0 };
+        if (!volumes.has(root)) {
+          volumes.set(root, { volume: root, size: 0, free: null, lacking: 0, complete: true });
+        }
+        const group = volumes.get(root);
         const sources = Array.isArray(plan.sources) ? plan.sources.slice(0, 5000) : [];
         const op = String(plan.op || 'copy').toLowerCase() === 'move' ? 'move' : 'copy';
         for (const value of sources) {
@@ -3608,10 +3630,36 @@ function registerFsRoutes() {
           // no room at all. Counting those bytes would refuse a transfer that
           // cannot possibly fill the disk.
           if (op === 'move' && path.win32.parse(source).root.toUpperCase() === root) continue;
-          const measured = await measureTree(source);
-          group.size += measured.bytes;
+          // Windows paths compare without case, and the same tree listed twice is
+          // written twice, so it is charged twice but walked once.
+          const key = source.toLowerCase();
+          charges.push({ group, key });
+          if (!distinct.has(key)) distinct.set(key, source);
         }
-        volumes.set(root, group);
+      }
+
+      const keys = [...distinct.keys()];
+      const measuredKeys = keys.slice(0, PREFLIGHT_SOURCE_BUDGET);
+      if (keys.length > measuredKeys.length) {
+        const measured = new Set(measuredKeys);
+        for (const charge of charges) if (!measured.has(charge.key)) charge.group.complete = false;
+      }
+
+      const bytesBySource = new Map();
+      let cursor = 0;
+      const walk = async () => {
+        while (cursor < measuredKeys.length) {
+          const key = measuredKeys[cursor++];
+          const measured = await measureTree(distinct.get(key));
+          bytesBySource.set(key, measured.bytes);
+        }
+      };
+      const workers = Math.min(PREFLIGHT_CONCURRENCY, measuredKeys.length);
+      await Promise.all(Array.from({ length: workers }, walk));
+
+      for (const charge of charges) {
+        const bytes = bytesBySource.get(charge.key);
+        if (bytes !== undefined) charge.group.size += bytes;
       }
 
       for (const group of volumes.values()) {
