@@ -2,7 +2,7 @@ import React from 'react';
 import { AlertTriangle, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
-import { getTranslations } from '../../i18n/translations';
+import { getTranslations, type TranslationKey } from '../../i18n/translations';
 import { fsEngine, CleanupRun, CleanupScan, CleanupTargetId } from '../../services/fileSystem';
 import { soundManager } from '../../services/soundEffects';
 import { cleanupTargetLabel } from '../../utils/cleanupTargets';
@@ -10,7 +10,7 @@ import { cleanupTargetLabel } from '../../utils/cleanupTargets';
 import ModalShell from '../ModalShell';
 
 /** Age filters offered for the cleanup, in days (0 = everything). */
-const AGE_CHOICES: Array<{ days: number; key: string }> = [
+const AGE_CHOICES: Array<{ days: number; key: TranslationKey }> = [
   { days: 0, key: 'cleanupAgeAll' },
   { days: 1, key: 'cleanupAge1' },
   { days: 7, key: 'cleanupAge7' },

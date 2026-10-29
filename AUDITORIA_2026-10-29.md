@@ -23,13 +23,13 @@ Lo que sigue abierto es deuda de higiene y de CI, no de comportamiento: `release
 | --- | --- | --- |
 | TypeScript | `npx tsc --noEmit` | ✅ sin errores |
 | ESLint | `npx eslint src --max-warnings 0` | ✅ 0 errores, 0 warnings |
-| Pruebas | `npx vitest run` | ✅ 80 ficheros / **599 pruebas** (127 s), exit 0 |
+| Pruebas | `npx vitest run` | ✅ 80 ficheros / **599 pruebas** (194 s), exit 0 |
 | Cobertura | `npx vitest run --coverage` | ⚠️ medida: **54,01 %** sentencias, 47,27 % ramas, 43,69 % funciones, 56,80 % líneas. Sin umbral |
 | Build | `npx vite build` | ✅ 12,6 s; `dist` **1,7 MB**; chunk principal **516 kB** (`ModalShell` 440 kB aparte) |
 | E2E | `npx playwright test` | ✅ **49 pruebas** (5,2 min; más si `tasklist` tarda lo que mide su fila de presupuesto): humo, los cuatro de a11y —botones, listas, agrupaciones y agrupaciones dentro de ventanas—, a11y de modales, los cuatro casos de archivo, los tres de la barra de comandos, los dos del menú contextual, los dos de comandos de menú y F2, los cuatro de la vista rápida, los dos de sincronización, los dos de copia/movimiento con colisión y los veintitrés de foco de ventanas |
 | Deps de producción | `npm audit --omit=dev` | ✅ 0 vulnerabilidades |
 | Deps totales | `npm audit` | ⚠️ 4 bajas (`deepmerge` vía `workbox-build`/`vite-plugin-pwa`) |
-| TypeScript estricto | `npx tsc --noEmit -p tsconfig.strict.json` | ❌ **12 errores**; el CI no lo ejecuta |
+| TypeScript estricto | `npx tsc --noEmit -p tsconfig.strict.json` | ✅ sin errores; el CI lo ejecuta en cada push desde esta unidad |
 | Empaquetado | `npm run electron:build` | No medido en esta auditoría |
 
 ---
@@ -168,7 +168,7 @@ Zonas con poca cobertura medidas hoy: `soundEffects.ts` (27 %), `systemStats.ts`
 | --- | --- | --- |
 | P2-2 · `getFolderSizes` | ⚠️ Parcial | `DiskUsageModal.tsx:32` sigue accediendo a `(fsEngine as any).files` |
 | P2-3 · i18n del servidor | ✅ Resuelto | No quedan etiquetas de trabajo en español en `server.cjs` |
-| P2-4 · Tipado | ⚠️ Parcial | 44 usos de `any` fuera de pruebas; `typecheck:strict` da **12 errores** y el CI no lo ejecuta |
+| P2-4 · Tipado | ⚠️ Parcial | 44 usos de `any` fuera de pruebas; `typecheck:strict` ya está en **cero** y el CI lo ejecuta |
 | P2-5 · `includes` en render | ⚠️ Parcial | `FileList.tsx:339` sigue con `selectedIds.includes` en el payload de arrastre |
 | P2-9 · Dependencias sin uso | ⚠️ Parcial | `@zip.js/zip.js` declarado y sin uso en `src`, `server.cjs` ni `electron` |
 | P2-10 · Higiene local | ❌ Abierto | `release/` **657 MB** y **30** `.txt` de depuración en la raíz |
@@ -193,11 +193,11 @@ La cadena cerró lo que se propuso —diálogo único por ventana, un solo dueñ
 | Comandos de menú muertos | ✅ Resuelto | `ActiveModal` tenía las dos formas de cada nombre (catorce pares) y solo una se renderizaba: cinco entradas del menú y dos botones de la barra abrían nada. Ahora hay un nombre por ventana, así que el desajuste no compila, y [`e2e/menu-commands.spec.ts`](e2e/menu-commands.spec.ts) pulsa cada entrada y exige la ventana con su nombre. Dos mutaciones |
 | Respaldo muerto en la barra | ⚠️ Menor | `t.functionBarAriaLabel \|\| 'Barra de funciones'` deja un literal en español que nunca se usa, porque las ocho tablas definen la clave |
 | Cola de tareas en segundo plano | ⚠️ Sin E2E | Sigue cubierta solo con unidades |
-| Deuda de la sección 7 | ❌ Intacta | Nada de la tabla anterior cambió con esta cadena: 12 errores de `typecheck:strict`, 4 bajas de `npm audit`, cobertura 54,01 % sin umbral, `release/` de 657 MB, `@zip.js/zip.js` sin uso y `server.cjs` de 3.938 líneas |
+| Deuda de la sección 7 | ⚠️ Parcial | De la tabla anterior, `typecheck:strict` ya está cerrado y en el CI; siguen abiertos los 4 avisos de `npm audit`, la cobertura del 54,01 % sin umbral, `release/` de 657 MB, `@zip.js/zip.js` sin uso y `server.cjs` de 3.938 líneas |
 
 Una nota sobre las medidas, para que no engañen: dos corridas completas de la suite se interrumpieron por el entorno —una con `Execution context was destroyed` en `a11y.modals`, que aislado pasa siempre y no reprodujo, y otra que se comió un atasco de máquina de 35 minutos en el caso de 7-Zip—. La corrida limpia posterior, con la máquina libre, dio **49/49 en 5,2 min**; ninguna de las dos anomalías apunta al código de esta cadena. En la corrida de comandos de menú hubo un fallo más, en el caso de foco de checksum, que resultó ser el propio dev server recargando la página: se editaba esta auditoría mientras la suite corría. Con el árbol quieto, el spec de foco pasó 23/23 y la suite completa 49/49.
 
-**Prioridad sugerida:** (1) sacar las rutas de máquina a un módulo y seguir con la división de `server.cjs`; (2) limpiar `release/`, los `.txt` y `@zip.js/zip.js`; (3) umbral de cobertura y `typecheck:strict` en el CI. Los huecos de E2E que quedaban —la sincronización y la copia/movimiento con diálogo de colisión— están cerrados; lo que sigue sin E2E es la cola de tareas en segundo plano, que hoy solo se cubre con unidades. La deuda de foco de esta cadena quedó cerrada: [`e2e/modal-focus.spec.ts`](e2e/modal-focus.spec.ts) cubre ya veintitrés ventanas, incluidas las diez que solo se abrían desde un menú o un botón de la cabecera, y la restauración ya no depende de que sobreviva el control que la abrió. Los comandos de menú que no abrían su ventana también están cerrados: la duplicación de nombres en `ActiveModal` está eliminada y las entradas están cubiertas por E2E.
+**Prioridad sugerida:** (1) sacar las rutas de máquina a un módulo y seguir con la división de `server.cjs`; (2) limpiar `release/`, los `.txt` y `@zip.js/zip.js`; (3) umbral de cobertura. Los huecos de E2E que quedaban —la sincronización y la copia/movimiento con diálogo de colisión— están cerrados; lo que sigue sin E2E es la cola de tareas en segundo plano, que hoy solo se cubre con unidades. La deuda de foco de esta cadena quedó cerrada: [`e2e/modal-focus.spec.ts`](e2e/modal-focus.spec.ts) cubre ya veintitrés ventanas, incluidas las diez que solo se abrían desde un menú o un botón de la cabecera, y la restauración ya no depende de que sobreviva el control que la abrió. Los comandos de menú que no abrían su ventana también están cerrados: la duplicación de nombres en `ActiveModal` está eliminada y las entradas están cubiertas por E2E. Y el typecheck estricto dejó de ser deuda: está en cero y el CI lo ejecuta.
 
 ---
 
@@ -206,13 +206,26 @@ Una nota sobre las medidas, para que no engañen: dos corridas completas de la s
 ```text
 npx tsc --noEmit                                  → exit 0
 npx eslint src --max-warnings 0                   → exit 0 (0 errores, 0 warnings)
-npx vitest run                                    → 80 ficheros, 599 pruebas, 127 s, exit 0
+npx vitest run                                    → 80 ficheros, 599 pruebas, 194 s, exit 0
 npx vitest run --coverage                         → 54,01 % sentencias (sin umbral), exit 0
 npx vite build                                    → exit 0, dist 1,7 MB
 npx playwright test                               → 49 pruebas, 11 specs, 5,2 min, exit 0
 npm audit --omit=dev                              → 0 vulnerabilidades
 npm audit                                         → 4 bajas
-npx tsc --noEmit -p tsconfig.strict.json          → 12 errores
+npx tsc --noEmit -p tsconfig.strict.json          → exit 0 (0 errores)
 ```
+
+### 8.1 Cómo se cerró el typecheck estricto
+
+La cifra que esta auditoría arrastraba (**12**) contaba de más: el compilador daba **once**, y cada uno se cerró en su causa, no con una supresión.
+
+- **`FunctionBar` y `CleanupModal`** indexaban la tabla de traducciones con un `string` suelto. La clave de la barra y la de los filtros de antigüedad pasan a ser `TranslationKey`, el tipo que ya exportaba el módulo de i18n, así que una clave inexistente tampoco compila.
+- **`App.tsx`** normalizaba `items` en una variable y luego usaba el parámetro nulable al construir el plan de transferencia; ahora el plan sale de la lista normalizada. De paso desapareció el `as FileItem[]`, que ya era redundante.
+- **`CopyMoveModal`** dividía `active.throttleBps` sin comprobar que una tarea en cola puede no tenerlo: el monitor cae a `0` MB/s, que es lo que ya mostraba.
+- **`SettingsModal`** pasaba al preview un `formData.theme` que el formulario declara opcional; si no está, muestra el tema que la app está usando.
+- **`ModalShell`** pasaba su `useRef<HTMLDivElement>(null)` a un hook que pedía `RefObject<T>`. La firma del hook pasa a `RefObject<T | null>`, que es lo que devuelve `useRef<T>(null)` desde React 19: el fallo estaba en la firma, no en la llamada.
+- **Cuatro ficheros** (tres stories y una prueba) importaban `React` sin usarlo; con el transformador moderno no hace falta.
+
+La compuerta nueva vive en el job de verificación, como paso **Strict typecheck** (`npm run typecheck:strict`) justo después del typecheck normal, y corre en las dos versiones de Node de la matriz. No se podía dejar como script manual: once errores acumulados demuestran que nadie lo ejecutaba.
 
 No se ejecutó `npm run electron:build` ni se midió el empaquetado o el `.exe` resultante en esta revisión.

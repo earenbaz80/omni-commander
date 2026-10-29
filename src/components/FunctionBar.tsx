@@ -1,10 +1,11 @@
 import React from 'react';
 import { ThemeConfig } from '../services/themeManager';
-import { getTranslations } from '../i18n/translations';
+import { getTranslations, type TranslationKey } from '../i18n/translations';
 
-interface FunctionKey {
+export interface FunctionKey {
   key: string;
-  label: string;
+  /** Translation key, not copy: the bar renders it through the table. */
+  label: TranslationKey;
   action?: () => void;
   disabled?: boolean;
   visible?: boolean;

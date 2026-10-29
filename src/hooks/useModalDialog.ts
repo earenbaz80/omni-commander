@@ -98,7 +98,12 @@ function fallbackFocusTarget(panel: HTMLElement): HTMLElement | null {
  * Escape is intentionally not handled here: App owns the global keyboard
  * engine and already closes the active modal.
  */
-export function useModalDialog<T extends HTMLElement>(label: string, externalRef?: React.RefObject<T>) {
+export function useModalDialog<T extends HTMLElement>(
+  label: string,
+  // `T | null`, not `T`: since React 19 `useRef<T>(null)` is a `RefObject<T | null>`,
+  // so a caller's own ref never matched the narrower type.
+  externalRef?: React.RefObject<T | null>,
+) {
   const internalRef = useRef<T>(null);
   const ref = externalRef ?? internalRef;
 
