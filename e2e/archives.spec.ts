@@ -4,18 +4,22 @@ import os from 'node:os';
 import path from 'node:path';
 
 /**
- * Opening a RAR and a 7-Zip and extracting them, driven through the interface
- * rather than through the engine.
+ * Opening several archive formats and extracting them, driven through the
+ * interface rather than through the engine.
  *
- * These two formats are the interesting case because no part of the renderer can
+ * RAR and 7-Zip are the interesting case because no part of the renderer can
  * read them: the panel asks the local server, which runs libarchive's WASM. A
  * test that only called the engine would prove the bridge works but not that a
  * click reaches it, so each of these starts at the file list and ends at bytes
  * on disk.
  *
- * The fixtures are the committed ones (test-fixtures/archives/sample.rar and
- * sample.7z), built by scripts/make-archive-fixtures.mjs and validated there
- * against bsdtar.
+ * A ZIP is here for the opposite reason: the renderer reads that one itself, so
+ * it covers the path the other two never touch. Same test, so a regression in
+ * either backend shows up in the same place.
+ *
+ * The fixtures are the committed ones (test-fixtures/archives/sample.rar,
+ * sample.7z, sample.zip and sample-encrypted.rar), built by
+ * scripts/make-archive-fixtures.mjs and validated there against bsdtar.
  */
 
 /**
@@ -47,7 +51,7 @@ test.beforeEach(async () => {
   // has to be somewhere the local server can actually open.
   workspace = await fs.mkdtemp(path.join(os.tmpdir(), 'omni-e2e-archive-'));
   await fs.mkdir(path.join(workspace, 'destino'));
-  for (const name of ['sample.rar', 'sample.7z', 'sample-encrypted.rar']) {
+  for (const name of ['sample.rar', 'sample.7z', 'sample.zip', 'sample-encrypted.rar']) {
     await fs.copyFile(path.resolve('test-fixtures/archives', name), path.join(workspace, name));
   }
 });
@@ -87,6 +91,7 @@ interface ArchiveCase {
  */
 const archives: ArchiveCase[] = [
   { label: 'a RAR', file: 'sample.rar', folder: null, entries: ['a.txt', 'sub'] },
+  { label: 'a ZIP', file: 'sample.zip', folder: null, entries: ['a.txt', 'sub'] },
   // The 7-Zip also carries an empty `vacio.txt`, which must land like any other.
   { label: 'a 7-Zip', file: 'sample.7z', folder: 'fixture', entries: ['a.txt', 'sub', 'vacio.txt'] },
   {
