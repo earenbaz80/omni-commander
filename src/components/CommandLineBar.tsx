@@ -426,9 +426,12 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
       }}
     >
       {/* Terminal Log Output Drawer */}
+      {/* The drawer is the only place command output is rendered; `data-command-log`
+          is the stable hook the E2E spec reads it through, instead of a style class. */}
       {isLogOpen && (
         <div
           ref={logContainerRef}
+          data-command-log
           className="max-h-44 overflow-y-auto p-[var(--space-2)] bg-black/90 border-b border-white/20 select-text font-mono text-[11px] space-y-[var(--space-2)]"
         >
           <div className="flex items-center justify-between pb-1 border-b border-white/10 opacity-70">
