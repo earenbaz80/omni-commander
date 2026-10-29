@@ -613,9 +613,11 @@ const FileListComponent: React.FC<FileListProps> = ({
         data-file-list
         // Focus lands here whenever a window closes over the list. A focusable
         // container with no role and no name is announced as nothing at all, so
-        // the panel says which folder it just entered.
+        // the panel says which one it is and which folder it just entered: with
+        // both panels mirroring the same folder, the path alone would not tell
+        // them apart.
         role="group"
-        aria-label={t.fileListLabel.replace('{path}', currentPath)}
+        aria-label={(panelSide === 'left' ? t.fileListLabelLeft : t.fileListLabelRight).replace('{path}', currentPath)}
         className="flex-1 min-h-0 min-w-full overflow-y-auto overflow-x-auto focus:outline-none p-0.5 space-y-[1px]"
         tabIndex={0}
         onContextMenu={(e) => onContextMenu(e, null)}
