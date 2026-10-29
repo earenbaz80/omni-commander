@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Lock, Key, AlertTriangle } from 'lucide-react';
-import { LanguageCode } from '../../types';
+import { FolderPasswordRecord, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
+import { checkPassword } from '../../services/appLock';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 
@@ -12,7 +13,13 @@ interface UnlockFolderModalProps {
   theme: ThemeConfig;
   lang: LanguageCode;
   folderPath: string;
-  expectedPassword: string;
+  /** The stored PBKDF2 record; the password itself is never held in settings. */
+  record: FolderPasswordRecord;
+  /**
+   * Called with the typed password when the record predates hashing, so the
+   * caller can store a derived one and the plaintext stops being kept.
+   */
+  onUpgrade: (password: string) => void;
   onSuccess: () => void;
   onClose: () => void;
 }
@@ -21,23 +28,45 @@ export const UnlockFolderModal: React.FC<UnlockFolderModalProps> = ({
   theme,
   lang,
   folderPath,
-  expectedPassword,
+  record,
+  onUpgrade,
   onSuccess,
   onClose,
 }) => {
   const t = getTranslations(lang);
   const [passwordInput, setPasswordInput] = useState('');
   const [hasError, setHasError] = useState(false);
+  const [checking, setChecking] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (passwordInput.trim() === expectedPassword) {
-      soundManager.playSuccess();
-      onSuccess();
-    } else {
+    if (checking) return;
+    setChecking(true);
+    try {
+      // Opening the folder now costs a derivation, because what is stored is a
+      // salt and a hash. A record without a salt is one saved by an older build,
+      // which `checkPassword` still verifies as the plaintext it is.
+      const typed = passwordInput.trim();
+      const ok = await checkPassword(typed, record.hash, record.salt || undefined);
+      if (ok) {
+        // A saltless record is the plaintext an older build left behind. It just
+        // proved itself, which is the one moment the password is available to
+        // hash, so it is the moment to stop storing it.
+        if (!record.salt) onUpgrade(typed);
+        soundManager.playSuccess();
+        onSuccess();
+        return;
+      }
       soundManager.playBeep(250, 0.2);
       setHasError(true);
       setPasswordInput('');
+    } catch {
+      // No WebCrypto is not a reason to open the folder: fail closed, with the
+      // same answer a wrong password gets.
+      setHasError(true);
+      setPasswordInput('');
+    } finally {
+      setChecking(false);
     }
   };
 
@@ -89,7 +118,8 @@ export const UnlockFolderModal: React.FC<UnlockFolderModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-[var(--space-2)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow flex items-center gap-[var(--space-2)]"
+              disabled={checking}
+              className="px-5 py-[var(--space-2)] bg-amber-400 hover:bg-amber-300 disabled:opacity-60 text-black font-extrabold rounded cursor-pointer shadow flex items-center gap-[var(--space-2)]"
             >
               <Key className="w-3.5 h-3.5" />
               {t.unlockBtn}

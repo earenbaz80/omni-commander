@@ -13,7 +13,8 @@ interface ProtectFolderModalProps {
   lang: LanguageCode;
   folderPath: string;
   isAlreadyProtected: boolean;
-  onSetFolderPassword: (folderPath: string, password: string | null) => void;
+  /** Deriving the record is async, so a save may still be in flight on close. */
+  onSetFolderPassword: (folderPath: string, password: string | null) => void | Promise<void>;
   onClose: () => void;
 }
 
