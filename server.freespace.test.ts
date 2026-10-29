@@ -57,6 +57,7 @@ describe('POST /api/fs/freespace', () => {
     expect(body.volumes[0].size).toBe(7000);
     expect(typeof body.volumes[0].free).toBe('number');
     expect(body.volumes[0].lacking).toBe(0);
+    expect(body.volumes[0].complete).toBe(true);
   });
 
   it('counts nothing for a move inside the same volume', async () => {
@@ -103,5 +104,61 @@ describe('POST /api/fs/freespace', () => {
 
     expect(status).toBe('done');
     expect(fs.statSync(path.join(target, 'grande.bin')).size).toBe(5000);
+  });
+});
+
+/**
+ * The pre-flight used to walk every source in the request, and a batch list can
+ * carry far more than an answer should wait for. Past its budget it measures a
+ * share and says so, because a size it did not finish measuring is a lower bound
+ * and must not be shown as the total. These run against their own server: the
+ * budget is read once at start-up.
+ */
+describe('POST /api/fs/freespace con presupuesto de fuentes', () => {
+  let budgetServer: TestServer;
+  let scratch = '';
+  const fileA = () => path.join(scratch, 'a.bin');
+  const fileB = () => path.join(scratch, 'b.bin');
+
+  const ask = async (sources: string[]) => {
+    const response = await fetch(budgetServer.url('/api/fs/freespace'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plans: [{ targetDir: scratch, op: 'copy', sources }] }),
+    });
+    return { status: response.status, body: (await response.json()) as any };
+  };
+
+  beforeAll(async () => {
+    scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-freespace-budget-'));
+    fs.writeFileSync(fileA(), Buffer.alloc(3000, 2));
+    fs.writeFileSync(fileB(), Buffer.alloc(2000, 3));
+
+    // One source per request: the second one is always left unmeasured.
+    budgetServer = await startServer({
+      env: { OMNI_SESSION_TOKEN: '', OMNI_PREFLIGHT_SOURCE_BUDGET: '1' },
+    });
+  }, 30000);
+
+  afterAll(async () => {
+    await budgetServer.stop();
+    if (scratch) fs.rmSync(scratch, { recursive: true, force: true });
+  });
+
+  it('mide lo que cabe en el presupuesto y marca el volumen como incompleto', async () => {
+    const { status, body } = await ask([fileA(), fileB()]);
+
+    expect(status).toBe(200);
+    expect(body.volumes[0].complete).toBe(false);
+    // The first source in order is the one measured; the second is a lower bound
+    // that was left out, not a zero.
+    expect(body.volumes[0].size).toBe(3000);
+  });
+
+  it('cobra cada repetición aunque recorra la fuente una sola vez', async () => {
+    const { body } = await ask([fileA(), fileA()]);
+
+    expect(body.volumes[0].complete).toBe(true);
+    expect(body.volumes[0].size).toBe(6000);
   });
 });

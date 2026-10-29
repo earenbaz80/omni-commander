@@ -89,6 +89,9 @@ export const FreeSpaceModal: React.FC<FreeSpaceModalProps> = ({ volumes, theme, 
                 <tr key={volume.volume} className="border-t border-white/10">
                   <td className="px-[var(--space-2)] py-[var(--space-1)] font-bold">{volume.volume}</td>
                   <td className="px-[var(--space-2)] py-[var(--space-1)] text-right tabular-nums">
+                    {/* A pre-flight that stopped early only proves a lower bound;
+                        promising an exact size there would be a lie. */}
+                    {volume.complete === false ? '\u2265 ' : ''}
                     {formatBytes(volume.size)}
                   </td>
                   <td className="px-[var(--space-2)] py-[var(--space-1)] text-right tabular-nums">
