@@ -638,6 +638,7 @@ export const de = {
   cmdMem: 'Speicher (KB)',
   cmdNoAdapters: 'Der lokale Server meldete keine IPv4-Adapter.',
   cmdNoProcesses: 'Die Prozessliste konnte nicht gelesen werden.',
+  cmdFailed: 'Der Befehl ist fehlgeschlagen: {error}',
   cmdTreeEmpty: '(keine Unterordner)',
   cmdTreeTruncated: '... Liste bei 300 Ordnern oder 4 Ebenen abgeschnitten',
   cmdCdUp: 'Zum übergeordneten Verzeichnis gewechselt',

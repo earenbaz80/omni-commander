@@ -662,6 +662,7 @@ export const en = {
   cmdMem: 'Memory (KB)',
   cmdNoAdapters: 'The local server reported no IPv4 adapters.',
   cmdNoProcesses: 'The process list could not be read.',
+  cmdFailed: 'The command failed: {error}',
   cmdTreeEmpty: '(no subfolders)',
   cmdTreeTruncated: '... list cut at 300 folders or 4 levels',
   cmdCdUp: 'Changed to parent directory',

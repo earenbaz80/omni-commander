@@ -69,7 +69,7 @@ export function useCommandExecution(deps: CommandExecutionDeps) {
         }
       };
 
-      {
+      try {
         switch (command) {
           case 'sudo':
           case 'runas':
@@ -213,6 +213,12 @@ export function useCommandExecution(deps: CommandExecutionDeps) {
             status = 'error';
             break;
         }
+      } catch (error: any) {
+        // A read that throws used to leave the drawer empty: the command looked
+        // like it had done nothing, which is the one way left for the shell to
+        // hide an answer. Whatever failed is now what the user reads.
+        output = t.cmdFailed.replace('{error}', error?.message || String(error));
+        status = 'error';
       }
 
       setCommandHistory((prev) => [
