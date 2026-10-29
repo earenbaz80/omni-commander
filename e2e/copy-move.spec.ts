@@ -119,10 +119,11 @@ async function startTransferAsking(page: Page, op: 'copy' | 'move') {
   await window.getByRole('radio', { name: 'Preguntar', exact: true }).check();
   await window.getByRole('button', { name: op === 'copy' ? 'Copiar (Enter)' : 'Mover (Enter)' }).click();
 
-  // The modal shell and its focus-trapping body both carry the same accessible
-  // name, one inside the other, so the outer one is the element to drive.
-  const prompt = page.getByRole('dialog', { name: 'El destino ya existe' }).first();
-  await expect(prompt).toBeVisible({ timeout: 60000 });
+  // Exactly one dialog carries this name. The shell owns the role and the focus
+  // trap; when the body claimed them too, the prompt was announced twice.
+  const prompt = page.getByRole('dialog', { name: 'El destino ya existe' });
+  await expect(prompt).toHaveCount(1, { timeout: 60000 });
+  await expect(prompt).toBeVisible();
   return prompt;
 }
 

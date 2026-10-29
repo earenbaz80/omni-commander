@@ -4,7 +4,6 @@ import { ConflictResolution, LanguageCode, PendingConflict } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface ConflictPromptModalProps {
@@ -63,8 +62,10 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
     ['rename-old', t.collisionRenameOld],
   ];
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.conflictTitle);
-
+  // The dialog semantics and the focus trap come from `ModalShell`, which asks
+  // `useModalDialog` for them. Claiming them here as well put a second
+  // `role="dialog"` with the very same name inside the first one, and a screen
+  // reader announced the prompt twice.
   const facts: Array<[string, string, string]> = [
     [t.size, formatBytes(conflict.sourceSize), formatBytes(conflict.destinationSize)],
     [t.diffModified, formatWhen(conflict.sourceModified), formatWhen(conflict.destinationModified)],
@@ -72,7 +73,7 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
 
   return (
     <ModalShell title={t.conflictTitle} theme={theme} onClose={onCancel} closeButtonLabel={t.btnCancel}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         {/* Header with icon and full destination path */}
         <div
           className="flex items-center gap-[var(--space-2)] min-w-0 pb-2 border-b font-bold shrink-0"
