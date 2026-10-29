@@ -8,10 +8,12 @@
       "electron/**/*",
       "!electron/**/*.test.ts",
       "server.cjs",
+      "server/**/*.cjs",
       "package.json"
     ],
     "asarUnpack": [
       "server.cjs",
+      "server/**/*.cjs",
       "dist/**/*",
       "node_modules/libarchive.js/**",
       "node_modules/node-unrar-js/**"
