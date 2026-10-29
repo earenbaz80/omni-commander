@@ -5,7 +5,6 @@ import { ThemeConfig } from '../../services/themeManager';
 import { soundManager } from '../../services/soundEffects';
 import { checkPassword } from '../../services/appLock';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import { getTranslations } from '../../i18n/translations';
 import ModalShell from '../ModalShell';
 
@@ -60,11 +59,9 @@ export const AppLockModal: React.FC<AppLockModalProps> = ({
     }
   };
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.lockAriaLabel);
-
   return (
     <ModalShell title={t.appLockTitle} theme={theme} onClose={() => {}} closeButtonLabel={t.btnCancel}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         {/* Lock Header */}
         <div
           className="px-[var(--space-4)] py-[var(--space-3)] border-b font-bold shrink-0 flex items-center justify-between text-white"

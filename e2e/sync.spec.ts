@@ -101,7 +101,10 @@ async function openSync(page: Page): Promise<Locator> {
   await page.getByRole('button', { name: 'Comandos', exact: true }).click();
   await page.getByRole('button', { name: /Sincronizar Carpetas/ }).click();
 
-  const dialog = page.getByRole('dialog', { name: 'Sincronizar carpetas' });
+  // Named by the heading the window shows, which is what `ModalShell` publishes
+  // as the accessible name. It used to be labelled with the menu entry instead,
+  // because the body claimed its own dialog on top of the shell's.
+  const dialog = page.getByRole('dialog', { name: 'Sincronizador de Directorios & Novedades' });
   await expect(dialog).toBeVisible();
   // The dialog must be comparing the two folders the panels are showing.
   await expect(dialog).toContainText(leftDir);

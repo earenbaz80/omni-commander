@@ -23,7 +23,6 @@ import { createSvgDataUrl } from '../../utils/svgPreview';
 import { MAX_TEXT_FILE_BYTES } from '../../utils/fileContent';
 import { useFileContent } from '../../hooks/useFileContent';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface ViewerModalProps {
@@ -76,8 +75,6 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({ theme, lang, file, onC
     setHexEditMode(false);
     setSelectedByteIndex(null);
   }, [loadedBytes]);
-
-  const dialogRef = useModalDialog<HTMLDivElement>(t.viewerModalTitle);
 
   if (!file) return null;
 
@@ -189,7 +186,7 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({ theme, lang, file, onC
 
   return (
     <ModalShell title={t.viewerModalTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         {/* Header bar */}
         <div
           className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-b font-bold shrink-0"

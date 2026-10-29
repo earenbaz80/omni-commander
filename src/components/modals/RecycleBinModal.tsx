@@ -5,7 +5,6 @@ import { ThemeConfig } from '../../services/themeManager';
 import { soundManager } from '../../services/soundEffects';
 import { fsEngine } from '../../services/fileSystem';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import { getTranslations } from '../../i18n/translations';
 import ModalShell from '../ModalShell';
 
@@ -58,11 +57,9 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({ theme, lang, o
     return `${bytes} B`;
   };
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.recycleBinModalTitle);
-
   return (
     <ModalShell title={t.binTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         {/* Action Controls */}
         <div className="p-[var(--space-3)] bg-black/40 border-b border-white/10 flex flex-wrap items-center justify-between gap-[var(--space-2)]">
           <div className="flex items-center gap-[var(--space-2)] text-xs">

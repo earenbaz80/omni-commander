@@ -12,7 +12,6 @@ import {
   type OpenableArchiveFormat,
 } from '../../services/archiveBackend';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface ZipArchiveModalProps {
@@ -67,11 +66,9 @@ export const ZipArchiveModal: React.FC<ZipArchiveModalProps> = ({
     }
   };
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.zipModalTitle);
-
   return (
     <ModalShell title={t.zipManagerTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         <form onSubmit={handleSubmit} className="p-[var(--space-4)] space-y-[var(--space-4)]">
           {/* Mode Switcher */}
           <div className="flex items-center gap-[var(--space-2)] bg-black/40 p-[var(--space-1)] rounded border border-white/10">

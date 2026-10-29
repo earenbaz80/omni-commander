@@ -5,7 +5,6 @@ import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { fsEngine } from '../../services/fileSystem';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 import { DiskUsageTree } from '../DiskUsageTree';
 import { formatBytes } from '../../utils/formatBytes';
@@ -35,11 +34,9 @@ export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({ theme, lang, dri
         .slice(0, 10)
         .map((f) => ({ path: f.path, fullName: f.fullName || `${f.name}.${f.ext}`, size: f.size }));
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.diskUsageModalTitle);
-
   return (
     <ModalShell title={t.diskUsageTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         <div className="p-[var(--space-4)] space-y-5 max-h-[80vh] overflow-y-auto">
           {/* Drives capacity breakdown */}
           <div>

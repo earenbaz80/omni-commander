@@ -4,7 +4,6 @@ import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface BatchRenameModalProps {
@@ -66,8 +65,6 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({ theme, lang,
     onApplyRename(previewList.map((p) => ({ id: p.id, newName: p.newName })));
   };
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.batchRenameModalTitle);
-
   return (
     <ModalShell
       title={`${t.batchRenameTitle} (${items.length} ${t.files})`}
@@ -75,7 +72,7 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({ theme, lang,
       onClose={onClose}
       closeButtonLabel={t.btnCancel}
     >
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         <form
           onSubmit={handleApply}
           className="flex-1 flex flex-col p-[var(--space-4)] space-y-[var(--space-3)] overflow-hidden"

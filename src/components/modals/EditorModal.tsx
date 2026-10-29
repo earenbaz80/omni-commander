@@ -6,7 +6,6 @@ import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 import { useFileContent } from '../../hooks/useFileContent';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface EditorModalProps {
@@ -40,8 +39,6 @@ export const EditorModal: React.FC<EditorModalProps> = ({ theme, lang, file, onS
   const [draft, setDraft] = useState<string | null>(null);
   const content = draft ?? ready?.text ?? '';
   const isDirty = draft !== null && ready !== null && draft !== ready.text;
-
-  const dialogRef = useModalDialog<HTMLDivElement>(t.editorModalTitle);
 
   if (!file) return null;
 
@@ -100,7 +97,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({ theme, lang, file, onS
 
   return (
     <ModalShell title={t.editorModalTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         {/* Search bar in header area */}
         <div
           className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-b font-bold shrink-0"

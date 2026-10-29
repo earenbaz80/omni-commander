@@ -12,7 +12,6 @@ import { decodeFileBytes } from '../../utils/fileContent';
 const GREP_MAX_FILES = 100;
 const GREP_MAX_BYTES = 1024 * 1024;
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface SearchGrepModalProps {
@@ -227,11 +226,9 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
     }
   };
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.searchDialogTitle);
-
   return (
     <ModalShell title={t.searchAdvTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         {/* Search History Bar */}
         {searchHistory.length > 0 && (
           <div className="px-[var(--space-3)] py-[var(--space-2)] bg-amber-950/30 border-b border-amber-500/20 flex flex-wrap items-center justify-between gap-[var(--space-2)] text-[11px] shrink-0">

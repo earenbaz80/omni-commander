@@ -6,7 +6,6 @@ import { getTranslations } from '../../i18n/translations';
 import { fsEngine } from '../../services/fileSystem';
 import { soundManager } from '../../services/soundEffects';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface SyncFoldersModalProps {
@@ -236,11 +235,9 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
     }
   };
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.syncDialogTitle);
-
   return (
     <ModalShell title={t.syncModalTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         {/* Directory Comparison Banner */}
         <div className="p-[var(--space-3)] bg-black/50 border-b border-white/10 grid grid-cols-1 md:grid-cols-2 gap-[var(--space-3)] shrink-0">
           <div className="p-[var(--space-2)] bg-black/40 rounded border border-sky-400/30 flex items-center gap-[var(--space-2)] truncate">

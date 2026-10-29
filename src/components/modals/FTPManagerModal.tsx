@@ -4,7 +4,6 @@ import { ThemeConfig } from '../../services/themeManager';
 import { LanguageCode } from '../../types';
 import { getTranslations } from '../../i18n/translations';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface FTPManagerModalProps {
@@ -38,11 +37,9 @@ export const FTPManagerModal: React.FC<FTPManagerModalProps> = ({ theme, lang, o
   const [password, setPassword] = useState('');
   const [remotePath, setRemotePath] = useState('');
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.ftpDialogLabel);
-
   return (
     <ModalShell title={t.ftpTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         {/* Content Body */}
         <div className="p-[var(--space-4)] space-y-[var(--space-4)] overflow-y-auto max-h-[75vh]">
           <div

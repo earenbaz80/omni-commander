@@ -6,7 +6,6 @@ import { taskQueue } from '../../services/taskQueueManager';
 import { fsEngine } from '../../services/fileSystem';
 import { soundManager } from '../../services/soundEffects';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import { getTranslations } from '../../i18n/translations';
 import { RetroProgressBar } from '../RetroProgressBar';
 import ModalShell from '../ModalShell';
@@ -81,11 +80,9 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({ them
     soundManager.playKeyTick();
   };
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.bgTasksModalTitle);
-
   return (
     <ModalShell title={t.bgTasksTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         {/* Action Controls */}
         <div className="p-[var(--space-3)] bg-black/40 border-b border-white/10 flex items-center justify-between gap-[var(--space-2)]">
           <div className="flex items-center gap-[var(--space-2)] text-xs">

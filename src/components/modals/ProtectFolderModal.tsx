@@ -5,7 +5,6 @@ import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 
-import { useModalDialog } from '../../hooks/useModalDialog';
 import ModalShell from '../ModalShell';
 
 interface ProtectFolderModalProps {
@@ -51,11 +50,9 @@ export const ProtectFolderModal: React.FC<ProtectFolderModalProps> = ({
     onClose();
   };
 
-  const dialogRef = useModalDialog<HTMLDivElement>(t.protectDialogTitle);
-
   return (
     <ModalShell title={t.protectTitle} theme={theme} onClose={onClose} closeButtonLabel={t.btnCancel}>
-      <div ref={dialogRef} tabIndex={-1} className="font-mono select-none">
+      <div className="font-mono select-none">
         <div className="p-[var(--space-4)] space-y-[var(--space-4)]">
           <div className="p-[var(--space-2)].5 bg-black/40 rounded border border-white/10 space-y-[var(--space-1)]">
             <span className="text-[var(--fs-8)] opacity-70 uppercase font-bold block">{t.protectTarget}</span>
