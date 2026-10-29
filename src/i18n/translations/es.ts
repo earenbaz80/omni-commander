@@ -727,6 +727,7 @@ export const es = {
   fileListResizeHint: 'Arrastra para redimensionar · doble clic para autoajustar',
   fileListLabelLeft: 'Lista de archivos del panel izquierdo en {path}',
   fileListLabelRight: 'Lista de archivos del panel derecho en {path}',
+  contextMenuLabel: 'Menú contextual',
   qvAudioTrack: 'Pista de Audio Hi-Fi',
   qvVideoClip: 'Clip de Video HD',
   qvPlaying: 'REPRODUCIENDO',

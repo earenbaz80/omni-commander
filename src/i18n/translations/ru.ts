@@ -698,6 +698,7 @@ export const ru = {
   fileListResizeHint: 'Перетащите для изменения · двойной щелчок для автоподгонки',
   fileListLabelLeft: 'Список файлов левой панели: {path}',
   fileListLabelRight: 'Список файлов правой панели: {path}',
+  contextMenuLabel: 'Контекстное меню',
   qvAudioTrack: 'Аудиодорожка Hi-Fi',
   qvVideoClip: 'HD-видеоклип',
   qvPlaying: 'ВОСПРОИЗВЕДЕНИЕ',
