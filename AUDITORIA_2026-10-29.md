@@ -1,6 +1,6 @@
 # Auditoría general — OmniCommander Pro
 
-**Fecha:** 29-oct-2026 · **Commit auditado:** `f29afd2` más las cinco unidades de esta jornada y su corrección posterior — `a96ec8a` (FTP), `383bf07` (shell), `aed9cad` (vista rápida), `380e13a` (sincronización y búsqueda), `b58ce2e` (limpieza), `dea20de` (presupuesto de `tasklist`), `b7bf9a9` (fallo visible), `59c2ba1` (E2E de la barra), `820923f` (mutación de la barra), `3845a8a` (teardown de vitest), `e75a72a` (poll cancelable), `01cdde3` (lectura de procesos) · **Versión:** 1.0.4
+**Fecha:** 29-oct-2026 · **Commit auditado:** `f29afd2` más las cinco unidades de esta jornada y su corrección posterior — `a96ec8a` (FTP), `383bf07` (shell), `aed9cad` (vista rápida), `380e13a` (sincronización y búsqueda), `b58ce2e` (limpieza), `dea20de` (presupuesto de `tasklist`), `b7bf9a9` (fallo visible), `59c2ba1` (E2E de la barra), `820923f` (mutación de la barra), `3845a8a` (teardown de vitest), `e75a72a` (poll cancelable), `01cdde3` (lectura de procesos), `83bba23` (presupuesto del suite) · **Versión:** 1.0.4
 **Alcance:** compuertas de calidad, datos que la interfaz presenta como reales, seguridad de la API local y de Electron, rendimiento, pruebas y CI.
 **Método:** ejecución de las compuertas reales sobre el árbol de trabajo, lectura del código y prueba de ejecución de los endpoints nuevos contra la máquina.
 **Relación con la anterior:** [AUDITORIA_2026-10-26.md](AUDITORIA_2026-10-26.md) midió `d3b113e`. Esta es una foto nueva, no una actualización de aquella.
@@ -23,7 +23,7 @@ Lo que sigue abierto es deuda de higiene y de CI, no de comportamiento: `release
 | --- | --- | --- |
 | TypeScript | `npx tsc --noEmit` | ✅ sin errores |
 | ESLint | `npx eslint src --max-warnings 0` | ✅ 0 errores, 0 warnings |
-| Pruebas | `npx vitest run` | ✅ 80 ficheros / **565 pruebas** (144 s), exit 0 |
+| Pruebas | `npx vitest run` | ✅ 80 ficheros / **565 pruebas** (115 s), exit 0 |
 | Cobertura | `npx vitest run --coverage` | ⚠️ medida: **54,01 %** sentencias, 47,27 % ramas, 43,69 % funciones, 56,80 % líneas. Sin umbral |
 | Build | `npx vite build` | ✅ 12,6 s; `dist` **1,7 MB**; chunk principal **516 kB** (`ModalShell` 440 kB aparte) |
 | E2E | `npx playwright test` | ✅ **11 pruebas** (2,6 min): humo, a11y, a11y de modales, los cuatro casos de archivo y los tres de la barra de comandos |
@@ -110,7 +110,7 @@ La barra de comandos tiene además seis casos de mutación: [`scripts/commandOut
 
 **Carrera de teardown (resuelta en su causa):** con `--coverage`, una de cada varias corridas terminaba con exit 1 por `EnvironmentTeardownError: Closing rpc while "onUserConsoleLog" was pending` mientras todas las pruebas pasaban. El registro que se escapaba era real: el poll de unidades de `App` seguía reintentando después del desmontaje y, al fallar el último intento, registraba «Could not load real drives from API» con la ventana ya cerrada. Ahora `fetchWithRetry` acepta la señal del llamador, deja de reintentar al cancelarse y limpia el listener; `App` aborta en su cleanup y `loadRealDrivesFromApi` no registra un fallo que nadie espera. Medido con la consola activada (`VITEST_CONSOLE=1`, el modo donde el aviso sería visible): sin la señal aparece una vez; con ella, tres corridas consecutivas sin ningún aviso y exit 0.
 
-Como segunda barrera, y porque el aviso podía volver desde cualquier otro `console.*`, el setup sustituye los métodos de consola por no-ops antes de importar la app —ninguna prueba afirma sobre esa salida— y `VITEST_CONSOLE=1` restaura la consola real para depurar. Verificando esto aparecieron dos causas más de un verde con exit 1, ambas de presupuesto: la prueba de contraseña hace tres derivaciones PBKDF2 reales de 100k iteraciones y superaba los 5 s por defecto bajo carga (ahora 30 s), y la lectura de procesos agotaba el presupuesto del servidor bajo la saturación de la suite, así que la prueba reintenta una vez —un endpoint que no puede leer procesos falla las dos—. Tres corridas completas consecutivas después: exit 0, exit 0 y exit 0.
+Como segunda barrera, y porque el aviso podía volver desde cualquier otro `console.*`, el setup sustituye los métodos de consola por no-ops antes de importar la app —ninguna prueba afirma sobre esa salida— y `VITEST_CONSOLE=1` restaura la consola real para depurar. Verificando esto aparecieron dos causas más de un verde con exit 1, ambas de presupuesto: la prueba de contraseña hace tres derivaciones PBKDF2 reales de 100k iteraciones y superaba los 5 s por defecto bajo carga (ahora 30 s), y la lectura de procesos agotaba el presupuesto del servidor bajo la saturación de la suite, así que la prueba reintenta una vez —un endpoint que no puede leer procesos falla las dos—. El presupuesto de prueba del suite sube además de 5 s a 20 s en `vite.config.ts`, porque varias pruebas hacen trabajo real (lanzar procesos, derivar claves, planificar un comando) y medido se pasaba de cinco; una prueba que no termina sigue fallando, veinte segundos después. Tres corridas completas consecutivas después: exit 0, exit 0 y exit 0.
 
 Zonas con poca cobertura medidas hoy: `soundEffects.ts` (27 %), `systemStats.ts` (30 %), `runLauncher.ts` (55 %), `cleanupTargets.ts` (17 %).
 
@@ -139,7 +139,7 @@ Zonas con poca cobertura medidas hoy: `soundEffects.ts` (27 %), `systemStats.ts`
 ```text
 npx tsc --noEmit                                  → exit 0
 npx eslint src --max-warnings 0                   → exit 0 (0 errores, 0 warnings)
-npx vitest run                                    → 80 ficheros, 565 pruebas, 144 s, exit 0
+npx vitest run                                    → 80 ficheros, 565 pruebas, 115 s, exit 0
 npx vitest run --coverage                         → 54,01 % sentencias (sin umbral), exit 0
 npx vite build                                    → exit 0, dist 1,7 MB
 npx playwright test                               → 11 pruebas, 2,6 min
