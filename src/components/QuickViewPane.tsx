@@ -137,8 +137,13 @@ export const QuickViewPane: React.FC<QuickViewPaneProps> = ({ theme, lang, targe
   const displayName =
     targetItem.fullName || (targetItem.ext ? `${targetItem.name}.${targetItem.ext}` : targetItem.name);
 
+  // The pane replaces a panel's file list, so it carries stable hooks for the
+  // end-to-end suite: one to tell it apart from the list, one to read which tab
+  // the pane chose by itself.
   return (
     <div
+      data-quick-view
+      data-quick-view-tab={viewTab}
       className="flex-1 flex flex-col min-h-0 font-mono text-xs overflow-hidden border-l"
       style={{ backgroundColor: theme.bgPanel, borderColor: theme.borderPanel, color: theme.itemText }}
     >
