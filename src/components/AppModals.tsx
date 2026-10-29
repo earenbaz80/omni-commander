@@ -129,7 +129,6 @@ interface AppModalsProps {
   handleCompressZip: (archiveName: string, format: OpenableArchiveFormat) => Promise<void>;
   handleExtractZip: (zipFile: FileItem) => Promise<void>;
   handleSetFolderPassword: (folderPath: string, password: string | null) => void | Promise<void>;
-  handleSelectDrive: (panelSide: 'left' | 'right', driveId: string) => Promise<void>;
   handleExecuteCommand: (cmd: string) => void;
   onRunCopyList: (plans: TransferPlan[]) => void;
 }
@@ -179,7 +178,6 @@ export const AppModals: React.FC<AppModalsProps> = ({
   handleCompressZip,
   handleExtractZip,
   handleSetFolderPassword,
-  handleSelectDrive,
   handleExecuteCommand,
   onRunCopyList,
 }) => {
@@ -511,14 +509,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
         )}
 
         {(activeModal === 'ftp_manager' || activeModal === 'ftpManager') && (
-          <FTPManagerModal
-            theme={currentTheme}
-            lang={lang}
-            onConnectDrive={(driveId) => {
-              handleSelectDrive(activePanel, driveId);
-            }}
-            onClose={() => setActiveModal(null)}
-          />
+          <FTPManagerModal theme={currentTheme} lang={lang} onClose={() => setActiveModal(null)} />
         )}
 
         {(activeModal === 'file_splitter' ||
