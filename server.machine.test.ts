@@ -52,11 +52,22 @@ describe('GET /api/net/adapters', () => {
 
 describe('GET /api/processes', () => {
   it('reads the real process list', async () => {
-    const res = await fetch(server.url('/api/processes'));
     // The body is what says why a read failed — a timed-out child and a refused
     // spawn look identical from the status code alone.
-    const body = await res.text();
-    expect(res.status, `the server answered ${res.status}: ${body}`).toBe(200);
+    const read = async () => {
+      const res = await fetch(server.url('/api/processes'));
+      return { status: res.status, body: await res.text() };
+    };
+
+    // `tasklist` answers in about a second on an idle desktop, but this test asks
+    // the OS to spawn a process while the rest of the suite saturates the box,
+    // and the server's own 60 s budget has been outrun that way. A second read
+    // separates a saturated moment from an endpoint that cannot read processes at
+    // all: if the endpoint is broken, both fail identically.
+    let { status, body } = await read();
+    if (status !== 200) ({ status, body } = await read());
+
+    expect(status, `the server answered ${status}: ${body}`).toBe(200);
     const processes = JSON.parse(body) as { pid: number; name: string; memoryKb: number }[];
 
     expect(processes.length).toBeGreaterThan(1);
@@ -68,10 +79,8 @@ describe('GET /api/processes', () => {
     }
     // The old table was this exact fixed set; a real list is never this.
     expect(processes.length).not.toBe(4);
-    // `tasklist` shells out to Windows and has been measured past 30 s on a busy
-    // machine, so this waits past the server's own 60 s budget instead of
-    // failing on the harness clock while the read is still running.
-  }, 120000);
+    // Two reads at the server's 60 s budget each, plus the rest of the round trip.
+  }, 300000);
 });
 
 describe('GET /api/tree', () => {
