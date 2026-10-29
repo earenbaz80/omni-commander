@@ -878,8 +878,13 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             </div>
 
             <div>
-              <label className="block font-bold text-white mb-[var(--space-1)]">{t.copyMoveDestLabel}</label>
+              {/* Associated with the field below: this is where focus lands when the
+                  window opens, so it has to be able to say what it is. */}
+              <label htmlFor="copyMoveDest" className="block font-bold text-white mb-[var(--space-1)]">
+                {t.copyMoveDestLabel}
+              </label>
               <input
+                id="copyMoveDest"
                 type="text"
                 ref={destInputRef}
                 value={destPath}
