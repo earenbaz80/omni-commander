@@ -1,6 +1,6 @@
 # Auditoría general — OmniCommander Pro
 
-**Fecha:** 29-oct-2026 · **Commit auditado:** `f29afd2` más las cinco unidades de esta jornada y su corrección posterior — `a96ec8a` (FTP), `383bf07` (shell), `aed9cad` (vista rápida), `380e13a` (sincronización y búsqueda), `b58ce2e` (limpieza), `dea20de` (presupuesto de `tasklist`) · **Versión:** 1.0.4
+**Fecha:** 29-oct-2026 · **Commit auditado:** `f29afd2` más las cinco unidades de esta jornada y su corrección posterior — `a96ec8a` (FTP), `383bf07` (shell), `aed9cad` (vista rápida), `380e13a` (sincronización y búsqueda), `b58ce2e` (limpieza), `dea20de` (presupuesto de `tasklist`), `b7bf9a9` (fallo visible), `59c2ba1` (E2E de la barra) · **Versión:** 1.0.4
 **Alcance:** compuertas de calidad, datos que la interfaz presenta como reales, seguridad de la API local y de Electron, rendimiento, pruebas y CI.
 **Método:** ejecución de las compuertas reales sobre el árbol de trabajo, lectura del código y prueba de ejecución de los endpoints nuevos contra la máquina.
 **Relación con la anterior:** [AUDITORIA_2026-10-26.md](AUDITORIA_2026-10-26.md) midió `d3b113e`. Esta es una foto nueva, no una actualización de aquella.
@@ -9,11 +9,11 @@
 
 ## 0. Resumen
 
-La app está **sana en lo que se puede medir automáticamente**: tipos, lint, 555 pruebas, build y los 8 E2E en verde, y sin vulnerabilidades en dependencias de producción. Sobre la anterior, se cerraron los tres bloqueantes y la deuda funcional que quedaba.
+La app está **sana en lo que se puede medir automáticamente**: tipos, lint, 558 pruebas, build y los 11 E2E en verde, y sin vulnerabilidades en dependencias de producción. Sobre la anterior, se cerraron los tres bloqueantes y la deuda funcional que quedaba.
 
 El trabajo de esta jornada se centró en otra clase de defecto que la auditoría anterior no cubría: **datos inventados**. La app presentaba como mediciones un handshake SSH que nunca ocurrió, un `ipconfig` con una IP fija, un `tasklist` con procesos que no existían, un `tree` de cuatro carpetas dibujadas, un volcado hexadecimal fabricado a partir del nombre del archivo, un reproductor con 180 s fijos, un progreso de sincronización con pausas de 60 ms y una versión `v5.50.2026` en un paquete `1.0.4`. Todo eso o se convirtió en una lectura real o desapareció; ninguna de esas pantallas puede volver a afirmar algo que no midió.
 
-Lo que sigue abierto es deuda de higiene y de CI, no de comportamiento: `release/` con 657 MB, 30 `.txt` en la raíz, una dependencia declarada sin uso, 44 `any`, y una cobertura medida al 53,17 % que no tiene umbral ni script.
+Lo que sigue abierto es deuda de higiene y de CI, no de comportamiento: `release/` con 657 MB, 30 `.txt` en la raíz, una dependencia declarada sin uso, 44 `any`, y una cobertura medida al 53,56 % que no tiene umbral ni script.
 
 ---
 
@@ -23,10 +23,10 @@ Lo que sigue abierto es deuda de higiene y de CI, no de comportamiento: `release
 | --- | --- | --- |
 | TypeScript | `npx tsc --noEmit` | ✅ sin errores |
 | ESLint | `npx eslint src --max-warnings 0` | ✅ 0 errores, 0 warnings |
-| Pruebas | `npx vitest run` | ✅ 78 ficheros / **555 pruebas** (111 s) |
-| Cobertura | `npx vitest run --coverage` | ⚠️ medida: **53,17 %** sentencias, 46,76 % ramas, 42,75 % funciones, 56,03 % líneas. Sin umbral |
+| Pruebas | `npx vitest run` | ✅ 79 ficheros / **558 pruebas** (223 s) |
+| Cobertura | `npx vitest run --coverage` | ⚠️ medida: **53,56 %** sentencias, 46,94 % ramas, 42,99 % funciones, 56,44 % líneas. Sin umbral |
 | Build | `npx vite build` | ✅ 12,6 s; `dist` **1,7 MB**; chunk principal **516 kB** (`ModalShell` 440 kB aparte) |
-| E2E | `npx playwright test` | ✅ **8 pruebas** (1,4 min): humo, a11y, a11y de modales y los cuatro casos de archivo |
+| E2E | `npx playwright test` | ✅ **11 pruebas** (2,6 min): humo, a11y, a11y de modales, los cuatro casos de archivo y los tres de la barra de comandos |
 | Deps de producción | `npm audit --omit=dev` | ✅ 0 vulnerabilidades |
 | Deps totales | `npm audit` | ⚠️ 4 bajas (`deepmerge` vía `workbox-build`/`vite-plugin-pwa`) |
 | TypeScript estricto | `npx tsc --noEmit -p tsconfig.strict.json` | ❌ **12 errores**; el CI no lo ejecuta |
@@ -65,7 +65,8 @@ Las pruebas que sostienen lo nuevo del servidor están en [`server.machine.test.
 
 - Los P0 de la auditoría anterior (TreeSize, ZIP con contraseña, RAR/7Z/TAR, release desde árbol roto) siguen cerrados, y el spec de archivos cubre RAR, ZIP, 7-Zip y RAR cifrado de extremo a extremo.
 - La barra de comandos ya no puede inventar: `dir`, `cd`, `mkdir`, `del` van al motor; `ipconfig`, `tasklist`, `tree` y `type` van al disco o al sistema; `calc` dice que no existe; `sudo` pide elevación real o explica que no puede.
-- **Riesgos nuevos, acotados a propósito**: `quick view` mantiene hasta 50 MB en memoria para reproducir; el grep lee como máximo 100 ficheros de 1 MB por búsqueda y lo declara; `tasklist` lanza un proceso por invocación (con tope de 25 s; 15 s resultaron cortos bajo carga); la comprobación de elevación lanza PowerShell una vez por proceso.
+- **Tampoco puede callarse**: una lectura que lanza ahora deja una entrada de error con el mensaje (`cmdFailed`), en lugar de no dejar ninguna entrada. Se encontró en el E2E de la barra, donde un `tasklist` que agotó su presupuesto se veía como un comando que no había hecho nada; lo cubre [`useCommandExecution.test.tsx`](src/hooks/useCommandExecution.test.tsx).
+- **Riesgos nuevos, acotados a propósito**: `quick view` mantiene hasta 50 MB en memoria para reproducir; el grep lee como máximo 100 ficheros de 1 MB por búsqueda y lo declara; `tasklist` lanza un proceso por invocación (con tope de 60 s: 15 s y 25 s resultaron cortos bajo carga); la comprobación de elevación lanza PowerShell una vez por proceso.
 
 ---
 
@@ -96,12 +97,12 @@ Los endpoints nuevos aceptan solo lectura, están detrás del mismo servidor de 
 
 | Métrica | Valor |
 | --- | --- |
-| Ficheros de prueba | 78 |
-| Pruebas | 555 |
-| Cobertura de sentencias | 53,17 % |
-| Cobertura de líneas | 56,03 % |
+| Ficheros de prueba | 79 |
+| Pruebas | 558 |
+| Cobertura de sentencias | 53,56 % |
+| Cobertura de líneas | 56,44 % |
 | Specs del servidor | 16 ficheros `server.*.test.ts` |
-| E2E | 8 pruebas, 4 specs |
+| E2E | 11 pruebas, 5 specs |
 
 Sin umbral y sin script `coverage` en `package.json`, aunque `@vitest/coverage-v8` está instalado: la cobertura existe como medición manual, no como compuerta.
 
@@ -120,10 +121,10 @@ Zonas con poca cobertura medidas hoy: `soundEffects.ts` (27 %), `systemStats.ts`
 | P2-9 · Dependencias sin uso | ⚠️ Parcial | `@zip.js/zip.js` declarado y sin uso en `src`, `server.cjs` ni `electron` |
 | P2-10 · Higiene local | ❌ Abierto | `release/` **657 MB** y **30** `.txt` de depuración en la raíz |
 | P2-11 · `server.cjs` monolítico | ⚠️ Parcial | **3.938 líneas** (creció ~130 con las rutas nuevas); solo dos módulos fuera: `pathSafety.cjs` y `systemLoad.cjs` |
-| P2-12 · Cobertura | ⚠️ Parcial | Medida al 53,17 %, sin script ni umbral |
-| Nuevo · E2E de la shell | ❌ Abierto | Los comandos nuevos tienen prueba de servidor, pero ningún E2E recorre la barra de comandos |
+| P2-12 · Cobertura | ⚠️ Parcial | Medida al 53,56 %, sin script ni umbral |
+| Nuevo · E2E de la shell | ✅ Resuelto | [`e2e/commands.spec.ts`](e2e/commands.spec.ts) recorre la barra y contrasta `ipconfig` con `os.networkInterfaces()`, `tasklist` con un listado propio y `tree` con carpetas creadas en un temporal |
 
-**Prioridad sugerida:** (1) sacar las rutas de máquina a un módulo y seguir con la división de `server.cjs`; (2) limpiar `release/`, los `.txt` y `@zip.js/zip.js`; (3) umbral de cobertura y `typecheck:strict` en el CI; (4) un E2E de la barra de comandos.
+**Prioridad sugerida:** (1) sacar las rutas de máquina a un módulo y seguir con la división de `server.cjs`; (2) limpiar `release/`, los `.txt` y `@zip.js/zip.js`; (3) umbral de cobertura y `typecheck:strict` en el CI; (4) E2E para la vista rápida y la sincronización, que hoy solo tienen unidades.
 
 ---
 
@@ -132,10 +133,10 @@ Zonas con poca cobertura medidas hoy: `soundEffects.ts` (27 %), `systemStats.ts`
 ```text
 npx tsc --noEmit                                  → exit 0
 npx eslint src --max-warnings 0                   → exit 0 (0 errores, 0 warnings)
-npx vitest run                                    → 78 ficheros, 555 pruebas, 111 s
-npx vitest run --coverage                         → 53,17 % sentencias (sin umbral)
+npx vitest run                                    → 79 ficheros, 558 pruebas, 223 s
+npx vitest run --coverage                         → 53,56 % sentencias (sin umbral)
 npx vite build                                    → exit 0, dist 1,7 MB
-npx playwright test                               → 8 pruebas, 1,4 min
+npx playwright test                               → 11 pruebas, 2,6 min
 npm audit --omit=dev                              → 0 vulnerabilidades
 npm audit                                         → 4 bajas
 npx tsc --noEmit -p tsconfig.strict.json          → 12 errores
