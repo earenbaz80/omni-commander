@@ -703,6 +703,7 @@ export const fr = {
   fileListResizeHint: 'Glisser pour redimensionner · double-clic pour ajuster',
   fileListLabelLeft: 'Liste de fichiers du panneau gauche dans {path}',
   fileListLabelRight: 'Liste de fichiers du panneau droit dans {path}',
+  contextMenuLabel: 'Menu contextuel',
   qvAudioTrack: 'Piste audio Hi-Fi',
   qvVideoClip: 'Clip vidéo HD',
   qvPlaying: 'LECTURE',

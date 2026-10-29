@@ -700,6 +700,7 @@ export const de = {
   fileListResizeHint: 'Ziehen zum Anpassen · Doppelklick für automatische Breite',
   fileListLabelLeft: 'Dateiliste des linken Panels in {path}',
   fileListLabelRight: 'Dateiliste des rechten Panels in {path}',
+  contextMenuLabel: 'Kontextmenü',
   qvAudioTrack: 'Hi-Fi-Audiospur',
   qvVideoClip: 'HD-Videoclip',
   qvPlaying: 'WIEDERGABE',

@@ -9,7 +9,7 @@
 
 ## 0. Resumen
 
-La app está **sana en lo que se puede medir automáticamente**: tipos, lint, 599 pruebas, build y los 44 E2E en verde, y sin vulnerabilidades en dependencias de producción. Sobre la anterior, se cerraron los tres bloqueantes y la deuda funcional que quedaba.
+La app está **sana en lo que se puede medir automáticamente**: tipos, lint, 599 pruebas, build y los 46 E2E en verde, y sin vulnerabilidades en dependencias de producción. Sobre la anterior, se cerraron los tres bloqueantes y la deuda funcional que quedaba.
 
 El trabajo de esta jornada se centró en otra clase de defecto que la auditoría anterior no cubría: **datos inventados**. La app presentaba como mediciones un handshake SSH que nunca ocurrió, un `ipconfig` con una IP fija, un `tasklist` con procesos que no existían, un `tree` de cuatro carpetas dibujadas, un volcado hexadecimal fabricado a partir del nombre del archivo, un reproductor con 180 s fijos, un progreso de sincronización con pausas de 60 ms y una versión `v5.50.2026` en un paquete `1.0.4`. Todo eso o se convirtió en una lectura real o desapareció; ninguna de esas pantallas puede volver a afirmar algo que no midió.
 
@@ -26,7 +26,7 @@ Lo que sigue abierto es deuda de higiene y de CI, no de comportamiento: `release
 | Pruebas | `npx vitest run` | ✅ 80 ficheros / **599 pruebas** (127 s), exit 0 |
 | Cobertura | `npx vitest run --coverage` | ⚠️ medida: **54,01 %** sentencias, 47,27 % ramas, 43,69 % funciones, 56,80 % líneas. Sin umbral |
 | Build | `npx vite build` | ✅ 12,6 s; `dist` **1,7 MB**; chunk principal **516 kB** (`ModalShell` 440 kB aparte) |
-| E2E | `npx playwright test` | ✅ **44 pruebas** (5,1 min; más si `tasklist` tarda lo que mide su fila de presupuesto): humo, los tres de a11y —botones, listas y agrupaciones—, a11y de modales, los cuatro casos de archivo, los tres de la barra de comandos, los cuatro de la vista rápida, los dos de sincronización, los dos de copia/movimiento con colisión y los veintitrés de foco de ventanas |
+| E2E | `npx playwright test` | ✅ **46 pruebas** (6,1 min; más si `tasklist` tarda lo que mide su fila de presupuesto): humo, los tres de a11y —botones, listas y agrupaciones—, a11y de modales, los cuatro casos de archivo, los tres de la barra de comandos, los dos del menú contextual, los cuatro de la vista rápida, los dos de sincronización, los dos de copia/movimiento con colisión y los veintitrés de foco de ventanas |
 | Deps de producción | `npm audit --omit=dev` | ✅ 0 vulnerabilidades |
 | Deps totales | `npm audit` | ⚠️ 4 bajas (`deepmerge` vía `workbox-build`/`vite-plugin-pwa`) |
 | TypeScript estricto | `npx tsc --noEmit -p tsconfig.strict.json` | ❌ **12 errores**; el CI no lo ejecuta |
@@ -102,7 +102,7 @@ Los endpoints nuevos aceptan solo lectura, están detrás del mismo servidor de 
 | Cobertura de sentencias | 54,01 % |
 | Cobertura de líneas | 56,80 % |
 | Specs del servidor | 16 ficheros `server.*.test.ts` |
-| E2E | 44 pruebas, 9 specs |
+| E2E | 46 pruebas, 10 specs |
 
 Sin umbral y sin script `coverage` en `package.json`, aunque `@vitest/coverage-v8` está instalado: la cobertura existe como medición manual, no como compuerta.
 
@@ -140,7 +140,11 @@ Lo que sí faltaba es que ese destino **dijera qué es**: era un `div` enfocable
 
 El resto de grupos y regiones pasan por la misma pregunta: [`e2e/a11y.spec.ts`](e2e/a11y.spec.ts) audita **todo** lo que lleva un rol de agrupación o de landmark —`group`, `region`, `toolbar`, `tablist`, `list`, `listbox`, `tree`, `grid`, `menu`, `navigation`, `main`, `banner`, `complementary`, `contentinfo`, `search`, `form`— y exige nombre accesible, porque un contenedor con rol se anuncia por su nombre y sin él un lector de pantalla solo dice «grupo». El inventario real es corto y ya estaba bien: las cuatro listas de los dos paneles, la barra de funciones F1-F10 (`toolbar`, «Barra de funciones F1-F10») y el menú de limpieza de temporales (`menu`, «Limpiar carpetas temporales»). Este último solo existe mientras está abierto, así que el caso lo abre, audita esa segunda pasada y lo vuelve a cerrar; sin eso, la página recién cargada nunca vería un menú. Quitar el `aria-label` del menú deja el audit en rojo con `{"role": "menu", "name": ""}`.
 
-Lo que este audit **no** ve, y queda anotado: el menú contextual de la lista no declara ningún rol —ni `menu` ni `menuitem`—, así que no es un problema de nombre sino de semántica, y va en su propia unidad. Los diálogos se auditan en `a11y.modals.spec.ts`, como hasta ahora. Ningún grupo o menú abierto dentro de una ventana pasa por el audit de agrupaciones.
+El menú contextual era el último contenedor sin semántica de nada, y ya la tiene: `role="menu"` con el nombre «Menú contextual» —clave nueva en los ocho idiomas—, `role="menuitem"` en sus 25 comandos, `separator` en las rayas y `presentation` en los encabezados de sección. El teclado pasa a ser el de un menú: el foco entra en el primer comando, las flechas recorren la lista con envolvente, Home y End van a los extremos, y Escape o Tab lo cierran devolviendo el foco a la lista de la que salió. Cada tecla que el menú atiende detiene su propagación, porque el motor global de atajos usa las mismas y, sin eso, la selección del panel se movía detrás del menú abierto.
+
+[`e2e/context-menu.spec.ts`](e2e/context-menu.spec.ts) lo fija con dos casos: uno recorre la semántica y el teclado, otro comprueba que las flechas no llegan al panel. Ese segundo caso no mordía a la primera —la carpeta de prueba tenía una sola fila bajo el menú, así que la flecha no tenía adónde moverse— y hubo que añadirle un segundo fichero para que tuviera sujeto. Dos mutaciones: quitar el `aria-label` deja el primero en rojo con `element(s) not found` al buscar el menú por su nombre; quitar el `stopPropagation` deja el segundo en rojo con `Expected: "nota.txt", Received: "otra.txt"`.
+
+Lo que este audit **no** ve, y queda anotado: los diálogos se auditan en `a11y.modals.spec.ts`, y ningún grupo o menú abierto dentro de una ventana pasa por el audit de agrupaciones.
 
 Seis mutaciones: quitar el foco inicial de `useModalDialog` lo deja en rojo con `the help window opened with focus on <body> ""` y, en el caso del relevo, con `the editor never took focus after replacing the viewer`; quitar el `htmlFor` lo deja en rojo con `element(s) not found` al buscar el campo por su etiqueta; vaciar lo que pintan el visor y el editor deja en rojo sus dos casos (`toBeVisible() failed` para el texto del visor, `Expected: "una nota\n", Received: ""` para el búfer del editor); quitar la restauración de foco del hook deja el cierre del editor en rojo con `closing the editor left focus on <body> ""`, que es el defecto que ese caso vigila; quitar `role` y `aria-label` de la lista deja el audit de a11y en rojo con `{"role": null, "name": ""}` por cada lista; y dar a los dos paneles la misma etiqueta lo deja en rojo con `left` frente a `left` y `right`. Restaurado todo, 12/12 y 2/2.
 
@@ -176,7 +180,7 @@ La cadena cerró lo que se propuso —diálogo único por ventana, un solo dueñ
 
 | Punto | Estado | Qué se sabe |
 | --- | --- | --- |
-| Menú contextual sin semántica | ❌ Abierto | `ContextMenu.tsx` no declara `role="menu"` ni `menuitem`. No es un problema de nombre —no tiene rol, así que el audit de agrupaciones ni lo mira—, sino de semántica: un lector de pantalla lo anuncia como un bloque de botones y el teclado no recorre sus opciones como un menú |
+| Menú contextual | ✅ Resuelto | `role="menu"` con nombre en los ocho idiomas, `menuitem` en sus 25 comandos, flechas con envolvente, Home/End, y Escape o Tab que cierran devolviendo el foco a la lista. Dos casos E2E y dos mutaciones |
 | Foco al cerrar | ✅ Resuelto | El E2E exige el retorno del foco en las **veintitrés** ventanas que abre: las nueve de tecla vuelven a la lista, Configuración a su botón, el relevo visor→editor a la lista, y las diez nuevas (F10, Ctrl+M, Ctrl+H, Ctrl+D, Propiedades, Acerca de, Proteger Carpeta, biblioteca CMD/Winget, Divisor y Cola de Tareas) al título del menú o al botón que las abrió |
 | Restauración sin red | ✅ Resuelto | Si el control que abrió la ventana ya no existe y el historial no guarda ninguno conectado, el foco va a la lista del panel **activo** y no al `body`. Caso E2E con F10 sin nada enfocado y mutación comprobada |
 | Agrupaciones dentro de diálogos | ⚠️ Abierto | El audit de agrupaciones recorre la página principal; de los diálogos solo se auditan sus controles (`a11y.modals`). Ningún grupo o menú abierto dentro de una ventana pasa por él |
@@ -184,9 +188,9 @@ La cadena cerró lo que se propuso —diálogo único por ventana, un solo dueñ
 | Cola de tareas en segundo plano | ⚠️ Sin E2E | Sigue cubierta solo con unidades |
 | Deuda de la sección 7 | ❌ Intacta | Nada de la tabla anterior cambió con esta cadena: 12 errores de `typecheck:strict`, 4 bajas de `npm audit`, cobertura 54,01 % sin umbral, `release/` de 657 MB, `@zip.js/zip.js` sin uso y `server.cjs` de 3.938 líneas |
 
-Una nota sobre las medidas, para que no engañen: dos corridas completas de la suite se interrumpieron por el entorno —una con `Execution context was destroyed` en `a11y.modals`, que aislado pasa siempre y no reprodujo, y otra que se comió un atasco de máquina de 35 minutos en el caso de 7-Zip—. La corrida limpia posterior, con la máquina libre, dio **44/44 en 5,1 min**; ninguna de las dos anomalías apunta al código de esta cadena.
+Una nota sobre las medidas, para que no engañen: dos corridas completas de la suite se interrumpieron por el entorno —una con `Execution context was destroyed` en `a11y.modals`, que aislado pasa siempre y no reprodujo, y otra que se comió un atasco de máquina de 35 minutos en el caso de 7-Zip—. La corrida limpia posterior, con la máquina libre, dio **46/46 en 6,1 min**; ninguna de las dos anomalías apunta al código de esta cadena.
 
-**Prioridad sugerida:** (1) sacar las rutas de máquina a un módulo y seguir con la división de `server.cjs`; (2) limpiar `release/`, los `.txt` y `@zip.js/zip.js`; (3) umbral de cobertura y `typecheck:strict` en el CI. Los huecos de E2E que quedaban —la sincronización y la copia/movimiento con diálogo de colisión— están cerrados; lo que sigue sin E2E es la cola de tareas en segundo plano, que hoy solo se cubre con unidades. La deuda de foco de esta cadena quedó cerrada: [`e2e/modal-focus.spec.ts`](e2e/modal-focus.spec.ts) cubre ya veintitrés ventanas, incluidas las diez que solo se abrían desde un menú o un botón de la cabecera, y la restauración ya no depende de que sobreviva el control que la abrió. Sigue abierta la semántica de menú del menú contextual.
+**Prioridad sugerida:** (1) sacar las rutas de máquina a un módulo y seguir con la división de `server.cjs`; (2) limpiar `release/`, los `.txt` y `@zip.js/zip.js`; (3) umbral de cobertura y `typecheck:strict` en el CI. Los huecos de E2E que quedaban —la sincronización y la copia/movimiento con diálogo de colisión— están cerrados; lo que sigue sin E2E es la cola de tareas en segundo plano, que hoy solo se cubre con unidades. La deuda de foco de esta cadena quedó cerrada: [`e2e/modal-focus.spec.ts`](e2e/modal-focus.spec.ts) cubre ya veintitrés ventanas, incluidas las diez que solo se abrían desde un menú o un botón de la cabecera, y la restauración ya no depende de que sobreviva el control que la abrió.
 
 ---
 
@@ -198,7 +202,7 @@ npx eslint src --max-warnings 0                   → exit 0 (0 errores, 0 warni
 npx vitest run                                    → 80 ficheros, 599 pruebas, 127 s, exit 0
 npx vitest run --coverage                         → 54,01 % sentencias (sin umbral), exit 0
 npx vite build                                    → exit 0, dist 1,7 MB
-npx playwright test                               → 44 pruebas, 5,1 min, exit 0
+npx playwright test                               → 46 pruebas, 6,1 min, exit 0
 npm audit --omit=dev                              → 0 vulnerabilidades
 npm audit                                         → 4 bajas
 npx tsc --noEmit -p tsconfig.strict.json          → 12 errores

@@ -698,6 +698,7 @@ export const ja = {
   fileListResizeHint: 'ドラッグでサイズ変更 · ダブルクリックで自動調整',
   fileListLabelLeft: '左パネルのファイル一覧: {path}',
   fileListLabelRight: '右パネルのファイル一覧: {path}',
+  contextMenuLabel: 'コンテキストメニュー',
   qvAudioTrack: 'Hi-Fi オーディオトラック',
   qvVideoClip: 'HD ビデオクリップ',
   qvPlaying: '再生中',

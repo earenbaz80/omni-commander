@@ -724,6 +724,7 @@ export const en = {
   fileListResizeHint: 'Drag to resize · double-click to auto-fit',
   fileListLabelLeft: 'File list of the left panel in {path}',
   fileListLabelRight: 'File list of the right panel in {path}',
+  contextMenuLabel: 'Context menu',
   qvAudioTrack: 'Hi-Fi Audio Track',
   qvVideoClip: 'HD Video Clip',
   qvPlaying: 'PLAYING',
