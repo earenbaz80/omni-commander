@@ -195,6 +195,26 @@ export interface ArchiveBackend {
   readEntry: (name: string) => Promise<Uint8Array>;
 }
 
+/**
+ * Size the archive itself declares for an entry, in bytes.
+ *
+ * JSZip reads it from the central directory into a private `_data` field, which
+ * its typings leave commented out; the only public way to learn the size was
+ * `entry.async`, which inflates the entry -- so listing a ZIP used to decompress
+ * every entry just to print a number that was already in the file. Entries that
+ * did not come from a parsed archive have no `_data`, and those still have to be
+ * read; nothing else in the app builds a ZipObject, so this stays a fallback.
+ */
+function declaredSize(entry: object): number | undefined {
+  const data = (entry as { _data?: unknown })._data;
+  // A zero-length entry keeps no CompressedObject: JSZip swaps its data for the
+  // empty string and prepares it lazily, so the pending promise there is an
+  // entry of 0 bytes rather than a size it forgot to record.
+  if (data && typeof (data as PromiseLike<unknown>).then === 'function') return 0;
+  const size = (data as { uncompressedSize?: unknown } | undefined)?.uncompressedSize;
+  return typeof size === 'number' && Number.isFinite(size) && size >= 0 ? size : undefined;
+}
+
 /** Bit 0 of the general purpose flags of a ZIP local header means "encrypted". */
 function isEncryptedZip(bytes: Uint8Array): boolean {
   if (bytes.length < 8 || bytes[0] !== 0x50 || bytes[1] !== 0x4b || bytes[2] !== 0x03) return false;
@@ -221,9 +241,9 @@ async function loadZipBackend(bytes: Uint8Array, name: string, password?: string
     entries.push({
       name: entry.name,
       dir: false,
-      // JSZip only exposes the uncompressed size through the compressed data,
-      // so this stays the one place that has to inflate every entry up front.
-      size: (await entry.async('uint8array')).length,
+      // The declared size, so listing a folder does not inflate its contents.
+      // `read` is what decompresses, and only for the entry someone opens.
+      size: declaredSize(entry) ?? (await entry.async('uint8array')).length,
       date: entry.date,
       read: () => entry.async('uint8array'),
     });
