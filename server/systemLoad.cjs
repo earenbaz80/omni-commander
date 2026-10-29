@@ -1,4 +1,8 @@
 const os = require('node:os');
+const { execFile } = require('node:child_process');
+const { promisify } = require('node:util');
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Live system load: the CPU and RAM readings the info drawer shows.
@@ -62,4 +66,41 @@ async function readSystemStats() {
   };
 }
 
-module.exports = { readSystemStats };
+/**
+ * Whether this process actually holds an elevated token.
+ *
+ * The interface used to offer a "mode" toggle that only flipped a boolean, and
+ * the shell printed "unrestricted permissions" after flipping it. This asks the
+ * operating system instead, once per process, and reports the answer: the app
+ * cannot grant itself rights it was not started with.
+ */
+let elevationChecked = false;
+let elevation = false;
+
+async function readElevation() {
+  if (elevationChecked) return elevation;
+  try {
+    if (process.platform === 'win32') {
+      const { stdout } = await execFileAsync(
+        'powershell.exe',
+        [
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          '([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)',
+        ],
+        { timeout: 10000, windowsHide: true },
+      );
+      elevation = /^true$/i.test(String(stdout).trim());
+    } else {
+      elevation = typeof process.getuid === 'function' ? process.getuid() === 0 : false;
+    }
+    elevationChecked = true;
+  } catch {
+    // A failed check never means elevated, so it is not cached as a reading and
+    // the next poll tries again.
+  }
+  return elevation;
+}
+
+module.exports = { readSystemStats, readElevation };

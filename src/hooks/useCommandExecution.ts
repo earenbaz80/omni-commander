@@ -8,16 +8,24 @@ interface CommandExecutionDeps {
   activeItems: FileItem[];
   currentActiveTab: { currentPath: string; driveId: string };
   activePanel: 'left' | 'right';
+  /** Real elevation state of the process, read from the server. */
   isAdminMode: boolean;
-  setIsAdminMode: (v: boolean) => void;
   handleGoParent: (side: 'left' | 'right') => void;
   handleNavigate: (side: 'left' | 'right', path: string) => void;
   setCommandHistory: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
+/** Three levels of ASCII tree, then the indentation stops growing. */
+const TREE_INDENT = '   ';
+
 /**
  * Extracted command execution logic from App.tsx to reduce file size.
  * Handles MS-DOS style commands (help, dir, cd, mkdir, del, type, etc.).
+ *
+ * `ipconfig`, `tasklist` and `tree` used to print canned text from the
+ * translation tables and `type` read a field the listing never fills, so the
+ * shell answered with a machine that was not this one. Every branch now reads
+ * what it reports and fails visibly when the read fails.
  */
 export function useCommandExecution(deps: CommandExecutionDeps) {
   const {
@@ -26,7 +34,6 @@ export function useCommandExecution(deps: CommandExecutionDeps) {
     currentActiveTab,
     activePanel,
     isAdminMode,
-    setIsAdminMode,
     handleGoParent,
     handleNavigate,
     setCommandHistory,
@@ -34,32 +41,77 @@ export function useCommandExecution(deps: CommandExecutionDeps) {
   const t = getTranslations(lang);
 
   const handleExecuteCommand = useCallback(
-    (cmd: string) => {
+    async (cmd: string) => {
       const parts = cmd.trim().split(' ');
       const command = parts[0].toLowerCase();
       const args = parts.slice(1).join(' ');
 
+      if (!cmd.trim()) return;
+
       let output = '';
       let status: 'ok' | 'error' | 'info' = 'ok';
 
-      if (command === 'sudo' || command === 'runas' || command === 'admin') {
-        setIsAdminMode(true);
-        output = t.cmdElevatedMsg;
-        status = 'info';
-      } else {
+      /** Elevation is the one thing this shell cannot do to itself. */
+      const requestElevation = async (): Promise<void> => {
+        const bridge = (window as any).electronAPI;
+        if (typeof bridge?.relaunchAsAdmin !== 'function') {
+          output = t.cmdElevationUnavailable;
+          status = 'error';
+          return;
+        }
+        try {
+          const result = await bridge.relaunchAsAdmin();
+          output = result?.ok === false ? `${t.cmdElevationUnavailable} (${result.reason})` : t.cmdElevatedMsg;
+          status = result?.ok === false ? 'error' : 'info';
+        } catch (error: any) {
+          output = error?.message || t.cmdElevationUnavailable;
+          status = 'error';
+        }
+      };
+
+      {
         switch (command) {
+          case 'sudo':
+          case 'runas':
+          case 'admin':
+            await requestElevation();
+            break;
           case 'help':
             output = t.cmdAvailableCommands;
             break;
           case 'ver':
-            output = `${t.cmdShellBanner}\n${isAdminMode ? t.cmdElevatedMode : t.cmdStandardMode}`;
+            output = `${t.cmdShellBanner} [v${__APP_VERSION__}]\n${isAdminMode ? t.cmdElevatedMode : t.cmdStandardMode}`;
             break;
-          case 'ipconfig':
-            output = t.cmdIpconfigOut;
+          case 'ipconfig': {
+            const adapters = await fsEngine.getNetworkAdapters();
+            if (adapters.length === 0) {
+              output = t.cmdNoAdapters;
+              status = 'error';
+              break;
+            }
+            output = adapters
+              .map(
+                (adapter) =>
+                  `${adapter.name}${adapter.internal ? ' (loopback)' : ''}:\n` +
+                  `  ${t.cmdIpv4}: ${adapter.address}\n` +
+                  `  ${t.cmdNetmask}: ${adapter.netmask}`,
+              )
+              .join('\n\n');
             break;
-          case 'tasklist':
-            output = t.cmdTasklistOut;
+          }
+          case 'tasklist': {
+            const processes = await fsEngine.getProcesses();
+            if (processes.length === 0) {
+              output = t.cmdNoProcesses;
+              status = 'error';
+              break;
+            }
+            const rows = processes.map(
+              (process) => `${String(process.pid).padEnd(7)} ${process.name.padEnd(28)} ${process.memoryKb}`,
+            );
+            output = [`${t.cmdPid.padEnd(7)} ${t.cmdImage.padEnd(28)} ${t.cmdMem}`, ...rows].join('\n');
             break;
+          }
           case 'dir':
           case 'ls':
             output = activeItems
@@ -119,9 +171,17 @@ export function useCommandExecution(deps: CommandExecutionDeps) {
                 i.name.toLowerCase() === args.toLowerCase() ||
                 `${i.name}.${i.ext}`.toLowerCase() === args.toLowerCase(),
             );
-            if (fileToRead && fileToRead.content) {
-              output = fileToRead.content;
-            } else {
+            if (!fileToRead || fileToRead.isDirectory) {
+              output = t.cmdFileNotFound.replace('{path}', args);
+              status = 'error';
+              break;
+            }
+            try {
+              // The listing carries no bytes, so the read has to come from disk;
+              // a preview cap keeps a huge file from flooding the terminal.
+              const bytes = await fsEngine.readFileBytes(fileToRead, { maxBytes: 64 * 1024 });
+              output = new TextDecoder('utf-8').decode(bytes);
+            } catch {
               output = t.cmdFileReadFail.replace('{path}', args);
               status = 'error';
             }
@@ -141,9 +201,13 @@ export function useCommandExecution(deps: CommandExecutionDeps) {
           case 'time':
             output = t.cmdDateNow.replace('{date}', new Date().toLocaleString());
             break;
-          case 'tree':
-            output = `${currentActiveTab.currentPath}\n├── OMNICMD\n├── WINDOWS\n└── Users\n    └── Administrator`;
+          case 'tree': {
+            const tree = await fsEngine.getFolderTree(currentActiveTab.driveId, currentActiveTab.currentPath);
+            const lines = tree.entries.map((entry) => `${TREE_INDENT.repeat(entry.depth - 1)}${entry.name}`);
+            output = [tree.path, ...lines, ...(tree.truncated ? [t.cmdTreeTruncated] : [])].join('\n');
+            if (lines.length === 0 && !tree.truncated) output = `${tree.path}\n${t.cmdTreeEmpty}`;
             break;
+          }
           default:
             output = t.cmdNotRecognized.replace('{cmd}', command);
             status = 'error';
@@ -162,17 +226,7 @@ export function useCommandExecution(deps: CommandExecutionDeps) {
         },
       ]);
     },
-    [
-      lang,
-      activeItems,
-      currentActiveTab,
-      activePanel,
-      isAdminMode,
-      setIsAdminMode,
-      handleGoParent,
-      handleNavigate,
-      setCommandHistory,
-    ],
+    [lang, activeItems, currentActiveTab, activePanel, isAdminMode, handleGoParent, handleNavigate, setCommandHistory],
   );
 
   return { handleExecuteCommand };

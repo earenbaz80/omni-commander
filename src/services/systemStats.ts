@@ -24,6 +24,8 @@ export async function fetchSystemStats(): Promise<SystemStats | null> {
       cpuPercent: typeof data.cpuPercent === 'number' ? data.cpuPercent : null,
       ramUsedBytes: Math.max(0, Number(data.ramUsedBytes) || 0),
       ramTotalBytes,
+      // Unknown stays null: a failed measurement must not read as "not elevated".
+      elevated: typeof data.elevated === 'boolean' ? data.elevated : null,
     };
   } catch {
     return null;

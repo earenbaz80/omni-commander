@@ -1,8 +1,17 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import { readFileSync } from 'node:fs';
 import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+
+// The version the About box and the shell report comes from the file the package
+// is built from. It used to be a literal in the component, which drifted: the
+// build said v5.50.2026 while package.json said 1.0.4.
+// Vite loads this config with the project root as cwd; resolving from there also
+// works when the config is imported by a test, where `import.meta.url` is not a
+// file URL.
+const appVersion = JSON.parse(readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf8')).version as string;
 
 export default defineConfig(({ command, mode }) => {
   // Vite does not populate process.env from .env on its own, so a PORT set there
@@ -77,6 +86,9 @@ export default defineConfig(({ command, mode }) => {
   };
 
   return {
+    define: {
+      __APP_VERSION__: JSON.stringify(appVersion),
+    },
     // The packaged Electron renderer is loaded via file://, where absolute
     // "/assets/..." URLs resolve to the drive root and never load (blank window).
     // Relative URLs are required for the Electron build only.

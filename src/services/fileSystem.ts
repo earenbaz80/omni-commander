@@ -1620,6 +1620,42 @@ class FileSystemEngine {
     return cap(new TextEncoder().encode(file.content || ''));
   }
 
+  /**
+   * Machine facts the command bar reports.
+   *
+   * `ipconfig`, `tasklist` and `tree` used to answer with canned text written
+   * into the translation tables, so a command printed a plausible machine that
+   * was not this one. The three reads below ask the server, which is the only
+   * process that can see the interfaces, the process list and the real folders.
+   */
+  public async getNetworkAdapters(): Promise<{ name: string; address: string; netmask: string; internal: boolean }[]> {
+    const response = await fetchWithRetry(`${API_BASE}/api/net/adapters`, { timeoutMs: 10000, retries: 0 });
+    if (!response.ok) throw new Error((await response.json()).error);
+    const rows = await response.json();
+    return Array.isArray(rows) ? rows : [];
+  }
+
+  public async getProcesses(): Promise<{ pid: number; name: string; memoryKb: number }[]> {
+    const response = await fetchWithRetry(`${API_BASE}/api/processes`, { timeoutMs: 20000, retries: 0 });
+    if (!response.ok) throw new Error((await response.json()).error);
+    const rows = await response.json();
+    return Array.isArray(rows) ? rows : [];
+  }
+
+  public async getFolderTree(
+    driveId: string,
+    folderPath: string,
+    depth = 2,
+  ): Promise<{ path: string; entries: { name: string; depth: number }[]; unreadable: string[]; truncated: boolean }> {
+    const query = new URLSearchParams({ driveId, path: folderPath, depth: String(depth) });
+    const response = await fetchWithRetry(`${API_BASE}/api/tree?${query.toString()}`, {
+      timeoutMs: 30000,
+      retries: 0,
+    });
+    if (!response.ok) throw new Error((await response.json()).error);
+    return response.json();
+  }
+
   private async writeBytes(driveId: string, root: string, relative: string, bytes: Uint8Array): Promise<FileItem> {
     if (this.getArchiveSource(driveId, root)) throw new Error(tGlobal('zipReadOnly'));
     const safe = archiveEntryPath(relative);

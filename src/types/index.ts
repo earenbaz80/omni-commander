@@ -42,6 +42,8 @@ export interface SystemStats {
   cpuPercent: number | null;
   ramUsedBytes: number;
   ramTotalBytes: number;
+  /** Whether the process actually holds an elevated token, as the OS reports. */
+  elevated: boolean | null;
 }
 
 export interface Drive {

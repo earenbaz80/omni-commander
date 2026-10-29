@@ -14,7 +14,7 @@ const { Worker } = require('node:worker_threads');
 // booting the server: path validation, which every route goes through, and the
 // CPU/RAM reading behind the info drawer.
 const { isAbsoluteLocalPath, assertSafePath } = require('./server/pathSafety.cjs');
-const { readSystemStats } = require('./server/systemLoad.cjs');
+const { readSystemStats, readElevation } = require('./server/systemLoad.cjs');
 const app = express();
 
 // The renderer is either same-origin (dev: localhost:3000) or loaded from
@@ -610,7 +610,9 @@ app.get('/api/system/stats', async (_req, res) => {
   try {
     // A live reading is worthless the moment it is cached.
     res.set('Cache-Control', 'no-store');
-    res.json(await readSystemStats());
+    // `elevated` is measured, not toggled: the interface used to switch an
+    // "admin mode" on and off while nothing about the process changed.
+    res.json({ ...(await readSystemStats()), elevated: await readElevation() });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -621,6 +623,134 @@ app.get('/api/list', async (req, res) => {
     const result = await listDirectory(String(req.query.driveId || ''), String(req.query.path || ''));
     if (result.error) return res.status(result.status || 400).json({ error: result.error });
     res.json(result.items);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// What the command bar reports about this machine
+//
+// `ipconfig` and `tasklist` used to print canned text: a fixed 192.168.1.150
+// adapter and a process table that described no running process, and `tree`
+// printed four invented folder names. A shell that answers with invented output
+// is worse than one that refuses, because the user reads it as a measurement of
+// their own machine. Each of these now reports what it actually measured, and
+// fails loudly when it cannot.
+// ---------------------------------------------------------------------------
+const PROCESS_LIST_TIMEOUT_MS = 15000;
+const PROCESS_LIST_LIMIT = 500;
+
+/** One `tasklist /fo csv` row: quoted fields, `""` escapes, commas inside quotes. */
+function parseCsvLine(line) {
+  const fields = [];
+  let field = '';
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (quoted) {
+      if (char === '"' && line[i + 1] === '"') {
+        field += '"';
+        i += 1;
+      } else if (char === '"') {
+        quoted = false;
+      } else {
+        field += char;
+      }
+    } else if (char === '"') {
+      quoted = true;
+    } else if (char === ',') {
+      fields.push(field);
+      field = '';
+    } else {
+      field += char;
+    }
+  }
+  fields.push(field);
+  return fields;
+}
+
+app.get('/api/net/adapters', (_req, res) => {
+  // Only what this process can see. The default gateway needs a WMI query and is
+  // left out rather than filled with a plausible-looking address.
+  const adapters = [];
+  for (const [name, addresses] of Object.entries(os.networkInterfaces())) {
+    for (const entry of addresses || []) {
+      if (entry.family !== 'IPv4' && entry.family !== 4) continue;
+      adapters.push({ name, address: entry.address, netmask: entry.netmask, internal: entry.internal });
+    }
+  }
+  res.set('Cache-Control', 'no-store');
+  res.json(adapters);
+});
+
+app.get('/api/processes', async (_req, res) => {
+  try {
+    const windows = process.platform === 'win32';
+    const { stdout } = windows
+      ? await execFileAsync('tasklist.exe', ['/fo', 'csv', '/nh'], {
+          timeout: PROCESS_LIST_TIMEOUT_MS,
+          windowsHide: true,
+          maxBuffer: 8 * 1024 * 1024,
+        })
+      : await execFileAsync('ps', ['-eo', 'pid=,comm=,rss='], { timeout: PROCESS_LIST_TIMEOUT_MS });
+
+    const rows = [];
+    for (const line of String(stdout).split(/\r?\n/)) {
+      if (!line.trim()) continue;
+      if (windows) {
+        const [name, pid, , , memory] = parseCsvLine(line);
+        rows.push({ name, pid: Number(pid) || 0, memoryKb: Number(String(memory || '').replace(/[^0-9]/g, '')) || 0 });
+      } else {
+        const [pid, name, memoryKb] = line.trim().split(/\s+/, 3);
+        rows.push({ name, pid: Number(pid) || 0, memoryKb: Number(memoryKb) || 0 });
+      }
+    }
+
+    res.set('Cache-Control', 'no-store');
+    res.json(rows.filter((row) => row.pid > 0).slice(0, PROCESS_LIST_LIMIT));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// `tree` walks the real folders, bounded: four levels and 300 folders per
+// answer, because the point of the command is to show the shape of a folder,
+// not to enumerate a whole drive inside one request.
+const TREE_MAX_DEPTH = 4;
+const TREE_MAX_ENTRIES = 300;
+
+app.get('/api/tree', async (req, res) => {
+  const driveId = String(req.query.driveId || '');
+  const depthLimit = Math.min(TREE_MAX_DEPTH, Math.max(1, Number(req.query.depth) || 2));
+  const entries = [];
+  const unreadable = [];
+  let truncated = false;
+
+  async function walk(dirPath, level) {
+    if (level > depthLimit || truncated) return;
+    const listing = await listDirectory(driveId, dirPath);
+    if (listing.error) {
+      if (level === 1) unreadable.push(dirPath);
+      return;
+    }
+    const folders = listing.items.filter((item) => item.isDirectory).sort((a, b) => a.name.localeCompare(b.name));
+    for (const folder of folders) {
+      if (entries.length >= TREE_MAX_ENTRIES) {
+        truncated = true;
+        return;
+      }
+      entries.push({ name: folder.name, depth: level });
+      await walk(path.win32.join(listing.path, folder.name), level + 1);
+    }
+  }
+
+  try {
+    const start = await listDirectory(driveId, String(req.query.path || ''));
+    if (start.error) return res.status(start.status || 400).json({ error: start.error });
+    await walk(start.path, 1);
+    res.set('Cache-Control', 'no-store');
+    res.json({ path: start.path, entries, unreadable, truncated });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

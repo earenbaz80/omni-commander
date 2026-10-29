@@ -627,17 +627,23 @@ export const fr = {
   appSendingTrash: 'Envoi à la corbeille',
   appResetConfirm: 'Réinitialiser le système de fichiers à ses valeurs initiales ?',
   appResizerTitle: 'Glissez à gauche/droite pour ajuster la largeur manuelle des panneaux',
-  cmdElevatedMsg:
-    "[ELEVATED ADMIN MODE ACTIVATED]\nUtilisateur actuel élevé au rang d'administrateur système. Permissions illimitées sur C: et Z:",
+  cmdElevatedMsg: "Demande de droits administrateur : l'application redémarre et Windows demande confirmation.",
+  cmdElevationUnavailable:
+    "Cette version ne peut pas demander l'élévation : elle s'exécute avec les droits avec lesquels elle a été lancée.",
   cmdAvailableCommands:
     'Commandes disponibles : dir, ls, cd, mkdir, md, del, rm, copy, type, cat, echo, cls, clear, ver, date, time, ping, tree, calc, sudo, runas, admin, chown, chmod, ipconfig, tasklist',
-  cmdShellBanner: 'OmniCommander Pro Shell [Version 5.50.2026]',
-  cmdElevatedMode: 'Mode administrateur élevé activé',
-  cmdStandardMode: 'Mode utilisateur standard',
-  cmdIpconfigOut:
-    'Carte Ethernet Ethernet0 :\n  IPv4 : 192.168.1.150\n  Masque de sous-réseau : 255.255.255.0\n  Passerelle par défaut : 192.168.1.1',
-  cmdTasklistOut:
-    "PID    Nom de l'image           Mémoire\n=========================================\n0004   System                   128 KB\n0412   omnicmd.exe              14,920 KB\n1024   explorer.exe             45,120 KB\n2048   node.exe                 88,400 KB",
+  cmdShellBanner: 'OmniCommander Pro Shell',
+  cmdElevatedMode: 'Exécution avec des droits administrateur',
+  cmdStandardMode: 'Exécution avec des droits utilisateur standard',
+  cmdIpv4: 'IPv4',
+  cmdNetmask: 'Masque de sous-réseau',
+  cmdPid: 'PID',
+  cmdImage: 'Image',
+  cmdMem: 'Mémoire (Ko)',
+  cmdNoAdapters: 'Le serveur local n’a signalé aucun adaptateur IPv4.',
+  cmdNoProcesses: 'La liste des processus n’a pas pu être lue.',
+  cmdTreeEmpty: '(aucun sous-dossier)',
+  cmdTreeTruncated: '... liste coupée à 300 dossiers ou 4 niveaux',
   cmdCdUp: 'Répertoire parent sélectionné',
   cmdCdTo: 'Changé vers {path}',
   cmdMkdirSyntax: 'Syntaxe : mkdir <nom>',
@@ -1130,6 +1136,6 @@ export const fr = {
   cmdMatches: 'Correspondances ({n}) :',
   coresLabel: 'cœurs',
   vfsEngineActive: 'Actif (virtuel + hôte)',
-  smbOnline: 'SMB en ligne',
-  aesActive: 'AES-256 actif',
+  smbOnline: 'Bloqué',
+  aesActive: 'Non utilisé',
 } as const;

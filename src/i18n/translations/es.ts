@@ -651,17 +651,23 @@ export const es = {
   appSendingTrash: 'Enviando a papelera',
   appResetConfirm: 'Restablecer el sistema de archivos a sus valores iniciales?',
   appResizerTitle: 'Arrastre a izquierda/derecha para ajustar el ancho manual de los paneles',
-  cmdElevatedMsg:
-    '[ELEVATED ADMIN MODE ACTIVATED]\nUsuario actual elevado a Administrador del Sistema. Permisos sin restricciones en C: y Z:',
+  cmdElevatedMsg: 'Solicitando permisos de administrador: la app se reinicia y Windows pide confirmación.',
+  cmdElevationUnavailable:
+    'Esta versión no puede pedir elevación: se ejecuta con los permisos con los que se inició. No hay elevación dentro del proceso.',
   cmdAvailableCommands:
     'Comandos disponibles: dir, ls, cd, mkdir, md, del, rm, copy, type, cat, echo, cls, clear, ver, date, time, ping, tree, calc, sudo, runas, admin, chown, chmod, ipconfig, tasklist',
-  cmdShellBanner: 'OmniCommander Pro Shell [Versión 5.50.2026]',
-  cmdElevatedMode: 'Modo Administrador Elevado Activado',
-  cmdStandardMode: 'Modo Usuario Estándar',
-  cmdIpconfigOut:
-    'Adaptador de Ethernet Ethernet0:\n  IPv4: 192.168.1.150\n  Máscara de subred: 255.255.255.0\n  Puerta de enlace predeterminada: 192.168.1.1',
-  cmdTasklistOut:
-    'PID    Nombre de Imagen         Memoria\n=========================================\n0004   System                   128 KB\n0412   omnicmd.exe              14,920 KB\n1024   explorer.exe             45,120 KB\n2048   node.exe                 88,400 KB',
+  cmdShellBanner: 'OmniCommander Pro Shell',
+  cmdElevatedMode: 'Ejecutando con permisos de administrador',
+  cmdStandardMode: 'Ejecutando con permisos de usuario estándar',
+  cmdIpv4: 'IPv4',
+  cmdNetmask: 'Máscara de subred',
+  cmdPid: 'PID',
+  cmdImage: 'Imagen',
+  cmdMem: 'Memoria (KB)',
+  cmdNoAdapters: 'El servidor local no informó de ningún adaptador IPv4.',
+  cmdNoProcesses: 'No se pudo leer la lista de procesos.',
+  cmdTreeEmpty: '(sin subcarpetas)',
+  cmdTreeTruncated: '... lista cortada en 300 carpetas o 4 niveles',
   cmdCdUp: 'Cambiado a directorio superior',
   cmdCdTo: 'Cambiado a {path}',
   cmdMkdirSyntax: 'Sintaxis: mkdir <nombre>',
@@ -1154,6 +1160,6 @@ export const es = {
   cmdMatches: 'Coincidencias ({n}):',
   coresLabel: 'núcleos',
   vfsEngineActive: 'Activo (virtual + host)',
-  smbOnline: 'SMB en línea',
-  aesActive: 'AES-256 activo',
+  smbOnline: 'Bloqueado',
+  aesActive: 'Sin uso',
 } as const;
