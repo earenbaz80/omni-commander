@@ -9,7 +9,7 @@
 
 ## 0. Resumen
 
-La app está **sana en lo que se puede medir automáticamente**: tipos, lint, 599 pruebas, build y los 19 E2E en verde, y sin vulnerabilidades en dependencias de producción. Sobre la anterior, se cerraron los tres bloqueantes y la deuda funcional que quedaba.
+La app está **sana en lo que se puede medir automáticamente**: tipos, lint, 599 pruebas, build y los 24 E2E en verde, y sin vulnerabilidades en dependencias de producción. Sobre la anterior, se cerraron los tres bloqueantes y la deuda funcional que quedaba.
 
 El trabajo de esta jornada se centró en otra clase de defecto que la auditoría anterior no cubría: **datos inventados**. La app presentaba como mediciones un handshake SSH que nunca ocurrió, un `ipconfig` con una IP fija, un `tasklist` con procesos que no existían, un `tree` de cuatro carpetas dibujadas, un volcado hexadecimal fabricado a partir del nombre del archivo, un reproductor con 180 s fijos, un progreso de sincronización con pausas de 60 ms y una versión `v5.50.2026` en un paquete `1.0.4`. Todo eso o se convirtió en una lectura real o desapareció; ninguna de esas pantallas puede volver a afirmar algo que no midió.
 
@@ -26,7 +26,7 @@ Lo que sigue abierto es deuda de higiene y de CI, no de comportamiento: `release
 | Pruebas | `npx vitest run` | ✅ 80 ficheros / **599 pruebas** (127 s), exit 0 |
 | Cobertura | `npx vitest run --coverage` | ⚠️ medida: **54,01 %** sentencias, 47,27 % ramas, 43,69 % funciones, 56,80 % líneas. Sin umbral |
 | Build | `npx vite build` | ✅ 12,6 s; `dist` **1,7 MB**; chunk principal **516 kB** (`ModalShell` 440 kB aparte) |
-| E2E | `npx playwright test` | ✅ **19 pruebas** (2,2–8,4 min según lo que tarde `tasklist`, que es el único caso lento): humo, a11y, a11y de modales, los cuatro casos de archivo, los tres de la barra de comandos, los cuatro de la vista rápida, los dos de sincronización y los dos de copia/movimiento con colisión |
+| E2E | `npx playwright test` | ✅ **24 pruebas** (3,1 min; 8,4 min si `tasklist` tarda lo que mide su fila de presupuesto): humo, a11y, a11y de modales, los cuatro casos de archivo, los tres de la barra de comandos, los cuatro de la vista rápida, los dos de sincronización, los dos de copia/movimiento con colisión y los cinco de foco de ventanas |
 | Deps de producción | `npm audit --omit=dev` | ✅ 0 vulnerabilidades |
 | Deps totales | `npm audit` | ⚠️ 4 bajas (`deepmerge` vía `workbox-build`/`vite-plugin-pwa`) |
 | TypeScript estricto | `npx tsc --noEmit -p tsconfig.strict.json` | ❌ **12 errores**; el CI no lo ejecuta |
@@ -102,7 +102,7 @@ Los endpoints nuevos aceptan solo lectura, están detrás del mismo servidor de 
 | Cobertura de sentencias | 54,01 % |
 | Cobertura de líneas | 56,80 % |
 | Specs del servidor | 16 ficheros `server.*.test.ts` |
-| E2E | 19 pruebas, 8 specs |
+| E2E | 24 pruebas, 9 specs |
 
 Sin umbral y sin script `coverage` en `package.json`, aunque `@vitest/coverage-v8` está instalado: la cobertura existe como medición manual, no como compuerta.
 
@@ -121,6 +121,8 @@ Dos mutaciones ejecutadas, una por caso: con el aviso contestando siempre `'over
 Ese mismo spec dejó al descubierto que el aviso montaba **dos `role="dialog"` anidados con el mismo nombre accesible**: `ModalShell` ya pide las semánticas y la trampa de foco a `useModalDialog`, y el cuerpo del aviso las reclamaba otra vez sobre su propio `div`, así que un lector de pantalla lo anunciaba dos veces. El patrón estaba en **otras 30 ventanas**, cada una declarando su diálogo dentro del que ya declaraba el shell —casi siempre con un nombre distinto, que por eso no rompía los selectores pero sí duplicaba el anuncio—. Ahora el shell es el único dueño: las 30 dejaron de llamar al hook y aportan solo contenido, y el nombre accesible pasa a ser el **título visible** de la ventana; de ahí que el E2E de sincronización pida «Sincronizador de Directorios & Novedades» en lugar de la entrada del menú, que era como se llamaba antes. `FreeSpaceModal` conserva su hook porque no usa el shell y `QuitModal` su `useRef`; ninguna de las dos duplicaba nada.
 
 La guarda de accesibilidad gana 34 casos que fallan si una ventana con shell vuelve a declarar un diálogo propio, y se comprobó reponiendo la llamada en `HelpModal` (`expected true to be false`) y retirándola después (69/69). El E2E del aviso exige **exactamente un** diálogo con ese nombre, así que reponer el `role` en el cuerpo también lo devuelve a rojo (`Expected: 1, Received: 2`).
+
+El foco al abrir y cerrar ventanas tiene su propio E2E: [`e2e/modal-focus.spec.ts`](e2e/modal-focus.spec.ts) abre cuatro ventanas con sus teclas (F1, F2, F7 y Alt+F7) y, en lugar de conformarse con «hay un diálogo», lee `document.activeElement` y exige que sea **un control con nombre dentro del diálogo**, que dos Tab sigan dentro y que al cerrar quede un solo diálogo menos. El quinto caso abre Configuración desde su botón y comprueba que al cerrar el foco **vuelve a ese mismo botón**: es lo que garantiza que el siguiente teclazo no caiga en el `body`, y es la mitad de `useModalDialog` que no se ve en una captura. Como mutación, quitar el foco inicial del hook lo deja en rojo con `the help window opened with focus on <body> ""`; restaurado, 5/5.
 
 **Carrera de teardown (resuelta en su causa):** con `--coverage`, una de cada varias corridas terminaba con exit 1 por `EnvironmentTeardownError: Closing rpc while "onUserConsoleLog" was pending` mientras todas las pruebas pasaban. El registro que se escapaba era real: el poll de unidades de `App` seguía reintentando después del desmontaje y, al fallar el último intento, registraba «Could not load real drives from API» con la ventana ya cerrada. Ahora `fetchWithRetry` acepta la señal del llamador, deja de reintentar al cancelarse y limpia el listener; `App` aborta en su cleanup y `loadRealDrivesFromApi` no registra un fallo que nadie espera. Medido con la consola activada (`VITEST_CONSOLE=1`, el modo donde el aviso sería visible): sin la señal aparece una vez; con ella, tres corridas consecutivas sin ningún aviso y exit 0.
 
@@ -160,7 +162,7 @@ npx eslint src --max-warnings 0                   → exit 0 (0 errores, 0 warni
 npx vitest run                                    → 80 ficheros, 599 pruebas, 127 s, exit 0
 npx vitest run --coverage                         → 54,01 % sentencias (sin umbral), exit 0
 npx vite build                                    → exit 0, dist 1,7 MB
-npx playwright test                               → 19 pruebas, 2,2 min en la última corrida, exit 0
+npx playwright test                               → 24 pruebas, 3,1 min, exit 0
 npm audit --omit=dev                              → 0 vulnerabilidades
 npm audit                                         → 4 bajas
 npx tsc --noEmit -p tsconfig.strict.json          → 12 errores
