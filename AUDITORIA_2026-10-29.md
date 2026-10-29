@@ -9,7 +9,7 @@
 
 ## 0. Resumen
 
-La app está **sana en lo que se puede medir automáticamente**: tipos, lint, 565 pruebas, build y los 11 E2E en verde, y sin vulnerabilidades en dependencias de producción. Sobre la anterior, se cerraron los tres bloqueantes y la deuda funcional que quedaba.
+La app está **sana en lo que se puede medir automáticamente**: tipos, lint, 565 pruebas, build y los 15 E2E en verde, y sin vulnerabilidades en dependencias de producción. Sobre la anterior, se cerraron los tres bloqueantes y la deuda funcional que quedaba.
 
 El trabajo de esta jornada se centró en otra clase de defecto que la auditoría anterior no cubría: **datos inventados**. La app presentaba como mediciones un handshake SSH que nunca ocurrió, un `ipconfig` con una IP fija, un `tasklist` con procesos que no existían, un `tree` de cuatro carpetas dibujadas, un volcado hexadecimal fabricado a partir del nombre del archivo, un reproductor con 180 s fijos, un progreso de sincronización con pausas de 60 ms y una versión `v5.50.2026` en un paquete `1.0.4`. Todo eso o se convirtió en una lectura real o desapareció; ninguna de esas pantallas puede volver a afirmar algo que no midió.
 
@@ -26,7 +26,7 @@ Lo que sigue abierto es deuda de higiene y de CI, no de comportamiento: `release
 | Pruebas | `npx vitest run` | ✅ 80 ficheros / **565 pruebas** (115 s), exit 0 |
 | Cobertura | `npx vitest run --coverage` | ⚠️ medida: **54,01 %** sentencias, 47,27 % ramas, 43,69 % funciones, 56,80 % líneas. Sin umbral |
 | Build | `npx vite build` | ✅ 12,6 s; `dist` **1,7 MB**; chunk principal **516 kB** (`ModalShell` 440 kB aparte) |
-| E2E | `npx playwright test` | ✅ **11 pruebas** (2,6 min): humo, a11y, a11y de modales, los cuatro casos de archivo y los tres de la barra de comandos |
+| E2E | `npx playwright test` | ✅ **15 pruebas** (5,7 min): humo, a11y, a11y de modales, los cuatro casos de archivo, los tres de la barra de comandos y los cuatro de la vista rápida |
 | Deps de producción | `npm audit --omit=dev` | ✅ 0 vulnerabilidades |
 | Deps totales | `npm audit` | ⚠️ 4 bajas (`deepmerge` vía `workbox-build`/`vite-plugin-pwa`) |
 | TypeScript estricto | `npx tsc --noEmit -p tsconfig.strict.json` | ❌ **12 errores**; el CI no lo ejecuta |
@@ -102,9 +102,11 @@ Los endpoints nuevos aceptan solo lectura, están detrás del mismo servidor de 
 | Cobertura de sentencias | 54,01 % |
 | Cobertura de líneas | 56,80 % |
 | Specs del servidor | 16 ficheros `server.*.test.ts` |
-| E2E | 11 pruebas, 5 specs |
+| E2E | 15 pruebas, 6 specs |
 
 Sin umbral y sin script `coverage` en `package.json`, aunque `@vitest/coverage-v8` está instalado: la cobertura existe como medición manual, no como compuerta.
+
+La vista rápida tiene su propio E2E desde esta unidad: [`e2e/quickview.spec.ts`](e2e/quickview.spec.ts) escribe tres ficheros en un temporal —texto con acentos, un binario con NUL y un WAV PCM real—, los enfoca en el panel derecho, abre el panel con el mismo Ctrl+Q que usa una persona y exige que el pane muestre **sus** bytes: el texto exacto leído del DOM, `00000000  4F 4D 4E 49 00 FF |OMNI..|` en Hex con el marcador de binario y sus 6 bytes, y un `<audio>` con `src` `blob:` más el tamaño real en Info. El pane lleva ahora `data-quick-view` y `data-quick-view-tab` para que la prueba pueda distinguirlo de la lista y leer qué pestaña eligió sola. Como mutación real, volver a pintar el volcado inventado (`binario.BIN_FILE_DATA`) hace fallar el caso del binario con ese texto exacto frente al esperado; restaurado, los cuatro vuelven a verde.
 
 La barra de comandos tiene además seis casos de mutación: [`scripts/commandOutput.mutation.test.ts`](scripts/commandOutput.mutation.test.ts) pasa las respuestas fijas antiguas —el adaptador 192.168.1.150, la tabla de cuatro filas con `omnicmd.exe`, el árbol dibujado— por las mismas comprobaciones que ejecuta el E2E y exige que las rechacen; los casos de control construyen una respuesta medida y exigen cero quejas, para que «rechaza todo» no se confunda con «detecta la mutación». Ejecutado también como mutación real: con la app devolviendo las cuatro respuestas fijas, `e2e/commands.spec.ts` dio **3 fallos** con esos mensajes exactos y volvió a verde al restaurar el código.
 
@@ -129,8 +131,10 @@ Zonas con poca cobertura medidas hoy: `soundEffects.ts` (27 %), `systemStats.ts`
 | P2-11 · `server.cjs` monolítico | ⚠️ Parcial | **3.938 líneas** (creció ~130 con las rutas nuevas); solo dos módulos fuera: `pathSafety.cjs` y `systemLoad.cjs` |
 | P2-12 · Cobertura | ⚠️ Parcial | Medida al 54,01 %, sin script ni umbral |
 | Nuevo · E2E de la shell | ✅ Resuelto | [`e2e/commands.spec.ts`](e2e/commands.spec.ts) recorre la barra y contrasta `ipconfig` con `os.networkInterfaces()`, `tasklist` con un listado propio y `tree` con carpetas creadas en un temporal |
+| Nuevo · E2E de la vista rápida | ✅ Resuelto | [`e2e/quickview.spec.ts`](e2e/quickview.spec.ts): cuatro casos contra los ficheros que escribe la prueba, con la mutación del volcado inventado comprobada |
+| Nuevo · Presupuesto de `tasklist` | ✅ Resuelto | La lectura en frío mide **38 s** en una máquina ociosa y pasó de **2 min** con la suite al lado; 60 s devolvía «Command failed» y dejaba el E2E en rojo. Servidor a **180 s**, cliente a **210 s**; suite completa 15/15 |
 
-**Prioridad sugerida:** (1) sacar las rutas de máquina a un módulo y seguir con la división de `server.cjs`; (2) limpiar `release/`, los `.txt` y `@zip.js/zip.js`; (3) umbral de cobertura y `typecheck:strict` en el CI; (4) E2E para la vista rápida y la sincronización, que hoy solo tienen unidades.
+**Prioridad sugerida:** (1) sacar las rutas de máquina a un módulo y seguir con la división de `server.cjs`; (2) limpiar `release/`, los `.txt` y `@zip.js/zip.js`; (3) umbral de cobertura y `typecheck:strict` en el CI; (4) E2E para la sincronización, que hoy solo tiene unidades.
 
 ---
 
@@ -142,7 +146,7 @@ npx eslint src --max-warnings 0                   → exit 0 (0 errores, 0 warni
 npx vitest run                                    → 80 ficheros, 565 pruebas, 115 s, exit 0
 npx vitest run --coverage                         → 54,01 % sentencias (sin umbral), exit 0
 npx vite build                                    → exit 0, dist 1,7 MB
-npx playwright test                               → 11 pruebas, 2,6 min
+npx playwright test                               → 15 pruebas, 5,7 min, exit 0
 npm audit --omit=dev                              → 0 vulnerabilidades
 npm audit                                         → 4 bajas
 npx tsc --noEmit -p tsconfig.strict.json          → 12 errores
