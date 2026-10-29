@@ -46,12 +46,12 @@ Las secciones siguientes son el registro de lo que se encontró en `d3b113e` y s
 | P2-8 · README y metadatos | ✅ Resuelto | README real, `metadata.json` eliminado, `engines` presente, y ESLint con script propia que el CI sí ejecuta |
 | P2-9 · Dependencias sin uso | ⚠️ Parcial | `libarchive.js` y `node-unrar-js` ya se usan; `@zip.js/zip.js` sigue declarado y sin uso |
 | P2-10 · Higiene local | ❌ Abierto | `release/` ocupa 657 MB y los `.txt` de depuración siguen en la raíz |
-| P2-11 · `server.cjs` monolítico | ❌ Abierto | 3.758 líneas (antes 1.771); lo que sí cambió son las pruebas: 12 ficheros `server.*.test.ts` |
+| P2-11 · `server.cjs` monolítico | ⚠️ Parcial | 3.806 líneas (eran 3.851); dos responsabilidades ya viven fuera: la validación de rutas (`server/pathSafety.cjs`, 34 líneas) y la medición de CPU/RAM (`server/systemLoad.cjs`, 65 líneas), cada una con sus pruebas y con el servidor importándolas sin cambiar ninguna llamada. 14 ficheros `server.*.test.ts` |
 | P2-12 · Tests | ⚠️ Parcial | 495 pruebas en 67 ficheros, con TreeSize, archivos, contraseñas y los guardas de origen y token cubiertos; sigue sin script de cobertura ni umbral |
 
 ### 0.3 Lo que queda, por prioridad
 
-1. **División de `server.cjs`** en módulos (P2-11).
+1. **División de `server.cjs`** en módulos (P2-11): validación de rutas y medición de CPU/RAM ya son módulos propios; siguen WMI/unidades, trabajos, copia y reciclaje.
 2. **Limpieza**: `release/`, `.txt` de la raíz y `@zip.js/zip.js` (P2-9, P2-10).
 3. **Cobertura con umbral** (P2-12) y `typecheck:strict` en el CI (P2-4).
 
@@ -212,7 +212,7 @@ Los tests no detectan esto porque Vitest transpila sin comprobar tipos; `tsc` es
 
 **P2 — deuda continua**
 9. Strict TS progresivo, eliminar `any` de modales, i18n de TreeSize y etiquetas del servidor.
-10. Refactor de `server.cjs` en módulos.
+10. Refactor de `server.cjs` en módulos: empezado por la validación de rutas y la medición de CPU/RAM (`server/pathSafety.cjs`, `server/systemLoad.cjs`); siguen WMI/unidades, trabajos, copia y reciclaje.
 11. README/metadatos reales, limpiar dependencias sin uso y artefactos antiguos.
 
 ## 8. Verificación de esta auditoría

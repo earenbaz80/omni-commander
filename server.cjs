@@ -10,6 +10,11 @@ const http = require('http');
 const net = require('net');
 const { pathToFileURL } = require('node:url');
 const { Worker } = require('node:worker_threads');
+// Two responsibilities already live on their own so they can be tested without
+// booting the server: path validation, which every route goes through, and the
+// CPU/RAM reading behind the info drawer.
+const { isAbsoluteLocalPath, assertSafePath } = require('./server/pathSafety.cjs');
+const { readSystemStats } = require('./server/systemLoad.cjs');
 const app = express();
 
 // The renderer is either same-origin (dev: localhost:3000) or loaded from
@@ -599,55 +604,8 @@ app.get('/api/drives', async (_req, res) => {
 // ---------------------------------------------------------------------------
 // Live system load: the CPU and RAM readings the info drawer shows
 // ---------------------------------------------------------------------------
-// The drawer used to print fixed numbers ("14% (16 cores)", "16.4 GB / 64 GB")
-// that described no machine. os.loadavg() is always [0, 0, 0] on Windows and the
-// CPU time counters are cumulative since boot, so a percentage only exists as
-// the difference between two readings: one snapshot is kept module-wide, and a
-// caller that arrives before any window has passed waits it out instead of
-// reporting a bogus 0%.
-const CPU_WINDOW_MS = 300;
-
-function readCpuTimes() {
-  let idle = 0;
-  let total = 0;
-  for (const cpu of os.cpus()) {
-    for (const value of Object.values(cpu.times)) total += value;
-    idle += cpu.times.idle;
-  }
-  return { idle, total, at: Date.now() };
-}
-
-let cpuTimes = readCpuTimes();
-// Last real measurement, kept so two requests landing in the same instant still
-// get the previous load instead of null.
-let lastCpuPercent = null;
-
-async function readSystemStats() {
-  const since = Date.now() - cpuTimes.at;
-  if (since < CPU_WINDOW_MS) await sleep(CPU_WINDOW_MS - since);
-
-  const previous = cpuTimes;
-  const current = readCpuTimes();
-  cpuTimes = current;
-
-  const totalDelta = current.total - previous.total;
-  const idleDelta = current.idle - previous.idle;
-  if (totalDelta > 0) {
-    lastCpuPercent = Math.min(100, Math.max(0, (1 - idleDelta / totalDelta) * 100));
-  }
-
-  // os.freemem() is memory that is available without swapping (libuv reads
-  // ullAvailPhys on Windows), so the difference against total is what the OS
-  // itself reports as in use.
-  const totalRam = os.totalmem();
-  return {
-    cores: os.cpus().length,
-    cpuPercent: lastCpuPercent,
-    ramTotalBytes: totalRam,
-    ramUsedBytes: Math.max(0, totalRam - os.freemem()),
-  };
-}
-
+// The measurement itself lives in server/systemLoad.cjs, which explains why a
+// percentage needs two snapshots; this route only serves it.
 app.get('/api/system/stats', async (_req, res) => {
   try {
     // A live reading is worthless the moment it is cached.
@@ -1164,28 +1122,6 @@ function finishJob(job) {
 async function waitWhilePaused(job) {
   while (job.paused && !job.cancelled) await sleep(JOB_TICK_MS);
   if (job.cancelled) throw new Error('__cancelled__');
-}
-
-// Only a drive-letter absolute path is local. UNC paths (`\\host\share`) and
-// device paths (`\\?\`, `\\.\`) are deliberately excluded: reaching them would
-// put the loopback-only, fully offline product on the network over SMB.
-function isAbsoluteLocalPath(value) {
-  const text = String(value || '').trim();
-  // A bare drive letter ("C:") is how the panels address a drive root, and the
-  // listing route already accepts it. Rejecting it here made every copy whose
-  // destination was a drive root fail as an unsafe path while browsing the same
-  // folder worked fine.
-  return /^[a-zA-Z]:([\\/]|$)/.test(text);
-}
-
-// Reject anything that is not an absolute local path so a malformed or hostile
-// request can never be resolved relative to the server's cwd.
-function assertSafePath(value) {
-  if (!isAbsoluteLocalPath(value)) throw new Error(`Unsafe path: ${value}`);
-  const text = String(value).trim();
-  // Normalize the drive-root form so downstream joins never see a bare "C:".
-  const rooted = /^[a-zA-Z]:$/.test(text) ? `${text}\\` : text;
-  return path.win32.normalize(rooted);
 }
 
 // ---------------------------------------------------------------------------
