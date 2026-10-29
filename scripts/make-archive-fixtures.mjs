@@ -5,8 +5,9 @@
  * nothing can regenerate is a mystery blob. This script is the provenance, and
  * it refuses to pretend: the RAR is assembled here from the format itself
  * (RAR 4.x blocks, a stored file, the CRC16 block header) because no free tool
- * can write one, while 7-Zip and the compressed TARs come from Windows' own
- * `bsdtar`, which is an implementation independent of the reader under test.
+ * can write one, while the ZIP, the 7-Zip and the compressed TARs come from
+ * Windows' own `bsdtar`, which is an implementation independent of the reader
+ * under test.
  *
  *   node scripts/make-archive-fixtures.mjs
  *
@@ -87,19 +88,25 @@ export function buildRarFixture() {
   ]);
 }
 
-function withBsdtar(extension, args) {
+function withBsdtar(extension, args, { wrapper = true } = {}) {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-fixture-'));
   try {
-    const tree = path.join(work, 'fixture');
+    const tree = wrapper ? path.join(work, 'fixture') : work;
     fs.mkdirSync(path.join(tree, 'sub'), { recursive: true });
     // Names stay ASCII on purpose: bsdtar's 7-Zip writer segfaults (exit 139)
     // on a non-ASCII name on Windows, and a fixture that needs a crash to build
     // is not one worth keeping.
     fs.writeFileSync(path.join(tree, 'a.txt'), TEXT);
     fs.writeFileSync(path.join(tree, 'sub', 'b.txt'), NESTED);
-    fs.writeFileSync(path.join(tree, 'vacio.txt'), '');
+    // The empty file is there to prove an empty entry still lands; the ZIP
+    // fixture keeps the RAR's two entries instead, because that is the tree the
+    // e2e spec extracts.
+    if (wrapper) fs.writeFileSync(path.join(tree, 'vacio.txt'), '');
     const target = path.join(work, `fixture${extension}`);
-    execFileSync(BSDTAR, ['-c', '-f', target, ...args, '-C', work, 'fixture'], { stdio: 'pipe' });
+    // Naming the entries, rather than archiving ".", keeps the archive being
+    // written out of itself.
+    const sources = wrapper ? ['fixture'] : ['a.txt', 'sub'];
+    execFileSync(BSDTAR, ['-c', '-f', target, ...args, '-C', work, ...sources], { stdio: 'pipe' });
     return fs.readFileSync(target);
   } finally {
     fs.rmSync(work, { recursive: true, force: true });
@@ -108,6 +115,16 @@ function withBsdtar(extension, args) {
 
 export function buildSevenZipFixture() {
   return withBsdtar('.7z', ['--format', '7zip']);
+}
+
+/**
+ * A plain ZIP with the payload at the root, like the RAR fixture, so the e2e
+ * spec can walk it the same way. The 7-Zip keeps everything under `fixture/`
+ * because that is what bsdtar's 7-Zip writer produced first; a ZIP has no such
+ * quirk, and the root layout is the one the other fixtures already use.
+ */
+export function buildZipFixture() {
+  return withBsdtar('.zip', ['--format', 'zip'], { wrapper: false });
 }
 
 export function buildTarBzip2Fixture() {
@@ -127,6 +144,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.met
   write('sample.rar', buildRarFixture());
   // sample-encrypted.rar is deliberately not rewritten: see the note at the top.
   for (const [name, build] of [
+    ['sample.zip', buildZipFixture],
     ['sample.7z', buildSevenZipFixture],
     ['sample.tar.bz2', buildTarBzip2Fixture],
     ['sample.tar.xz', buildTarLzmaFixture],
