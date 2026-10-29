@@ -611,6 +611,10 @@ const FileListComponent: React.FC<FileListProps> = ({
       <div
         ref={listContainerRef}
         data-file-list
+        // Which of the two lists is the one the keyboard is on: when a window
+        // closes and the control that opened it is gone, the fallback restore
+        // aims here rather than at the other panel's list.
+        data-file-list-active={isActive ? 'true' : undefined}
         // Focus lands here whenever a window closes over the list. A focusable
         // container with no role and no name is announced as nothing at all, so
         // the panel says which one it is and which folder it just entered: with

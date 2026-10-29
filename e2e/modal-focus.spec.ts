@@ -28,6 +28,13 @@ import path from 'node:path';
  * swaps it for the editor, and the shell's habit of restoring focus on unmount
  * has to lose that race to the incoming window rather than drop focus on the
  * list behind it.
+ *
+ * A second family covers the windows that are not on a function key: quit,
+ * batch rename, checksum and the bookmarks open with a Ctrl combination or F10,
+ * and the rest are reached from a header menu or a header button. For those the
+ * control that gets focus back is the menu title or the button itself, not the
+ * list, so the case names it instead of settling for "something outside the
+ * dialog".
  */
 
 /** The panels address storage by drive letter, so this spec needs one to point. */
@@ -148,47 +155,151 @@ const KEY_WINDOWS: KeyWindow[] = [
   { label: 'delete', key: 'F8', file: true },
 ];
 
+/**
+ * One dialog, and focus on a named control inside it.
+ *
+ * Effects run after the commit that renders the window, and the copy/move window
+ * moves focus to its destination field one tick later, so this polls instead of
+ * reading focus at whatever moment the key press returned.
+ */
+async function expectWindowTakesFocus(page: Page, label: string, dialog: Locator) {
+  // One dialog, not two: the shell owns it and the body no longer claims one.
+  await expect(dialog, `the ${label} window is not the only dialog on screen`).toHaveCount(1, {
+    timeout: 30000,
+  });
+  await expect(dialog).toBeVisible();
+
+  await expect
+    .poll(async () => (await focusInfo(page)).insideDialog, {
+      message: `the ${label} window never took focus`,
+    })
+    .toBe(true);
+
+  const landed = await focusInfo(page);
+  expect(landed, `the ${label} window opened with focus on <${landed.tag}> "${landed.text}"`).toMatchObject({
+    insideDialog: true,
+    named: true,
+  });
+  // A focused container would technically be "inside" while telling a screen
+  // reader nothing, so the landing spot has to be a real control.
+  expect(['button', 'input', 'select', 'textarea', 'a']).toContain(landed.tag);
+}
+
+/** Tab is trapped by the shell's own panel, which still wraps the body. */
+async function expectWindowKeepsFocus(page: Page, label: string) {
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  const afterTab = await focusInfo(page);
+  expect(afterTab, `two Tab presses left the ${label} window, on <${afterTab.tag}> "${afterTab.text}"`).toMatchObject({
+    insideDialog: true,
+  });
+}
+
+/**
+ * Escape closes it and the keyboard lands back on something real — the control
+ * that opened it — instead of on the body, where the next keystroke goes nowhere.
+ */
+async function expectWindowGivesFocusBack(page: Page, label: string, dialog: Locator, opener: Locator) {
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+
+  const restored = await focusInfo(page);
+  expect(restored, `closing the ${label} window left focus on <${restored.tag}> "${restored.text}"`).toMatchObject({
+    insideDialog: false,
+  });
+  expect(restored.tag, `closing the ${label} window left focus on the body`).not.toBe('body');
+  await expect(
+    opener,
+    `closing the ${label} window has to hand focus back to the control that opened it`,
+  ).toBeFocused();
+}
+
 for (const win of KEY_WINDOWS) {
   test(`focus enters the ${win.label} window and stays inside it`, async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('[data-name]').first()).toBeVisible();
     if (win.file) await focusFile(page);
 
+    // Where a keyboard user is when they press the key, and where the window has
+    // to put them back: the list is the only focusable thing behind these.
+    const list = page.locator('[data-file-list]').first();
+    await list.focus();
+    await expect(list).toBeFocused();
+
     await page.keyboard.press(win.key);
 
-    // One dialog, not two: the shell owns it and the body no longer claims one.
     const dialog = page.getByRole('dialog');
-    await expect(dialog).toHaveCount(1);
-    await expect(dialog).toBeVisible();
-
-    // Effects run after the commit that renders the window, and the copy/move
-    // window moves focus to its destination field one tick later, so this waits
-    // for focus to be inside instead of reading it at whatever moment the key
-    // press returned.
-    await expect
-      .poll(async () => (await focusInfo(page)).insideDialog, {
-        message: `the ${win.label} window never took focus`,
-      })
-      .toBe(true);
-
-    const landed = await focusInfo(page);
-    expect(landed, `the ${win.label} window opened with focus on <${landed.tag}> "${landed.text}"`).toMatchObject({
-      insideDialog: true,
-      named: true,
-    });
-    // A focused container would technically be "inside" while telling a screen
-    // reader nothing, so the landing spot has to be a real control.
-    expect(['button', 'input', 'select', 'textarea', 'a']).toContain(landed.tag);
+    await expectWindowTakesFocus(page, win.label, dialog);
 
     if (win.opened) await win.opened(dialog);
 
-    // Tab is trapped by the shell's own panel, which still wraps the body.
-    await page.keyboard.press('Tab');
-    await page.keyboard.press('Tab');
-    expect(await focusInfo(page)).toMatchObject({ insideDialog: true });
+    await expectWindowKeepsFocus(page, win.label);
+    await expectWindowGivesFocusBack(page, win.label, dialog, list);
+  });
+}
 
-    await page.keyboard.press('Escape');
-    await expect(dialog).toHaveCount(0);
+interface MoreWindow {
+  label: string;
+  /** A key pressed with the list focused. */
+  key?: string;
+  /** The header menu title and the command inside it, which the title opens. */
+  menu?: { title: string; item: RegExp };
+  /** A header button that opens the window on its own, found by its title. */
+  button?: string;
+  /** The subject is the focused entry: without one, there is nothing to show. */
+  file?: boolean;
+}
+
+/**
+ * The windows the first family does not reach.
+ *
+ * The command labels carry their shortcut in a second span, so they are matched
+ * by their leading text rather than exactly — the accessible name is the whole
+ * row, "Propiedades Alt+Enter" included.
+ */
+const MORE_WINDOWS: MoreWindow[] = [
+  { label: 'quit', key: 'F10' },
+  { label: 'batch rename', key: 'Control+M' },
+  { label: 'checksum', key: 'Control+H', file: true },
+  { label: 'bookmarks', key: 'Control+D' },
+  { label: 'properties', file: true, menu: { title: 'Archivos', item: /^Propiedades/ } },
+  { label: 'about', menu: { title: 'Ayuda', item: /^Acerca de OmniCommander/ } },
+  { label: 'protect folder', menu: { title: 'Ayuda', item: /^Proteger Carpeta/ } },
+  { label: 'command library', button: 'Biblioteca de Comandos CMD & Microsoft Winget' },
+  { label: 'file splitter', file: true, menu: { title: 'Comandos', item: /^Dividir \/ Unir Archivo/ } },
+  { label: 'background tasks', menu: { title: 'Comandos', item: /^Cola de Tareas/ } },
+];
+
+for (const win of MORE_WINDOWS) {
+  test(`focus leaves and returns through the ${win.label} window`, async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('[data-name]').first()).toBeVisible();
+    if (win.file) await focusFile(page);
+
+    let opener: Locator;
+    if (win.key) {
+      const list = page.locator('[data-file-list]').first();
+      await list.focus();
+      await expect(list).toBeFocused();
+      await page.keyboard.press(win.key);
+      opener = list;
+    } else if (win.menu) {
+      // The menu title is what has focus when the command is clicked, and the
+      // command itself is gone by the time the window closes.
+      opener = page.getByRole('button', { name: win.menu.title, exact: true }).first();
+      await opener.click();
+      // Scoped to the dropdown under that title: the same label also names a
+      // command inside a window elsewhere on the page.
+      await opener.locator('..').getByRole('button', { name: win.menu.item }).click();
+    } else {
+      opener = page.getByTitle(win.button ?? '');
+      await opener.click();
+    }
+
+    const dialog = page.getByRole('dialog');
+    await expectWindowTakesFocus(page, win.label, dialog);
+    await expectWindowKeepsFocus(page, win.label);
+    await expectWindowGivesFocusBack(page, win.label, dialog, opener);
   });
 }
 
@@ -265,6 +376,29 @@ test('editing from the viewer hands focus to the editor', async ({ page }) => {
   await expect(page.locator('[data-file-list]').first()).toBeFocused();
 });
 
+test('a window opened before anything was focused still gives focus back', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('[data-name]').first()).toBeVisible();
+
+  // Nothing has been clicked, so no control has been recorded as the opener:
+  // this is the case the history alone cannot answer. Tab switches the active
+  // panel on its own and leaves focus where it was, which makes the second
+  // panel the one the fallback has to aim at.
+  expect((await focusInfo(page)).tag, 'the page has to start with nothing focused').toBe('body');
+  await page.keyboard.press('Tab');
+
+  await page.keyboard.press('F10');
+  const dialog = page.getByRole('dialog');
+  await expectWindowTakesFocus(page, 'quit', dialog);
+
+  const activeList = page.locator('[data-file-list][data-file-list-active="true"]');
+  await expect(activeList).toHaveAttribute('aria-label', /panel derecho/);
+
+  // With no opener left to return to, closing must not drop the keyboard on the
+  // body: it lands on the list of the panel that was active.
+  await expectWindowGivesFocusBack(page, 'quit', dialog, activeList);
+});
+
 test('the copy window opens with focus on its destination field', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('[data-name]').first()).toBeVisible();
@@ -283,4 +417,11 @@ test('the copy window opens with focus on its destination field', async ({ page 
 
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
+
+  // Closing it has to land back on the list as well, not just close.
+  const restored = await focusInfo(page);
+  expect(restored, `closing the copy window left focus on <${restored.tag}> "${restored.text}"`).toMatchObject({
+    insideDialog: false,
+  });
+  await expect(page.locator('[data-file-list]').first()).toBeFocused();
 });
