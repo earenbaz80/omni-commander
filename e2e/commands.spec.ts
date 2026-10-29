@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { ipconfigProblems, processTableProblems, treeProblems } from './support/commandOutput';
 
 /**
  * The command bar, driven through the interface and checked against the machine.
@@ -95,29 +96,17 @@ test('ipconfig prints only addresses this machine has', async ({ page }) => {
   const text = await output.innerText();
 
   const interfaces = localInterfaces();
-  const addresses = new Set(interfaces.map((entry) => entry.address));
-  const masks = new Set(interfaces.map((entry) => entry.netmask));
-  // Without an adapter the assertion below would pass on an empty output, so the
+  // Without an adapter the check below would pass on an empty output, so the
   // machine has to have one before the check means anything.
-  expect(addresses.size).toBeGreaterThan(0);
+  expect(interfaces.length).toBeGreaterThan(0);
 
-  const lines = text.split(/\r?\n/);
-  const printedAddresses = lines
-    .filter((line) => line.includes('IPv4:'))
-    .map((line) => line.slice(line.indexOf('IPv4:') + 'IPv4:'.length).trim());
-  const printedMasks = lines
-    .filter((line) => line.includes('Máscara de subred:'))
-    .map((line) => line.slice(line.indexOf('Máscara de subred:') + 'Máscara de subred:'.length).trim());
-
-  expect(printedAddresses.length).toBeGreaterThan(0);
-  for (const address of printedAddresses) {
-    // A canned address cannot pass this: the shell may only print what is on
-    // this machine, and the old fixed table would fail on every other host.
-    expect(addresses.has(address), `${address} is not an address of this machine`).toBe(true);
-  }
-  for (const mask of printedMasks) {
-    expect(masks.has(mask), `${mask} is not the mask of any local interface`).toBe(true);
-  }
+  // A canned address cannot pass this: the shell may only print what is on this
+  // machine, and the old fixed table would fail on every other host.
+  const problems = ipconfigProblems(
+    text,
+    interfaces.map((entry) => ({ address: entry.address, netmask: entry.netmask })),
+  );
+  expect(problems, problems.join('\n')).toEqual([]);
 });
 
 test('tasklist lists processes this machine is running', async ({ page }) => {
@@ -127,25 +116,10 @@ test('tasklist lists processes this machine is running', async ({ page }) => {
 
   const output = await runCommand(page, 'tasklist');
   const text = await output.innerText();
-  const lines = text.split(/\r?\n/).filter((line) => line.trim());
-
-  // The header the shell prints for real rows.
-  expect(lines[0]).toContain('PID');
-  expect(lines[0]).toContain('Imagen');
-  expect(lines[0]).toContain('Memoria');
-
-  const rows = lines
-    .slice(1)
-    .map((line) => line.trim().split(/\s+/))
-    .filter((parts) => parts.length >= 3 && /^\d+$/.test(parts[0]));
-  expect(rows.length).toBeGreaterThan(20);
-
-  // The invented table had four rows and an `omnicmd.exe` no machine runs.
-  expect(text).not.toContain('omnicmd.exe');
 
   // Independent listing: the PIDs the shell shows must be PIDs this process can
-  // also see. A few may exit between the two reads, which is why this is a floor
-  // rather than an exact match.
+  // also see. A few may exit between the two reads, which is why the check asks
+  // for a floor rather than an exact match.
   const { stdout } = await execFileAsync('tasklist.exe', ['/fo', 'csv', '/nh'], {
     maxBuffer: 8 * 1024 * 1024,
   });
@@ -156,8 +130,9 @@ test('tasklist lists processes this machine is running', async ({ page }) => {
     const pid = fields[1].replace(/\D/g, '');
     if (pid) observedPids.add(pid);
   }
-  const agreed = rows.map((parts) => parts[0]).filter((pid) => observedPids.has(pid));
-  expect(agreed.length, 'no PID from the shell was in the independent listing').toBeGreaterThan(10);
+
+  const problems = processTableProblems(text, observedPids);
+  expect(problems, problems.join('\n')).toEqual([]);
 });
 
 test('tree lists the folders the active panel is really showing', async ({ page }) => {
@@ -186,26 +161,16 @@ test('tree lists the folders the active panel is really showing', async ({ page 
     await openConsole(page);
     const output = await runCommand(page, 'tree');
     const text = await output.innerText();
-    const lines = text.split(/\r?\n/);
 
-    // The shell starts the tree at the folder the panel is in, not at a preset.
-    expect(lines[0].toLowerCase()).toBe(workspace.toLowerCase());
-    expect(text).toContain('alfa');
-    expect(text).toContain('beta');
-    expect(text).toContain('gamma');
-
-    // `beta` is inside `alfa`, so it sits one level deeper than its parent.
-    const alfa = lines.find((line) => line.trim() === 'alfa');
-    const beta = lines.find((line) => line.trim() === 'beta');
-    expect(alfa, 'the tree does not list alfa').toBeDefined();
-    expect(beta, 'the tree does not list beta').toBeDefined();
-    expect(alfa).toBe('alfa');
-    expect(beta?.startsWith('   ')).toBe(true);
-
-    // Files are not folders, and the invented names are gone for good.
-    expect(text).not.toContain('nota.txt');
-    expect(text).not.toContain('OMNICMD');
-    expect(text).not.toContain('Administrator');
+    // The tree starts at the folder the panel is in, `beta` sits under `alfa`,
+    // files are not folders, and the invented names are gone for good.
+    const problems = treeProblems(text, {
+      root: workspace,
+      folders: ['alfa', 'beta', 'gamma'],
+      nested: { beta: 'alfa' },
+      forbidden: ['nota.txt', 'OMNICMD', 'Administrator'],
+    });
+    expect(problems, problems.join('\n')).toEqual([]);
   } finally {
     await fs.rm(workspace, { recursive: true, force: true });
   }
