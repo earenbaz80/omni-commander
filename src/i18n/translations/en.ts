@@ -1010,6 +1010,8 @@ export const en = {
   searchLine: 'Line {n}:',
   searchMoreMatches: '+{n} more matches...',
   searchFound: 'Found: {n} item(s)',
+  searchSkipped: 'Not searched: {n} file(s) (binary, over 1 MB, or past the first 100).',
+  syncItemMissing: 'The file is no longer in the panel: {name}',
   protectInvalidPass: 'Please enter a valid password',
   protectMismatch: 'Passwords do not match',
   protectDialogTitle: 'Protect folder',

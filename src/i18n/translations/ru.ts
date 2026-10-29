@@ -985,6 +985,8 @@ export const ru = {
   searchLine: 'Строка {n}:',
   searchMoreMatches: 'ещё совпадений: +{n}...',
   searchFound: 'Найдено: {n} элемент(ов)',
+  searchSkipped: 'Не проверено: {n} файл(ов) (двоичные, больше 1 МБ или после первых 100).',
+  syncItemMissing: 'Файла больше нет в панели: {name}',
   protectInvalidPass: 'Введите корректный пароль',
   protectMismatch: 'Пароли не совпадают',
   protectDialogTitle: 'Защитить папку',

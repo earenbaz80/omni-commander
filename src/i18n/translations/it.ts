@@ -984,6 +984,8 @@ export const it = {
   searchLine: 'Riga {n}:',
   searchMoreMatches: '+{n} altre corrispondenze...',
   searchFound: 'Trovati: {n} elemento/i',
+  searchSkipped: 'Non analizzati: {n} file (binari, oltre 1 MB o dopo i primi 100).',
+  syncItemMissing: 'Il file non è più nel pannello: {name}',
   protectInvalidPass: 'Inserisci una password valida',
   protectMismatch: 'Le password non corrispondono',
   protectDialogTitle: 'Proteggi cartella',

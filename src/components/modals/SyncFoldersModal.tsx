@@ -194,16 +194,17 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
             .replace('{name}', item.name),
         );
 
-        if (item.direction === 'L_TO_R' && item.leftItem) {
-          // Copy Left -> Right
-          fsEngine.copyItem(item.leftItem.id, rightDriveId, rightPath, true);
-        } else if (item.direction === 'R_TO_L' && item.rightItem) {
-          // Copy Right -> Left
-          fsEngine.copyItem(item.rightItem.id, leftDriveId, leftPath, true);
-        }
+        // The copy is awaited, so the counter advances when a file was actually
+        // written. It used to be fired and followed by a 60 ms sleep: the bar
+        // moved whether or not anything happened, and a failed copy was lost.
+        const copied =
+          item.direction === 'L_TO_R' && item.leftItem
+            ? await fsEngine.copyItem(item.leftItem.id, rightDriveId, rightPath, true)
+            : item.direction === 'R_TO_L' && item.rightItem
+              ? await fsEngine.copyItem(item.rightItem.id, leftDriveId, leftPath, true)
+              : undefined;
 
-        // Small delay to simulate progress
-        await new Promise((r) => setTimeout(r, 60));
+        if (!copied) throw new Error(t.syncItemMissing.replace('{name}', item.name));
       }
 
       soundManager.playSuccess();
