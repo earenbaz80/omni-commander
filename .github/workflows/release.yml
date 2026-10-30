@@ -129,12 +129,25 @@ jobs:
             exit 1
           fi
 
+      # GitHub rewrites the spaces in an uploaded asset name to dots, while
+      # latest.yml — written by electron-builder — points at hyphenated names.
+      # 1.0.6 published an installer no updater would find, so the files are
+      # renamed on disk before anything is uploaded and the two agree.
+      - name: Name the artifacts the way latest.yml does
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          cd release
+          Rename-Item "OmniCommander Pro $version.exe" "OmniCommander-Pro-$version.exe"
+          Rename-Item "OmniCommander Pro Setup $version.exe" "OmniCommander-Pro-Setup-$version.exe"
+          Rename-Item "OmniCommander Pro Setup $version.exe.blockmap" "OmniCommander-Pro-Setup-$version.exe.blockmap"
+
       - name: Compress release artifacts
         run: |
           $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
           cd release
-          Compress-Archive -Path "OmniCommander Pro $version.exe" -DestinationPath "OmniCommander Pro $version.zip" -Force
-          Compress-Archive -Path "OmniCommander Pro Setup $version.exe" -DestinationPath "OmniCommander Pro Setup $version.zip" -Force
+          Compress-Archive -Path "OmniCommander-Pro-$version.exe" -DestinationPath "OmniCommander-Pro-$version.zip" -Force
+          Compress-Archive -Path "OmniCommander-Pro-Setup-$version.exe" -DestinationPath "OmniCommander-Pro-Setup-$version.zip" -Force
         shell: pwsh
 
       # `latest.yml` and the block map are what the app's updater reads, so they
