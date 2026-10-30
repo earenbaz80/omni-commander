@@ -71,6 +71,7 @@ function installBridge(overrides: { accepted?: boolean } = {}) {
       tokenSource: null,
       tokenPath: 'C:\\datos\\update-token',
     })),
+    openExternal: vi.fn(async () => true),
   };
   (window as unknown as { electronAPI?: unknown }).electronAPI = bridge;
   return bridge;
@@ -136,6 +137,22 @@ describe('token de actualizaciones en Ajustes', () => {
     await waitFor(() => expect(bridge.clearUpdateToken).toHaveBeenCalledTimes(1));
     expect(await screen.findByText(translations.es.updateTokenCleared)).toBeTruthy();
     expect(screen.getByText(translations.es.updateTokenMissing)).toBeTruthy();
+  });
+
+  it('enlaza a la página del token y la abre por el proceso principal', async () => {
+    // The window cannot navigate out of its document, so the link must leave
+    // through the shell instead of pretending to be a normal anchor.
+    const bridge = installBridge();
+    openSecurityTab();
+
+    const link = await screen.findByRole('link', { name: translations.es.updateTokenCreateLink });
+    expect(link.getAttribute('href')).toBe('https://github.com/settings/personal-access-tokens/new');
+    expect(screen.getByText(/Contents: Read-only/)).toBeTruthy();
+
+    fireEvent.click(link);
+    await waitFor(() =>
+      expect(bridge.openExternal).toHaveBeenCalledWith('https://github.com/settings/personal-access-tokens/new'),
+    );
   });
 
   it('con el token en el entorno no ofrece quitarlo desde aquí', async () => {

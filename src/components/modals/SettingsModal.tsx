@@ -31,6 +31,10 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
+// Where a read-only token is created. The settings only ever need this page, so
+// it is the one the main process agrees to open.
+const UPDATE_TOKEN_PAGE = 'https://github.com/settings/personal-access-tokens/new';
+
 const LANGUAGES: { code: LanguageCode; label: string }[] = [
   { code: 'es', label: 'Español' },
   { code: 'en', label: 'English' },
@@ -789,6 +793,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
       {update.enabled && (
         <SectionCard title={t.settingsUpdatesSection}>
           <p className="text-[var(--fs-8)] opacity-70 leading-relaxed">{t.updateTokenHelp}</p>
+
+          <p className="text-[var(--fs-8)] opacity-70 leading-relaxed">
+            {t.updateTokenReadOnlyNote}{' '}
+            <a
+              href={UPDATE_TOKEN_PAGE}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(event) => {
+                // Inside Electron the shell opens it: the window cannot navigate
+                // out. In a browser the anchor opens its tab as usual.
+                if (update.openExternal) {
+                  event.preventDefault();
+                  update.openExternal(UPDATE_TOKEN_PAGE);
+                }
+              }}
+              className="underline text-sky-300 hover:text-sky-100"
+            >
+              {t.updateTokenCreateLink}
+            </a>
+          </p>
 
           <div className="flex flex-wrap items-center gap-[var(--space-2)]">
             <div className="relative flex-1 min-w-[180px]">

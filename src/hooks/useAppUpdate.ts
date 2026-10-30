@@ -47,6 +47,7 @@ interface UpdateBridge {
   onUpdateState?: (callback: (snapshot: unknown) => void) => (() => void) | void;
   setUpdateToken?: (token: string) => Promise<unknown>;
   clearUpdateToken?: () => Promise<unknown>;
+  openExternal?: (url: string) => Promise<unknown>;
 }
 
 function bridge(): UpdateBridge | undefined {
@@ -85,6 +86,11 @@ export interface AppUpdate extends AppUpdateSnapshot {
   /** Stores a token on the machine; true when the main process accepted it. */
   setToken: (token: string) => Promise<boolean>;
   clearToken: () => Promise<void>;
+  /**
+   * Opens a link in the real browser, or null where the document can navigate
+   * on its own (a plain browser build).
+   */
+  openExternal: ((url: string) => void) | null;
 }
 
 /**
@@ -164,5 +170,25 @@ export function useAppUpdate(): AppUpdate {
     }
   }, [api]);
 
-  return { ...snapshot, supported, check, download, install, setToken, clearToken };
+  // Electron blocks navigation out of the window, so a link that must leave the
+  // app is handed to the shell. A browser needs none of this and gets no
+  // handler, which leaves the anchor doing its normal job.
+  const openExternal = useCallback(
+    (url: string) => {
+      const pending = api?.openExternal?.(url);
+      if (pending && typeof pending.catch === 'function') pending.catch(() => {});
+    },
+    [api],
+  );
+
+  return {
+    ...snapshot,
+    supported,
+    check,
+    download,
+    install,
+    setToken,
+    clearToken,
+    openExternal: typeof api?.openExternal === 'function' ? openExternal : null,
+  };
 }

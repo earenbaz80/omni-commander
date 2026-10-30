@@ -15,6 +15,7 @@ function installBridge(state: unknown) {
     downloadUpdate: vi.fn(async () => state),
     installUpdate: vi.fn(async () => true),
     getUpdateState: vi.fn(async () => state),
+    openExternal: vi.fn(async () => true),
     setUpdateToken: vi.fn(async (): Promise<Record<string, unknown>> => ({
       ...(state as object),
       accepted: true,
@@ -131,10 +132,21 @@ describe('useAppUpdate', () => {
     expect(bridge.checkForUpdates).toHaveBeenCalledTimes(1);
   });
 
+  it('abre un enlace por el proceso principal cuando existe el puente', async () => {
+    const { bridge } = installBridge(available);
+    const { result } = renderHook(() => useAppUpdate());
+
+    act(() => result.current.openExternal?.('https://github.com/settings/personal-access-tokens/new'));
+
+    expect(bridge.openExternal).toHaveBeenCalledWith('https://github.com/settings/personal-access-tokens/new');
+  });
+
   it('en el navegador no ofrece actualizaciones y no revienta al pulsar', () => {
     const { result } = renderHook(() => useAppUpdate());
 
     expect(result.current.supported).toBe(false);
+    // Without a main process the anchor keeps its normal behaviour.
+    expect(result.current.openExternal).toBeNull();
     expect(() => result.current.check()).not.toThrow();
     expect(() => result.current.install()).not.toThrow();
   });

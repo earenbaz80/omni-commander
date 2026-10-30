@@ -1054,6 +1054,9 @@ export const ja = {
   updateTokenHelp:
     'リリースはプライベートリポジトリにあるため、確認には読み取り権限のあるトークンが必要です。この端末に保存され、設定には含まれません。',
   updateTokenSave: 'トークンを保存',
+  updateTokenReadOnlyNote:
+    '最小限の権限で足ります。「Fine-grained tokens」でこのリポジトリのみ、Contents: Read-only を選んでください。',
+  updateTokenCreateLink: 'GitHub でトークンを作成',
   updateTokenClear: '削除',
   updateTokenConfigured: 'トークン設定済み',
   updateTokenFromEnv: 'OMNI_UPDATE_TOKEN のトークン',

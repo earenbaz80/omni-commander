@@ -1078,6 +1078,9 @@ export const en = {
   updateTokenHelp:
     'The releases live in a private repository, so checking needs a token with read access to it. It is stored on this machine, not in your preferences.',
   updateTokenSave: 'Save token',
+  updateTokenReadOnlyNote:
+    'The smallest scope is enough: under “Fine-grained tokens”, this repository only and Contents: Read-only.',
+  updateTokenCreateLink: 'Create a token on GitHub',
   updateTokenClear: 'Remove',
   updateTokenConfigured: 'Token configured',
   updateTokenFromEnv: 'Token taken from OMNI_UPDATE_TOKEN',

@@ -1054,6 +1054,9 @@ export const ru = {
   updateTokenHelp:
     'Релизы лежат в закрытом репозитории, поэтому для проверки нужен токен с доступом на чтение. Он хранится на этом компьютере, а не в настройках.',
   updateTokenSave: 'Сохранить токен',
+  updateTokenReadOnlyNote:
+    'Достаточно минимальных прав: в «Fine-grained tokens» только этот репозиторий и Contents: Read-only.',
+  updateTokenCreateLink: 'Создать токен на GitHub',
   updateTokenClear: 'Удалить',
   updateTokenConfigured: 'Токен настроен',
   updateTokenFromEnv: 'Токен из OMNI_UPDATE_TOKEN',

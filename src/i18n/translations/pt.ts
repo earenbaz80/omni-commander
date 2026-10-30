@@ -1051,6 +1051,9 @@ export const pt = {
   updateTokenHelp:
     'As versões estão num repositório privado, por isso a verificação precisa de um token com acesso de leitura. Fica guardado neste computador, não nas preferências.',
   updateTokenSave: 'Guardar token',
+  updateTokenReadOnlyNote:
+    'Basta com o mínimo: em «Fine-grained tokens», apenas este repositório e Contents: Read-only.',
+  updateTokenCreateLink: 'Criar um token no GitHub',
   updateTokenClear: 'Remover',
   updateTokenConfigured: 'Token configurado',
   updateTokenFromEnv: 'Token obtido de OMNI_UPDATE_TOKEN',
