@@ -150,6 +150,42 @@ jobs:
           Compress-Archive -Path "OmniCommander-Pro-Setup-$version.exe" -DestinationPath "OmniCommander-Pro-Setup-$version.zip" -Force
         shell: pwsh
 
+      # A release whose asset names disagree with latest.yml cannot be updated
+      # to: the updater downloads the path named in the metadata. Failing here
+      # keeps a release no client could install from being published at all.
+      - name: Check the artifacts match latest.yml
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $declared = Select-String -Path release/latest.yml -Pattern '^path:\s*(.+)$' | Select-Object -First 1
+          if (-not $declared) { throw "release/latest.yml declares no path" }
+          $target = $declared.Matches[0].Groups[1].Value.Trim()
+
+          $expected = @(
+            "OmniCommander-Pro-$version.exe",
+            "OmniCommander-Pro-Setup-$version.exe",
+            "OmniCommander-Pro-Setup-$version.exe.blockmap",
+            "OmniCommander-Pro-$version.zip",
+            "OmniCommander-Pro-Setup-$version.zip",
+            "latest.yml"
+          )
+          foreach ($name in $expected) {
+            if ($name -match '\s') { throw "Artifact '$name' has a space, which GitHub rewrites on upload" }
+            if (-not (Test-Path (Join-Path release $name) -PathType Leaf)) { throw "Missing artifact '$name'" }
+          }
+          if ($expected -notcontains $target) {
+            throw "latest.yml points at '$target', which is not among the artifacts: $($expected -join ', ')"
+          }
+
+          # The size latest.yml advertises is the one clients will download.
+          $size = Select-String -Path release/latest.yml -Pattern '^\s*size:\s*(\d+)' | Select-Object -First 1
+          if ($size) {
+            $wanted = [int64]$size.Matches[0].Groups[1].Value
+            $actual = (Get-Item (Join-Path release $target)).Length
+            if ($wanted -ne $actual) { throw "latest.yml declares $wanted bytes for '$target', the file has $actual" }
+          }
+          Write-Host "latest.yml names '$target' and the release publishes it."
+
       # `latest.yml` and the block map are what the app's updater reads, so they
       # are published next to the binaries they describe.
       - name: Publish release
