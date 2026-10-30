@@ -1,6 +1,19 @@
 import React, { useState, useCallback } from 'react';
 import ModalShell from '../ModalShell';
-import { Palette, Globe, Monitor, Sliders, Keyboard, Volume2, Lock, Save, Check, Eye, EyeOff } from 'lucide-react';
+import {
+  Palette,
+  Globe,
+  Monitor,
+  Sliders,
+  Keyboard,
+  Volume2,
+  Lock,
+  Save,
+  Check,
+  Eye,
+  EyeOff,
+  KeyRound,
+} from 'lucide-react';
 import { UserSettings, ThemeId, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations, TranslationKey } from '../../i18n/translations';
@@ -8,6 +21,7 @@ import { buildShortcutGroups } from '../../services/shortcutGroups';
 import { soundManager } from '../../services/soundEffects';
 import { checkPassword, createPasswordRecord } from '../../services/appLock';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { useAppUpdate } from '../../hooks/useAppUpdate';
 
 interface SettingsModalProps {
   theme: ThemeConfig;
@@ -210,6 +224,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // The update token is a credential the main process owns: it is typed here,
+  // handed over, and never read back. Only its presence and origin are shown.
+  const update = useAppUpdate();
+  const [tokenDraft, setTokenDraft] = useState('');
+  const [showToken, setShowToken] = useState(false);
+  const [tokenBusy, setTokenBusy] = useState(false);
+  const [tokenNote, setTokenNote] = useState<string | null>(null);
+
+  const saveUpdateToken = async () => {
+    setTokenBusy(true);
+    const accepted = await update.setToken(tokenDraft.trim());
+    setTokenBusy(false);
+    setTokenNote(accepted ? t.updateTokenSaved : t.updateTokenInvalid);
+    // A rejected value stays in the box so it can be corrected instead of
+    // retyped; an accepted one is gone from the renderer immediately.
+    if (accepted) setTokenDraft('');
+  };
+
+  const clearUpdateToken = async () => {
+    setTokenBusy(true);
+    await update.clearToken();
+    setTokenBusy(false);
+    setTokenNote(t.updateTokenCleared);
+  };
 
   // Validación en tiempo real
   const validateField = useCallback(
@@ -622,6 +661,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
   // the lock; otherwise there would be nothing to unlock with.
   const passwordReady = !!formData.appPasswordHash || formData.newPassword.length > 0;
 
+  const tokenStatusText = update.tokenConfigured
+    ? update.tokenSource === 'env'
+      ? t.updateTokenFromEnv
+      : t.updateTokenConfigured
+    : t.updateTokenMissing;
+
   const securityTabContent = (
     <div className="space-y-[var(--space-2)]">
       <SectionCard title={t.settingsSecurity}>
@@ -737,6 +782,70 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
           </div>
         </div>
       </SectionCard>
+
+      {/* A different credential from the app lock, and the only one the app
+          sends anywhere: it gets its own card rather than a corner of the one
+          above. Outside Electron there is nothing to update, so it is absent. */}
+      {update.enabled && (
+        <SectionCard title={t.settingsUpdatesSection}>
+          <p className="text-[var(--fs-8)] opacity-70 leading-relaxed">{t.updateTokenHelp}</p>
+
+          <div className="flex flex-wrap items-center gap-[var(--space-2)]">
+            <div className="relative flex-1 min-w-[180px]">
+              <KeyRound className="absolute left-[var(--space-1)].5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-sky-300 opacity-70" />
+              <input
+                aria-label={t.updateTokenLabel}
+                type={showToken ? 'text' : 'password'}
+                value={tokenDraft}
+                placeholder={t.updateTokenPlaceholder}
+                autoComplete="off"
+                spellCheck={false}
+                onChange={(e) => {
+                  setTokenDraft(e.target.value);
+                  setTokenNote(null);
+                }}
+                className="w-full pl-[var(--space-5)] pr-[var(--space-7)] px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
+              />
+              <button
+                type="button"
+                onClick={() => setShowToken((v) => !v)}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-amber-300 hover:text-amber-100"
+                aria-label={showToken ? t.settingsHidePassword : t.settingsShowPassword}
+                aria-pressed={showToken}
+              >
+                {showToken ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={saveUpdateToken}
+              disabled={tokenBusy || tokenDraft.trim().length === 0}
+              className="px-[var(--space-2)] py-[var(--space-1)] text-[10px] font-bold rounded border border-sky-400/40 bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 cursor-pointer disabled:opacity-40 disabled:cursor-default"
+            >
+              {t.updateTokenSave}
+            </button>
+
+            {/* A token from the environment wins over this file, so removing it
+                there would change nothing and the button is not offered. */}
+            {update.tokenConfigured && update.tokenSource !== 'env' && (
+              <button
+                type="button"
+                onClick={clearUpdateToken}
+                disabled={tokenBusy}
+                className="px-[var(--space-2)] py-[var(--space-1)] text-[10px] font-bold rounded border border-rose-400/40 bg-rose-500/10 hover:bg-rose-500/20 text-rose-200 cursor-pointer disabled:opacity-40 disabled:cursor-default"
+              >
+                {t.updateTokenClear}
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-[var(--space-2)] text-[var(--fs-8)]">
+            <span className={update.tokenConfigured ? 'text-emerald-300' : 'text-amber-300'}>{tokenStatusText}</span>
+            {tokenNote && <span className="opacity-70">{tokenNote}</span>}
+          </div>
+        </SectionCard>
+      )}
     </div>
   );
 

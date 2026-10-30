@@ -15,6 +15,16 @@ function installBridge(state: unknown) {
     downloadUpdate: vi.fn(async () => state),
     installUpdate: vi.fn(async () => true),
     getUpdateState: vi.fn(async () => state),
+    setUpdateToken: vi.fn(async (): Promise<Record<string, unknown>> => ({
+      ...(state as object),
+      accepted: true,
+      tokenConfigured: true,
+    })),
+    clearUpdateToken: vi.fn(async (): Promise<Record<string, unknown>> => ({
+      ...(state as object),
+      tokenConfigured: false,
+      tokenSource: null,
+    })),
     onUpdateState: (listener: Listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
@@ -24,7 +34,7 @@ function installBridge(state: unknown) {
   return { bridge, emit: (snapshot: unknown) => listeners.forEach((listener) => listener(snapshot)) };
 }
 
-const available = { status: 'available', version: '1.0.9', percent: 0, error: null };
+const available = { status: 'available', version: '1.0.9', percent: 0, error: null, enabled: true };
 
 afterEach(() => {
   cleanup();
@@ -41,6 +51,7 @@ describe('useAppUpdate', () => {
     expect(bridge.getUpdateState).toHaveBeenCalledTimes(1);
     expect(result.current.version).toBe('1.0.9');
     expect(result.current.supported).toBe(true);
+    expect(result.current.enabled).toBe(true);
   });
 
   it('refleja lo que empuja el proceso principal mientras el modal está abierto', async () => {
@@ -53,6 +64,57 @@ describe('useAppUpdate', () => {
 
     act(() => emit({ status: 'downloaded', version: '1.0.9', percent: 100, error: null }));
     expect(result.current.status).toBe('downloaded');
+  });
+
+  it('guardar un token refleja el estado que devuelve el proceso principal', async () => {
+    const { bridge } = installBridge({ status: 'error', error: '404', tokenPath: 'C:\\datos\\update-token' });
+    const { result } = renderHook(() => useAppUpdate());
+
+    let accepted = false;
+    await act(async () => {
+      accepted = await result.current.setToken('ghp_0123456789abcdefghijklmnopqrstuvwx');
+    });
+
+    expect(accepted).toBe(true);
+    expect(bridge.setUpdateToken).toHaveBeenCalledWith('ghp_0123456789abcdefghijklmnopqrstuvwx');
+    expect(result.current.tokenConfigured).toBe(true);
+  });
+
+  it('un valor rechazado no se da por guardado', async () => {
+    const { bridge } = installBridge({ status: 'error', error: '404' });
+    bridge.setUpdateToken.mockResolvedValueOnce({ status: 'error', accepted: false });
+    const { result } = renderHook(() => useAppUpdate());
+
+    let accepted = true;
+    await act(async () => {
+      accepted = await result.current.setToken('change-me');
+    });
+
+    expect(accepted).toBe(false);
+    expect(result.current.tokenConfigured).toBe(false);
+  });
+
+  it('quitar el token deja el estado sin credencial', async () => {
+    const { bridge } = installBridge({ status: 'idle', tokenConfigured: true, tokenSource: 'file' });
+    const { result } = renderHook(() => useAppUpdate());
+    await waitFor(() => expect(result.current.tokenConfigured).toBe(true));
+
+    await act(async () => {
+      await result.current.clearToken();
+    });
+
+    expect(bridge.clearUpdateToken).toHaveBeenCalledTimes(1);
+    expect(result.current.tokenConfigured).toBe(false);
+  });
+
+  it('no da el updater por disponible si el proceso principal no lo tiene', () => {
+    // Development and the portable package have no installed copy to replace, so
+    // the interface must not offer controls that cannot work.
+    installBridge({ status: 'idle', enabled: false });
+    const { result } = renderHook(() => useAppUpdate());
+
+    expect(result.current.supported).toBe(true);
+    expect(result.current.enabled).toBe(false);
   });
 
   it('cada acción llama a su función del puente', async () => {
@@ -87,7 +149,9 @@ describe('normalizeUpdateSnapshot', () => {
       version: null,
       percent: 100,
       error: null,
+      enabled: false,
       tokenConfigured: false,
+      tokenSource: null,
       tokenPath: null,
     });
   });
@@ -98,7 +162,9 @@ describe('normalizeUpdateSnapshot', () => {
       version: '1.0.9',
       percent: 0,
       error: null,
+      enabled: false,
       tokenConfigured: false,
+      tokenSource: null,
       tokenPath: null,
     });
     expect(normalizeUpdateSnapshot(null).status).toBe('idle');

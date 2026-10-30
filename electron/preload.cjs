@@ -36,6 +36,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkForUpdates: () => ipcRenderer.invoke('update:check'),
   downloadUpdate: () => ipcRenderer.invoke('update:download'),
   installUpdate: () => ipcRenderer.invoke('update:install'),
+  // The token is handed to the main process, which validates it and writes it to
+  // the machine; the renderer never reads it back.
+  setUpdateToken: (token) => ipcRenderer.invoke('update:token', token),
+  clearUpdateToken: () => ipcRenderer.invoke('update:token-clear'),
   onUpdateState: (callback) => {
     if (typeof callback !== 'function') return () => {};
     const listener = (_event, state) => callback(state);
