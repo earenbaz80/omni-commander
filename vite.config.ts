@@ -151,7 +151,11 @@ export default defineConfig(({ command, mode }) => {
       // broken until the process was restarted. Only the live-reload channel is
       // optional; invalidation is not.
       hmr: process.env.DISABLE_HMR !== 'true',
-      watch: {},
+      // electron-builder writes the packaged app to release/ and then renames its
+      // staging folder into place. Watching that folder the dev server kept
+      // handles open on the files it had just extracted, so the rename failed
+      // with EPERM and a local build could not finish while `npm run dev` was up.
+      watch: { ignored: ['**/release/**'] },
       proxy: {
         // Follows the same port the local server binds. Override with OMNI_API_PORT
         // when the server had to walk past a busy 3001. The numeric coercion keeps
