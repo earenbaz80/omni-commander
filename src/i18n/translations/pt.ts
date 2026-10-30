@@ -1043,6 +1043,7 @@ export const pt = {
   updateInstall: 'Reiniciar e instalar',
   updateUpToDate: 'Estás atualizado',
   updateFailed: 'Não foi possível verificar atualizações',
+  updateTokenHint: 'Repositório privado: guarde um token de leitura em {path} e reinicie para ativá-lo.',
   dateLabel: 'Data:',
   transferSelectAll: 'Todos',
   transferSelectInvert: 'Inverter',

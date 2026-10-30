@@ -1046,6 +1046,7 @@ export const it = {
   updateInstall: 'Riavvia e installa',
   updateUpToDate: 'Sei aggiornato',
   updateFailed: 'Impossibile verificare gli aggiornamenti',
+  updateTokenHint: 'Repository privato: salva un token di sola lettura in {path} e riavvia per attivarlo.',
   dateLabel: 'Data:',
   transferSelectAll: 'Tutti',
   transferSelectInvert: 'Inverti',

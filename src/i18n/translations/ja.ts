@@ -1046,6 +1046,7 @@ export const ja = {
   updateInstall: '再起動してインストール',
   updateUpToDate: '最新版です',
   updateFailed: 'アップデートを確認できませんでした',
+  updateTokenHint: 'プライベートリポジトリ: 読み取り専用トークンを {path} に保存し、再起動すると有効になります。',
   dateLabel: '日付:',
   transferSelectAll: 'すべて',
   transferSelectInvert: '反転',

@@ -87,6 +87,8 @@ describe('normalizeUpdateSnapshot', () => {
       version: null,
       percent: 100,
       error: null,
+      tokenConfigured: false,
+      tokenPath: null,
     });
   });
 
@@ -96,7 +98,22 @@ describe('normalizeUpdateSnapshot', () => {
       version: '1.0.9',
       percent: 0,
       error: null,
+      tokenConfigured: false,
+      tokenPath: null,
     });
     expect(normalizeUpdateSnapshot(null).status).toBe('idle');
+  });
+
+  it('solo da por configurado un token que llega como verdadero y con ruta utilizable', () => {
+    // The interface uses this to decide whether it can tell the user where to put
+    // a credential: a truthy string from an older preload must not pass as "yes".
+    expect(normalizeUpdateSnapshot({ status: 'error', tokenConfigured: 'sí', tokenPath: 42 })).toMatchObject({
+      tokenConfigured: false,
+      tokenPath: null,
+    });
+    expect(normalizeUpdateSnapshot({ status: 'error', tokenConfigured: true, tokenPath: 'C:\\token' })).toMatchObject({
+      tokenConfigured: true,
+      tokenPath: 'C:\\token',
+    });
   });
 });

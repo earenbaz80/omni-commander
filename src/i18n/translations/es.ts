@@ -1076,6 +1076,7 @@ export const es = {
   updateInstall: 'Reiniciar e instalar',
   updateUpToDate: 'Ya tienes la última versión',
   updateFailed: 'No se pudo comprobar la actualización',
+  updateTokenHint: 'Repositorio privado: guarda un token de solo lectura en {path} y reinicia para activarlo.',
   dateLabel: 'Fecha:',
   transferSelectAll: 'Todos',
   transferSelectInvert: 'Invertir',

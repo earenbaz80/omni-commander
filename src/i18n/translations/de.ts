@@ -1050,6 +1050,7 @@ export const de = {
   updateInstall: 'Neu starten und installieren',
   updateUpToDate: 'Du bist auf dem neuesten Stand',
   updateFailed: 'Update-Suche fehlgeschlagen',
+  updateTokenHint: 'Privates Repository: einen Lese-Token unter {path} speichern und zum Aktivieren neu starten.',
   dateLabel: 'Datum:',
   transferSelectAll: 'Alle',
   transferSelectInvert: 'Auswahl umkehren',

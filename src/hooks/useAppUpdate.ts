@@ -8,9 +8,20 @@ export interface AppUpdateSnapshot {
   version: string | null;
   percent: number;
   error: string | null;
+  /** Whether the main process found a credential for the private repository. */
+  tokenConfigured: boolean;
+  /** Where that credential is expected to be, so the interface can say it. */
+  tokenPath: string | null;
 }
 
-export const IDLE_UPDATE: AppUpdateSnapshot = { status: 'idle', version: null, percent: 0, error: null };
+export const IDLE_UPDATE: AppUpdateSnapshot = {
+  status: 'idle',
+  version: null,
+  percent: 0,
+  error: null,
+  tokenConfigured: false,
+  tokenPath: null,
+};
 
 const STATUSES: ReadonlySet<string> = new Set<AppUpdateStatus>([
   'idle',
@@ -50,6 +61,8 @@ export function normalizeUpdateSnapshot(value: unknown): AppUpdateSnapshot {
     version: typeof source.version === 'string' && source.version.length > 0 ? source.version : null,
     percent: Number.isFinite(rawPercent) ? Math.min(100, Math.max(0, Math.round(rawPercent))) : 0,
     error: typeof source.error === 'string' && source.error.length > 0 ? source.error : null,
+    tokenConfigured: source.tokenConfigured === true,
+    tokenPath: typeof source.tokenPath === 'string' && source.tokenPath.length > 0 ? source.tokenPath : null,
   };
 }
 

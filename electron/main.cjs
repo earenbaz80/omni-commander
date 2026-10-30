@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
 const { isAllowedNavigationUrl } = require('./navigationGuard.cjs');
+const { resolveUpdateFeed } = require('./updateFeed.cjs');
 
 // Per-launch session token. It is the shared secret between this process, the
 // embedded API server and the renderer: every mutating request, and every GET
@@ -68,7 +69,16 @@ const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const UPDATE_STATUSES = new Set(['idle', 'checking', 'available', 'downloading', 'downloaded', 'up-to-date', 'error']);
 
 /** The bounded snapshot the interface is allowed to know about the updater. */
-let updateState = { status: 'idle', version: null, percent: 0, error: null };
+let updateState = {
+  status: 'idle',
+  version: null,
+  percent: 0,
+  error: null,
+  // Whether a credential was found is reported; the credential itself never
+  // crosses the IPC boundary or reaches a log.
+  tokenConfigured: false,
+  tokenPath: null,
+};
 let updater = null;
 
 function isUpdaterSupported() {
@@ -109,6 +119,28 @@ function setupUpdater() {
   // Once downloaded, finishing the update on exit does not interrupt anything
   // and needs no extra click. The interface also offers an explicit restart.
   autoUpdater.autoInstallOnAppQuit = true;
+
+  // The published repository is private, so the anonymous download URL the
+  // library defaults to answers 404. The target comes from the `app-update.yml`
+  // that electron-builder wrote into the package, and the token -- the user's,
+  // never bundled -- from the machine. `setFeedURL` builds the provider
+  // immediately, so this must happen before the first check.
+  const tokenPath = path.join(app.getPath('userData'), 'update-token');
+  let feed = null;
+  try {
+    feed = resolveUpdateFeed({
+      appUpdateConfigPath: path.join(process.resourcesPath, 'app-update.yml'),
+      env: process.env,
+      tokenPath,
+      readFile: (file) => fs.readFileSync(file, 'utf8'),
+    });
+    if (feed.options) autoUpdater.setFeedURL(feed.options);
+  } catch (error) {
+    // A provider the library rejects leaves the updater on whatever
+    // `app-update.yml` says. That is a quieter app, not a broken one.
+    console.error('Update feed unavailable:', error);
+  }
+  updateState = { ...updateState, tokenConfigured: feed?.token != null, tokenPath };
 
   autoUpdater.on('checking-for-update', () => setUpdateState({ status: 'checking', error: null }));
   autoUpdater.on('update-available', (info) =>

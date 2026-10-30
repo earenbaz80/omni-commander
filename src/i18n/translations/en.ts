@@ -1071,6 +1071,7 @@ export const en = {
   updateInstall: 'Restart and install',
   updateUpToDate: 'You are up to date',
   updateFailed: 'Could not check for updates',
+  updateTokenHint: 'Private repository: save a read-only token in {path} and restart to enable it.',
   dateLabel: 'Date:',
   transferSelectAll: 'All',
   transferSelectInvert: 'Invert',
