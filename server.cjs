@@ -77,6 +77,7 @@ const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
  */
 const SENSITIVE_GET_ROUTES = new Set([
   '/api/drives',
+  '/api/user-folders',
   '/api/list',
   '/api/treesize',
   '/api/fs/hash',
@@ -596,6 +597,18 @@ async function listDirectory(driveId, requestedPath) {
 app.get('/api/drives', async (_req, res) => {
   try {
     res.json(await getRealDrives());
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// The folders Windows presents as libraries. They are per-profile, so a path
+// built from %USERPROFILE% is wrong whenever the user moved Desktop or Documents
+// into OneDrive: the resolution lives in readUserLibraries().
+app.get('/api/user-folders', async (_req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    res.json(await readUserLibraries());
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -1870,6 +1883,66 @@ function knownUserFolders() {
       });
   }
   return knownUserFoldersPromise;
+}
+
+/**
+ * The five folders Explorer shows as libraries: id used by the renderer, and the
+ * .NET SpecialFolder name that resolves it.
+ */
+const USER_LIBRARY_FOLDERS = [
+  ['desktop', 'Desktop'],
+  ['documents', 'MyDocuments'],
+  ['pictures', 'MyPictures'],
+  ['music', 'MyMusic'],
+  ['videos', 'MyVideos'],
+];
+
+/** The profile's own folder names, which is all that is left when the lookup fails. */
+function guessedUserFolders() {
+  const profile = process.env.USERPROFILE || '';
+  if (!profile) return {};
+  return {
+    desktop: path.win32.join(profile, 'Desktop'),
+    documents: path.win32.join(profile, 'Documents'),
+    pictures: path.win32.join(profile, 'Pictures'),
+    music: path.win32.join(profile, 'Music'),
+    videos: path.win32.join(profile, 'Videos'),
+  };
+}
+
+/**
+ * Resolves the library folders for the signed-in profile and drops the ones this
+ * machine does not have, so the tree never offers a folder that would fail to
+ * open. Every candidate is checked against the disk before it is reported.
+ */
+async function readUserLibraries() {
+  let resolved = {};
+  try {
+    const body = USER_LIBRARY_FOLDERS.map(
+      ([key, special]) => `${key} = [Environment]::GetFolderPath('${special}')`,
+    ).join('; ');
+    const { stdout } = await execFileAsync(
+      'powershell',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-Command',
+        `@{ ${body} } | ConvertTo-Json -Compress`,
+      ],
+      { encoding: 'utf8', windowsHide: true, maxBuffer: 1024 * 1024, timeout: POWERSHELL_TIMEOUT_MS },
+    );
+    resolved = JSON.parse(String(stdout || '').trim() || '{}');
+  } catch {
+    // A failed lookup is not a machine without folders: fall back to the profile.
+    resolved = {};
+  }
+  const guessed = guessedUserFolders();
+  return USER_LIBRARY_FOLDERS.map(([key]) => ({
+    key,
+    path: String(resolved[key] || guessed[key] || ''),
+  })).filter((entry) => entry.path && fs.existsSync(entry.path));
 }
 
 /** An absolute path that must already be a folder the shortcut can land in. */

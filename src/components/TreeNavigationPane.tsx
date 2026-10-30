@@ -4,8 +4,18 @@ import { ThemeConfig } from '../services/themeManager';
 import { Drive, FileItem, LanguageCode } from '../types';
 import { fsEngine } from '../services/fileSystem';
 import { soundManager } from '../services/soundEffects';
-import { getTranslations, tGlobal } from '../i18n/translations';
+import { getTranslations, tGlobal, type TranslationKey } from '../i18n/translations';
+import { loadUserFolders, UserFolder, UserFolderKey } from '../services/userFolders';
 import { log } from '../utils/logger';
+
+/** Windows calls these libraries; the tree labels them in the user's language. */
+const LIBRARY_LABEL_KEYS: Record<UserFolderKey, TranslationKey> = {
+  desktop: 'libraryDesktop',
+  documents: 'libraryDocuments',
+  pictures: 'libraryPictures',
+  music: 'libraryMusic',
+  videos: 'libraryVideos',
+};
 
 interface TreeNavigationPaneProps {
   theme: ThemeConfig;
@@ -139,6 +149,14 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
           soundManager.playDiskAccess();
           onSelectNode(driveId, dirPath);
         }}
+        // A double click opens or closes the branch in place, so a directory can
+        // be inspected without leaving the folder the panel is showing.
+        onDoubleClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          soundManager.playKeyTick();
+          onToggleExpand(dirPath);
+        }}
       >
         <div className="flex items-center gap-[var(--space-2)] min-w-0 truncate">
           {/* Chevron expander */}
@@ -225,9 +243,23 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
   virtualPath,
 }) => {
   const t = getTranslations(lang);
-  const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({});
+  // The libraries are the first thing in the pane, so the section starts open.
+  const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({ LIBRARIES: true });
+  const [userFolders, setUserFolders] = useState<UserFolder[]>([]);
 
   const [searchFilter, setSearchFilter] = useState('');
+
+  // Resolved by the server against the signed-in profile, because Desktop and
+  // Documents are often redirected into OneDrive.
+  useEffect(() => {
+    let alive = true;
+    void loadUserFolders().then((folders) => {
+      if (alive) setUserFolders(folders);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const toggleExpand = (path: string) => {
     setExpandedPaths((prev) => ({ ...prev, [path]: !prev[path] }));
@@ -238,8 +270,17 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
     onNavigate(path);
   };
 
-  // Quick Libraries / Shortcuts (sin unidades simuladas)
-  const mainLibraries: any[] = [];
+  // A library is only shown when its drive is mounted, so a path on a drive that
+  // is gone cannot be offered; the drive id is what the tree reads listings by.
+  const libraries = React.useMemo(() => {
+    return userFolders
+      .map((folder) => {
+        const letter = folder.path.slice(0, 2).toUpperCase();
+        const drive = drives.find((d) => d.isMounted && d.letter.toUpperCase() === letter);
+        return drive ? { ...folder, driveId: drive.id } : null;
+      })
+      .filter((entry): entry is UserFolder & { driveId: string } => entry !== null);
+  }, [userFolders, drives]);
 
   // Get virtual archive folders when inside an archive
   const virtualFolders = React.useMemo(() => {
@@ -316,27 +357,24 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
             <Library className="w-3 h-3 opacity-60" />
           </div>
 
-          {expandedPaths['LIBRARIES'] && (
+          {expandedPaths['LIBRARIES'] && libraries.length > 0 && (
             <div className="space-y-0.5 pt-0.5">
-              {mainLibraries.map((lib, idx) => {
-                const Icon = lib.icon;
-                const isActive = currentPath === lib.path;
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      soundManager.playDiskAccess();
-                      handleSelectNode(lib.driveId, lib.path);
-                    }}
-                    className={`w-full text-left px-[var(--space-2)] py-[var(--space-1)] rounded flex items-center gap-[var(--space-2)] cursor-pointer transition-colors text-[11px] truncate ${
-                      isActive ? 'bg-amber-400 text-black font-extrabold shadow' : 'hover:bg-white/10 text-white/90'
-                    }`}
-                  >
-                    <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-black' : lib.color}`} />
-                    <span className="truncate">{lib.name}</span>
-                  </button>
-                );
-              })}
+              {libraries.map((lib) => (
+                <TreeNodeItem
+                  key={lib.key}
+                  theme={theme}
+                  driveId={lib.driveId}
+                  dirPath={lib.path}
+                  dirName={t[LIBRARY_LABEL_KEYS[lib.key]]}
+                  depth={0}
+                  currentPath={currentPath}
+                  expandedPaths={expandedPaths}
+                  onToggleExpand={toggleExpand}
+                  onSelectNode={handleSelectNode}
+                  onDropItems={onDropItems}
+                  searchFilter={searchFilter}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -408,6 +446,12 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
                       onClick={() => {
                         soundManager.playDiskAccess();
                         handleSelectNode(drive.id, driveLetter);
+                      }}
+                      onDoubleClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        soundManager.playKeyTick();
+                        toggleExpand(driveLetter);
                       }}
                       className={`flex items-center justify-between px-[var(--space-1)].5 py-[var(--space-1)] rounded cursor-pointer text-[11px] font-bold transition-all ${
                         isDriveActive

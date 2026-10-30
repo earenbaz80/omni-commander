@@ -204,6 +204,11 @@ export const en = {
   hideTreePanel: 'Hide tree panel',
   filterFolders: 'Filter folders...',
   quickAccess: 'Quick Access',
+  libraryDesktop: 'Desktop',
+  libraryDocuments: 'Documents',
+  libraryPictures: 'Pictures',
+  libraryMusic: 'Music',
+  libraryVideos: 'Videos',
 
   // Extended UI (modals)
   appLockTitle: 'OmniCommander Pro - Security Lock',
