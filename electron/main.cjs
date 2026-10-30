@@ -53,6 +53,104 @@ const isDev = !app.isPackaged;
 let mainWindow;
 
 // ---------------------------------------------------------------------------
+// Updates
+//
+// The packaged NSIS build carries the `app-update.yml` electron-builder writes,
+// so the updater reads the same `latest.yml` the release pipeline publishes and
+// verifies. Nothing here runs in development: there is no such file next to a
+// dev build, and a check would only add noise. A portable build unpacks itself
+// into a temporary folder on every launch, so it has no installed copy to
+// replace and is left out too.
+// ---------------------------------------------------------------------------
+
+const UPDATE_FIRST_CHECK_DELAY_MS = 8000;
+const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const UPDATE_STATUSES = new Set(['idle', 'checking', 'available', 'downloading', 'downloaded', 'up-to-date', 'error']);
+
+/** The bounded snapshot the interface is allowed to know about the updater. */
+let updateState = { status: 'idle', version: null, percent: 0, error: null };
+let updater = null;
+
+function isUpdaterSupported() {
+  return !isDev && !process.env.PORTABLE_EXECUTABLE_FILE;
+}
+
+function pushUpdateState() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('update:state', updateState);
+}
+
+function setUpdateState(patch) {
+  updateState = { ...updateState, ...patch };
+  pushUpdateState();
+}
+
+/** Only the window that hosts the app may drive the updater. */
+function isFromAppWindow(event) {
+  return !!mainWindow && !mainWindow.isDestroyed() && event.sender === mainWindow.webContents;
+}
+
+function setupUpdater() {
+  if (!isUpdaterSupported()) return;
+
+  let autoUpdater;
+  try {
+    ({ autoUpdater } = require('electron-updater'));
+  } catch (error) {
+    // A missing updater is a degraded app, not a broken one: everything else
+    // keeps working and the interface simply never offers an update.
+    console.error('Updater unavailable:', error);
+    return;
+  }
+
+  // Fetching 100+ MB is the user's decision: the interface offers the button and
+  // nothing is downloaded until it is pressed.
+  autoUpdater.autoDownload = false;
+  // Once downloaded, finishing the update on exit does not interrupt anything
+  // and needs no extra click. The interface also offers an explicit restart.
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => setUpdateState({ status: 'checking', error: null }));
+  autoUpdater.on('update-available', (info) =>
+    setUpdateState({ status: 'available', version: info?.version ?? null, percent: 0, error: null }),
+  );
+  autoUpdater.on('update-not-available', () =>
+    setUpdateState({ status: 'up-to-date', version: null, percent: 0, error: null }),
+  );
+  autoUpdater.on('download-progress', (progress) =>
+    setUpdateState({ status: 'downloading', percent: Math.min(100, Math.max(0, Math.round(progress?.percent ?? 0))) }),
+  );
+  autoUpdater.on('update-downloaded', (info) =>
+    setUpdateState({ status: 'downloaded', version: info?.version ?? updateState.version, percent: 100, error: null }),
+  );
+  autoUpdater.on('error', (error) => {
+    // Offline machines are normal for this app, so a failed check is a state to
+    // display, never something that interrupts the session.
+    console.error('Update error:', error);
+    setUpdateState({ status: 'error', error: String(error?.message ?? error) });
+  });
+
+  updater = autoUpdater;
+
+  const check = () => {
+    // Rejections already arrive through the error event above; swallowing them
+    // here keeps an offline start from logging an unhandled rejection. A failure
+    // thrown before the provider exists never becomes a rejection, and a timer
+    // that throws would take the whole process down, so it is caught too.
+    try {
+      updater.checkForUpdates()?.catch(() => {});
+    } catch (error) {
+      setUpdateState({ status: 'error', error: String(error?.message ?? error) });
+    }
+  };
+  const firstCheck = setTimeout(check, UPDATE_FIRST_CHECK_DELAY_MS);
+  const periodicCheck = setInterval(check, UPDATE_CHECK_INTERVAL_MS);
+  // Neither timer may keep the process alive on its own.
+  firstCheck.unref?.();
+  periodicCheck.unref?.();
+}
+
+// ---------------------------------------------------------------------------
 // Tray
 //
 // A transfer can outlive the window: closing it while a copy is still writing
@@ -288,6 +386,8 @@ app.whenReady().then(async () => {
   await whenApiPortReady();
   createMainWindow();
   createTray();
+  // After the window exists, so a state pushed early still has somewhere to go.
+  setupUpdater();
 });
 
 // A real quit must not be intercepted by the close-to-tray handler above.
@@ -311,6 +411,41 @@ ipcMain.on('tray:state', (event, payload) => {
   if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) return;
   trayState = normalizeTrayState(payload);
   refreshTrayMenu();
+});
+
+// The interface asks for the snapshot when it mounts: the first check starts
+// before the renderer has subscribed, so an event alone would be missed.
+ipcMain.handle('update:state', (event) => (isFromAppWindow(event) ? updateState : null));
+
+ipcMain.handle('update:check', async (event) => {
+  if (!isFromAppWindow(event) || !updater) return updateState;
+  try {
+    await updater.checkForUpdates();
+  } catch (error) {
+    setUpdateState({ status: 'error', error: String(error?.message ?? error) });
+  }
+  return updateState;
+});
+
+ipcMain.handle('update:download', async (event) => {
+  if (!isFromAppWindow(event) || !updater) return updateState;
+  // Only an offered update may be fetched; a stale click does nothing.
+  if (updateState.status !== 'available') return updateState;
+  try {
+    await updater.downloadUpdate();
+  } catch (error) {
+    setUpdateState({ status: 'error', error: String(error?.message ?? error) });
+  }
+  return updateState;
+});
+
+ipcMain.handle('update:install', (event) => {
+  if (!isFromAppWindow(event) || !updater) return false;
+  if (updateState.status !== 'downloaded') return false;
+  // A real quit must not be turned into "hide to tray" by the close handler.
+  quitting = true;
+  updater.quitAndInstall(false, true);
+  return true;
 });
 
 ipcMain.handle('window:minimize', () => mainWindow?.minimize());

@@ -5,6 +5,7 @@ import { getTranslations } from '../i18n/translations';
 import { ThemeConfig } from '../services/themeManager';
 import { soundManager } from '../services/soundEffects';
 import { PWAInstallButton } from './PWAInstallButton';
+import { UpdateBadge } from './UpdateBadge';
 
 interface HeaderMenuBarProps {
   theme: ThemeConfig;
@@ -553,6 +554,10 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
       <div className="flex items-center gap-[var(--space-1)].5">
         {/* PWA Install App Button */}
         <PWAInstallButton compact={true} lang={lang} />
+
+        {/* Update notice: only while there is an update to accept or a download
+            waiting for its restart, so the bar stays quiet the rest of the time. */}
+        <UpdateBadge lang={lang} />
 
         {/* CMD & Winget Library button */}
         <button

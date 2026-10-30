@@ -1,8 +1,9 @@
 import React from 'react';
-import { User, Calendar, Cpu, Sparkles } from 'lucide-react';
+import { User, Calendar, Cpu, Sparkles, RefreshCw } from 'lucide-react';
 import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
+import { useAppUpdate } from '../../hooks/useAppUpdate';
 
 import ModalShell from '../ModalShell';
 
@@ -21,6 +22,28 @@ export const AboutModal: React.FC<AboutModalProps> = ({ theme, lang, authorName,
   // the package it was built from.
   const buildVersion = `v${__APP_VERSION__}`;
   const displayAuthor = authorName || 'Edel Arencibia Baez';
+
+  // The header chip only shows what needs a decision; this row also reports the
+  // quiet outcomes, and gives the manual check the chip deliberately lacks.
+  const update = useAppUpdate();
+  const updateStatusText =
+    update.status === 'available'
+      ? t.updateAvailable.replace('{version}', update.version || '')
+      : update.status === 'downloading'
+        ? t.updateDownloading.replace('{percent}', String(update.percent))
+        : update.status === 'checking'
+          ? t.updateChecking
+          : update.status === 'up-to-date'
+            ? t.updateUpToDate
+            : update.status === 'error'
+              ? t.updateFailed
+              : '';
+  const updateAction =
+    update.status === 'available'
+      ? { label: t.updateDownload, run: update.download }
+      : update.status === 'downloaded'
+        ? { label: t.updateInstall, run: update.install }
+        : { label: t.updateCheck, run: update.check };
 
   return (
     <ModalShell title={t.aboutTitle} theme={theme} onClose={onClose}>
@@ -70,6 +93,26 @@ export const AboutModal: React.FC<AboutModalProps> = ({ theme, lang, authorName,
             </span>
             <span className="text-slate-200">{t.aboutEngineValue}</span>
           </div>
+
+          {/* Outside Electron (the web build) there is nothing that could update,
+              so the row is absent rather than permanently unavailable. */}
+          {update.supported && (
+            <div className="flex items-center justify-between gap-[var(--space-2)]">
+              <span className="flex items-center gap-[var(--space-2)] opacity-70">
+                <RefreshCw className="w-3.5 h-3.5 text-sky-400" /> {t.updateCheck}
+              </span>
+              <span className="flex items-center gap-[var(--space-2)]">
+                <span className="text-slate-300">{updateStatusText}</span>
+                <button
+                  onClick={updateAction.run}
+                  disabled={update.status === 'checking' || update.status === 'downloading'}
+                  className="px-[var(--space-2)] py-[var(--space-1)] text-[10px] font-bold rounded border border-sky-400/40 bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 cursor-pointer disabled:opacity-50 disabled:cursor-default"
+                >
+                  {updateAction.label}
+                </button>
+              </span>
+            </div>
+          )}
         </div>
 
         <p className="text-[var(--fs-sm)] opacity-75 text-center leading-relaxed">{t.aboutDescription}</p>
