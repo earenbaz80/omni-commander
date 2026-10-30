@@ -113,6 +113,14 @@ export const AboutModal: React.FC<AboutModalProps> = ({ theme, lang, authorName,
               </span>
             </div>
           )}
+
+          {/* A failed check without a credential is the private-repository case,
+              and the only thing the user can act on is where the token goes. */}
+          {update.supported && update.status === 'error' && !update.tokenConfigured && update.tokenPath && (
+            <p className="text-[10px] leading-relaxed text-amber-300/90 break-all">
+              {t.updateTokenHint.replace('{path}', update.tokenPath)}
+            </p>
+          )}
         </div>
 
         <p className="text-[var(--fs-sm)] opacity-75 text-center leading-relaxed">{t.aboutDescription}</p>

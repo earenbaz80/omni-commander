@@ -1046,6 +1046,7 @@ export const ru = {
   updateInstall: 'Перезапустить и установить',
   updateUpToDate: 'У вас последняя версия',
   updateFailed: 'Не удалось проверить обновления',
+  updateTokenHint: 'Закрытый репозиторий: сохраните токен только для чтения в {path} и перезапустите приложение.',
   dateLabel: 'Дата:',
   transferSelectAll: 'Все',
   transferSelectInvert: 'Инвертировать',

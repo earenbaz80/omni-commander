@@ -1052,6 +1052,7 @@ export const fr = {
   updateInstall: 'Redémarrer et installer',
   updateUpToDate: 'Vous êtes à jour',
   updateFailed: 'Impossible de vérifier les mises à jour',
+  updateTokenHint: 'Dépôt privé : enregistrez un jeton en lecture seule dans {path}, puis redémarrez pour l’activer.',
   dateLabel: 'Date :',
   transferSelectAll: 'Tous',
   transferSelectInvert: 'Inverser',
