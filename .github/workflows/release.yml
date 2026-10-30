@@ -60,9 +60,9 @@ jobs:
 
       # A local `npm run electron:build` could not finish while `npm run dev` was
       # up: the dev server watched release/, the folder electron-builder renames
-      # into place, and its open handles made that rename fail with EPERM. This
-      # reads the real Vite config and warns instead of failing, because only a
-      # local packaging run is affected.
+      # into place, and its open handles made that rename fail with EPERM. The
+      # rule that prevents it is easy to drop without noticing, so losing it
+      # fails here: a green run must not promise a build that cannot finish.
       - name: Dev server and packaging output
         run: node scripts/dev-watcher-guard.cjs
 
