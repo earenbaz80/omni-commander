@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import fs from 'node:fs';
+import path from 'node:path';
 import { startServer, type TestServer } from '@/scripts/serverHarness';
 
 /**
@@ -26,7 +27,7 @@ const fetchFolders = async () => {
 };
 
 describe('GET /api/user-folders', () => {
-  it('answers the five Windows libraries that exist on this machine', async () => {
+  it('answers the Windows libraries that exist on this machine', async () => {
     const { status, body } = await fetchFolders();
 
     expect(status).toBe(200);
@@ -34,8 +35,12 @@ describe('GET /api/user-folders', () => {
     const keys = body.map((entry: { key: string }) => entry.key);
     expect(keys).toContain('desktop');
     expect(keys).toContain('documents');
+    // Downloads has no .NET SpecialFolder, so it is the profile one; it is
+    // reported whenever that folder is really there.
+    const downloads = path.join(process.env.USERPROFILE || '', 'Downloads');
+    if (fs.existsSync(downloads)) expect(keys).toContain('downloads');
     // Only the ids the renderer knows how to label.
-    const known = ['desktop', 'documents', 'pictures', 'music', 'videos'];
+    const known = ['desktop', 'documents', 'pictures', 'music', 'videos', 'downloads'];
     expect(keys.every((key: string) => known.includes(key))).toBe(true);
     expect(new Set(keys).size).toBe(keys.length);
   });

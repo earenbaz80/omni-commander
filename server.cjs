@@ -1895,6 +1895,8 @@ const USER_LIBRARY_FOLDERS = [
   ['pictures', 'MyPictures'],
   ['music', 'MyMusic'],
   ['videos', 'MyVideos'],
+  // .NET has no SpecialFolder for Downloads: it is only ever the profile one.
+  ['downloads', null],
 ];
 
 /** The profile's own folder names, which is all that is left when the lookup fails. */
@@ -1907,6 +1909,7 @@ function guessedUserFolders() {
     pictures: path.win32.join(profile, 'Pictures'),
     music: path.win32.join(profile, 'Music'),
     videos: path.win32.join(profile, 'Videos'),
+    downloads: path.win32.join(profile, 'Downloads'),
   };
 }
 
@@ -1918,9 +1921,9 @@ function guessedUserFolders() {
 async function readUserLibraries() {
   let resolved = {};
   try {
-    const body = USER_LIBRARY_FOLDERS.map(
-      ([key, special]) => `${key} = [Environment]::GetFolderPath('${special}')`,
-    ).join('; ');
+    const body = USER_LIBRARY_FOLDERS.filter(([, special]) => special)
+      .map(([key, special]) => `${key} = [Environment]::GetFolderPath('${special}')`)
+      .join('; ');
     const { stdout } = await execFileAsync(
       'powershell',
       [

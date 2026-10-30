@@ -210,6 +210,10 @@ export const es = {
   libraryPictures: 'Imágenes',
   libraryMusic: 'Música',
   libraryVideos: 'Vídeos',
+  libraryDownloads: 'Descargas',
+  favorites: 'Favoritos',
+  addFavorite: 'Añadir a favoritos',
+  removeFavorite: 'Quitar de favoritos',
 
   // Extended UI (modals)
   appLockTitle: 'OmniCommander Pro - Bloqueo de Seguridad',

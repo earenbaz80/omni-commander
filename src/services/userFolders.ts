@@ -7,7 +7,7 @@ import { log } from '../utils/logger';
  * profile that is signed in, because Desktop and Documents are frequently
  * redirected into OneDrive and a path guessed here would miss them.
  */
-export type UserFolderKey = 'desktop' | 'documents' | 'pictures' | 'music' | 'videos';
+export type UserFolderKey = 'desktop' | 'documents' | 'pictures' | 'music' | 'videos' | 'downloads';
 
 export interface UserFolder {
   key: UserFolderKey;
@@ -15,7 +15,7 @@ export interface UserFolder {
   path: string;
 }
 
-const USER_FOLDER_KEYS: UserFolderKey[] = ['desktop', 'documents', 'pictures', 'music', 'videos'];
+const USER_FOLDER_KEYS: UserFolderKey[] = ['desktop', 'documents', 'pictures', 'music', 'videos', 'downloads'];
 
 function isUserFolder(value: unknown): value is UserFolder {
   if (!value || typeof value !== 'object') return false;

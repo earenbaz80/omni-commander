@@ -1596,6 +1596,27 @@ export default function App() {
             setModalData({ sendToDriveId: other.driveId, sendToPath: other.currentPath });
             setActiveModal('choose_folder');
           }}
+          // A folder is pinned by its absolute path, which is what the tree
+          // lists; a file has no entry there to pin.
+          isFavorite={
+            !!contextMenuState.targetItem?.isDirectory &&
+            (settings.favoriteFolders ?? []).includes(
+              `${contextMenuState.targetItem.path}\\${contextMenuState.targetItem.name}`,
+            )
+          }
+          onToggleFavorite={() => {
+            const item = contextMenuState.targetItem;
+            if (!item?.isDirectory) return;
+            const target = `${item.path}\\${item.name}`;
+            setSettings((s) => {
+              const current = s.favoriteFolders ?? [];
+              const next = current.includes(target)
+                ? current.filter((entry) => entry !== target)
+                : [...current, target];
+              return { ...s, favoriteFolders: next };
+            });
+            soundManager.playSuccess();
+          }}
         />
       )}
 
