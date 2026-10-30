@@ -34,6 +34,39 @@ interface SettingsModalProps {
 // Where a read-only token is created. The settings only ever need this page, so
 // it is the one the main process agrees to open.
 const UPDATE_TOKEN_PAGE = 'https://github.com/settings/personal-access-tokens/new';
+// Where a fine-grained token is renewed or regenerated, which is the list the
+// main process also accepts: the same page the create link lives under.
+const UPDATE_TOKEN_RENEW_PAGE = 'https://github.com/settings/personal-access-tokens';
+
+/** From here on the expiry is worth a warning rather than a quiet note. */
+const EXPIRY_WARNING_DAYS = 14;
+
+/**
+ * Whole days from today to the recorded date, or null when it is not a date.
+ * Counted between local midnights so "hoy" and "mañana" do not depend on the
+ * hour the settings happen to be open.
+ */
+function daysToExpiry(expiry: string, today: Date = new Date()): number | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(expiry);
+  if (!match) return null;
+  const target = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  if (Number.isNaN(target.getTime())) return null;
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.round((target.getTime() - start.getTime()) / 86_400_000);
+}
+
+/** The recorded date as written in this language; the raw value if unreadable. */
+function formatExpiry(expiry: string, lang: LanguageCode): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(expiry);
+  if (!match) return expiry;
+  try {
+    return new Intl.DateTimeFormat(lang, { day: '2-digit', month: '2-digit', year: 'numeric' }).format(
+      new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])),
+    );
+  } catch {
+    return expiry;
+  }
+}
 
 const LANGUAGES: { code: LanguageCode; label: string }[] = [
   { code: 'es', label: 'Español' },
@@ -671,6 +704,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
       : t.updateTokenConfigured
     : t.updateTokenMissing;
 
+  // The reminder needs a date, and a token does not carry one: it is the date
+  // GitHub showed when the value was created, recorded on this machine.
+  const tokenExpiryDate = update.tokenExpiresAt ? formatExpiry(update.tokenExpiresAt, lang) : null;
+  const tokenExpiryDays = update.tokenExpiresAt ? daysToExpiry(update.tokenExpiresAt) : null;
+  let tokenExpiryNote: { text: string; tone: string } | null = null;
+  if (update.tokenConfigured && tokenExpiryDate && tokenExpiryDays !== null) {
+    if (tokenExpiryDays < 0) {
+      tokenExpiryNote = { text: t.updateTokenExpired.replace('{date}', tokenExpiryDate), tone: 'text-rose-300' };
+    } else if (tokenExpiryDays <= EXPIRY_WARNING_DAYS) {
+      tokenExpiryNote = {
+        text: t.updateTokenExpiresSoon.replace('{date}', tokenExpiryDate).replace('{days}', String(tokenExpiryDays)),
+        tone: 'text-amber-300',
+      };
+    } else {
+      tokenExpiryNote = { text: t.updateTokenExpires.replace('{date}', tokenExpiryDate), tone: 'opacity-70' };
+    }
+  }
+
   const securityTabContent = (
     <div className="space-y-[var(--space-2)]">
       <SectionCard title={t.settingsSecurity}>
@@ -868,6 +919,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             <span className={update.tokenConfigured ? 'text-emerald-300' : 'text-amber-300'}>{tokenStatusText}</span>
             {tokenNote && <span className="opacity-70">{tokenNote}</span>}
           </div>
+
+          {/* A fine-grained token expires, and the check starts answering 401 the
+              day it does. The date is recorded here so the warning comes before
+              that, beside the link that renews it. */}
+          {update.tokenConfigured && (
+            <div className="flex flex-wrap items-center gap-[var(--space-2)] text-[var(--fs-8)]">
+              <label className="flex items-center gap-[var(--space-1)]">
+                <span className="opacity-70">{t.updateTokenExpiryLabel}</span>
+                <input
+                  type="date"
+                  aria-label={t.updateTokenExpiryLabel}
+                  value={update.tokenExpiresAt ?? ''}
+                  onChange={(e) => {
+                    void update.setTokenExpiry(e.target.value || null);
+                  }}
+                  className="px-[var(--space-1)] py-[2px] bg-black/70 border border-white/20 rounded text-[var(--fs-8)] text-white font-mono"
+                />
+              </label>
+              <span className={tokenExpiryNote ? tokenExpiryNote.tone : 'opacity-60'}>
+                {tokenExpiryNote ? tokenExpiryNote.text : t.updateTokenExpiryHint}
+              </span>
+              <a
+                href={UPDATE_TOKEN_RENEW_PAGE}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(event) => {
+                  if (update.openExternal) {
+                    event.preventDefault();
+                    update.openExternal(UPDATE_TOKEN_RENEW_PAGE);
+                  }
+                }}
+                className="underline text-sky-300 hover:text-sky-100"
+              >
+                {t.updateTokenRenewLink}
+              </a>
+            </div>
+          )}
         </SectionCard>
       )}
     </div>
