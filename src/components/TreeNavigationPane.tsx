@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Folder,
   FolderOpen,
@@ -18,6 +18,12 @@ import { soundManager } from '../services/soundEffects';
 import { getTranslations, tGlobal, type TranslationKey } from '../i18n/translations';
 import { loadUserFolders, UserFolder, UserFolderKey } from '../services/userFolders';
 import { log } from '../utils/logger';
+
+/**
+ * Shared empty list. A `= []` default would hand the component a new array on
+ * every render, which restarts the existence check below forever.
+ */
+const NO_FOLDERS: string[] = [];
 
 /** Windows calls these libraries; the tree labels them in the user's language. */
 const LIBRARY_LABEL_KEYS: Record<UserFolderKey, TranslationKey> = {
@@ -49,6 +55,8 @@ interface TreeNavigationPaneProps {
   virtualPath?: string; // Current path inside the archive (relative to archive root)
   /** Folders the user pinned from the context menu, as absolute paths. */
   favoriteFolders?: string[];
+  /** Pinned folders whose folder no longer exists, so the caller can forget them. */
+  onMissingFavorites?: (paths: string[]) => void;
 }
 
 interface TreeNodeItemProps {
@@ -255,8 +263,10 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
   onDropItems,
   archiveRoot,
   virtualPath,
-  favoriteFolders = [],
+  favoriteFolders,
+  onMissingFavorites,
 }) => {
+  const pinnedFolders = favoriteFolders ?? NO_FOLDERS;
   const t = getTranslations(lang);
   // Both lists are short and the first thing in the pane, so they start open.
   const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({
@@ -264,11 +274,22 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
     FAVORITES: true,
   });
   const [userFolders, setUserFolders] = useState<UserFolder[]>([]);
+  const [goneFavorites, setGoneFavorites] = useState<string[]>([]);
+  // Held in a ref so an inline callback from the caller cannot restart the
+  // check on every render, which would ask the server in a loop.
+  const missingFavoritesRef = useRef(onMissingFavorites);
+  missingFavoritesRef.current = onMissingFavorites;
 
   const [searchFilter, setSearchFilter] = useState('');
 
   // Resolved by the server against the signed-in profile, because Desktop and
   // Documents are often redirected into OneDrive.
+  //
+  // The pane can mount before the local server is listening, and a failure is
+  // deliberately not cached, so the arrival of the drive list — the same server
+  // answering — is the signal to ask again. Without it a window opened early
+  // stayed without libraries for the whole session.
+  const serverAnswered = drives.length > 0;
   useEffect(() => {
     let alive = true;
     void loadUserFolders().then((folders) => {
@@ -277,7 +298,7 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
     return () => {
       alive = false;
     };
-  }, []);
+  }, [serverAnswered]);
 
   const toggleExpand = (path: string) => {
     setExpandedPaths((prev) => ({ ...prev, [path]: !prev[path] }));
@@ -300,10 +321,40 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
       .filter((entry): entry is UserFolder & { driveId: string } => entry !== null);
   }, [userFolders, drives]);
 
+  // A favourite is checked against the disk so a folder deleted outside the app
+  // disappears instead of failing when clicked. Only mounted drives are asked
+  // about: an unplugged one must keep its favourite, and a server that cannot
+  // answer must not prune anything.
+  useEffect(() => {
+    let alive = true;
+    const mounted = pinnedFolders.filter((folderPath) =>
+      drives.some((d) => d.isMounted && d.letter.toUpperCase() === folderPath.slice(0, 2).toUpperCase()),
+    );
+    if (mounted.length === 0) {
+      // React bails out on an unchanged state, so this cannot loop.
+      setGoneFavorites((previous) => (previous.length === 0 ? previous : []));
+      return;
+    }
+    void fsEngine.missingFolders(mounted).then((missing) => {
+      if (!alive || !missing) return;
+      setGoneFavorites((previous) =>
+        previous.length === missing.length && previous.every((entry, index) => entry === missing[index])
+          ? previous
+          : missing,
+      );
+      if (missing.length > 0) missingFavoritesRef.current?.(missing);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [pinnedFolders, drives]);
+
   // A pinned folder is listed by the same rules as a library: it needs a mounted
   // drive, because the tree reads listings by drive id.
   const favorites = React.useMemo(() => {
-    return favoriteFolders
+    const gone = new Set(goneFavorites.map((entry) => entry.toLowerCase()));
+    return pinnedFolders
+      .filter((folderPath) => !gone.has(folderPath.toLowerCase()))
       .map((folderPath) => {
         const letter = folderPath.slice(0, 2).toUpperCase();
         const drive = drives.find((d) => d.isMounted && d.letter.toUpperCase() === letter);
@@ -312,7 +363,7 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
         return { path: folderPath, name, driveId: drive.id };
       })
       .filter((entry): entry is { path: string; name: string; driveId: string } => entry !== null);
-  }, [favoriteFolders, drives]);
+  }, [pinnedFolders, drives, goneFavorites]);
 
   // Get virtual archive folders when inside an archive
   const virtualFolders = React.useMemo(() => {

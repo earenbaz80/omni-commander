@@ -44,6 +44,8 @@ interface PanelViewProps {
     operation: 'copy' | 'move',
   ) => void;
   onDropNativeFiles?: (files: globalThis.FileList, targetPath: string, targetDriveId: string) => void;
+  /** Pinned folders the tree found deleted, so the app can forget them. */
+  onMissingFavorites?: (paths: string[]) => void;
   onNavigate: (path: string) => void;
   onSelectDrive: (driveId: string) => void;
   onSelectTab: (tabId: string) => void;
@@ -94,6 +96,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
   onToggleTree,
   onDropItems,
   onDropNativeFiles,
+  onMissingFavorites,
   onNavigate,
   onSelectDrive,
   onSelectTab,
@@ -151,6 +154,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
             onClose={() => setPanel((p) => ({ ...p, isTreeVisible: false }))}
             onDropItems={onDropItems}
             favoriteFolders={settings.favoriteFolders ?? []}
+            onMissingFavorites={onMissingFavorites}
             // Virtual archive navigation
             archiveRoot={tab.archiveRoot}
             virtualPath={tab.virtualPath}
