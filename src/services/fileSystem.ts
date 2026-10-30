@@ -583,6 +583,23 @@ class FileSystemEngine {
    */
   private lastCallError = '';
 
+  /**
+   * Which of these absolute folders still exist. The tree pins folders by path,
+   * so a folder deleted outside the app has to be noticed rather than clicked.
+   *
+   * Resolves null when the server could not answer at all, and leaves the paths
+   * it refused to judge out of `missing`: a caller must never prune a favourite
+   * over a failed request or a permissions error.
+   */
+  public async missingFolders(paths: string[]): Promise<string[] | null> {
+    if (paths.length === 0) return [];
+    const answer = await this.callServerFs<{ existing?: string[]; unchecked?: string[] }>('exists', { paths });
+    if (!answer || !Array.isArray(answer.existing)) return null;
+    const existing = new Set(answer.existing.map((entry) => entry.toLowerCase()));
+    const unchecked = new Set((answer.unchecked ?? []).map((entry) => entry.toLowerCase()));
+    return paths.filter((entry) => !existing.has(entry.toLowerCase()) && !unchecked.has(entry.toLowerCase()));
+  }
+
   private async callServerFs<T>(route: string, body: unknown): Promise<T | null> {
     this.lastCallError = '';
     try {

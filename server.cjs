@@ -2369,6 +2369,35 @@ function registerFsRoutes() {
     }
   });
 
+  // Which of these folders still exist. The tree pins folders by path and has to
+  // forget the ones deleted outside the app; a path that cannot be checked is
+  // left out of the answer rather than reported as gone, so a permissions error
+  // never prunes a favourite.
+  app.post('/api/fs/exists', async (req, res) => {
+    try {
+      const body = req.body || {};
+      const requested = Array.isArray(body.paths) ? body.paths.slice(0, 200) : [];
+      const existing = [];
+      const unchecked = [];
+      for (const value of requested) {
+        let candidate = '';
+        try {
+          candidate = assertSafePath(String(value || ''));
+        } catch {
+          // A path the server cannot even accept is reported separately, never as
+          // deleted: the caller keeps what it could not verify.
+          unchecked.push(String(value || ''));
+          continue;
+        }
+        const stat = await fs.promises.stat(candidate).catch(() => null);
+        if (stat && stat.isDirectory()) existing.push(candidate);
+      }
+      res.json({ existing, unchecked });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
   app.post('/api/fs/rename', async (req, res) => {
     try {
       const body = req.body || {};

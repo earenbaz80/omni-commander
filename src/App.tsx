@@ -418,6 +418,24 @@ export default function App() {
     openTransferModal('delete');
   };
 
+  /**
+   * Forgets pinned folders the tree found deleted on disk. Called from the tree,
+   * so it stays stable: an inline handler would restart the tree's existence
+   * check on every render.
+   */
+  const handleMissingFavorites = useCallback(
+    (missing: string[]) => {
+      if (missing.length === 0) return;
+      const gone = new Set(missing.map((entry) => entry.toLowerCase()));
+      setSettings((current) => {
+        const pinned = current.favoriteFolders ?? [];
+        const kept = pinned.filter((entry) => !gone.has(entry.toLowerCase()));
+        return kept.length === pinned.length ? current : { ...current, favoriteFolders: kept };
+      });
+    },
+    [setSettings],
+  );
+
   // Keyboard navigation engine
   useKeyboardShortcuts({
     activePanel,
@@ -1286,6 +1304,7 @@ export default function App() {
           activePanel={activePanel}
           setActivePanel={setActivePanel}
           onRefresh={handleLeftRefresh}
+          onMissingFavorites={handleMissingFavorites}
           quickSearchQuery={quickSearchQuery}
           drives={drives}
           panel={leftPanel}
@@ -1357,6 +1376,7 @@ export default function App() {
           activePanel={activePanel}
           setActivePanel={setActivePanel}
           onRefresh={handleRightRefresh}
+          onMissingFavorites={handleMissingFavorites}
           quickSearchQuery={quickSearchQuery}
           drives={drives}
           panel={rightPanel}
