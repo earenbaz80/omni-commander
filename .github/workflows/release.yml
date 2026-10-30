@@ -105,13 +105,29 @@ jobs:
 
       - name: Build Electron app
         run: npm run build:electron
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & Publish
-        run: npx electron-builder --win --publish always
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Publishing here used to open a *draft* for the tag. Drafts are invisible
+      # to the "release by tag" lookup the upload step uses, so that step found
+      # no release, created a second one for the same tag, and every installer
+      # stayed behind in the draft. electron-builder now only writes files, and
+      # one step publishes them all into a single release.
+      - name: Package Windows artifacts
+        run: npx electron-builder --win --publish never
+
+      # The tag is not trusted for the file names: the package version is what
+      # electron-builder names the artifacts after, so both must agree.
+      - name: Read package version
+        id: version
+        shell: bash
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Check the tag matches the package version
+        shell: bash
+        run: |
+          if [ "v${{ steps.version.outputs.version }}" != "${{ github.ref_name }}" ]; then
+            echo "::error::Tag ${{ github.ref_name }} does not match package.json version ${{ steps.version.outputs.version }}"
+            exit 1
+          fi
 
       - name: Compress release artifacts
         run: |
@@ -121,10 +137,17 @@ jobs:
           Compress-Archive -Path "OmniCommander Pro Setup $version.exe" -DestinationPath "OmniCommander Pro Setup $version.zip" -Force
         shell: pwsh
 
-      - name: Upload compressed artifacts
+      # `latest.yml` and the block map are what the app's updater reads, so they
+      # are published next to the binaries they describe.
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
+          name: ${{ steps.version.outputs.version }}
+          draft: false
           files: |
+            release/*.exe
+            release/*.blockmap
+            release/latest.yml
             release/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
