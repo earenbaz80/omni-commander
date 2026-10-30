@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
 const { isAllowedNavigationUrl } = require('./navigationGuard.cjs');
-const { resolveUpdateFeed } = require('./updateFeed.cjs');
+const { resolveUpdateFeed, normalizeToken } = require('./updateFeed.cjs');
 
 // Per-launch session token. It is the shared secret between this process, the
 // embedded API server and the renderer: every mutating request, and every GET
@@ -74,9 +74,14 @@ let updateState = {
   version: null,
   percent: 0,
   error: null,
+  // Whether the updater exists at all: development builds and the portable one
+  // have no installed copy to replace, so the interface hides the controls
+  // instead of offering something that cannot work.
+  enabled: false,
   // Whether a credential was found is reported; the credential itself never
   // crosses the IPC boundary or reaches a log.
   tokenConfigured: false,
+  tokenSource: null,
   tokenPath: null,
 };
 let updater = null;
@@ -98,6 +103,56 @@ function setUpdateState(patch) {
 /** Only the window that hosts the app may drive the updater. */
 function isFromAppWindow(event) {
   return !!mainWindow && !mainWindow.isDestroyed() && event.sender === mainWindow.webContents;
+}
+
+/** Where a token saved from the interface is kept. */
+function updateTokenPath() {
+  return path.join(app.getPath('userData'), 'update-token');
+}
+
+/**
+ * Applies the feed -- target and credential -- to the live updater. Called at
+ * start and again whenever the token changes, because `setFeedURL` replaces the
+ * provider: saving a token in the settings applies it without a restart.
+ */
+function configureUpdateFeed() {
+  if (!updater) return false;
+  const tokenPath = updateTokenPath();
+  let feed = null;
+  try {
+    feed = resolveUpdateFeed({
+      appUpdateConfigPath: path.join(process.resourcesPath, 'app-update.yml'),
+      env: process.env,
+      tokenPath,
+      readFile: (file) => fs.readFileSync(file, 'utf8'),
+    });
+    if (feed.options) updater.setFeedURL(feed.options);
+  } catch (error) {
+    // A provider the library rejects leaves the updater on whatever
+    // `app-update.yml` says. That is a quieter app, not a broken one.
+    console.error('Update feed unavailable:', error);
+  }
+  updateState = {
+    ...updateState,
+    tokenConfigured: feed?.token != null,
+    tokenSource: feed?.tokenSource ?? null,
+    tokenPath,
+  };
+  return updateState.tokenConfigured;
+}
+
+/**
+ * Starts a check without letting it escape: rejections arrive through the error
+ * event, and a failure thrown before the provider exists never becomes a
+ * rejection, so both are handled here.
+ */
+function checkNow() {
+  if (!updater) return;
+  try {
+    updater.checkForUpdates()?.catch(() => {});
+  } catch (error) {
+    setUpdateState({ status: 'error', error: String(error?.message ?? error) });
+  }
 }
 
 function setupUpdater() {
@@ -125,22 +180,8 @@ function setupUpdater() {
   // that electron-builder wrote into the package, and the token -- the user's,
   // never bundled -- from the machine. `setFeedURL` builds the provider
   // immediately, so this must happen before the first check.
-  const tokenPath = path.join(app.getPath('userData'), 'update-token');
-  let feed = null;
-  try {
-    feed = resolveUpdateFeed({
-      appUpdateConfigPath: path.join(process.resourcesPath, 'app-update.yml'),
-      env: process.env,
-      tokenPath,
-      readFile: (file) => fs.readFileSync(file, 'utf8'),
-    });
-    if (feed.options) autoUpdater.setFeedURL(feed.options);
-  } catch (error) {
-    // A provider the library rejects leaves the updater on whatever
-    // `app-update.yml` says. That is a quieter app, not a broken one.
-    console.error('Update feed unavailable:', error);
-  }
-  updateState = { ...updateState, tokenConfigured: feed?.token != null, tokenPath };
+  updater = autoUpdater;
+  configureUpdateFeed();
 
   autoUpdater.on('checking-for-update', () => setUpdateState({ status: 'checking', error: null }));
   autoUpdater.on('update-available', (info) =>
@@ -162,24 +203,15 @@ function setupUpdater() {
     setUpdateState({ status: 'error', error: String(error?.message ?? error) });
   });
 
-  updater = autoUpdater;
-
-  const check = () => {
-    // Rejections already arrive through the error event above; swallowing them
-    // here keeps an offline start from logging an unhandled rejection. A failure
-    // thrown before the provider exists never becomes a rejection, and a timer
-    // that throws would take the whole process down, so it is caught too.
-    try {
-      updater.checkForUpdates()?.catch(() => {});
-    } catch (error) {
-      setUpdateState({ status: 'error', error: String(error?.message ?? error) });
-    }
-  };
-  const firstCheck = setTimeout(check, UPDATE_FIRST_CHECK_DELAY_MS);
-  const periodicCheck = setInterval(check, UPDATE_CHECK_INTERVAL_MS);
+  const firstCheck = setTimeout(checkNow, UPDATE_FIRST_CHECK_DELAY_MS);
+  const periodicCheck = setInterval(checkNow, UPDATE_CHECK_INTERVAL_MS);
   // Neither timer may keep the process alive on its own.
   firstCheck.unref?.();
   periodicCheck.unref?.();
+
+  // Only now can the interface offer anything: the updater is wired and the
+  // feed is applied.
+  setUpdateState({ enabled: true });
 }
 
 // ---------------------------------------------------------------------------
@@ -456,6 +488,46 @@ ipcMain.handle('update:check', async (event) => {
   } catch (error) {
     setUpdateState({ status: 'error', error: String(error?.message ?? error) });
   }
+  return updateState;
+});
+
+// Saving a token from the settings writes the same file the start-up reads, so
+// the value lives on the machine and not in the renderer's storage. Only a
+// usable value is written, and the reply says whether it was accepted without
+// ever echoing it back.
+ipcMain.handle('update:token', (event, raw) => {
+  if (!isFromAppWindow(event) || !updater) return { ...updateState, accepted: false };
+
+  const token = normalizeToken(raw);
+  if (!token) return { ...updateState, accepted: false };
+
+  try {
+    const tokenPath = updateTokenPath();
+    fs.mkdirSync(path.dirname(tokenPath), { recursive: true });
+    fs.writeFileSync(tokenPath, `${token}\n`, { mode: 0o600 });
+  } catch (error) {
+    // The value is never part of the message: a failed write must not leave the
+    // credential in a log.
+    console.error('Update token could not be saved:', error?.message ?? error);
+    return { ...updateState, accepted: false };
+  }
+
+  configureUpdateFeed();
+  setUpdateState({ status: 'idle', error: null });
+  // The point of saving it is to stop failing: check right away.
+  checkNow();
+  return { ...updateState, accepted: true };
+});
+
+ipcMain.handle('update:token-clear', (event) => {
+  if (!isFromAppWindow(event) || !updater) return updateState;
+  try {
+    fs.rmSync(updateTokenPath(), { force: true });
+  } catch (error) {
+    console.error('Update token could not be removed:', error?.message ?? error);
+  }
+  configureUpdateFeed();
+  setUpdateState({ status: 'idle', error: null });
   return updateState;
 });
 

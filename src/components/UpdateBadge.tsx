@@ -17,7 +17,9 @@ export const UpdateBadge: React.FC<{ lang: LanguageCode }> = ({ lang }) => {
   const t = getTranslations(lang);
   const update = useAppUpdate();
 
-  if (!update.supported) return null;
+  // No updater here (development, the web build, the portable package), so no
+  // notice either.
+  if (!update.enabled) return null;
 
   const chip =
     'flex items-center gap-[var(--space-1)] px-[var(--space-2)] py-[var(--space-1)] text-[10px] font-bold rounded transition-colors';

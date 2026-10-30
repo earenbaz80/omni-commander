@@ -8,8 +8,12 @@ export interface AppUpdateSnapshot {
   version: string | null;
   percent: number;
   error: string | null;
+  /** Whether the updater exists here at all (not in development or portable). */
+  enabled: boolean;
   /** Whether the main process found a credential for the private repository. */
   tokenConfigured: boolean;
+  /** Which source supplied it, so the settings can say which one is in force. */
+  tokenSource: 'env' | 'file' | null;
   /** Where that credential is expected to be, so the interface can say it. */
   tokenPath: string | null;
 }
@@ -19,7 +23,9 @@ export const IDLE_UPDATE: AppUpdateSnapshot = {
   version: null,
   percent: 0,
   error: null,
+  enabled: false,
   tokenConfigured: false,
+  tokenSource: null,
   tokenPath: null,
 };
 
@@ -39,6 +45,8 @@ interface UpdateBridge {
   downloadUpdate?: () => Promise<unknown>;
   installUpdate?: () => Promise<unknown>;
   onUpdateState?: (callback: (snapshot: unknown) => void) => (() => void) | void;
+  setUpdateToken?: (token: string) => Promise<unknown>;
+  clearUpdateToken?: () => Promise<unknown>;
 }
 
 function bridge(): UpdateBridge | undefined {
@@ -61,7 +69,9 @@ export function normalizeUpdateSnapshot(value: unknown): AppUpdateSnapshot {
     version: typeof source.version === 'string' && source.version.length > 0 ? source.version : null,
     percent: Number.isFinite(rawPercent) ? Math.min(100, Math.max(0, Math.round(rawPercent))) : 0,
     error: typeof source.error === 'string' && source.error.length > 0 ? source.error : null,
+    enabled: source.enabled === true,
     tokenConfigured: source.tokenConfigured === true,
+    tokenSource: source.tokenSource === 'env' || source.tokenSource === 'file' ? source.tokenSource : null,
     tokenPath: typeof source.tokenPath === 'string' && source.tokenPath.length > 0 ? source.tokenPath : null,
   };
 }
@@ -72,6 +82,9 @@ export interface AppUpdate extends AppUpdateSnapshot {
   check: () => void;
   download: () => void;
   install: () => void;
+  /** Stores a token on the machine; true when the main process accepted it. */
+  setToken: (token: string) => Promise<boolean>;
+  clearToken: () => Promise<void>;
 }
 
 /**
@@ -125,5 +138,31 @@ export function useAppUpdate(): AppUpdate {
     void api?.installUpdate?.()?.catch(() => {});
   }, [api]);
 
-  return { ...snapshot, supported, check, download, install };
+  // The reply carries the new snapshot plus whether the value was accepted: the
+  // token itself is never sent back, so it cannot end up in a component state
+  // that a screenshot or a devtools panel would show.
+  const setToken = useCallback(
+    async (token: string) => {
+      if (!api?.setUpdateToken) return false;
+      try {
+        const { accepted, ...state } = (await api.setUpdateToken(token)) as Record<string, unknown>;
+        setSnapshot(normalizeUpdateSnapshot(state));
+        return accepted === true;
+      } catch {
+        return false;
+      }
+    },
+    [api],
+  );
+
+  const clearToken = useCallback(async () => {
+    if (!api?.clearUpdateToken) return;
+    try {
+      setSnapshot(normalizeUpdateSnapshot(await api.clearUpdateToken()));
+    } catch {
+      /* the previous state stays on screen, which is true enough */
+    }
+  }, [api]);
+
+  return { ...snapshot, supported, check, download, install, setToken, clearToken };
 }

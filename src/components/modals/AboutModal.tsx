@@ -94,9 +94,9 @@ export const AboutModal: React.FC<AboutModalProps> = ({ theme, lang, authorName,
             <span className="text-slate-200">{t.aboutEngineValue}</span>
           </div>
 
-          {/* Outside Electron (the web build) there is nothing that could update,
-              so the row is absent rather than permanently unavailable. */}
-          {update.supported && (
+          {/* Without an updater (web build, development, portable package) there
+              is nothing to check, so the row is absent rather than dead. */}
+          {update.enabled && (
             <div className="flex items-center justify-between gap-[var(--space-2)]">
               <span className="flex items-center gap-[var(--space-2)] opacity-70">
                 <RefreshCw className="w-3.5 h-3.5 text-sky-400" /> {t.updateCheck}
@@ -116,7 +116,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ theme, lang, authorName,
 
           {/* A failed check without a credential is the private-repository case,
               and the only thing the user can act on is where the token goes. */}
-          {update.supported && update.status === 'error' && !update.tokenConfigured && update.tokenPath && (
+          {update.enabled && update.status === 'error' && !update.tokenConfigured && update.tokenPath && (
             <p className="text-[10px] leading-relaxed text-amber-300/90 break-all">
               {t.updateTokenHint.replace('{path}', update.tokenPath)}
             </p>

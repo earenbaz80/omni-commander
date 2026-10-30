@@ -27,7 +27,7 @@ afterEach(() => {
 
 describe('UpdateBadge', () => {
   it('no se ve mientras no haya nada que decidir', async () => {
-    const bridge = installBridge({ status: 'up-to-date', version: null, percent: 0, error: null });
+    const bridge = installBridge({ status: 'up-to-date', version: null, percent: 0, error: null, enabled: true });
     const { container } = render(<UpdateBadge lang="es" />);
 
     await waitFor(() => expect(bridge.getUpdateState).toHaveBeenCalled());
@@ -35,7 +35,7 @@ describe('UpdateBadge', () => {
   });
 
   it('con una versión disponible muestra el número y descarga al pulsar', async () => {
-    const bridge = installBridge({ status: 'available', version: '1.0.9', percent: 0, error: null });
+    const bridge = installBridge({ status: 'available', version: '1.0.9', percent: 0, error: null, enabled: true });
     render(<UpdateBadge lang="es" />);
 
     const chip = await screen.findByTitle('Versión 1.0.9 disponible');
@@ -45,7 +45,7 @@ describe('UpdateBadge', () => {
   });
 
   it('muestra el avance de la descarga sin ofrecer botones', async () => {
-    installBridge({ status: 'downloading', version: '1.0.9', percent: 42, error: null });
+    installBridge({ status: 'downloading', version: '1.0.9', percent: 42, error: null, enabled: true });
     render(<UpdateBadge lang="es" />);
 
     expect(await screen.findByText('Descargando 42%')).toBeTruthy();
@@ -53,7 +53,7 @@ describe('UpdateBadge', () => {
   });
 
   it('cuando la descarga termina, ofrece reiniciar e instalar', async () => {
-    const bridge = installBridge({ status: 'downloaded', version: '1.0.9', percent: 100, error: null });
+    const bridge = installBridge({ status: 'downloaded', version: '1.0.9', percent: 100, error: null, enabled: true });
     render(<UpdateBadge lang="es" />);
 
     const restart = await screen.findByTitle('Reiniciar e instalar');
