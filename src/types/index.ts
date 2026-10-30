@@ -307,6 +307,11 @@ export interface UserSettings {
   protectedFolders: Record<string, FolderPasswordRecord>;
   customShortcuts: Record<string, string>;
   useRecycleBin: boolean;
+  /**
+   * Absolute folders pinned by the user. The tree lists them above the Windows
+   * libraries, so the folders someone opens every day are one click away.
+   */
+  favoriteFolders?: string[];
   /** Last folder a "Enviar a" copy landed in, so the picker reopens there. */
   sendToLastFolder?: string;
 }

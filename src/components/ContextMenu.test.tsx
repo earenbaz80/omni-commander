@@ -88,6 +88,36 @@ describe('ContextMenu on a selected item', () => {
     expect(onSendToFolder).toHaveBeenCalledTimes(1);
   });
 
+  /**
+   * Pinning is a property of a folder: the tree lists folders, so a file has
+   * nothing to pin and must not be offered the command.
+   */
+  it('pins the folder it was opened on', () => {
+    const onToggleFavorite = vi.fn();
+    render(<ContextMenu {...buildProps(folder)} onToggleFavorite={onToggleFavorite} />);
+
+    fireEvent.click(screen.getByText('Añadir a favoritos'));
+
+    expect(onToggleFavorite).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers the opposite command once the folder is already pinned', () => {
+    const onToggleFavorite = vi.fn();
+    render(<ContextMenu {...buildProps(folder)} onToggleFavorite={onToggleFavorite} isFavorite={true} />);
+
+    expect(screen.queryByText('Añadir a favoritos')).toBeNull();
+    fireEvent.click(screen.getByText('Quitar de favoritos'));
+
+    expect(onToggleFavorite).toHaveBeenCalledTimes(1);
+  });
+
+  it('never offers pinning for a file', () => {
+    render(<ContextMenu {...buildProps(file)} onToggleFavorite={vi.fn()} />);
+
+    expect(screen.queryByText('Añadir a favoritos')).toBeNull();
+    expect(screen.queryByText('Quitar de favoritos')).toBeNull();
+  });
+
   it('offers creating a folder and a file from an item too', () => {
     const props = buildProps(folder);
     render(<ContextMenu {...props} />);

@@ -150,6 +150,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
             onSelectDrive={onSelectDrive}
             onClose={() => setPanel((p) => ({ ...p, isTreeVisible: false }))}
             onDropItems={onDropItems}
+            favoriteFolders={settings.favoriteFolders ?? []}
             // Virtual archive navigation
             archiveRoot={tab.archiveRoot}
             virtualPath={tab.virtualPath}

@@ -15,6 +15,7 @@ import {
   Upload,
   RefreshCw,
   Lock,
+  Star,
 } from 'lucide-react';
 import { FileItem, LanguageCode } from '../types';
 import { ThemeConfig } from '../services/themeManager';
@@ -46,6 +47,10 @@ interface ContextMenuProps {
   onProtectFolder: () => void;
   onSplitFile?: () => void;
   onArchiveInfo?: (item: FileItem) => void;
+  /** Pins the target folder to the tree, or unpins it when it is already there. */
+  onToggleFavorite?: () => void;
+  /** Whether the target folder is already pinned, which decides the label. */
+  isFavorite?: boolean;
   /** Sends the target to one of the user's folders (desktop: shortcut, rest: copy). */
   onSendTo?: (destination: SendToDestination) => void;
   /** Opens the folder picker, starting on the other panel. */
@@ -90,6 +95,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onArchiveInfo,
   onSendTo,
   onSendToFolder,
+  onToggleFavorite,
+  isFavorite = false,
   canSendTo = false,
 }) => {
   const t = getTranslations(lang);
@@ -384,6 +391,22 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             </span>
             <span className="opacity-60">Alt+Enter</span>
           </MenuItem>
+
+          {targetItem.isDirectory && onToggleFavorite && (
+            <>
+              <div role="separator" className="h-px bg-current opacity-20 my-[var(--space-1)]" />
+              <MenuItem
+                onClick={() => handleAction(onToggleFavorite)}
+                className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-yellow-500/20 text-yellow-200 flex items-center justify-between cursor-pointer"
+              >
+                <span className="flex items-center gap-[var(--space-2)]">
+                  <Star className={`w-3.5 h-3.5 text-yellow-300 ${isFavorite ? 'fill-current' : ''}`} />
+                  {isFavorite ? t.removeFavorite : t.addFavorite}
+                </span>
+                <span className="opacity-60">★</span>
+              </MenuItem>
+            </>
+          )}
 
           {targetItem.isDirectory && (
             <>

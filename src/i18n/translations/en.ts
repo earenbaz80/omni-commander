@@ -209,6 +209,10 @@ export const en = {
   libraryPictures: 'Pictures',
   libraryMusic: 'Music',
   libraryVideos: 'Videos',
+  libraryDownloads: 'Downloads',
+  favorites: 'Favorites',
+  addFavorite: 'Add to favorites',
+  removeFavorite: 'Remove from favorites',
 
   // Extended UI (modals)
   appLockTitle: 'OmniCommander Pro - Security Lock',

@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Folder, FolderOpen, ChevronRight, ChevronDown, HardDrive, Library, X, Search, FolderTree } from 'lucide-react';
+import {
+  Folder,
+  FolderOpen,
+  ChevronRight,
+  ChevronDown,
+  HardDrive,
+  Library,
+  X,
+  Search,
+  FolderTree,
+  Star,
+} from 'lucide-react';
 import { ThemeConfig } from '../services/themeManager';
 import { Drive, FileItem, LanguageCode } from '../types';
 import { fsEngine } from '../services/fileSystem';
@@ -15,6 +26,7 @@ const LIBRARY_LABEL_KEYS: Record<UserFolderKey, TranslationKey> = {
   pictures: 'libraryPictures',
   music: 'libraryMusic',
   videos: 'libraryVideos',
+  downloads: 'libraryDownloads',
 };
 
 interface TreeNavigationPaneProps {
@@ -35,6 +47,8 @@ interface TreeNavigationPaneProps {
   // Virtual archive navigation
   archiveRoot?: string; // Absolute path of the archive file on disk
   virtualPath?: string; // Current path inside the archive (relative to archive root)
+  /** Folders the user pinned from the context menu, as absolute paths. */
+  favoriteFolders?: string[];
 }
 
 interface TreeNodeItemProps {
@@ -241,10 +255,14 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
   onDropItems,
   archiveRoot,
   virtualPath,
+  favoriteFolders = [],
 }) => {
   const t = getTranslations(lang);
-  // The libraries are the first thing in the pane, so the section starts open.
-  const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({ LIBRARIES: true });
+  // Both lists are short and the first thing in the pane, so they start open.
+  const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({
+    LIBRARIES: true,
+    FAVORITES: true,
+  });
   const [userFolders, setUserFolders] = useState<UserFolder[]>([]);
 
   const [searchFilter, setSearchFilter] = useState('');
@@ -281,6 +299,20 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
       })
       .filter((entry): entry is UserFolder & { driveId: string } => entry !== null);
   }, [userFolders, drives]);
+
+  // A pinned folder is listed by the same rules as a library: it needs a mounted
+  // drive, because the tree reads listings by drive id.
+  const favorites = React.useMemo(() => {
+    return favoriteFolders
+      .map((folderPath) => {
+        const letter = folderPath.slice(0, 2).toUpperCase();
+        const drive = drives.find((d) => d.isMounted && d.letter.toUpperCase() === letter);
+        if (!drive) return null;
+        const name = folderPath.split('\\').filter(Boolean).pop() || folderPath;
+        return { path: folderPath, name, driveId: drive.id };
+      })
+      .filter((entry): entry is { path: string; name: string; driveId: string } => entry !== null);
+  }, [favoriteFolders, drives]);
 
   // Get virtual archive folders when inside an archive
   const virtualFolders = React.useMemo(() => {
@@ -344,6 +376,47 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
 
       {/* Scrollable Tree View Content */}
       <div className="flex-1 overflow-y-auto p-[var(--space-2)] space-y-[var(--space-3)]">
+        {/* Section 0: Folders the user pinned from the context menu */}
+        {favorites.length > 0 && (
+          <div className="space-y-[var(--space-1)]">
+            <div
+              className="flex items-center justify-between font-bold text-[10px] uppercase text-yellow-300 opacity-90 cursor-pointer hover:opacity-100 px-[var(--space-1)]"
+              onClick={() => toggleExpand('FAVORITES')}
+            >
+              <div className="flex items-center gap-[var(--space-1)]">
+                {expandedPaths['FAVORITES'] ? (
+                  <ChevronDown className="w-3 h-3" />
+                ) : (
+                  <ChevronRight className="w-3 h-3" />
+                )}
+                <span>{t.favorites}</span>
+              </div>
+              <Star className="w-3 h-3 opacity-60" />
+            </div>
+
+            {expandedPaths['FAVORITES'] && (
+              <div className="space-y-0.5 pt-0.5">
+                {favorites.map((favorite) => (
+                  <TreeNodeItem
+                    key={favorite.path}
+                    theme={theme}
+                    driveId={favorite.driveId}
+                    dirPath={favorite.path}
+                    dirName={favorite.name}
+                    depth={0}
+                    currentPath={currentPath}
+                    expandedPaths={expandedPaths}
+                    onToggleExpand={toggleExpand}
+                    onSelectNode={handleSelectNode}
+                    onDropItems={onDropItems}
+                    searchFilter={searchFilter}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Section 1: Main Libraries / Shortcuts */}
         <div className="space-y-[var(--space-1)]">
           <div

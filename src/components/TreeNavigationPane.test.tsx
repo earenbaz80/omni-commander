@@ -54,7 +54,7 @@ const listings: Record<string, FileItem[]> = {
   [desktopPath]: [folder('proyectos', `${desktopPath}\\proyectos`, 'real_C')],
 };
 
-const renderPane = () => {
+const renderPane = (props: Partial<React.ComponentProps<typeof TreeNavigationPane>> = {}) => {
   const onNavigate = vi.fn();
   const onSelectDrive = vi.fn();
   vi.spyOn(fsEngine, 'getFiles').mockImplementation((_driveId, path) => listings[path] ?? []);
@@ -67,6 +67,7 @@ const renderPane = () => {
       currentDriveId="real_C"
       onNavigate={onNavigate}
       onSelectDrive={onSelectDrive}
+      {...props}
     />,
   );
   return { onNavigate, onSelectDrive };
@@ -104,6 +105,40 @@ describe('TreeNavigationPane libraries', () => {
 
     expect(onSelectDrive).toHaveBeenCalledWith('real_C');
     expect(onNavigate).toHaveBeenCalledWith(documentsPath);
+  });
+});
+
+describe('TreeNavigationPane favorites', () => {
+  const projects = 'C:\\Users\\ana\\proyectos';
+
+  it('lists a pinned folder above the libraries, by its last segment', async () => {
+    renderPane({ favoriteFolders: [projects] });
+
+    expect(await screen.findByText('Favoritos')).toBeTruthy();
+    expect(screen.getByText('proyectos')).toBeTruthy();
+  });
+
+  it('shows no favorites section at all when nothing is pinned', async () => {
+    renderPane({ favoriteFolders: [] });
+
+    await screen.findByText('Escritorio');
+    expect(screen.queryByText('Favoritos')).toBeNull();
+  });
+
+  it('skips a pinned folder whose drive is gone', async () => {
+    renderPane({ favoriteFolders: ['D:\\Archivo viejo'] });
+
+    await screen.findByText('Escritorio');
+    expect(screen.queryByText('Archivo viejo')).toBeNull();
+  });
+
+  it('opens the pinned folder in the panel when it is clicked', async () => {
+    const { onNavigate, onSelectDrive } = renderPane({ favoriteFolders: [projects] });
+
+    fireEvent.click(await screen.findByText('proyectos'));
+
+    expect(onSelectDrive).toHaveBeenCalledWith('real_C');
+    expect(onNavigate).toHaveBeenCalledWith(projects);
   });
 });
 
