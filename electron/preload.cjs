@@ -40,6 +40,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // the machine; the renderer never reads it back.
   setUpdateToken: (token) => ipcRenderer.invoke('update:token', token),
   clearUpdateToken: () => ipcRenderer.invoke('update:token-clear'),
+  // The renderer cannot leave its own document, so links that must open the real
+  // browser go through the main process, which only accepts the token page.
+  openExternal: (url) => ipcRenderer.invoke('app:open-external', url),
   onUpdateState: (callback) => {
     if (typeof callback !== 'function') return () => {};
     const listener = (_event, state) => callback(state);

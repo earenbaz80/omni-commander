@@ -1,9 +1,10 @@
-const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog, shell } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
 const { isAllowedNavigationUrl } = require('./navigationGuard.cjs');
+const { isAllowedExternalTarget } = require('./externalLinks.cjs');
 const { resolveUpdateFeed, normalizeToken } = require('./updateFeed.cjs');
 
 // Per-launch session token. It is the shared secret between this process, the
@@ -549,6 +550,16 @@ ipcMain.handle('update:install', (event) => {
   // A real quit must not be turned into "hide to tray" by the close handler.
   quitting = true;
   updater.quitAndInstall(false, true);
+  return true;
+});
+
+// The settings link to the GitHub page that creates the read-only token. The
+// renderer cannot navigate out of its document nor open windows, so the link
+// asks here instead: that page opens, and any other URL is refused rather than
+// handed to the shell.
+ipcMain.handle('app:open-external', async (event, target) => {
+  if (!isFromAppWindow(event) || !isAllowedExternalTarget(target)) return false;
+  await shell.openExternal(target);
   return true;
 });
 

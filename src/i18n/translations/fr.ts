@@ -1060,6 +1060,9 @@ export const fr = {
   updateTokenHelp:
     'Les versions sont dans un dépôt privé : la vérification exige un jeton avec accès en lecture. Il est conservé sur cette machine, pas dans les préférences.',
   updateTokenSave: 'Enregistrer le jeton',
+  updateTokenReadOnlyNote:
+    'Le strict minimum suffit : dans « Fine-grained tokens », ce dépôt uniquement et Contents: Read-only.',
+  updateTokenCreateLink: 'Créer un jeton sur GitHub',
   updateTokenClear: 'Supprimer',
   updateTokenConfigured: 'Jeton configuré',
   updateTokenFromEnv: 'Jeton issu de OMNI_UPDATE_TOKEN',

@@ -1084,6 +1084,9 @@ export const es = {
   updateTokenHelp:
     'Los releases están en un repositorio privado, así que comprobar necesita un token con permiso de lectura. Se guarda en este equipo, no en los ajustes.',
   updateTokenSave: 'Guardar token',
+  updateTokenReadOnlyNote:
+    'Con el mínimo permiso basta: en «Fine-grained tokens», solo este repositorio y Contents: Read-only.',
+  updateTokenCreateLink: 'Crear un token en GitHub',
   updateTokenClear: 'Quitar',
   updateTokenConfigured: 'Token configurado',
   updateTokenFromEnv: 'Token tomado de OMNI_UPDATE_TOKEN',

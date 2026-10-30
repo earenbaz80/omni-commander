@@ -1058,6 +1058,9 @@ export const de = {
   updateTokenHelp:
     'Die Releases liegen in einem privaten Repository, deshalb braucht die Prüfung einen Token mit Lesezugriff. Er wird auf diesem Gerät gespeichert, nicht in den Einstellungen.',
   updateTokenSave: 'Token speichern',
+  updateTokenReadOnlyNote:
+    'Der kleinste Umfang genügt: unter „Fine-grained tokens“ nur dieses Repository und Contents: Read-only.',
+  updateTokenCreateLink: 'Token auf GitHub erstellen',
   updateTokenClear: 'Entfernen',
   updateTokenConfigured: 'Token eingerichtet',
   updateTokenFromEnv: 'Token aus OMNI_UPDATE_TOKEN',
