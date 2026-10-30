@@ -16,6 +16,8 @@ export interface AppUpdateSnapshot {
   tokenSource: 'env' | 'file' | null;
   /** Where that credential is expected to be, so the interface can say it. */
   tokenPath: string | null;
+  /** The day the credential expires (`YYYY-MM-DD`), when it was recorded. */
+  tokenExpiresAt: string | null;
 }
 
 export const IDLE_UPDATE: AppUpdateSnapshot = {
@@ -27,6 +29,7 @@ export const IDLE_UPDATE: AppUpdateSnapshot = {
   tokenConfigured: false,
   tokenSource: null,
   tokenPath: null,
+  tokenExpiresAt: null,
 };
 
 const STATUSES: ReadonlySet<string> = new Set<AppUpdateStatus>([
@@ -47,6 +50,7 @@ interface UpdateBridge {
   onUpdateState?: (callback: (snapshot: unknown) => void) => (() => void) | void;
   setUpdateToken?: (token: string) => Promise<unknown>;
   clearUpdateToken?: () => Promise<unknown>;
+  setUpdateTokenExpiry?: (date: string | null) => Promise<unknown>;
   openExternal?: (url: string) => Promise<unknown>;
 }
 
@@ -60,6 +64,9 @@ function bridge(): UpdateBridge | undefined {
  * is trusted, but the shape is not guaranteed across versions of the preload,
  * and a malformed value must not become a status the interface cannot render.
  */
+/** Only the shape `<input type="date">` and the main process agree on. */
+const EXPIRY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
 export function normalizeUpdateSnapshot(value: unknown): AppUpdateSnapshot {
   const source = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
   const status =
@@ -74,6 +81,10 @@ export function normalizeUpdateSnapshot(value: unknown): AppUpdateSnapshot {
     tokenConfigured: source.tokenConfigured === true,
     tokenSource: source.tokenSource === 'env' || source.tokenSource === 'file' ? source.tokenSource : null,
     tokenPath: typeof source.tokenPath === 'string' && source.tokenPath.length > 0 ? source.tokenPath : null,
+    tokenExpiresAt:
+      typeof source.tokenExpiresAt === 'string' && EXPIRY_PATTERN.test(source.tokenExpiresAt)
+        ? source.tokenExpiresAt
+        : null,
   };
 }
 
@@ -86,6 +97,8 @@ export interface AppUpdate extends AppUpdateSnapshot {
   /** Stores a token on the machine; true when the main process accepted it. */
   setToken: (token: string) => Promise<boolean>;
   clearToken: () => Promise<void>;
+  /** Records the token's expiry date on the machine; null forgets it. */
+  setTokenExpiry: (date: string | null) => Promise<boolean>;
   /**
    * Opens a link in the real browser, or null where the document can navigate
    * on its own (a plain browser build).
@@ -161,6 +174,20 @@ export function useAppUpdate(): AppUpdate {
     [api],
   );
 
+  const setTokenExpiry = useCallback(
+    async (date: string | null) => {
+      if (!api?.setUpdateTokenExpiry) return false;
+      try {
+        const { accepted, ...state } = (await api.setUpdateTokenExpiry(date)) as Record<string, unknown>;
+        setSnapshot(normalizeUpdateSnapshot(state));
+        return accepted === true;
+      } catch {
+        return false;
+      }
+    },
+    [api],
+  );
+
   const clearToken = useCallback(async () => {
     if (!api?.clearUpdateToken) return;
     try {
@@ -188,6 +215,7 @@ export function useAppUpdate(): AppUpdate {
     download,
     install,
     setToken,
+    setTokenExpiry,
     clearToken,
     openExternal: typeof api?.openExternal === 'function' ? openExternal : null,
   };

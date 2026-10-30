@@ -5,7 +5,7 @@ const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
 const { isAllowedNavigationUrl } = require('./navigationGuard.cjs');
 const { isAllowedExternalTarget } = require('./externalLinks.cjs');
-const { resolveUpdateFeed, normalizeToken } = require('./updateFeed.cjs');
+const { resolveUpdateFeed, normalizeToken, normalizeExpiry, readTokenExpiry } = require('./updateFeed.cjs');
 
 // Per-launch session token. It is the shared secret between this process, the
 // embedded API server and the renderer: every mutating request, and every GET
@@ -84,6 +84,9 @@ let updateState = {
   tokenConfigured: false,
   tokenSource: null,
   tokenPath: null,
+  // The day the credential stops working, when it was recorded. A fine-grained
+  // token expires, and the settings warn before that becomes a failed check.
+  tokenExpiresAt: null,
 };
 let updater = null;
 
@@ -109,6 +112,15 @@ function isFromAppWindow(event) {
 /** Where a token saved from the interface is kept. */
 function updateTokenPath() {
   return path.join(app.getPath('userData'), 'update-token');
+}
+
+/**
+ * Where the token's expiry date is kept. It is a separate file so the credential
+ * stays exactly what it was: a single line the resolver can read without having
+ * to parse anything else.
+ */
+function updateTokenMetaPath() {
+  return path.join(app.getPath('userData'), 'update-token-meta.json');
 }
 
 /**
@@ -138,6 +150,10 @@ function configureUpdateFeed() {
     tokenConfigured: feed?.token != null,
     tokenSource: feed?.tokenSource ?? null,
     tokenPath,
+    tokenExpiresAt: readTokenExpiry({
+      metaPath: updateTokenMetaPath(),
+      readFile: (file) => fs.readFileSync(file, 'utf8'),
+    }),
   };
   return updateState.tokenConfigured;
 }
@@ -506,6 +522,9 @@ ipcMain.handle('update:token', (event, raw) => {
     const tokenPath = updateTokenPath();
     fs.mkdirSync(path.dirname(tokenPath), { recursive: true });
     fs.writeFileSync(tokenPath, `${token}\n`, { mode: 0o600 });
+    // The recorded expiry belonged to the credential that was just replaced, so
+    // it goes with it: a stale date would warn about the wrong token.
+    fs.rmSync(updateTokenMetaPath(), { force: true });
   } catch (error) {
     // The value is never part of the message: a failed write must not leave the
     // credential in a log.
@@ -520,10 +539,40 @@ ipcMain.handle('update:token', (event, raw) => {
   return { ...updateState, accepted: true };
 });
 
+// The expiry date is a note about the credential, not a credential: it is kept
+// in its own file so the token file stays a single line. Only a date the machine
+// accepts is written, and the reply says whether it was, like the token's.
+ipcMain.handle('update:token-expiry', (event, raw) => {
+  if (!isFromAppWindow(event) || !updater) return { ...updateState, accepted: false };
+
+  // Clearing the note is a null/empty value; a value that is not a real date is
+  // refused instead of being stored as something the settings cannot read.
+  const clearing = raw == null || raw === '';
+  const expiry = clearing ? null : normalizeExpiry(raw);
+  if (!clearing && !expiry) return { ...updateState, accepted: false };
+
+  try {
+    const metaPath = updateTokenMetaPath();
+    if (expiry) {
+      fs.mkdirSync(path.dirname(metaPath), { recursive: true });
+      fs.writeFileSync(metaPath, `${JSON.stringify({ tokenExpiresAt: expiry })}\n`, { mode: 0o600 });
+    } else {
+      fs.rmSync(metaPath, { force: true });
+    }
+  } catch (error) {
+    console.error('Update token expiry could not be saved:', error?.message ?? error);
+    return { ...updateState, accepted: false };
+  }
+
+  setUpdateState({ tokenExpiresAt: expiry });
+  return { ...updateState, accepted: true };
+});
+
 ipcMain.handle('update:token-clear', (event) => {
   if (!isFromAppWindow(event) || !updater) return updateState;
   try {
     fs.rmSync(updateTokenPath(), { force: true });
+    fs.rmSync(updateTokenMetaPath(), { force: true });
   } catch (error) {
     console.error('Update token could not be removed:', error?.message ?? error);
   }

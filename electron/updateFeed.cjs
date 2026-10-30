@@ -108,6 +108,47 @@ function readUpdateToken({ env, tokenPath, readFile } = {}) {
 }
 
 /**
+ * A calendar date as `YYYY-MM-DD`, or null.
+ *
+ * Fine-grained tokens expire, and GitHub only shows that date when the token is
+ * created or edited, so the machine records it next to the credential: the
+ * settings can then warn before the check starts answering 401. The shape is the
+ * one `<input type="date">` produces, and an impossible day (2027-02-30) is
+ * rejected rather than silently rolled into March by the Date constructor.
+ */
+function normalizeExpiry(raw) {
+  if (typeof raw !== 'string') return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw.trim());
+  if (!match) return null;
+
+  const [, year, month, day] = match.map(Number);
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+  return `${match[1]}-${match[2]}-${match[3]}`;
+}
+
+/**
+ * Reads the recorded expiry from the small file kept beside the token. Missing,
+ * unreadable or malformed is simply "no date known": a note that cannot be read
+ * must not keep the app from starting or make the settings claim a date.
+ */
+function readTokenExpiry({ metaPath, readFile } = {}) {
+  if (!metaPath || typeof readFile !== 'function') return null;
+  let text;
+  try {
+    text = readFile(metaPath);
+  } catch {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(text);
+    return normalizeExpiry(parsed && parsed.tokenExpiresAt);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * The feed options handed to `autoUpdater.setFeedURL`, plus what the interface
  * needs to explain a failed check. `options` is null when the package declares
  * no GitHub target, in which case the updater keeps whatever `app-update.yml`
@@ -132,8 +173,10 @@ function resolveUpdateFeed({ appUpdateConfigPath, env, tokenPath, readFile } = {
 module.exports = {
   MIN_TOKEN_LENGTH,
   normalizeToken,
+  normalizeExpiry,
   parseFeedConfig,
   readFeedConfig,
   readUpdateToken,
+  readTokenExpiry,
   resolveUpdateFeed,
 };

@@ -165,6 +165,7 @@ describe('normalizeUpdateSnapshot', () => {
       tokenConfigured: false,
       tokenSource: null,
       tokenPath: null,
+      tokenExpiresAt: null,
     });
   });
 
@@ -178,8 +179,18 @@ describe('normalizeUpdateSnapshot', () => {
       tokenConfigured: false,
       tokenSource: null,
       tokenPath: null,
+      tokenExpiresAt: null,
     });
     expect(normalizeUpdateSnapshot(null).status).toBe('idle');
+  });
+
+  it('solo acepta la fecha de caducidad con la forma que escribe el campo de fecha', () => {
+    // Anything else would be formatted as a date the settings cannot read, so it
+    // is treated as "no date recorded" instead of being shown as-is.
+    expect(normalizeUpdateSnapshot({ tokenExpiresAt: '2027-01-12' }).tokenExpiresAt).toBe('2027-01-12');
+    expect(normalizeUpdateSnapshot({ tokenExpiresAt: '12/01/2027' }).tokenExpiresAt).toBeNull();
+    expect(normalizeUpdateSnapshot({ tokenExpiresAt: 'nunca' }).tokenExpiresAt).toBeNull();
+    expect(normalizeUpdateSnapshot({ tokenExpiresAt: 20270112 }).tokenExpiresAt).toBeNull();
   });
 
   it('solo da por configurado un token que llega como verdadero y con ruta utilizable', () => {

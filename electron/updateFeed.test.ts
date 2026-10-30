@@ -9,29 +9,38 @@ import { describe, expect, it, vi } from 'vitest';
  * between "no update is offered" and "the token was pasted somewhere public".
  */
 const require = createRequire(import.meta.url);
-const { normalizeToken, parseFeedConfig, readFeedConfig, readUpdateToken, resolveUpdateFeed } =
-  require('./updateFeed.cjs') as {
-    normalizeToken: (raw: unknown) => string | null;
-    parseFeedConfig: (text: unknown) => { provider: 'github'; owner: string; repo: string } | null;
-    readFeedConfig: (filePath: string, readFile: (file: string) => string) => unknown;
-    readUpdateToken: (options?: {
-      env?: Record<string, string | undefined>;
-      tokenPath?: string;
-      readFile?: (file: string) => string;
-    }) => { token: string | null; source: 'env' | 'file' | null };
-    resolveUpdateFeed: (options?: {
-      appUpdateConfigPath?: string;
-      env?: Record<string, string | undefined>;
-      tokenPath?: string;
-      readFile?: (file: string) => string;
-    }) => {
-      base: { provider: 'github'; owner: string; repo: string } | null;
-      token: string | null;
-      tokenSource: 'env' | 'file' | null;
-      tokenPath: string | null;
-      options: { provider: 'github'; owner: string; owner_repo?: string; repo?: string; token?: string } | null;
-    };
+const {
+  normalizeToken,
+  normalizeExpiry,
+  readTokenExpiry,
+  parseFeedConfig,
+  readFeedConfig,
+  readUpdateToken,
+  resolveUpdateFeed,
+} = require('./updateFeed.cjs') as {
+  normalizeToken: (raw: unknown) => string | null;
+  normalizeExpiry: (raw: unknown) => string | null;
+  readTokenExpiry: (options?: { metaPath?: string; readFile?: (file: string) => string }) => string | null;
+  parseFeedConfig: (text: unknown) => { provider: 'github'; owner: string; repo: string } | null;
+  readFeedConfig: (filePath: string, readFile: (file: string) => string) => unknown;
+  readUpdateToken: (options?: {
+    env?: Record<string, string | undefined>;
+    tokenPath?: string;
+    readFile?: (file: string) => string;
+  }) => { token: string | null; source: 'env' | 'file' | null };
+  resolveUpdateFeed: (options?: {
+    appUpdateConfigPath?: string;
+    env?: Record<string, string | undefined>;
+    tokenPath?: string;
+    readFile?: (file: string) => string;
+  }) => {
+    base: { provider: 'github'; owner: string; repo: string } | null;
+    token: string | null;
+    tokenSource: 'env' | 'file' | null;
+    tokenPath: string | null;
+    options: { provider: 'github'; owner: string; owner_repo?: string; repo?: string; token?: string } | null;
   };
+};
 
 const TOKEN = 'ghp_0123456789abcdefghijklmnopqrstuvwx';
 const CONFIG_PATH = 'C:\\Program Files\\OmniCommander Pro\\resources\\app-update.yml';
@@ -77,6 +86,38 @@ describe('normalización del token', () => {
     expect(normalizeToken('')).toBeNull();
     expect(normalizeToken(null)).toBeNull();
     expect(normalizeToken(12)).toBeNull();
+  });
+});
+
+describe('caducidad anotada del token', () => {
+  it('acepta una fecha real en el formato que escribe el campo de fecha', () => {
+    expect(normalizeExpiry('2027-01-12')).toBe('2027-01-12');
+    expect(normalizeExpiry('  2027-01-12\n')).toBe('2027-01-12');
+  });
+
+  it('rechaza un día que no existe en vez de moverlo de mes', () => {
+    // The Date constructor turns 2027-02-30 into March 2nd, which would warn
+    // about a day the credential never had.
+    expect(normalizeExpiry('2027-02-30')).toBeNull();
+    expect(normalizeExpiry('2027-13-01')).toBeNull();
+    expect(normalizeExpiry('12/01/2027')).toBeNull();
+    expect(normalizeExpiry('')).toBeNull();
+    expect(normalizeExpiry(null)).toBeNull();
+    expect(normalizeExpiry(20270112)).toBeNull();
+  });
+
+  it('lee la fecha del archivo junto al token y calla si falta o está roto', () => {
+    expect(readTokenExpiry({ metaPath: 'meta.json', readFile: () => '{"tokenExpiresAt":"2027-01-12"}' })).toBe(
+      '2027-01-12',
+    );
+    expect(readTokenExpiry({ metaPath: 'meta.json', readFile: () => '{"tokenExpiresAt":"nunca"}' })).toBeNull();
+    expect(readTokenExpiry({ metaPath: 'meta.json', readFile: () => 'no es json' })).toBeNull();
+    expect(readTokenExpiry({ metaPath: 'meta.json', readFile: () => '{"tokenExpiresAt":"2027-01-12"' })).toBeNull();
+    const unreadable = vi.fn(() => {
+      throw new Error('ENOENT');
+    });
+    expect(readTokenExpiry({ metaPath: 'meta.json', readFile: unreadable })).toBeNull();
+    expect(readTokenExpiry({})).toBeNull();
   });
 });
 
