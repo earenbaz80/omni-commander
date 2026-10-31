@@ -85,6 +85,29 @@ Los hooks viven en `.githooks/` y se activan con `core.hooksPath` (lo hace `scri
 
 Se saltan con `git commit --no-verify` / `git push --no-verify`. Para desactivarlos del todo: `git config --unset core.hooksPath`; para reinstalarlos: `npm run prepare`.
 
+## Ramas y limpieza
+
+`master` es la única rama que vive para siempre: el trabajo entra por pull request, y GitHub borra la rama de origen en cuanto se fusiona, porque el repositorio tiene activado `delete_branch_on_merge`. El ajuste solo alcanza a las ramas que viven aquí: si el PR llega desde un fork, su rama se queda en el fork, que no es de este repositorio.
+
+Cada clon tiene que hacer su parte una sola vez:
+
+```bash
+git config fetch.prune true
+```
+
+Con eso un `git fetch` normal elimina las referencias `origin/*` de ramas que ya no existen en el remoto, sin acordarse de `--prune`. No toca las ramas locales: Git no puede distinguir una rama terminada de una que vas a retomar, así que borrarlas sigue siendo decisión tuya.
+
+```bash
+git checkout master
+git fetch                    # ya poda solo, por el ajuste de arriba
+git branch --merged master   # las que ya están dentro de master
+git branch -d <rama>         # sin forzar: si no está fusionada, se niega
+```
+
+`git branch --merged master` lista también `master`, que no hay que borrar. Para hacerlo en un solo paso está el alias `git prune-merged`: enseña lo que va a borrar, pide confirmación, y nunca toca `master` ni la rama en la que estás. Ese alias vive en `~/.gitconfig`, no en el repositorio, así que en un clon nuevo no existe.
+
+Si hay que borrar una rama remota a mano —el caso del fork, o una que se quedó atrás—, `git push origin --delete <rama>` funciona sin `--no-verify`: el hook `pre-push` distingue un borrado por sus shas a cero y no corre tipos ni tests, porque no hay árbol que verificar.
+
 ## CI
 
 [.github/workflows/release.yml](.github/workflows/release.yml) tiene tres jobs:
