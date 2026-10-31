@@ -73,6 +73,13 @@ function installBridge(overrides: { accepted?: boolean; state?: Record<string, u
       tokenSource: null,
       tokenPath: 'C:\\datos\\update-token',
     })),
+    // The main process applies the channel before answering, so the reply is
+    // what the settings switch reads back.
+    setUpdateChannel: vi.fn(async (channel: string) => ({
+      status: 'idle',
+      enabled: true,
+      channel,
+    })),
     // The reply echoes the date, like the main process does: the reminder is
     // drawn from the snapshot, not from what was typed.
     setUpdateTokenExpiry: vi.fn(async (date: string | null) => ({
@@ -286,6 +293,36 @@ describe('token de actualizaciones en Ajustes', () => {
     fireEvent.change(input, { target: { value: '' } });
     await waitFor(() => expect(bridge.setUpdateTokenExpiry).toHaveBeenLastCalledWith(null));
     expect(await screen.findByText(translations.es.updateTokenExpiryHint)).toBeTruthy();
+  });
+
+  it('marcar la casilla de beta cambia de canal y lo deja dicho', async () => {
+    const bridge = installBridge({ state: { status: 'up-to-date', enabled: true, channel: 'stable' } });
+    openSecurityTab();
+
+    const checkbox = (await screen.findByLabelText(translations.es.updateChannelBeta)) as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+    expect(screen.queryByText(translations.es.updateChannelBetaActive)).toBeNull();
+
+    fireEvent.click(checkbox);
+
+    await waitFor(() => expect(bridge.setUpdateChannel).toHaveBeenCalledWith('beta'));
+    expect(await screen.findByText(translations.es.updateChannelBetaActive)).toBeTruthy();
+    expect((screen.getByLabelText(translations.es.updateChannelBeta) as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('desmarcarla vuelve al canal estable', async () => {
+    const bridge = installBridge({ state: { status: 'up-to-date', enabled: true, channel: 'beta' } });
+    openSecurityTab();
+
+    const checkbox = (await screen.findByLabelText(translations.es.updateChannelBeta)) as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+
+    fireEvent.click(checkbox);
+
+    await waitFor(() => expect(bridge.setUpdateChannel).toHaveBeenCalledWith('stable'));
+    await waitFor(() =>
+      expect((screen.getByLabelText(translations.es.updateChannelBeta) as HTMLInputElement).checked).toBe(false),
+    );
   });
 
   it('con el token en el entorno no ofrece quitarlo desde aquí', async () => {

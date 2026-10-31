@@ -1076,6 +1076,10 @@ export const fr = {
   updateTokenExpired: 'Expiré le {date} : renouvelez le jeton',
   updateTokenExpiryHint: 'Notez la date d’expiration pour être prévenu à temps',
   updateTokenRenewLink: 'Renouveler le jeton',
+  updateChannelBeta: 'Recevoir les versions bêta',
+  updateChannelBetaHint:
+    'Les bêtas arrivent plus tôt et peuvent contenir des défauts. Elles sont publiées séparément des versions stables, et seules les copies qui cochent cette case les reçoivent.',
+  updateChannelBetaActive: 'Canal bêta actif',
   dateLabel: 'Date :',
   transferSelectAll: 'Tous',
   transferSelectInvert: 'Inverser',

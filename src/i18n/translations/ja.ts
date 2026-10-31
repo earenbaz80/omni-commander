@@ -1070,6 +1070,10 @@ export const ja = {
   updateTokenExpired: '期限切れ: {date}。トークンを更新してください',
   updateTokenExpiryHint: '期限日を記録すると、切れる前に通知します',
   updateTokenRenewLink: 'トークンを更新',
+  updateChannelBeta: 'ベータ版を受け取る',
+  updateChannelBetaHint:
+    'ベータ版は早く届く代わりに不具合を含むことがあります。安定版とは別に公開され、この項目にチェックを入れたコピーだけが受け取ります。',
+  updateChannelBetaActive: 'ベータチャンネルを使用中',
   dateLabel: '日付:',
   transferSelectAll: 'すべて',
   transferSelectInvert: '反転',

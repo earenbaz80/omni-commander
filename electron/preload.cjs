@@ -42,6 +42,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   clearUpdateToken: () => ipcRenderer.invoke('update:token-clear'),
   // Only the day the token expires is recorded here, never the token itself.
   setUpdateTokenExpiry: (date) => ipcRenderer.invoke('update:token-expiry', date),
+  // Stable or beta. Test versions are published as prereleases and offered only
+  // to the copies that asked for them.
+  setUpdateChannel: (channel) => ipcRenderer.invoke('update:channel', channel),
   // The renderer cannot leave its own document, so links that must open the real
   // browser go through the main process, which only accepts the token page.
   openExternal: (url) => ipcRenderer.invoke('app:open-external', url),

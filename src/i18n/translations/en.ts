@@ -1094,6 +1094,10 @@ export const en = {
   updateTokenExpired: 'Expired on {date}: renew the token',
   updateTokenExpiryHint: 'Record the expiry date to be warned before it lapses',
   updateTokenRenewLink: 'Renew token',
+  updateChannelBeta: 'Receive beta versions',
+  updateChannelBetaHint:
+    'Betas arrive earlier and may bring bugs. They are published apart from the stable ones, and only copies that tick this box receive them.',
+  updateChannelBetaActive: 'Following the beta channel',
   dateLabel: 'Date:',
   transferSelectAll: 'All',
   transferSelectInvert: 'Invert',

@@ -196,11 +196,16 @@ jobs:
 
       # `latest.yml` and the block map are what the app's updater reads, so they
       # are published next to the binaries they describe.
+      # A version with a suffix (`1.0.19-beta.1`) is a test build and is published
+      # as a GitHub prerelease, which is the flag that keeps it out of the stable
+      # feed: the updater asks `/releases/latest` unless the copy opted into the
+      # beta channel. Everything else is marked Latest as before.
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ steps.version.outputs.version }}
           draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
           files: |
             release/*.exe
             release/*.blockmap
