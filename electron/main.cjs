@@ -598,7 +598,12 @@ ipcMain.handle('update:install', (event) => {
   if (updateState.status !== 'downloaded') return false;
   // A real quit must not be turned into "hide to tray" by the close handler.
   quitting = true;
-  updater.quitAndInstall(false, true);
+  // Silent on purpose. The assistant left a wizard open between the app closing
+  // and the same program reopening, and its last page still wanted a click: on
+  // a machine nobody is watching, that is an app left half updated. The second
+  // argument stays true because the user asked for an update, not to come back
+  // to the app closed.
+  updater.quitAndInstall(true, true);
   return true;
 });
 
