@@ -222,6 +222,38 @@ describe('token de actualizaciones en Ajustes', () => {
     expect(await screen.findByText(soonText)).toBeTruthy();
   });
 
+  it('el aviso empieza a un mes vista, no antes', async () => {
+    // The note lives only in this tab, so a threshold shorter than the interval
+    // between visits is a warning nobody reads. A month is the promise.
+    const monthAhead = isoDaysFromNow(30);
+    installBridge({
+      state: { enabled: true, tokenConfigured: true, tokenSource: 'file', tokenExpiresAt: monthAhead },
+    });
+    openSecurityTab();
+
+    const soonText = translations.es.updateTokenExpiresSoon
+      .replace('{date}', spanishDate(monthAhead))
+      .replace('{days}', '30');
+    expect(await screen.findByText(soonText)).toBeTruthy();
+  });
+
+  it('un día más allá del mes vuelve al tono neutro', async () => {
+    const beyond = isoDaysFromNow(31);
+    installBridge({
+      state: { enabled: true, tokenConfigured: true, tokenSource: 'file', tokenExpiresAt: beyond },
+    });
+    openSecurityTab();
+
+    expect(
+      await screen.findByText(translations.es.updateTokenExpires.replace('{date}', spanishDate(beyond))),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(
+        translations.es.updateTokenExpiresSoon.replace('{date}', spanishDate(beyond)).replace('{days}', '31'),
+      ),
+    ).toBeNull();
+  });
+
   it('con la fecha pasada dice que caducó en vez de avisar como si sirviera', async () => {
     const past = isoDaysFromNow(-4);
     installBridge({
