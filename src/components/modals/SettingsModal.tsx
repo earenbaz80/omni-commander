@@ -38,8 +38,16 @@ const UPDATE_TOKEN_PAGE = 'https://github.com/settings/personal-access-tokens/ne
 // main process also accepts: the same page the create link lives under.
 const UPDATE_TOKEN_RENEW_PAGE = 'https://github.com/settings/personal-access-tokens';
 
-/** From here on the expiry is worth a warning rather than a quiet note. */
-const EXPIRY_WARNING_DAYS = 14;
+/**
+ * From here on the expiry is worth a warning rather than a quiet note.
+ *
+ * A month, not a fortnight: this note only exists inside the security tab, so it
+ * is read when that tab is opened, and a file manager can go weeks without being
+ * opened at all. Fourteen days assumed weekly use and left nothing to act on for
+ * anyone who came back afterwards; thirty still leaves room to renew and, beside
+ * the renewal link, is short enough not to read as noise.
+ */
+const EXPIRY_WARNING_DAYS = 30;
 
 /**
  * Whole days from today to the recorded date, or null when it is not a date.
