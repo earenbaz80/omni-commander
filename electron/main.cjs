@@ -5,7 +5,14 @@ const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
 const { isAllowedNavigationUrl } = require('./navigationGuard.cjs');
 const { isAllowedExternalTarget } = require('./externalLinks.cjs');
-const { resolveUpdateFeed, normalizeToken, normalizeExpiry, readTokenExpiry } = require('./updateFeed.cjs');
+const {
+  resolveUpdateFeed,
+  normalizeToken,
+  normalizeChannel,
+  readUpdateChannel,
+  normalizeExpiry,
+  readTokenExpiry,
+} = require('./updateFeed.cjs');
 
 // Per-launch session token. It is the shared secret between this process, the
 // embedded API server and the renderer: every mutating request, and every GET
@@ -87,6 +94,10 @@ let updateState = {
   // The day the credential stops working, when it was recorded. A fine-grained
   // token expires, and the settings warn before that becomes a failed check.
   tokenExpiresAt: null,
+  // `stable` or `beta`. A beta build is offered only after the user opts in:
+  // test versions are published as GitHub prereleases, which the stable feed
+  // never reads.
+  channel: 'stable',
 };
 let updater = null;
 
@@ -121,6 +132,32 @@ function updateTokenPath() {
  */
 function updateTokenMetaPath() {
   return path.join(app.getPath('userData'), 'update-token-meta.json');
+}
+
+/**
+ * Where the chosen channel is kept. Its own one-line file beside the token, for
+ * the same reason: the main process reads it at startup, before any renderer
+ * exists to say what was chosen.
+ */
+function updateChannelPath() {
+  return path.join(app.getPath('userData'), 'update-channel');
+}
+
+/**
+ * Applies the channel to the live updater. With a token the library reads the
+ * latest release through the API, and `allowPrerelease` is what makes it look at
+ * the prerelease list instead of `/releases/latest`; without it, a beta is
+ * simply invisible. Called at start and whenever the setting changes, because a
+ * switch must take effect without a restart.
+ */
+function applyUpdateChannel() {
+  const channel = readUpdateChannel({
+    channelPath: updateChannelPath(),
+    readFile: (file) => fs.readFileSync(file, 'utf8'),
+  });
+  if (updater) updater.allowPrerelease = channel === 'beta';
+  updateState = { ...updateState, channel };
+  return channel;
 }
 
 /**
@@ -199,6 +236,7 @@ function setupUpdater() {
   // immediately, so this must happen before the first check.
   updater = autoUpdater;
   configureUpdateFeed();
+  applyUpdateChannel();
 
   autoUpdater.on('checking-for-update', () => setUpdateState({ status: 'checking', error: null }));
   autoUpdater.on('update-available', (info) =>
@@ -578,6 +616,28 @@ ipcMain.handle('update:token-clear', (event) => {
   }
   configureUpdateFeed();
   setUpdateState({ status: 'idle', error: null });
+  return updateState;
+});
+
+// Switching channel is a preference, not a credential, so it is stored as one
+// plain word. A change applies immediately and re-checks: otherwise the user
+// would tick the box, see "up to date" from the previous feed, and conclude the
+// switch did nothing.
+ipcMain.handle('update:channel', (event, raw) => {
+  if (!isFromAppWindow(event) || !updater) return updateState;
+  const channel = normalizeChannel(raw);
+  try {
+    const file = updateChannelPath();
+    if (channel === 'beta') fs.writeFileSync(file, `${channel}\n`, { mode: 0o600 });
+    else fs.rmSync(file, { force: true });
+  } catch (error) {
+    console.error('Update channel could not be saved:', error?.message ?? error);
+    return updateState;
+  }
+  applyUpdateChannel();
+  // Any verdict from the previous channel is stale by definition.
+  setUpdateState({ status: 'idle', version: null, percent: 0, error: null });
+  checkNow();
   return updateState;
 });
 

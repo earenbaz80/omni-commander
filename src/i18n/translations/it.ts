@@ -1069,6 +1069,10 @@ export const it = {
   updateTokenExpired: 'Scaduto il {date}: rinnova il token',
   updateTokenExpiryHint: 'Annota la data di scadenza per essere avvisato prima',
   updateTokenRenewLink: 'Rinnova token',
+  updateChannelBeta: 'Ricevi le versioni beta',
+  updateChannelBetaHint:
+    'Le beta arrivano prima e possono contenere difetti. Sono pubblicate a parte da quelle stabili e le ricevono solo le copie che spuntano questa casella.',
+  updateChannelBetaActive: 'Canale beta attivo',
   dateLabel: 'Data:',
   transferSelectAll: 'Tutti',
   transferSelectInvert: 'Inverti',

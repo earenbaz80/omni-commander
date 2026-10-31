@@ -21,6 +21,11 @@ function installBridge(state: unknown) {
       accepted: true,
       tokenConfigured: true,
     })),
+    setUpdateChannel: vi.fn(async (channel: string): Promise<Record<string, unknown>> => ({
+      ...(state as object),
+      status: 'idle',
+      channel,
+    })),
     clearUpdateToken: vi.fn(async (): Promise<Record<string, unknown>> => ({
       ...(state as object),
       tokenConfigured: false,
@@ -108,6 +113,35 @@ describe('useAppUpdate', () => {
     expect(result.current.tokenConfigured).toBe(false);
   });
 
+  it('cambiar de canal refleja lo que el proceso principal aplicó', async () => {
+    const { bridge } = installBridge(available);
+    const { result } = renderHook(() => useAppUpdate());
+    await waitFor(() => expect(result.current.status).toBe('available'));
+
+    await act(async () => {
+      await result.current.setChannel('beta');
+    });
+
+    expect(bridge.setUpdateChannel).toHaveBeenCalledWith('beta');
+    // The reply is authoritative: the switch cancels whatever verdict the other
+    // feed had produced.
+    expect(result.current.channel).toBe('beta');
+    expect(result.current.status).toBe('idle');
+  });
+
+  it('vuelve al canal estable al desmarcar la casilla', async () => {
+    const { bridge } = installBridge({ ...available, channel: 'beta' });
+    const { result } = renderHook(() => useAppUpdate());
+    await waitFor(() => expect(result.current.channel).toBe('beta'));
+
+    await act(async () => {
+      await result.current.setChannel('stable');
+    });
+
+    expect(bridge.setUpdateChannel).toHaveBeenCalledWith('stable');
+    expect(result.current.channel).toBe('stable');
+  });
+
   it('no da el updater por disponible si el proceso principal no lo tiene', () => {
     // Development and the portable package have no installed copy to replace, so
     // the interface must not offer controls that cannot work.
@@ -166,6 +200,7 @@ describe('normalizeUpdateSnapshot', () => {
       tokenSource: null,
       tokenPath: null,
       tokenExpiresAt: null,
+      channel: 'stable',
     });
   });
 
@@ -180,8 +215,18 @@ describe('normalizeUpdateSnapshot', () => {
       tokenSource: null,
       tokenPath: null,
       tokenExpiresAt: null,
+      channel: 'stable',
     });
     expect(normalizeUpdateSnapshot(null).status).toBe('idle');
+  });
+
+  it('solo beta opta por las versiones de prueba', async () => {
+    // A test build must never be offered because of a stray value: anything that
+    // is not exactly `beta` stays on the stable feed.
+    expect(normalizeUpdateSnapshot({ status: 'idle', channel: 'beta' }).channel).toBe('beta');
+    expect(normalizeUpdateSnapshot({ status: 'idle', channel: 'prerelease' }).channel).toBe('stable');
+    expect(normalizeUpdateSnapshot({ status: 'idle', channel: true }).channel).toBe('stable');
+    expect(normalizeUpdateSnapshot(null).channel).toBe('stable');
   });
 
   it('solo acepta la fecha de caducidad con la forma que escribe el campo de fecha', () => {

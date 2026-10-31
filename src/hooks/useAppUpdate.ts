@@ -2,6 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 
 export type AppUpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'up-to-date' | 'error';
 
+/**
+ * Which feed the copy follows. `beta` opts into prereleases, which are published
+ * apart from the stable ones; every other value is the stable feed, because a
+ * test build must never arrive at someone who did not ask for it.
+ */
+export type AppUpdateChannel = 'stable' | 'beta';
+
 /** What the interface knows about the updater, and nothing it does not need. */
 export interface AppUpdateSnapshot {
   status: AppUpdateStatus;
@@ -18,6 +25,8 @@ export interface AppUpdateSnapshot {
   tokenPath: string | null;
   /** The day the credential expires (`YYYY-MM-DD`), when it was recorded. */
   tokenExpiresAt: string | null;
+  /** The feed this copy follows. */
+  channel: AppUpdateChannel;
 }
 
 export const IDLE_UPDATE: AppUpdateSnapshot = {
@@ -30,6 +39,7 @@ export const IDLE_UPDATE: AppUpdateSnapshot = {
   tokenSource: null,
   tokenPath: null,
   tokenExpiresAt: null,
+  channel: 'stable',
 };
 
 const STATUSES: ReadonlySet<string> = new Set<AppUpdateStatus>([
@@ -51,6 +61,7 @@ interface UpdateBridge {
   setUpdateToken?: (token: string) => Promise<unknown>;
   clearUpdateToken?: () => Promise<unknown>;
   setUpdateTokenExpiry?: (date: string | null) => Promise<unknown>;
+  setUpdateChannel?: (channel: string) => Promise<unknown>;
   openExternal?: (url: string) => Promise<unknown>;
 }
 
@@ -85,6 +96,7 @@ export function normalizeUpdateSnapshot(value: unknown): AppUpdateSnapshot {
       typeof source.tokenExpiresAt === 'string' && EXPIRY_PATTERN.test(source.tokenExpiresAt)
         ? source.tokenExpiresAt
         : null,
+    channel: source.channel === 'beta' ? 'beta' : 'stable',
   };
 }
 
@@ -99,6 +111,8 @@ export interface AppUpdate extends AppUpdateSnapshot {
   clearToken: () => Promise<void>;
   /** Records the token's expiry date on the machine; null forgets it. */
   setTokenExpiry: (date: string | null) => Promise<boolean>;
+  /** Follows the beta feed; every other value returns to stable. */
+  setChannel: (channel: AppUpdateChannel) => Promise<boolean>;
   /**
    * Opens a link in the real browser, or null where the document can navigate
    * on its own (a plain browser build).
@@ -188,6 +202,22 @@ export function useAppUpdate(): AppUpdate {
     [api],
   );
 
+  // Switching channel is applied by the main process before it answers, so the
+  // snapshot that comes back already says which feed is in force. A failure
+  // leaves the previous channel on screen, which is what is still true.
+  const setChannel = useCallback(
+    async (channel: AppUpdateChannel) => {
+      if (!api?.setUpdateChannel) return false;
+      try {
+        setSnapshot(normalizeUpdateSnapshot(await api.setUpdateChannel(channel)));
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [api],
+  );
+
   const clearToken = useCallback(async () => {
     if (!api?.clearUpdateToken) return;
     try {
@@ -216,6 +246,7 @@ export function useAppUpdate(): AppUpdate {
     install,
     setToken,
     setTokenExpiry,
+    setChannel,
     clearToken,
     openExternal: typeof api?.openExternal === 'function' ? openExternal : null,
   };

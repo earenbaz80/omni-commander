@@ -1070,6 +1070,10 @@ export const ru = {
   updateTokenExpired: 'Истёк {date}: обновите токен',
   updateTokenExpiryHint: 'Укажите дату окончания, чтобы получить предупреждение заранее',
   updateTokenRenewLink: 'Обновить токен',
+  updateChannelBeta: 'Получать бета-версии',
+  updateChannelBetaHint:
+    'Беты выходят раньше и могут содержать ошибки. Они публикуются отдельно от стабильных версий, и их получают только копии с этой галочкой.',
+  updateChannelBetaActive: 'Включён бета-канал',
   dateLabel: 'Дата:',
   transferSelectAll: 'Все',
   transferSelectInvert: 'Инвертировать',

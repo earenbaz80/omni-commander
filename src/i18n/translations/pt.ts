@@ -1067,6 +1067,10 @@ export const pt = {
   updateTokenExpired: 'Expirou a {date}: renove o token',
   updateTokenExpiryHint: 'Anote a data de expiração para ser avisado antes',
   updateTokenRenewLink: 'Renovar token',
+  updateChannelBeta: 'Receber versões beta',
+  updateChannelBetaHint:
+    'As betas chegam mais cedo e podem trazer falhas. São publicadas à parte das estáveis e só as recebem as cópias que marcam esta opção.',
+  updateChannelBetaActive: 'A seguir o canal beta',
   dateLabel: 'Data:',
   transferSelectAll: 'Todos',
   transferSelectInvert: 'Inverter',

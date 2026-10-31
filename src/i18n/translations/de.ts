@@ -1074,6 +1074,10 @@ export const de = {
   updateTokenExpired: 'Abgelaufen am {date}: Token erneuern',
   updateTokenExpiryHint: 'Ablaufdatum eintragen, um vorher gewarnt zu werden',
   updateTokenRenewLink: 'Token erneuern',
+  updateChannelBeta: 'Beta-Versionen erhalten',
+  updateChannelBetaHint:
+    'Betas erscheinen früher und können Fehler enthalten. Sie werden getrennt von den stabilen Versionen veröffentlicht, und nur Installationen mit diesem Häkchen erhalten sie.',
+  updateChannelBetaActive: 'Beta-Kanal aktiv',
   dateLabel: 'Datum:',
   transferSelectAll: 'Alle',
   transferSelectInvert: 'Auswahl umkehren',

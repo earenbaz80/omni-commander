@@ -928,6 +928,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             {tokenNote && <span className="opacity-70">{tokenNote}</span>}
           </div>
 
+          {/* Test versions are published as prereleases, which the stable feed
+              never reads. Opting in is what makes them candidates: without the
+              box, a beta is invisible however recently it was published. */}
+          <div className="flex flex-col gap-[var(--space-1)] border-t border-white/10 pt-[var(--space-2)]">
+            <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={update.channel === 'beta'}
+                onChange={(e) => {
+                  void update.setChannel(e.target.checked ? 'beta' : 'stable');
+                }}
+              />
+              <span>{t.updateChannelBeta}</span>
+            </label>
+            <span className="text-[var(--fs-8)] opacity-70 leading-relaxed">{t.updateChannelBetaHint}</span>
+            {update.channel === 'beta' && (
+              <span className="text-[var(--fs-8)] text-sky-300">{t.updateChannelBetaActive}</span>
+            )}
+          </div>
+
           {/* A fine-grained token expires, and the check starts answering 401 the
               day it does. The date is recorded here so the warning comes before
               that, beside the link that renews it. */}

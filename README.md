@@ -107,6 +107,14 @@ La fecha de caducidad no viaja dentro del token y GitHub solo la muestra al crea
 
 Rotarlo es borrar el viejo en GitHub, crear el nuevo y pegarlo. Mientras no se haga, un token caducado no rompe nada más que el updater: la comprobación falla con `401`, la tarjeta lo dice y el resto de la app sigue igual.
 
+### El canal beta
+
+Las versiones de prueba se publican como **prerelease** de GitHub, y el canal estable no las ve nunca: con token, electron-updater pregunta a `/releases/latest`, que las excluye por definición. Para recibirlas hay que pedirlo, con la casilla **Ajustes → Seguridad → Recibir versiones beta**. Marcarla escribe `beta` en `%APPDATA%\omnicommander-pro\update-channel`; desmarcarla borra el fichero, y sin fichero el canal es el estable. El cambio se aplica al momento y lanza una comprobación nueva, porque un interruptor que deja en pantalla el veredicto del feed anterior parece que no hizo nada.
+
+Lo que hace la casilla es poner `allowPrerelease` en el updater: la librería pasa a leer la lista de releases y toma la primera prerelease publicada, buscando su `latest.yml` igual que en el canal estable — por eso una release beta se empaqueta como cualquier otra. Cualquier valor que no sea exactamente `beta` se trata como estable, incluido un fichero editado a mano o a medio escribir: una nota ilegible no debe llevar versiones de prueba a quien no las pidió.
+
+Volver al canal estable no degrada la copia instalada. Si tienes una beta más nueva que la última estable, sigues en ella —el updater nunca baja de versión— hasta que salga una estable superior.
+
 ### Cortar una release
 
 El job `build` solo se dispara con una etiqueta `v*` y exige que la etiqueta coincida con `version` en [package.json](package.json); si no coinciden, falla antes de empaquetar. El orden que funciona:
@@ -121,6 +129,8 @@ git push origin master v1.0.16
 ```
 
 El push de la etiqueta empaqueta el NSIS y el portable, renombra los artefactos sin espacios —GitHub los reescribe al subirlos y `latest.yml` dejaría de encontrarlos—, comprueba que `latest.yml` apunta a un fichero que existe y con el tamaño declarado, y publica la release de una vez en lugar de dejarla en borrador. Los dos `.exe`, sus `.zip`, el `.blockmap` y `latest.yml` quedan en esa misma release; las copias instaladas los leen con el token de arriba.
+
+Una versión con sufijo en `package.json` (`1.0.19-beta.1`) se publica **sola** como prerelease: el paso de publicación marca `prerelease` cuando el número lleva un guion, así que una beta no aparece como Latest ni llega a las copias que no han marcado la casilla de arriba. La etiqueta sigue teniendo que coincidir con esa versión (`v1.0.19-beta.1`), y la release lleva su `latest.yml` como cualquier otra porque es el fichero que el updater busca dentro de la release elegida.
 
 ## Formato
 

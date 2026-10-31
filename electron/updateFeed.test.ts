@@ -11,6 +11,8 @@ import { describe, expect, it, vi } from 'vitest';
 const require = createRequire(import.meta.url);
 const {
   normalizeToken,
+  normalizeChannel,
+  readUpdateChannel,
   normalizeExpiry,
   readTokenExpiry,
   parseFeedConfig,
@@ -19,6 +21,8 @@ const {
   resolveUpdateFeed,
 } = require('./updateFeed.cjs') as {
   normalizeToken: (raw: unknown) => string | null;
+  normalizeChannel: (raw: unknown) => 'stable' | 'beta';
+  readUpdateChannel: (options?: { channelPath?: string; readFile?: (file: string) => string }) => 'stable' | 'beta';
   normalizeExpiry: (raw: unknown) => string | null;
   readTokenExpiry: (options?: { metaPath?: string; readFile?: (file: string) => string }) => string | null;
   parseFeedConfig: (text: unknown) => { provider: 'github'; owner: string; repo: string } | null;
@@ -229,5 +233,42 @@ describe('feed del updater', () => {
     expect(feed.options).toBeNull();
     expect(feed.token).toBe(TOKEN);
     expect(feed.base).toBeNull();
+  });
+});
+
+/**
+ * Beta builds are published as GitHub prereleases, which the stable feed never
+ * reads. The file that records the choice is small and hand-editable, so what
+ * matters here is that nothing but a deliberate `beta` switches the feed: a
+ * test build reaching a stable copy is the failure worth designing against.
+ */
+describe('canal de actualización', () => {
+  const CHANNEL_PATH = 'C:\\Users\\someone\\AppData\\Roaming\\omnicommander-pro\\update-channel';
+
+  it('solo beta cambia de canal', () => {
+    expect(normalizeChannel('beta')).toBe('beta');
+    expect(normalizeChannel(' BETA\n')).toBe('beta');
+  });
+
+  it('cualquier otra cosa es el canal estable', () => {
+    expect(normalizeChannel('stable')).toBe('stable');
+    expect(normalizeChannel('latest')).toBe('stable');
+    expect(normalizeChannel('')).toBe('stable');
+    expect(normalizeChannel(null)).toBe('stable');
+    expect(normalizeChannel(42)).toBe('stable');
+    // A half-written file must not become an opt-in.
+    expect(normalizeChannel('betaa')).toBe('stable');
+  });
+
+  it('lee el canal del fichero que escribe la interfaz', () => {
+    expect(readUpdateChannel({ channelPath: CHANNEL_PATH, readFile: () => 'beta\n' })).toBe('beta');
+  });
+
+  it('sin fichero, o si no se puede leer, se queda en estable', () => {
+    const refusing = () => {
+      throw new Error('ENOENT');
+    };
+    expect(readUpdateChannel({ channelPath: CHANNEL_PATH, readFile: refusing })).toBe('stable');
+    expect(readUpdateChannel({})).toBe('stable');
   });
 });

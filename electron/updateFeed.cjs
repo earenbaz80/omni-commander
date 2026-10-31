@@ -128,6 +128,34 @@ function normalizeExpiry(raw) {
 }
 
 /**
+ * The update channel, as the interface offers it.
+ *
+ * `stable` is the default and every unknown value falls back to it: an opt-in
+ * that can be flipped by a broken file would ship test builds to people who
+ * never asked for them. `beta` is what turns prereleases into candidates.
+ */
+function normalizeChannel(raw) {
+  const value = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+  return value === 'beta' ? 'beta' : 'stable';
+}
+
+/**
+ * Reads the channel from the file the settings write. Missing, unreadable or
+ * anything unrecognised is `stable`: a machine that cannot read the note is not
+ * a machine that opted into test builds.
+ */
+function readUpdateChannel({ channelPath, readFile } = {}) {
+  if (!channelPath || typeof readFile !== 'function') return 'stable';
+  let text;
+  try {
+    text = readFile(channelPath);
+  } catch {
+    return 'stable';
+  }
+  return normalizeChannel(text);
+}
+
+/**
  * Reads the recorded expiry from the small file kept beside the token. Missing,
  * unreadable or malformed is simply "no date known": a note that cannot be read
  * must not keep the app from starting or make the settings claim a date.
@@ -173,6 +201,8 @@ function resolveUpdateFeed({ appUpdateConfigPath, env, tokenPath, readFile } = {
 module.exports = {
   MIN_TOKEN_LENGTH,
   normalizeToken,
+  normalizeChannel,
+  readUpdateChannel,
   normalizeExpiry,
   parseFeedConfig,
   readFeedConfig,
