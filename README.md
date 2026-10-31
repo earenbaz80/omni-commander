@@ -93,6 +93,35 @@ Se saltan con `git commit --no-verify` / `git push --no-verify`. Para desactivar
 2. **verify** — en `windows-latest`, en cada push a `master` y en cada pull request, en una matriz de dos versiones de Node (el suelo que devuelve `engines` y la última 22.x, hoy 22.23.4): instalación con `npm ci --engine-strict` (un Node fuera de `engines.node` rompe aquí en vez de solo avisar; el job `build` usa el mismo flag), formato (`format:check`), tipos (`lint`), lint (`lint:eslint`) y tests (`npm test -- --maxWorkers=2`). Las dos ramas se reportan por separado, así que un suelo roto se ve aunque la última 22.x esté en verde.
 3. **build** — en `windows-latest`, solo en tags `v*`, y depende de `verify`: si algo falla arriba, no se empaqueta ni se publica la release.
 
+## Actualizaciones y releases
+
+La copia instalada no se actualiza sola a ciegas: `electron-updater` lee el `latest.yml` que electron-builder escribe dentro del paquete y comprueba si hay una versión más nueva en el repositorio. El updater solo existe en la instalación NSIS —un `npm run dev` o el portable, que se descomprime en un temporal en cada arranque, no tienen copia que reemplazar—, y nada se descarga hasta que se pulsa el botón: la comprobación es automática, la descarga es una decisión.
+
+### El token del updater
+
+El repositorio es privado, así que la URL anónima a la que la librería apunta por defecto contesta `404` y ninguna copia vería una actualización. Por eso el updater pide un token propio, de solo lectura, que se queda en la máquina del usuario y nunca se empaqueta. Se crea en [github.com/settings/personal-access-tokens/new](https://github.com/settings/personal-access-tokens/new) con **Only select repositories** apuntando al repo de la app, **Repository permissions → Contents: Read-only** y una caducidad; no hace falta ningún otro permiso. GitHub no permite crear estos tokens por API, así que es un paso manual por diseño.
+
+Se pega en **Ajustes → Seguridad → Token de actualizaciones**, no en un fichero a mano: la app lo valida (rechaza menos de 20 caracteres o cualquier espacio en medio), lo escribe con permisos de usuario en `%APPDATA%\omnicommander-pro\update-token` y reconstruye el feed al momento, sin reiniciar. `OMNI_UPDATE_TOKEN` gana sobre ese fichero si está definida, que es lo cómodo en un equipo compartido o en una sesión temporal. El destino del feed no se configura aquí: sale del `app-update.yml` que electron-builder deja en el paquete.
+
+La fecha de caducidad no viaja dentro del token y GitHub solo la muestra al crearlo, así que se anota en el campo **Caduca el** y se guarda aparte, en `update-token-meta.json` (`{"tokenExpiresAt":"2027-01-29"}`), para que el fichero del token siga siendo una sola línea. Con esa fecha la tarjeta deja una nota neutra, pasa a **ámbar cuando quedan 30 días o menos** y a rojo cuando ya pasó, siempre al lado del enlace que lleva a la página donde se renueva. Guardar un token nuevo o quitar el actual borra la fecha anotada, porque era de la credencial anterior: hay que volver a escribirla.
+
+Rotarlo es borrar el viejo en GitHub, crear el nuevo y pegarlo. Mientras no se haga, un token caducado no rompe nada más que el updater: la comprobación falla con `401`, la tarjeta lo dice y el resto de la app sigue igual.
+
+### Cortar una release
+
+El job `build` solo se dispara con una etiqueta `v*` y exige que la etiqueta coincida con `version` en [package.json](package.json); si no coinciden, falla antes de empaquetar. El orden que funciona:
+
+```bash
+npm version 1.0.16 --no-git-tag-version    # sube package.json y package-lock.json
+
+git add package.json package-lock.json
+git commit -m "chore(release): cut 1.0.16"
+git tag v1.0.16
+git push origin master v1.0.16
+```
+
+El push de la etiqueta empaqueta el NSIS y el portable, renombra los artefactos sin espacios —GitHub los reescribe al subirlos y `latest.yml` dejaría de encontrarlos—, comprueba que `latest.yml` apunta a un fichero que existe y con el tamaño declarado, y publica la release de una vez en lugar de dejarla en borrador. Los dos `.exe`, sus `.zip`, el `.blockmap` y `latest.yml` quedan en esa misma release; las copias instaladas los leen con el token de arriba.
+
 ## Formato
 
 [.prettierrc](.prettierrc): punto y coma, comillas simples, 120 columnas y fin de línea LF. [.prettierignore](.prettierignore) deja fuera el lockfile, el bundle vendorizado de `public/` y la documentación. [.gitattributes](.gitattributes) fuerza LF en el checkout para que la comprobación de formato dé lo mismo en Windows que en el CI. Y como Prettier no mira este fichero, sus tablas las vigila [README.tables.test.ts](README.tables.test.ts): falla si una columna deja de estar alineada, si una fila pierde una celda o si el separador no cubre su columna.
