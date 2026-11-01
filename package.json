@@ -71,7 +71,6 @@
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.20",
-    "@zip.js/zip.js": "^2.24.0",
     "electron-updater": "^6.8.11",
     "express": "^4.21.2",
     "jszip": "^3.10.2",
