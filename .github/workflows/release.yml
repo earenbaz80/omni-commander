@@ -84,28 +84,12 @@ jobs:
       - name: Lint
         run: npm run lint:eslint
 
-      # Defender inspects every file the runner opens, and this suite opens a lot
-      # of them: jsdom is 949 modules, reread once per test file. On a developer
-      # machine that turns a 0.06ms open into 0.68ms and doubles the suite. The
-      # probe measures the same open before and after, so the log says whether
-      # the exclusion took effect here instead of leaving it to the clock.
-      - name: Exclude the workspace from on-access scanning
-        if: runner.os == 'Windows'
-        shell: pwsh
-        continue-on-error: true
-        run: |
-          function Measure-Open {
-            node -e "const fs=require('fs');const n=400;const t=()=>{const a=process.hrtime.bigint();for(let i=0;i<n;i++){const fd=fs.openSync('package.json','r');fs.closeSync(fd)}return Number(process.hrtime.bigint()-a)/1e6/n};t();console.log(t().toFixed(3))"
-          }
-          "open+close, scanned:   $(Measure-Open) ms"
-          try {
-            Add-MpPreference -ExclusionPath $env:GITHUB_WORKSPACE
-            "exclusion accepted: $env:GITHUB_WORKSPACE"
-          } catch {
-            "exclusion refused: $($_.Exception.Message)"
-          }
-          "listed now: $((Get-MpPreference).ExclusionPath -contains $env:GITHUB_WORKSPACE)"
-          "open+close, excluded:  $(Measure-Open) ms"
+      # Excluding the workspace from the on-access scan was tried here and does
+      # not pay: this runner opens a file in 0.024ms, against 0.68ms on a
+      # developer machine with the scan on, so the exclusion reclaimed 0.024 to
+      # 0.018ms and the suite did not move. It stays a local-machine remedy (see
+      # the README); adding it back here only adds a step that can fail with a
+      # provider error, which it did on one of the two legs.
 
       # The default worker count is flaky on the CI runner; the suite is stable
       # with an explicit cap.
