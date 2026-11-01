@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import os from 'node:os';
 import { ipconfigProblems, parseProcessRows, processTableProblems, treeProblems } from '../e2e/support/commandOutput';

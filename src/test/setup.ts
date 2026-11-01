@@ -1,6 +1,20 @@
 import { configure } from '@testing-library/dom';
 
 /**
+ * Two environments are in play, and which one a file gets is a cost decision
+ * rather than a matter of taste. Creating a jsdom window means loading its
+ * module graph — 949 modules, several seconds on a cold process — and with
+ * per-file isolation that happens once for every test file, because each one
+ * gets a fresh module registry. A file that never reads `document` or `window`
+ * has nothing to gain from it and starts with `// @vitest-environment node`
+ * instead; the configuration is jsdom, so the default goes the other way.
+ *
+ * So when adding a test for a service, a parser, a script or a config: make it
+ * node. Only component tests, and the few things that genuinely read the DOM
+ * (measuring, theming, the preview builders), need the window.
+ */
+
+/**
  * Default wait for `findBy*`, `findAllBy*` and `waitFor`, in milliseconds.
  *
  * Testing Library ships one second, which is a budget for the assertion rather
