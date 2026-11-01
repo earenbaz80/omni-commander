@@ -22,6 +22,13 @@
 # freeMb is blank where /proc/meminfo does not exist, which is every macOS box.
 set -u
 
+# The summary is one `%f` away from printing `2,00` on a machine whose locale
+# uses a decimal comma, which would break any parse downstream; the PowerShell
+# twin pins its culture for the same reason. C also keeps `sort -n` reading the
+# integer columns the way it is written.
+LC_ALL=C
+export LC_ALL
+
 seconds=700
 out=cpu-samples.log
 stop_file=
@@ -120,7 +127,7 @@ END {
   for (n in acs) print n, acs[n], apeak[n] > aggfile
   entry = ""
   for (i = 1; i <= ntop; i++) entry = (entry == "" ? topent[i] : entry ";" topent[i])
-  printf "%s,%s,%d,%s\n", ts, freemb, total, entry >> outfile
+  printf "%s,%s,%d,%s\n", ts, freemb, total, entry
 }
 AWK
 
@@ -150,9 +157,15 @@ while [ "$(date +%s)" -lt "$deadline" ]; do
   warm=0
   [ "$tick" -eq 1 ] && warm=1
 
-  awk -v prevfile="$prev" -v aggfile="$agg" -v outfile="$out" \
+  # The row is appended here, not by awk: a Windows path passed through `-v`
+  # arrives with its backslashes eaten as escape sequences (`\Users` became
+  # `Users` plus a warning), so the file it named was never the one written.
+  row=$(awk -v prevfile="$prev" -v aggfile="$agg" \
       -v ts="$(date +%H:%M:%S)" -v freemb="$free_mb" -v warm="$warm" \
-      -v maxtop="$top_n" -f "$prog" "$prev" "$agg" "$snap"
+      -v maxtop="$top_n" -f "$prog" "$prev" "$agg" "$snap")
+  if [ -n "$row" ]; then
+    printf '%s\n' "$row" >>"$out"
+  fi
 
   sleep 1
 done
