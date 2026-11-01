@@ -15,6 +15,25 @@ import { configure } from '@testing-library/dom';
  */
 
 /**
+ * That the window comes from jsdom is not an oversight either: happy-dom was
+ * measured against it and turned down, so reaching for the faster one again
+ * means reading this first.
+ *
+ * It is genuinely quicker — 1.6–1.9 s to load against 3–7 s here, ~10 ms to
+ * open a window instead of 100–670 ms, and ~38 % off a batch of component
+ * tests. What it costs is the truth about the DOM. It ships no default style
+ * for `<u>`, so `getComputedStyle(<u>).display` comes back empty rather than
+ * `inline`; `dom-accessibility-api` then joins the pieces with a space and the
+ * menu bar's accessible name reads "I zquierda" instead of "Izquierda", because
+ * HeaderMenuBar renders its access key as `<u>{letter}</u>`. Its localStorage
+ * also never throws on quota, leaving the persist-failure path untested. Both
+ * are the environment misreporting the document the browser would have given
+ * us, which is the one thing these tests are here to check: on the full suite
+ * it took 3 files and 5 tests red, and the honest repair would have been to
+ * rewrite the accessible names to match a DOM no browser produces.
+ */
+
+/**
  * Default wait for `findBy*`, `findAllBy*` and `waitFor`, in milliseconds.
  *
  * Testing Library ships one second, which is a budget for the assertion rather
