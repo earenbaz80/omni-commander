@@ -102,6 +102,33 @@ jobs:
       - name: Unit tests
         run: npm test -- --maxWorkers=2
 
+  # The suite as a whole cannot run on Linux: the product is a Windows shell and
+  # seven of its test files drive powershell, tasklist or wmic. The sh sampler
+  # can, though, and it parses a format only a real ps produces -- the columns it
+  # asks for and the [[dd-]hh:]mm:ss counters. On windows-latest that test skips
+  # itself (MSYS ps cannot answer the flags), so this is the only place the Linux
+  # branch of it ever runs.
+  sampler:
+    name: CPU sampler on Linux (Node ${{ needs.engines.outputs.floor }})
+    needs: engines
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ needs.engines.outputs.floor }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --engine-strict
+
+      - name: Sampler against the runner's ps
+        run: npm test -- scripts/cpu-sampler.test.ts
+
   build:
     name: Build and publish
     needs: verify
