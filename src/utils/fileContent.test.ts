@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { BINARY_SNIFF_BYTES, MAX_TEXT_FILE_BYTES, decodeFileBytes } from './fileContent';
 

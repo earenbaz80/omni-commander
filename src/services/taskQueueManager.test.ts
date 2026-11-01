@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, beforeEach } from 'vitest';
 import { taskQueue } from './taskQueueManager';
 import { FileProgressEntry, TransferPlan } from '../types';

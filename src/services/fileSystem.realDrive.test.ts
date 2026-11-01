@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { fsEngine, lostJobRetryPolicy } from './fileSystem';
 import { log } from '../utils/logger';
