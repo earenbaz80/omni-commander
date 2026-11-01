@@ -30,10 +30,49 @@ if [ ! -f node_modules/typescript/bin/tsc ]; then
   exit 0
 fi
 
+# Everything below is also written to pre-push.log, which `*.log` keeps out of
+# Git. A red run used to leave nothing behind: the suite printed to the terminal,
+# the output scrolled away, and the failing file's name was gone by the time
+# anyone asked which test it had been — which is how "a test failed" ends up
+# with no way to tell a flaky suite from a broken one. The log outlives the run,
+# and the hook repeats the culprit's line itself instead of trusting the scroll.
+log="pre-push.log"
+: >"$log"
+
+# Status is captured before anything else: with `set -e`, the first failure ends
+# the script, and this is the only place that knows what the code and the output
+# were. Exiting with the same status keeps the push blocked, not accidentally
+# allowed by a successful grep in the reporting block.
+on_exit() {
+  status=$?
+  if [ "$status" -ne 0 ]; then
+    echo
+    echo "pre-push: failed with exit $status. Whole output: $log"
+    # The lines that name a file, with the colour codes the log keeps on purpose
+    # so it reads like the terminal did. Nothing is printed if the failure had
+    # no test in it (a type error, a missing binary).
+    sed -E 's/\x1b\[[0-9;]*m//g' "$log" | grep -E '(^|[[:space:]])(FAIL|Test Files[[:space:]].*failed)' | head -20 || true
+  fi
+  exit "$status"
+}
+trap on_exit EXIT
+
+# `tee` leaves the terminal output as it was; `pipefail` means the command's
+# status, not tee's, is what the script acts on.
+run() {
+  "$@" 2>&1 | tee -a "$log"
+}
+
 echo "pre-push: typechecking (npm run lint)..."
-npm run --silent lint
+run npm run --silent lint
 
-echo "pre-push: running the test suite (npm test)..."
-npm test
+# The worker count is pinned here for the reason CI pins it: the default opens
+# one worker per core, and with four of them on this four-core machine the suite
+# has gone red with nothing broken (odd/tasks records the rule: always pass
+# --maxWorkers=2). It is not a speed trade: alternating both settings over the
+# same half hour, the cap ran 128s/138s/139s against 106s/112s/161s uncapped. It
+# costs nothing measurable and turns half a minute of spread into a second.
+echo "pre-push: running the test suite (npm test -- --maxWorkers=2)..."
+run npm test -- --maxWorkers=2
 
-echo "pre-push: types and tests passed."
+echo "pre-push: types and tests passed. (output: $log)"
