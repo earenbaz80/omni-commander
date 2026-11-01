@@ -95,7 +95,7 @@ jobs:
         continue-on-error: true
         run: |
           function Measure-Open {
-            node -e "const fs=require('fs');const n=400;const run=()=>{const a=process.hrtime.bigint();for(let i=0;i<n;i++){const fd=fs.openSync('package.json','r');fs.closeSync(fd)}return Number(process.hrtime.bigint()-a)/1e6/n};run();return run()"
+            node -e "const fs=require('fs');const n=400;const t=()=>{const a=process.hrtime.bigint();for(let i=0;i<n;i++){const fd=fs.openSync('package.json','r');fs.closeSync(fd)}return Number(process.hrtime.bigint()-a)/1e6/n};t();console.log(t().toFixed(3))"
           }
           "open+close, scanned:   $(Measure-Open) ms"
           try {
