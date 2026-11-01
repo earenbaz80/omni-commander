@@ -76,6 +76,30 @@ Hay variables que pone el propio proceso y no se configuran a mano: `OMNI_SESSIO
 
 Fija `E2E_UI_PORT` y `OMNI_API_PORT` para lo contrario: apuntar la suite a servidores que ya tengas levantados, que entonces reutiliza.
 
+## La suite y el antivirus
+
+`npm test` crea un jsdom por fichero de test —88 hoy— porque el aislamiento da a cada uno un registro de módulos nuevo, y jsdom son 949 módulos que hay que volver a leer del disco cada vez. En un equipo con el antivirus escaneando en tiempo real, esa lectura se paga cara. Aquí, abrir y cerrar un fichero de 55 bytes cuesta **0,68 ms** con el escaneo activo y **0,06 ms** con la carpeta excluida, mientras que un `stat` del mismo fichero son 0,05 ms: el peaje está en abrir contenido, no en mirar metadatos. Y no es cosa de la carpeta, porque una copia idéntica en `%TEMP%` lo paga igual.
+
+Multiplicado por 88 ficheros, la diferencia no es cosmética:
+
+| Medida                                    | Sin exclusión       | Con exclusión         |
+| ----------------------------------------- | ------------------- | --------------------- |
+| Abrir y cerrar un fichero de 55 B         | 0,68 ms             | 0,06 ms               |
+| Leer los 663 ficheros de `jsdom/lib`      | 2,0–2,6 ms cada uno | 0,25–0,38 ms cada uno |
+| Tiempo de entorno de una corrida completa | 166–344 s           | 115–124 s             |
+| `npm test` de pared                       | 187–234 s           | 104–127 s             |
+
+La comparación de las dos últimas filas no es un experimento controlado: el reloj de pared de esta suite baila mucho —cuatro núcleos lógicos, así que Vitest no pasa de tres workers, y cualquier otro proceso del equipo se nota— y las cifras salen de corridas distintas. Lo que sí está medido en el mismo instante es la lectura de ficheros: la misma arboleda, excluida y sin excluir, de 5 a 10 veces más rápida.
+
+Así que en una máquina nueva la suite puede tardar el doble sin que nada esté roto. Para que no parezca que algo se ha estropeado, añade la carpeta del proyecto a las exclusiones del antivirus, desde una consola de administrador:
+
+```powershell
+Add-MpPreference -ExclusionPath 'C:\ruta\al\proyecto'
+(Get-MpPreference).ExclusionPath   # comprobar que está
+```
+
+El precio es el que se espera: esa carpeta deja de escanearse en tiempo real. Para deshacerlo, `Remove-MpPreference -ExclusionPath '<ruta>'`. Y en Linux o macOS este peaje no se paga igual: el coste de abrir un fichero ahí es una fracción de esto.
+
 ## Hooks de Git
 
 Los hooks viven en `.githooks/` y se activan con `core.hooksPath` (lo hace `scripts/install-git-hooks.cjs` desde `prepare`). Son una comodidad para no llegar al CI con el trabajo ya hecho; la compuerta real sigue siendo el CI.
