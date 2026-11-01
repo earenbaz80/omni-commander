@@ -3,6 +3,8 @@
 # Blocks a push that would fail the CI `verify` job: types first, then the test
 # suite. Formatting stays in pre-commit, which is fast; this one is allowed to
 # take a minute. `git push --no-verify` skips it when that is what you want.
+# A red run is not automatically a regression; the note at the end of this file
+# is how to tell one from a machine that had no CPU left to give.
 set -eo pipefail
 
 cd "$(git rev-parse --show-toplevel)" || exit 0
@@ -76,3 +78,29 @@ echo "pre-push: running the test suite (npm test -- --maxWorkers=2)..."
 run npm test -- --maxWorkers=2
 
 echo "pre-push: types and tests passed. (output: $log)"
+
+# When this hook goes red, the log says which test and does not say why.
+# Contention is one of the answers, and it has been the true one: the same tree
+# took 394 s and failed a walk-the-folder test while another project's headless
+# browsers held two cores, and 139 s and passed with the box empty. The suite
+# got *less* CPU while competing (1.10 cores) than alone (1.53), so the workers
+# were waiting and what expired was the test's budget. The tests that break
+# this way are the ones doing real work against a clock -- crypto, disk walks,
+# spawned processes -- and which one falls is whichever was running at the
+# spike, which is why the name in the log changes from run to run.
+#
+# To tell contention from a broken test, sample the box while the suite runs:
+#
+#   powershell -NoProfile -File scripts/cpu-sampler.ps1 -Seconds 700 -Out cpu.log
+#   npm test -- --maxWorkers=2     # in another window, sampler already running
+#
+# When it stops, the sampler prints one line per process name with mean cores,
+# CPU seconds and peak working set. `node` is this suite; a second name near the
+# top is who took the cores. Its CSV puts the name next to the pid on every row,
+# so a process that has since exited is still named for the second it worked --
+# the usual reason a spike goes unexplained. On Windows only; elsewhere
+# `pidstat 1` or `top -b` answer the same question.
+#
+# Re-running the one failing file on a quiet box (`npm test -- <file>`) proves
+# the file, not the budget. Ship only after the suite is green on a quiet
+# machine: a test's budget must not be raised to cover for a neighbour's build.
