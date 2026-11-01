@@ -174,7 +174,13 @@ describe('SettingsModal app password', () => {
     // Three PBKDF2 derivations at 100k iterations each, in real WebCrypto: on a
     // loaded machine those alone have been measured past the 5 s default, which
     // is a budget for the crypto, not a looser assertion.
-  }, 30000);
+    //
+    // 30 s was chosen the same way and then proved short once in forty runs. The
+    // test takes about a second, and that run had the whole suite at 383 s
+    // against 142-173 s for the seven around it: the work had not grown thirty
+    // times over, the worker had been left off the CPU. Nothing on this side can
+    // shorten a stall like that, so the budget is the only lever there is.
+  }, 60000);
 
   it('refuses to save when the confirmation does not match', async () => {
     const onUpdate = renderModal(baseSettings);
