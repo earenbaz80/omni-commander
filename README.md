@@ -2,10 +2,20 @@
 
 Administrador de archivos de doble panel: dos listados lado a lado, barra de teclas de función y línea de órdenes, con una interfaz de terminal pensada para manejarse desde el teclado. La UI es React + Vite, las operaciones sobre el sistema de archivos real pasan por un servidor Express local (`server.cjs`) y la app de escritorio se empaqueta con Electron.
 
+## Plataforma
+
+La app es **solo para Windows**, y la compatibilidad con Linux o macOS no es un objetivo. No es una carencia pendiente: es el diseño. Los paneles se direccionan por letra de unidad (`C:\`), la línea de órdenes ejecuta verbos de DOS (`dir`, `cls`, `vol`), y el servidor local se apoya en el shell de Windows para la papelera, los accesos directos `.lnk`, los App Paths del registro, las propiedades de archivo y la elevación con UAC. Ninguna de esas piezas tiene equivalente directo fuera de Windows, y sustituirlas cambiaría el producto, no solo su implementación.
+
+En la práctica eso significa:
+
+- El empaquetado produce instalador NSIS y portable para Windows, y el updater (`latest.yml` + `electron-updater`) es el de Windows. No hay targets para otros sistemas.
+- Hacerla compatible no es un refactor: si algún día se quiere, es una decisión de producto con su propio diseño, y toca el modelo de rutas del servidor (73 usos de `path.win32`), las unidades que muestra el cliente y los tests que las asumen.
+- Para usarla desde otro sistema, la vía razonable es una máquina virtual con Windows: no compromete nada del código ni añade una segunda plataforma que mantener.
+
 ## Requisitos
 
 - Node.js `^22.22.2 || ^24.15.0 || >=26.0.0` y npm. Es lo que declara `engines` en [package.json](package.json), y el CI lo comprueba en dos versiones: el suelo de ese rango, que lee del propio fichero, y la última 22.x (hoy 22.23.4). npm solo avisa si no se cumple: no bloquea la instalación.
-- Windows para el empaquetado Electron.
+- Windows, y solo Windows: ver [Plataforma](#plataforma).
 
 El suelo no lo pone el código propio sino las dependencias: `jsdom` 30, el DOM de los tests, pide 22.22.2 en la línea 22 y 24.15 en la 24; `eslint` 10 pide 22.13 y `vitest` 5, 22.12. Por eso ni 22.20 ni 23.x valen.
 
