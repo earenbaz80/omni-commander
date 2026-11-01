@@ -204,12 +204,33 @@ export const RunLauncher: React.FC<RunLauncherProps> = ({
   // The keys that outlive the field live on the window: Ctrl+R runs the line
   // even when the pointer, not the caret, is what is last on it, and Escape has
   // to work wherever the panel has focus.
+  //
+  // The listener is registered once and reads the latest render from this ref
+  // instead of being torn down and rebuilt on every keystroke. Rebuilding it
+  // left a gap between the commit that shows the suggestion list and the effect
+  // that replaced the listener, and an Escape landing in that gap was answered
+  // by the previous one: it saw no suggestions, fell through to the line and
+  // wiped what had been typed. The ref is refreshed in a layout effect, which
+  // React flushes with the commit, so what it holds is never older than the DOM
+  // the key was pressed on.
+  const escapeStateRef = React.useRef({ focused, keysOpen, listHidden, hasSuggestions: false, value, onDismiss });
+  React.useLayoutEffect(() => {
+    escapeStateRef.current = {
+      focused,
+      keysOpen,
+      listHidden,
+      hasSuggestions: suggestions.length > 0,
+      value,
+      onDismiss,
+    };
+  });
+
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       // Ctrl+R is the Ejecutar button's other face. Shift is excluded: that is
       // the app-wide shortcut that brings the line into focus.
       if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'r') {
-        if (!focused) return;
+        if (!escapeStateRef.current.focused) return;
         // Also keep it away from the browser, where it means reload.
         event.preventDefault();
         event.stopPropagation();
@@ -219,19 +240,20 @@ export const RunLauncher: React.FC<RunLauncherProps> = ({
       if (event.key !== 'Escape') return;
       // The listener is always attached now that the line never unmounts; it
       // must not eat an Escape meant for a dialog elsewhere in the window.
-      if (!focused && !keysOpen) return;
+      const state = escapeStateRef.current;
+      if (!state.focused && !state.keysOpen) return;
       event.stopPropagation();
       // One thing at a time: the keys card, the list, the line.
-      if (keysOpen) {
+      if (state.keysOpen) {
         setKeysOpen(false);
         return;
       }
-      if (!listHidden && suggestions.length) {
+      if (!state.listHidden && state.hasSuggestions) {
         setRemoteSuggestions([]);
         setListHidden(true);
         return;
       }
-      if (value) {
+      if (state.value) {
         setValue('');
         setError('');
         setRecall(-1);
@@ -239,11 +261,11 @@ export const RunLauncher: React.FC<RunLauncherProps> = ({
       }
       inputRef.current?.blur();
       // With nothing left to undo, Escape is how the one-line row goes away.
-      onDismiss?.();
+      state.onDismiss?.();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [focused, keysOpen, listHidden, suggestions.length, value, onDismiss]);
+  }, []);
 
   const failureText = (reason: RunFailure, program?: string) => {
     const key = FAILURE_KEYS[reason] || 'runErrorFailed';
