@@ -1,19 +1,22 @@
 // @vitest-environment node
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import JSZip from 'jszip';
-import { startServer } from '@/scripts/serverHarness';
+import { startServer, type TestServer } from '@/scripts/serverHarness';
 import { fsEngine } from './src/services/fileSystem';
 import { archiveEntryPath, bytesToBase64 } from './src/services/zipArchive';
 import type { FileItem } from './src/types';
 
-let child: ChildProcess;
+// The server comes from the shared harness like every other suite's. This file
+// used to spawn one itself on a fixed port 3997 with a 15s startup timer, which
+// is the two failure modes scripts/serverHarness.ts exists to remove: a leftover
+// server on that port makes the assertions talk to a stranger, and a fixed timer
+// turns a busy machine into "did not start".
+let server: TestServer;
 let root: string;
-let base: string;
 let driveId: string;
 const nativeFetch = globalThis.fetch;
 /** Archives built by scripts/make-archive-fixtures.mjs, checked against bsdtar there. */
@@ -25,23 +28,11 @@ let archive: FileItem;
 beforeAll(async () => {
   root = await fs.mkdtemp(path.join(os.tmpdir(), 'omni-archives-'));
   driveId = `real_${root[0].toUpperCase()}`;
-  child = spawn(process.execPath, ['server.cjs'], {
-    env: { ...process.env, PORT: '3997', OMNI_SESSION_TOKEN: '' },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  base = await new Promise<string>((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error('Archive test server did not start')), 15000);
-    child.stdout!.on('data', (chunk) => {
-      const match = String(chunk).match(/listening on http:\/\/localhost:(\d+)/);
-      if (match) {
-        clearTimeout(timeout);
-        resolve(`http://127.0.0.1:${match[1]}`);
-      }
-    });
-    child.once('error', reject);
-  });
+  server = await startServer({ env: { OMNI_SESSION_TOKEN: '' } });
+  // The engine asks this file's relative `/api/...` routes, so the stub only has
+  // to put the port in front of them; an absolute URL is left alone.
   vi.stubGlobal('fetch', (url: string, init?: RequestInit) =>
-    nativeFetch(url.startsWith('/') ? `${base}${url}` : url, init),
+    nativeFetch(url.startsWith('/') ? server.url(url) : url, init),
   );
   const zip = new JSZip();
   zip.file('nested/deep/raw.bin', binary);
@@ -68,16 +59,14 @@ beforeAll(async () => {
   // otherwise be picked here and break every ZIP test below.
   archive = fsEngine.getFiles(driveId, root).find((f) => f.fullName === 'sample.zip')!;
   expect(archive.content).toBe('');
-}, 20000);
+  // The harness waits up to 20s for the server to listen; building the 2 MB zip
+  // and copying the fixtures happen on top of that, so the budget has to be
+  // larger than the startup one or a slow machine fails with the outer timeout.
+}, 40000);
 
 afterAll(async () => {
   vi.unstubAllGlobals();
-  if (child && child.exitCode === null) {
-    await new Promise<void>((resolve) => {
-      child.once('exit', () => resolve());
-      child.kill();
-    });
-  }
+  await server?.stop();
   if (root) await fs.rm(root, { recursive: true, force: true });
 });
 
@@ -338,7 +327,7 @@ describe('server-read archives (RAR, 7-Zip, compressed TARs)', () => {
   it('asks for an encrypted RAR password, rejects the wrong one and reads it with the right one', async () => {
     const archive = path.join(root, 'sample-encrypted.rar');
     const post = (route: string, body: unknown) =>
-      nativeFetch(`${base}/api/archives/${route}`, {
+      nativeFetch(server.url(`/api/archives/${route}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
