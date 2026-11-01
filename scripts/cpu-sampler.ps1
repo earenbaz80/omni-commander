@@ -18,11 +18,17 @@
 # `name=pid=cs=wsMb` entries, the busiest first; anything quieter than that in a
 # given second is in totalCs but unnamed, which is the right trade for a file
 # that would otherwise be megabytes of noise.
+#
+# -StopFile ends the run as soon as that file exists, and still prints the
+# summary. The hook needs the summary at the moment the suite fails, not at the
+# end of a fixed deadline, and killing the process would throw the summary away
+# with it.
 param(
   [int]$Seconds = 700,
   [string]$Out = 'cpu-samples.log',
   [int]$FreeEvery = 5,
-  [int]$Top = 15
+  [int]$Top = 15,
+  [string]$StopFile = ''
 )
 
 $deadline = (Get-Date).AddSeconds($Seconds)
@@ -36,6 +42,7 @@ $freeMb = ''
 $warmed = $false
 
 while ((Get-Date) -lt $deadline) {
+  if ($StopFile -and (Test-Path -LiteralPath $StopFile)) { break }
   if ($FreeEvery -gt 0 -and $tick % $FreeEvery -eq 0) {
     try { $freeMb = [int]((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1KB) } catch { }
   }
@@ -96,7 +103,9 @@ while ((Get-Date) -lt $deadline) {
 $span = [math]::Max(1, $tick - 1)
 [System.String]::Format([System.Globalization.CultureInfo]::InvariantCulture,
   '{0} ventanas de ~1s; CPU por nombre de proceso:', $span)
-foreach ($entry in ($byName.GetEnumerator() | Sort-Object { $_.Value.Cs } -Descending | Select-Object -First 12)) {
+# Under a tenth of a second nothing is worth a row: it would print as `0.00
+# cores, 0 s` and take a slot that a real occupant needs.
+foreach ($entry in ($byName.GetEnumerator() | Where-Object { $_.Value.Cs -ge 10 } | Sort-Object { $_.Value.Cs } -Descending | Select-Object -First 12)) {
   [System.String]::Format([System.Globalization.CultureInfo]::InvariantCulture,
     '{0,-32} {1,7:N2} nucleos medios   {2,8:N0} s de CPU   pico {3,5:N0} MB',
     $entry.Key, ($entry.Value.Cs / 100 / $span), ($entry.Value.Cs / 100), $entry.Value.PeakWs)

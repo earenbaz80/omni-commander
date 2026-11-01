@@ -41,12 +41,51 @@ fi
 log="pre-push.log"
 : >"$log"
 
+# The suite has gone red from contention, and a log that names the failing test
+# cannot say whether the machine was the problem. So the sampler runs *during*
+# the suite -- one started after the failure would record a box that is already
+# quiet, which explains nothing -- and its summary is attached below when the
+# run fails. It costs a PowerShell reading the process table once a second,
+# about 0.05 of a core, which is worth what it buys.
+#
+cpu_log="pre-push-cpu.log"
+cpu_summary="pre-push-cpu-summary.log"
+stop_file="pre-push-cpu-stop.log"
+sampler_pid=""
+
+start_sampler() {
+  # Nothing here is required for the push to be verified: a clone on Linux or
+  # macOS, where the sampler's PowerShell is absent, pushes exactly as before.
+  command -v powershell.exe >/dev/null 2>&1 || return 0
+  [ -f scripts/cpu-sampler.ps1 ] || return 0
+  rm -f "$stop_file"
+  : >"$cpu_summary"
+  powershell.exe -NoProfile -NonInteractive -File scripts/cpu-sampler.ps1 \
+    -Seconds 900 -Out "$cpu_log" -StopFile "$stop_file" >"$cpu_summary" 2>&1 &
+  sampler_pid=$!
+}
+
+stop_sampler() {
+  [ -n "$sampler_pid" ] || return 0
+  : >"$stop_file"
+  # The sampler notices the file within a second. The watchdog is only for a
+  # PowerShell that has wedged: waiting on one would hang the push with nothing
+  # on screen to say why, which is worse than a summary that got cut short.
+  ( sleep 5 && kill "$sampler_pid" ) >/dev/null 2>&1 &
+  watchdog=$!
+  wait "$sampler_pid" 2>/dev/null || true
+  kill "$watchdog" 2>/dev/null || true
+  wait "$watchdog" 2>/dev/null || true
+  sampler_pid=""
+}
+
 # Status is captured before anything else: with `set -e`, the first failure ends
 # the script, and this is the only place that knows what the code and the output
 # were. Exiting with the same status keeps the push blocked, not accidentally
 # allowed by a successful grep in the reporting block.
 on_exit() {
   status=$?
+  stop_sampler
   if [ "$status" -ne 0 ]; then
     echo
     echo "pre-push: failed with exit $status. Whole output: $log"
@@ -54,6 +93,13 @@ on_exit() {
     # so it reads like the terminal did. Nothing is printed if the failure had
     # no test in it (a type error, a missing binary).
     sed -E 's/\x1b\[[0-9;]*m//g' "$log" | grep -E '(^|[[:space:]])(FAIL|Test Files[[:space:]].*failed)' | head -20 || true
+    # The other half of the failure: who else was on the machine. Printed only
+    # when a sampler actually ran and said something.
+    if [ -s "$cpu_summary" ]; then
+      echo
+      echo "pre-push: CPU by process name while the suite ran (samples: $cpu_log)"
+      sed -E 's/\x1b\[[0-9;]*m//g' "$cpu_summary" | tail -14
+    fi
   fi
   exit "$status"
 }
@@ -75,6 +121,7 @@ run npm run --silent lint
 # same half hour, the cap ran 128s/138s/139s against 106s/112s/161s uncapped. It
 # costs nothing measurable and turns half a minute of spread into a second.
 echo "pre-push: running the test suite (npm test -- --maxWorkers=2)..."
+start_sampler
 run npm test -- --maxWorkers=2
 
 echo "pre-push: types and tests passed. (output: $log)"
@@ -89,17 +136,20 @@ echo "pre-push: types and tests passed. (output: $log)"
 # spawned processes -- and which one falls is whichever was running at the
 # spike, which is why the name in the log changes from run to run.
 #
-# To tell contention from a broken test, sample the box while the suite runs:
+# That is why the sampler above runs every push, and why a failure prints its
+# verdict: one line per process name with mean cores, CPU seconds and peak
+# working set. `node` is this suite; a second name near the top is who took the
+# cores. Its CSV puts the name next to the pid on every row, so a process that
+# has since exited is still named for the second it worked -- the usual reason a
+# spike goes unexplained.
+#
+# By hand, outside a push, or to look again at what a push already recorded:
 #
 #   powershell -NoProfile -File scripts/cpu-sampler.ps1 -Seconds 700 -Out cpu.log
 #   npm test -- --maxWorkers=2     # in another window, sampler already running
 #
-# When it stops, the sampler prints one line per process name with mean cores,
-# CPU seconds and peak working set. `node` is this suite; a second name near the
-# top is who took the cores. Its CSV puts the name next to the pid on every row,
-# so a process that has since exited is still named for the second it worked --
-# the usual reason a spike goes unexplained. On Windows only; elsewhere
-# `pidstat 1` or `top -b` answer the same question.
+# On Windows only; elsewhere `pidstat 1` or `top -b` answer the same question,
+# and the hook simply skips the sampler.
 #
 # Re-running the one failing file on a quiet box (`npm test -- <file>`) proves
 # the file, not the budget. Ship only after the suite is green on a quiet
