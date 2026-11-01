@@ -55,11 +55,14 @@ jobs:
 
       # npm only warns when the runner's Node misses engines.node, so the flag
       # makes that mismatch a failed install (it also holds dependencies' claims).
-      # The npm cache is already restored by setup-node, so --prefer-offline skips
-      # the revalidation round trip, and nothing here reads the audit report or
-      # the funding banner.
+      # setup-node already restores the npm cache, which is the whole of what
+      # caching can do here: npm ci lands around 50s, 17% of the job, and caching
+      # node_modules instead would move a ~800MB tree against the 142MB cache
+      # that already costs 12s to restore. --prefer-offline, --no-audit and
+      # --no-fund were measured on the runner too and moved nothing (46s against
+      # a 51s median), so they are not here to make it look faster.
       - name: Install dependencies
-        run: npm ci --engine-strict --prefer-offline --no-audit --no-fund
+        run: npm ci --engine-strict
 
       # A local `npm run electron:build` could not finish while `npm run dev` was
       # up: the dev server watched release/, the folder electron-builder renames
