@@ -16,7 +16,8 @@ jobs:
   # is exactly how it drifts from the declaration it is supposed to test.
   engines:
     name: Node floor from package.json
-    runs-on: ubuntu-latest
+    # The product is Windows-only, so its CI is too: no job runs on a Linux image.
+    runs-on: windows-latest
     timeout-minutes: 5
     outputs:
       floor: ${{ steps.read.outputs.floor }}
@@ -25,9 +26,12 @@ jobs:
         uses: actions/checkout@v4
 
       # `node` ships with the hosted runner and this only reads a string, so the
-      # job needs neither setup-node nor the dependency tree.
+      # job needs neither setup-node nor the dependency tree. The shell is named
+      # because Windows defaults to pwsh, where `$GITHUB_OUTPUT` is not expanded
+      # and would be written to a file with that literal name.
       - name: Read engines.node
         id: read
+        shell: bash
         run: echo "floor=$(node scripts/engines-floor.cjs)" >> "$GITHUB_OUTPUT"
 
   verify:
