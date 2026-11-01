@@ -144,12 +144,11 @@ Si hay que borrar una rama remota a mano —el caso del fork, o una que se qued�
 
 ## CI
 
-[.github/workflows/release.yml](.github/workflows/release.yml) tiene cuatro jobs:
+[.github/workflows/release.yml](.github/workflows/release.yml) tiene tres jobs:
 
 1. **engines** — en `ubuntu-latest`, lee el suelo de `engines.node` con [scripts/engines-floor.cjs](scripts/engines-floor.cjs) y lo publica como salida para la matriz. Así la versión que se prueba sale del propio `package.json` en vez de estar copiada en el workflow; si el rango no tiene una forma de la que se pueda leer un mínimo, el job falla en vez de adivinar.
 2. **verify** — en `windows-latest`, en cada push a `master` y en cada pull request, en una matriz de dos versiones de Node (el suelo que devuelve `engines` y la última 22.x, hoy 22.23.4): instalación con `npm ci --engine-strict` (un Node fuera de `engines.node` rompe aquí en vez de solo avisar; el job `build` usa el mismo flag), formato (`format:check`), tipos (`lint`), lint (`lint:eslint`) y tests (`npm test -- --maxWorkers=2`). Las dos ramas se reportan por separado, así que un suelo roto se ve aunque la última 22.x esté en verde.
-3. **sampler** — en `ubuntu-latest`, y solo ejecuta la prueba de [scripts/cpu-sampler.sh](scripts/cpu-sampler.sh). La suite entera no puede correr en Linux: el producto es un shell de Windows y siete ficheros de test manejan `powershell`, `tasklist` o `wmic`. Lo que sí necesita Linux es el muestreador de CPU, que lee las columnas de `ps` y los contadores `[[dd-]hh:]mm:ss` — formatos que solo produce un `ps` de verdad. En `windows-latest` esa prueba se salta sola (el `ps` de MSYS no acepta las opciones), así que este job es el único sitio donde su rama de Linux llega a ejecutarse.
-4. **build** — en `windows-latest`, solo en tags `v*`, y depende de `verify`: si algo falla arriba, no se empaqueta ni se publica la release.
+3. **build** — en `windows-latest`, solo en tags `v*`, y depende de `verify`: si algo falla arriba, no se empaqueta ni se publica la release.
 
 Esa compuerta no se mide en segundos. El mismo código tarda entre **78 y 189 s** en el paso `Unit tests` según el host donde caiga, con una mediana de 136 s en veinte patas, y dos patas del mismo commit han llegado a separarse 100 s. No es el proyecto: las dos versiones de Node dan la misma mediana (136 s), el build de imagen del runner no separa los rápidos de los lentos, y el paso de instalar dependencias —que va de red— no correlaciona con los tests (r = 0,10), mientras que los pasos de solo CPU sí lo hacen (r = 0,69 con el lint). Es el host, así que la duración de ese paso no sirve como termómetro de rendimiento.
 

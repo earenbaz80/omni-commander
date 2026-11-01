@@ -45,36 +45,24 @@ log="pre-push.log"
 # cannot say whether the machine was the problem. So the sampler runs *during*
 # the suite -- one started after the failure would record a box that is already
 # quiet, which explains nothing -- and its summary is attached below when the
-# run fails. Two implementations, one CSV format and one summary: PowerShell on
-# Windows, `ps` everywhere else, chosen below by what this machine has. It costs
-# a process-table read once a second, about 0.05 of a core, which is worth what
-# it buys.
+# run fails. It costs a process-table read once a second, about 0.05 of a core,
+# which is worth what it buys.
 #
 cpu_log="pre-push-cpu.log"
 cpu_summary="pre-push-cpu-summary.log"
 stop_file="pre-push-cpu-stop.log"
 sampler_pid=""
 
-# The sampler needs the same flags from `ps` that its own loop passes; a ps
-# that cannot answer them would leave an error message where the verdict goes.
-ps_sampler_ready() {
-  ps -A -o pid=,comm=,rss=,time= >/dev/null 2>&1
-}
-
 start_sampler() {
-  # Nothing here is required for the push to be verified: a clone without the
-  # sampler, or without the tool that runs it, pushes exactly as before.
+  # Nothing here is required for the push to be verified: a clone without
+  # PowerShell, or without the script, pushes exactly as before.
+  command -v powershell.exe >/dev/null 2>&1 || return 0
+  [ -f scripts/cpu-sampler.ps1 ] || return 0
   rm -f "$stop_file"
   : >"$cpu_summary"
-  if command -v powershell.exe >/dev/null 2>&1 && [ -f scripts/cpu-sampler.ps1 ]; then
-    powershell.exe -NoProfile -NonInteractive -File scripts/cpu-sampler.ps1 \
-      -Seconds 900 -Out "$cpu_log" -StopFile "$stop_file" >"$cpu_summary" 2>&1 &
-    sampler_pid=$!
-  elif [ -f scripts/cpu-sampler.sh ] && ps_sampler_ready; then
-    sh scripts/cpu-sampler.sh --seconds 900 --out "$cpu_log" --stop-file "$stop_file" \
-      >"$cpu_summary" 2>&1 &
-    sampler_pid=$!
-  fi
+  powershell.exe -NoProfile -NonInteractive -File scripts/cpu-sampler.ps1 \
+    -Seconds 900 -Out "$cpu_log" -StopFile "$stop_file" >"$cpu_summary" 2>&1 &
+  sampler_pid=$!
 }
 
 stop_sampler() {
@@ -158,14 +146,11 @@ echo "pre-push: types and tests passed. (output: $log)"
 # By hand, outside a push, or to look again at what a push already recorded:
 #
 #   powershell -NoProfile -File scripts/cpu-sampler.ps1 -Seconds 700 -Out cpu.log
-#   sh scripts/cpu-sampler.sh --seconds 700 --out cpu.log
 #   npm test -- --maxWorkers=2     # in another window, sampler already running
 #
-# The PowerShell one on Windows and the `sh` one everywhere else: `pidstat` was
-# not an option, since sysstat is missing from a stock install on most
-# distributions, and `top -b` pads its columns by terminal width. Neither runs
-# where the process table cannot be read that way, and then the hook simply
-# skips the sampler.
+# This is a Windows project, so the sampler is PowerShell and the hook skips it
+# wherever that is missing: the push is then verified exactly as it was before
+# the sampler existed.
 #
 # Re-running the one failing file on a quiet box (`npm test -- <file>`) proves
 # the file, not the budget. Ship only after the suite is green on a quiet
