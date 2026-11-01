@@ -55,8 +55,11 @@ jobs:
 
       # npm only warns when the runner's Node misses engines.node, so the flag
       # makes that mismatch a failed install (it also holds dependencies' claims).
+      # The npm cache is already restored by setup-node, so --prefer-offline skips
+      # the revalidation round trip, and nothing here reads the audit report or
+      # the funding banner.
       - name: Install dependencies
-        run: npm ci --engine-strict
+        run: npm ci --engine-strict --prefer-offline --no-audit --no-fund
 
       # A local `npm run electron:build` could not finish while `npm run dev` was
       # up: the dev server watched release/, the folder electron-builder renames
