@@ -24,3 +24,6 @@ test-results/
 
 # Debug dumps dropped in the repo root while debugging locally
 /*.txt
+
+# Imported chat transcripts: local reference material, never part of the app
+.cloud-attachments/
