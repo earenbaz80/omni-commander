@@ -17,14 +17,6 @@ export interface AppUpdateSnapshot {
   error: string | null;
   /** Whether the updater exists here at all (not in development or portable). */
   enabled: boolean;
-  /** Whether the main process found a credential for the private repository. */
-  tokenConfigured: boolean;
-  /** Which source supplied it, so the settings can say which one is in force. */
-  tokenSource: 'env' | 'file' | null;
-  /** Where that credential is expected to be, so the interface can say it. */
-  tokenPath: string | null;
-  /** The day the credential expires (`YYYY-MM-DD`), when it was recorded. */
-  tokenExpiresAt: string | null;
   /** The feed this copy follows. */
   channel: AppUpdateChannel;
 }
@@ -35,10 +27,6 @@ export const IDLE_UPDATE: AppUpdateSnapshot = {
   percent: 0,
   error: null,
   enabled: false,
-  tokenConfigured: false,
-  tokenSource: null,
-  tokenPath: null,
-  tokenExpiresAt: null,
   channel: 'stable',
 };
 
@@ -58,9 +46,6 @@ interface UpdateBridge {
   downloadUpdate?: () => Promise<unknown>;
   installUpdate?: () => Promise<unknown>;
   onUpdateState?: (callback: (snapshot: unknown) => void) => (() => void) | void;
-  setUpdateToken?: (token: string) => Promise<unknown>;
-  clearUpdateToken?: () => Promise<unknown>;
-  setUpdateTokenExpiry?: (date: string | null) => Promise<unknown>;
   setUpdateChannel?: (channel: string) => Promise<unknown>;
   openExternal?: (url: string) => Promise<unknown>;
 }
@@ -75,9 +60,6 @@ function bridge(): UpdateBridge | undefined {
  * is trusted, but the shape is not guaranteed across versions of the preload,
  * and a malformed value must not become a status the interface cannot render.
  */
-/** Only the shape `<input type="date">` and the main process agree on. */
-const EXPIRY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
 export function normalizeUpdateSnapshot(value: unknown): AppUpdateSnapshot {
   const source = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
   const status =
@@ -89,13 +71,6 @@ export function normalizeUpdateSnapshot(value: unknown): AppUpdateSnapshot {
     percent: Number.isFinite(rawPercent) ? Math.min(100, Math.max(0, Math.round(rawPercent))) : 0,
     error: typeof source.error === 'string' && source.error.length > 0 ? source.error : null,
     enabled: source.enabled === true,
-    tokenConfigured: source.tokenConfigured === true,
-    tokenSource: source.tokenSource === 'env' || source.tokenSource === 'file' ? source.tokenSource : null,
-    tokenPath: typeof source.tokenPath === 'string' && source.tokenPath.length > 0 ? source.tokenPath : null,
-    tokenExpiresAt:
-      typeof source.tokenExpiresAt === 'string' && EXPIRY_PATTERN.test(source.tokenExpiresAt)
-        ? source.tokenExpiresAt
-        : null,
     channel: source.channel === 'beta' ? 'beta' : 'stable',
   };
 }
@@ -106,11 +81,6 @@ export interface AppUpdate extends AppUpdateSnapshot {
   check: () => void;
   download: () => void;
   install: () => void;
-  /** Stores a token on the machine; true when the main process accepted it. */
-  setToken: (token: string) => Promise<boolean>;
-  clearToken: () => Promise<void>;
-  /** Records the token's expiry date on the machine; null forgets it. */
-  setTokenExpiry: (date: string | null) => Promise<boolean>;
   /** Follows the beta feed; every other value returns to stable. */
   setChannel: (channel: AppUpdateChannel) => Promise<boolean>;
   /**
@@ -171,37 +141,6 @@ export function useAppUpdate(): AppUpdate {
     void api?.installUpdate?.()?.catch(() => {});
   }, [api]);
 
-  // The reply carries the new snapshot plus whether the value was accepted: the
-  // token itself is never sent back, so it cannot end up in a component state
-  // that a screenshot or a devtools panel would show.
-  const setToken = useCallback(
-    async (token: string) => {
-      if (!api?.setUpdateToken) return false;
-      try {
-        const { accepted, ...state } = (await api.setUpdateToken(token)) as Record<string, unknown>;
-        setSnapshot(normalizeUpdateSnapshot(state));
-        return accepted === true;
-      } catch {
-        return false;
-      }
-    },
-    [api],
-  );
-
-  const setTokenExpiry = useCallback(
-    async (date: string | null) => {
-      if (!api?.setUpdateTokenExpiry) return false;
-      try {
-        const { accepted, ...state } = (await api.setUpdateTokenExpiry(date)) as Record<string, unknown>;
-        setSnapshot(normalizeUpdateSnapshot(state));
-        return accepted === true;
-      } catch {
-        return false;
-      }
-    },
-    [api],
-  );
-
   // Switching channel is applied by the main process before it answers, so the
   // snapshot that comes back already says which feed is in force. A failure
   // leaves the previous channel on screen, which is what is still true.
@@ -217,15 +156,6 @@ export function useAppUpdate(): AppUpdate {
     },
     [api],
   );
-
-  const clearToken = useCallback(async () => {
-    if (!api?.clearUpdateToken) return;
-    try {
-      setSnapshot(normalizeUpdateSnapshot(await api.clearUpdateToken()));
-    } catch {
-      /* the previous state stays on screen, which is true enough */
-    }
-  }, [api]);
 
   // Electron blocks navigation out of the window, so a link that must leave the
   // app is handed to the shell. A browser needs none of this and gets no
@@ -244,10 +174,7 @@ export function useAppUpdate(): AppUpdate {
     check,
     download,
     install,
-    setToken,
-    setTokenExpiry,
     setChannel,
-    clearToken,
     openExternal: typeof api?.openExternal === 'function' ? openExternal : null,
   };
 }

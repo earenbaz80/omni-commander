@@ -36,17 +36,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkForUpdates: () => ipcRenderer.invoke('update:check'),
   downloadUpdate: () => ipcRenderer.invoke('update:download'),
   installUpdate: () => ipcRenderer.invoke('update:install'),
-  // The token is handed to the main process, which validates it and writes it to
-  // the machine; the renderer never reads it back.
-  setUpdateToken: (token) => ipcRenderer.invoke('update:token', token),
-  clearUpdateToken: () => ipcRenderer.invoke('update:token-clear'),
-  // Only the day the token expires is recorded here, never the token itself.
-  setUpdateTokenExpiry: (date) => ipcRenderer.invoke('update:token-expiry', date),
   // Stable or beta. Test versions are published as prereleases and offered only
   // to the copies that asked for them.
   setUpdateChannel: (channel) => ipcRenderer.invoke('update:channel', channel),
   // The renderer cannot leave its own document, so links that must open the real
-  // browser go through the main process, which only accepts the token page.
+  // browser go through the main process, which only accepts allowlisted pages.
   openExternal: (url) => ipcRenderer.invoke('app:open-external', url),
   onUpdateState: (callback) => {
     if (typeof callback !== 'function') return () => {};
