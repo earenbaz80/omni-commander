@@ -514,13 +514,9 @@ app.on('before-quit', () => {
   quitting = true;
 });
 
+// Windows has no dock to bring the app back from, so closing every window ends it.
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
-
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
-  else showMainWindow();
+  app.quit();
 });
 
 // The renderer pushes a bounded snapshot whenever a task starts, changes state
