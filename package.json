@@ -43,7 +43,7 @@
     }
   },
   "private": true,
-  "version": "1.0.21",
+  "version": "1.0.22-beta.1",
   "type": "module",
   "main": "electron/main.cjs",
   "engines": {
