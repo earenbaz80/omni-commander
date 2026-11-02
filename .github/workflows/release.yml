@@ -106,9 +106,47 @@ jobs:
       - name: Unit tests
         run: npm test -- --maxWorkers=2
 
+  # The e2e specs lived outside the gate: eleven files nobody ran unless they
+  # remembered, so a push could be green while the app was broken in a browser.
+  e2e:
+    name: End-to-end (Playwright)
+    needs: verify
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --engine-strict
+
+      # --with-deps installs system libraries and is a Linux-only flag; on the
+      # Windows runner the browser build is the whole of the requirement.
+      - name: Install Chromium
+        run: npx playwright install chromium
+
+      - name: End-to-end tests
+        run: npm run test:e2e
+
+      # A failing spec says which one broke; the trace says what the page was
+      # doing, and only exists for the run that failed.
+      - name: Keep the trace of a failed run
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
+
   build:
     name: Build and publish
-    needs: verify
+    needs: [verify, e2e]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: windows-latest
     permissions:
