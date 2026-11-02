@@ -288,6 +288,13 @@ jobs:
       # as a GitHub prerelease, which is the flag that keeps it out of the stable
       # feed: the updater asks `/releases/latest` unless the copy opted into the
       # beta channel. Everything else is marked Latest as before.
+      # electron-builder leaves this dump beside the update files. It describes
+      # the build, not an update, and publishing every `.yml` put it in the
+      # release where only `latest.yml` and the channel file belong.
+      - name: Drop the builder's debug dump
+        shell: pwsh
+        run: Remove-Item release/builder-debug.yml -ErrorAction SilentlyContinue
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
