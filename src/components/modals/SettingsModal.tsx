@@ -1,19 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import ModalShell from '../ModalShell';
-import {
-  Palette,
-  Globe,
-  Monitor,
-  Sliders,
-  Keyboard,
-  Volume2,
-  Lock,
-  Save,
-  Check,
-  Eye,
-  EyeOff,
-  KeyRound,
-} from 'lucide-react';
+import { Palette, Globe, Monitor, Sliders, Keyboard, Volume2, Lock, Save, Check, Eye, EyeOff } from 'lucide-react';
 import { UserSettings, ThemeId, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations, TranslationKey } from '../../i18n/translations';
@@ -29,51 +16,6 @@ interface SettingsModalProps {
   settings: UserSettings;
   onUpdateSettings: (newSettings: Partial<UserSettings>) => void;
   onClose: () => void;
-}
-
-// Where a read-only token is created. The settings only ever need this page, so
-// it is the one the main process agrees to open.
-const UPDATE_TOKEN_PAGE = 'https://github.com/settings/personal-access-tokens/new';
-// Where a fine-grained token is renewed or regenerated, which is the list the
-// main process also accepts: the same page the create link lives under.
-const UPDATE_TOKEN_RENEW_PAGE = 'https://github.com/settings/personal-access-tokens';
-
-/**
- * From here on the expiry is worth a warning rather than a quiet note.
- *
- * A month, not a fortnight: this note only exists inside the security tab, so it
- * is read when that tab is opened, and a file manager can go weeks without being
- * opened at all. Fourteen days assumed weekly use and left nothing to act on for
- * anyone who came back afterwards; thirty still leaves room to renew and, beside
- * the renewal link, is short enough not to read as noise.
- */
-const EXPIRY_WARNING_DAYS = 30;
-
-/**
- * Whole days from today to the recorded date, or null when it is not a date.
- * Counted between local midnights so "hoy" and "mañana" do not depend on the
- * hour the settings happen to be open.
- */
-function daysToExpiry(expiry: string, today: Date = new Date()): number | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(expiry);
-  if (!match) return null;
-  const target = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  if (Number.isNaN(target.getTime())) return null;
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  return Math.round((target.getTime() - start.getTime()) / 86_400_000);
-}
-
-/** The recorded date as written in this language; the raw value if unreadable. */
-function formatExpiry(expiry: string, lang: LanguageCode): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(expiry);
-  if (!match) return expiry;
-  try {
-    return new Intl.DateTimeFormat(lang, { day: '2-digit', month: '2-digit', year: 'numeric' }).format(
-      new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])),
-    );
-  } catch {
-    return expiry;
-  }
 }
 
 const LANGUAGES: { code: LanguageCode; label: string }[] = [
@@ -270,30 +212,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // The update token is a credential the main process owns: it is typed here,
-  // handed over, and never read back. Only its presence and origin are shown.
   const update = useAppUpdate();
-  const [tokenDraft, setTokenDraft] = useState('');
-  const [showToken, setShowToken] = useState(false);
-  const [tokenBusy, setTokenBusy] = useState(false);
-  const [tokenNote, setTokenNote] = useState<string | null>(null);
-
-  const saveUpdateToken = async () => {
-    setTokenBusy(true);
-    const accepted = await update.setToken(tokenDraft.trim());
-    setTokenBusy(false);
-    setTokenNote(accepted ? t.updateTokenSaved : t.updateTokenInvalid);
-    // A rejected value stays in the box so it can be corrected instead of
-    // retyped; an accepted one is gone from the renderer immediately.
-    if (accepted) setTokenDraft('');
-  };
-
-  const clearUpdateToken = async () => {
-    setTokenBusy(true);
-    await update.clearToken();
-    setTokenBusy(false);
-    setTokenNote(t.updateTokenCleared);
-  };
 
   // Validación en tiempo real
   const validateField = useCallback(
@@ -706,30 +625,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
   // the lock; otherwise there would be nothing to unlock with.
   const passwordReady = !!formData.appPasswordHash || formData.newPassword.length > 0;
 
-  const tokenStatusText = update.tokenConfigured
-    ? update.tokenSource === 'env'
-      ? t.updateTokenFromEnv
-      : t.updateTokenConfigured
-    : t.updateTokenMissing;
-
-  // The reminder needs a date, and a token does not carry one: it is the date
-  // GitHub showed when the value was created, recorded on this machine.
-  const tokenExpiryDate = update.tokenExpiresAt ? formatExpiry(update.tokenExpiresAt, lang) : null;
-  const tokenExpiryDays = update.tokenExpiresAt ? daysToExpiry(update.tokenExpiresAt) : null;
-  let tokenExpiryNote: { text: string; tone: string } | null = null;
-  if (update.tokenConfigured && tokenExpiryDate && tokenExpiryDays !== null) {
-    if (tokenExpiryDays < 0) {
-      tokenExpiryNote = { text: t.updateTokenExpired.replace('{date}', tokenExpiryDate), tone: 'text-rose-300' };
-    } else if (tokenExpiryDays <= EXPIRY_WARNING_DAYS) {
-      tokenExpiryNote = {
-        text: t.updateTokenExpiresSoon.replace('{date}', tokenExpiryDate).replace('{days}', String(tokenExpiryDays)),
-        tone: 'text-amber-300',
-      };
-    } else {
-      tokenExpiryNote = { text: t.updateTokenExpires.replace('{date}', tokenExpiryDate), tone: 'opacity-70' };
-    }
-  }
-
   const securityTabContent = (
     <div className="space-y-[var(--space-2)]">
       <SectionCard title={t.settingsSecurity}>
@@ -846,92 +741,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
         </div>
       </SectionCard>
 
-      {/* A different credential from the app lock, and the only one the app
-          sends anywhere: it gets its own card rather than a corner of the one
-          above. Outside Electron there is nothing to update, so it is absent. */}
+      {/* Test versions are published as prereleases, which the stable feed never
+          reads. Opting in is what makes them candidates: without the box, a beta
+          is invisible however recently it was published. Outside Electron there
+          is nothing to update, so the card is absent. */}
       {update.enabled && (
         <SectionCard title={t.settingsUpdatesSection}>
-          <p className="text-[var(--fs-8)] opacity-70 leading-relaxed">{t.updateTokenHelp}</p>
-
-          <p className="text-[var(--fs-8)] opacity-70 leading-relaxed">
-            {t.updateTokenReadOnlyNote}{' '}
-            <a
-              href={UPDATE_TOKEN_PAGE}
-              target="_blank"
-              rel="noreferrer"
-              onClick={(event) => {
-                // Inside Electron the shell opens it: the window cannot navigate
-                // out. In a browser the anchor opens its tab as usual.
-                if (update.openExternal) {
-                  event.preventDefault();
-                  update.openExternal(UPDATE_TOKEN_PAGE);
-                }
-              }}
-              className="underline text-sky-300 hover:text-sky-100"
-            >
-              {t.updateTokenCreateLink}
-            </a>
-          </p>
-
-          <div className="flex flex-wrap items-center gap-[var(--space-2)]">
-            <div className="relative flex-1 min-w-[180px]">
-              <KeyRound className="absolute left-[var(--space-1)].5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-sky-300 opacity-70" />
-              <input
-                aria-label={t.updateTokenLabel}
-                type={showToken ? 'text' : 'password'}
-                value={tokenDraft}
-                placeholder={t.updateTokenPlaceholder}
-                autoComplete="off"
-                spellCheck={false}
-                onChange={(e) => {
-                  setTokenDraft(e.target.value);
-                  setTokenNote(null);
-                }}
-                className="w-full pl-[var(--space-5)] pr-[var(--space-7)] px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
-              />
-              <button
-                type="button"
-                onClick={() => setShowToken((v) => !v)}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-amber-300 hover:text-amber-100"
-                aria-label={showToken ? t.settingsHidePassword : t.settingsShowPassword}
-                aria-pressed={showToken}
-              >
-                {showToken ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={saveUpdateToken}
-              disabled={tokenBusy || tokenDraft.trim().length === 0}
-              className="px-[var(--space-2)] py-[var(--space-1)] text-[10px] font-bold rounded border border-sky-400/40 bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 cursor-pointer disabled:opacity-40 disabled:cursor-default"
-            >
-              {t.updateTokenSave}
-            </button>
-
-            {/* A token from the environment wins over this file, so removing it
-                there would change nothing and the button is not offered. */}
-            {update.tokenConfigured && update.tokenSource !== 'env' && (
-              <button
-                type="button"
-                onClick={clearUpdateToken}
-                disabled={tokenBusy}
-                className="px-[var(--space-2)] py-[var(--space-1)] text-[10px] font-bold rounded border border-rose-400/40 bg-rose-500/10 hover:bg-rose-500/20 text-rose-200 cursor-pointer disabled:opacity-40 disabled:cursor-default"
-              >
-                {t.updateTokenClear}
-              </button>
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-[var(--space-2)] text-[var(--fs-8)]">
-            <span className={update.tokenConfigured ? 'text-emerald-300' : 'text-amber-300'}>{tokenStatusText}</span>
-            {tokenNote && <span className="opacity-70">{tokenNote}</span>}
-          </div>
-
-          {/* Test versions are published as prereleases, which the stable feed
-              never reads. Opting in is what makes them candidates: without the
-              box, a beta is invisible however recently it was published. */}
-          <div className="flex flex-col gap-[var(--space-1)] border-t border-white/10 pt-[var(--space-2)]">
+          <div className="flex flex-col gap-[var(--space-1)]">
             <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
               <input
                 type="checkbox"
@@ -947,43 +763,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
               <span className="text-[var(--fs-8)] text-sky-300">{t.updateChannelBetaActive}</span>
             )}
           </div>
-
-          {/* A fine-grained token expires, and the check starts answering 401 the
-              day it does. The date is recorded here so the warning comes before
-              that, beside the link that renews it. */}
-          {update.tokenConfigured && (
-            <div className="flex flex-wrap items-center gap-[var(--space-2)] text-[var(--fs-8)]">
-              <label className="flex items-center gap-[var(--space-1)]">
-                <span className="opacity-70">{t.updateTokenExpiryLabel}</span>
-                <input
-                  type="date"
-                  aria-label={t.updateTokenExpiryLabel}
-                  value={update.tokenExpiresAt ?? ''}
-                  onChange={(e) => {
-                    void update.setTokenExpiry(e.target.value || null);
-                  }}
-                  className="px-[var(--space-1)] py-[2px] bg-black/70 border border-white/20 rounded text-[var(--fs-8)] text-white font-mono"
-                />
-              </label>
-              <span className={tokenExpiryNote ? tokenExpiryNote.tone : 'opacity-60'}>
-                {tokenExpiryNote ? tokenExpiryNote.text : t.updateTokenExpiryHint}
-              </span>
-              <a
-                href={UPDATE_TOKEN_RENEW_PAGE}
-                target="_blank"
-                rel="noreferrer"
-                onClick={(event) => {
-                  if (update.openExternal) {
-                    event.preventDefault();
-                    update.openExternal(UPDATE_TOKEN_RENEW_PAGE);
-                  }
-                }}
-                className="underline text-sky-300 hover:text-sky-100"
-              >
-                {t.updateTokenRenewLink}
-              </a>
-            </div>
-          )}
         </SectionCard>
       )}
     </div>

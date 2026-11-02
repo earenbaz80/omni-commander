@@ -5,14 +5,7 @@ const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
 const { isAllowedNavigationUrl } = require('./navigationGuard.cjs');
 const { isAllowedExternalTarget } = require('./externalLinks.cjs');
-const {
-  resolveUpdateFeed,
-  normalizeToken,
-  normalizeChannel,
-  readUpdateChannel,
-  normalizeExpiry,
-  readTokenExpiry,
-} = require('./updateFeed.cjs');
+const { normalizeChannel, readUpdateChannel } = require('./updateChannel.cjs');
 
 // Per-launch session token. It is the shared secret between this process, the
 // embedded API server and the renderer: every mutating request, and every GET
@@ -86,14 +79,6 @@ let updateState = {
   // have no installed copy to replace, so the interface hides the controls
   // instead of offering something that cannot work.
   enabled: false,
-  // Whether a credential was found is reported; the credential itself never
-  // crosses the IPC boundary or reaches a log.
-  tokenConfigured: false,
-  tokenSource: null,
-  tokenPath: null,
-  // The day the credential stops working, when it was recorded. A fine-grained
-  // token expires, and the settings warn before that becomes a failed check.
-  tokenExpiresAt: null,
   // `stable` or `beta`. A beta build is offered only after the user opts in:
   // test versions are published as GitHub prereleases, which the stable feed
   // never reads.
@@ -120,20 +105,6 @@ function isFromAppWindow(event) {
   return !!mainWindow && !mainWindow.isDestroyed() && event.sender === mainWindow.webContents;
 }
 
-/** Where a token saved from the interface is kept. */
-function updateTokenPath() {
-  return path.join(app.getPath('userData'), 'update-token');
-}
-
-/**
- * Where the token's expiry date is kept. It is a separate file so the credential
- * stays exactly what it was: a single line the resolver can read without having
- * to parse anything else.
- */
-function updateTokenMetaPath() {
-  return path.join(app.getPath('userData'), 'update-token-meta.json');
-}
-
 /**
  * Where the chosen channel is kept. Its own one-line file beside the token, for
  * the same reason: the main process reads it at startup, before any renderer
@@ -144,11 +115,10 @@ function updateChannelPath() {
 }
 
 /**
- * Applies the channel to the live updater. With a token the library reads the
- * latest release through the API, and `allowPrerelease` is what makes it look at
- * the prerelease list instead of `/releases/latest`; without it, a beta is
- * simply invisible. Called at start and whenever the setting changes, because a
- * switch must take effect without a restart.
+ * Applies the channel to the live updater. `allowPrerelease` is what makes the
+ * library look at the prerelease list instead of `/releases/latest`; without it,
+ * a beta is simply invisible. Called at start and whenever the setting changes,
+ * because a switch must take effect without a restart.
  */
 function applyUpdateChannel() {
   const channel = readUpdateChannel({
@@ -158,41 +128,6 @@ function applyUpdateChannel() {
   if (updater) updater.allowPrerelease = channel === 'beta';
   updateState = { ...updateState, channel };
   return channel;
-}
-
-/**
- * Applies the feed -- target and credential -- to the live updater. Called at
- * start and again whenever the token changes, because `setFeedURL` replaces the
- * provider: saving a token in the settings applies it without a restart.
- */
-function configureUpdateFeed() {
-  if (!updater) return false;
-  const tokenPath = updateTokenPath();
-  let feed = null;
-  try {
-    feed = resolveUpdateFeed({
-      appUpdateConfigPath: path.join(process.resourcesPath, 'app-update.yml'),
-      env: process.env,
-      tokenPath,
-      readFile: (file) => fs.readFileSync(file, 'utf8'),
-    });
-    if (feed.options) updater.setFeedURL(feed.options);
-  } catch (error) {
-    // A provider the library rejects leaves the updater on whatever
-    // `app-update.yml` says. That is a quieter app, not a broken one.
-    console.error('Update feed unavailable:', error);
-  }
-  updateState = {
-    ...updateState,
-    tokenConfigured: feed?.token != null,
-    tokenSource: feed?.tokenSource ?? null,
-    tokenPath,
-    tokenExpiresAt: readTokenExpiry({
-      metaPath: updateTokenMetaPath(),
-      readFile: (file) => fs.readFileSync(file, 'utf8'),
-    }),
-  };
-  return updateState.tokenConfigured;
 }
 
 /**
@@ -229,13 +164,11 @@ function setupUpdater() {
   // and needs no extra click. The interface also offers an explicit restart.
   autoUpdater.autoInstallOnAppQuit = true;
 
-  // The published repository is private, so the anonymous download URL the
-  // library defaults to answers 404. The target comes from the `app-update.yml`
-  // that electron-builder wrote into the package, and the token -- the user's,
-  // never bundled -- from the machine. `setFeedURL` builds the provider
-  // immediately, so this must happen before the first check.
+  // The feed is the `app-update.yml` electron-builder wrote into the package,
+  // which points at the public GitHub repository: the library reads it on its
+  // own, with no credential involved. Only the channel is ours to apply, and it
+  // must be in place before the first check.
   updater = autoUpdater;
-  configureUpdateFeed();
   applyUpdateChannel();
 
   autoUpdater.on('checking-for-update', () => setUpdateState({ status: 'checking', error: null }));
@@ -542,79 +475,6 @@ ipcMain.handle('update:check', async (event) => {
   return updateState;
 });
 
-// Saving a token from the settings writes the same file the start-up reads, so
-// the value lives on the machine and not in the renderer's storage. Only a
-// usable value is written, and the reply says whether it was accepted without
-// ever echoing it back.
-ipcMain.handle('update:token', (event, raw) => {
-  if (!isFromAppWindow(event) || !updater) return { ...updateState, accepted: false };
-
-  const token = normalizeToken(raw);
-  if (!token) return { ...updateState, accepted: false };
-
-  try {
-    const tokenPath = updateTokenPath();
-    fs.mkdirSync(path.dirname(tokenPath), { recursive: true });
-    fs.writeFileSync(tokenPath, `${token}\n`, { mode: 0o600 });
-    // The recorded expiry belonged to the credential that was just replaced, so
-    // it goes with it: a stale date would warn about the wrong token.
-    fs.rmSync(updateTokenMetaPath(), { force: true });
-  } catch (error) {
-    // The value is never part of the message: a failed write must not leave the
-    // credential in a log.
-    console.error('Update token could not be saved:', error?.message ?? error);
-    return { ...updateState, accepted: false };
-  }
-
-  configureUpdateFeed();
-  setUpdateState({ status: 'idle', error: null });
-  // The point of saving it is to stop failing: check right away.
-  checkNow();
-  return { ...updateState, accepted: true };
-});
-
-// The expiry date is a note about the credential, not a credential: it is kept
-// in its own file so the token file stays a single line. Only a date the machine
-// accepts is written, and the reply says whether it was, like the token's.
-ipcMain.handle('update:token-expiry', (event, raw) => {
-  if (!isFromAppWindow(event) || !updater) return { ...updateState, accepted: false };
-
-  // Clearing the note is a null/empty value; a value that is not a real date is
-  // refused instead of being stored as something the settings cannot read.
-  const clearing = raw == null || raw === '';
-  const expiry = clearing ? null : normalizeExpiry(raw);
-  if (!clearing && !expiry) return { ...updateState, accepted: false };
-
-  try {
-    const metaPath = updateTokenMetaPath();
-    if (expiry) {
-      fs.mkdirSync(path.dirname(metaPath), { recursive: true });
-      fs.writeFileSync(metaPath, `${JSON.stringify({ tokenExpiresAt: expiry })}\n`, { mode: 0o600 });
-    } else {
-      fs.rmSync(metaPath, { force: true });
-    }
-  } catch (error) {
-    console.error('Update token expiry could not be saved:', error?.message ?? error);
-    return { ...updateState, accepted: false };
-  }
-
-  setUpdateState({ tokenExpiresAt: expiry });
-  return { ...updateState, accepted: true };
-});
-
-ipcMain.handle('update:token-clear', (event) => {
-  if (!isFromAppWindow(event) || !updater) return updateState;
-  try {
-    fs.rmSync(updateTokenPath(), { force: true });
-    fs.rmSync(updateTokenMetaPath(), { force: true });
-  } catch (error) {
-    console.error('Update token could not be removed:', error?.message ?? error);
-  }
-  configureUpdateFeed();
-  setUpdateState({ status: 'idle', error: null });
-  return updateState;
-});
-
 // Switching channel is a preference, not a credential, so it is stored as one
 // plain word. A change applies immediately and re-checks: otherwise the user
 // would tick the box, see "up to date" from the previous feed, and conclude the
@@ -663,10 +523,9 @@ ipcMain.handle('update:install', (event) => {
   return true;
 });
 
-// The settings link to the GitHub page that creates the read-only token. The
-// renderer cannot navigate out of its document nor open windows, so the link
-// asks here instead: that page opens, and any other URL is refused rather than
-// handed to the shell.
+// The renderer cannot navigate out of its document nor open windows, so a link
+// that must leave the app asks here instead: an allowlisted page opens, and any
+// other URL is refused rather than handed to the shell.
 ipcMain.handle('app:open-external', async (event, target) => {
   if (!isFromAppWindow(event) || !isAllowedExternalTarget(target)) return false;
   await shell.openExternal(target);

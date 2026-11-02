@@ -16,20 +16,10 @@ function installBridge(state: unknown) {
     installUpdate: vi.fn(async () => true),
     getUpdateState: vi.fn(async () => state),
     openExternal: vi.fn(async () => true),
-    setUpdateToken: vi.fn(async (): Promise<Record<string, unknown>> => ({
-      ...(state as object),
-      accepted: true,
-      tokenConfigured: true,
-    })),
     setUpdateChannel: vi.fn(async (channel: string): Promise<Record<string, unknown>> => ({
       ...(state as object),
       status: 'idle',
       channel,
-    })),
-    clearUpdateToken: vi.fn(async (): Promise<Record<string, unknown>> => ({
-      ...(state as object),
-      tokenConfigured: false,
-      tokenSource: null,
     })),
     onUpdateState: (listener: Listener) => {
       listeners.add(listener);
@@ -70,47 +60,6 @@ describe('useAppUpdate', () => {
 
     act(() => emit({ status: 'downloaded', version: '1.0.9', percent: 100, error: null }));
     expect(result.current.status).toBe('downloaded');
-  });
-
-  it('guardar un token refleja el estado que devuelve el proceso principal', async () => {
-    const { bridge } = installBridge({ status: 'error', error: '404', tokenPath: 'C:\\datos\\update-token' });
-    const { result } = renderHook(() => useAppUpdate());
-
-    let accepted = false;
-    await act(async () => {
-      accepted = await result.current.setToken('ghp_0123456789abcdefghijklmnopqrstuvwx');
-    });
-
-    expect(accepted).toBe(true);
-    expect(bridge.setUpdateToken).toHaveBeenCalledWith('ghp_0123456789abcdefghijklmnopqrstuvwx');
-    expect(result.current.tokenConfigured).toBe(true);
-  });
-
-  it('un valor rechazado no se da por guardado', async () => {
-    const { bridge } = installBridge({ status: 'error', error: '404' });
-    bridge.setUpdateToken.mockResolvedValueOnce({ status: 'error', accepted: false });
-    const { result } = renderHook(() => useAppUpdate());
-
-    let accepted = true;
-    await act(async () => {
-      accepted = await result.current.setToken('change-me');
-    });
-
-    expect(accepted).toBe(false);
-    expect(result.current.tokenConfigured).toBe(false);
-  });
-
-  it('quitar el token deja el estado sin credencial', async () => {
-    const { bridge } = installBridge({ status: 'idle', tokenConfigured: true, tokenSource: 'file' });
-    const { result } = renderHook(() => useAppUpdate());
-    await waitFor(() => expect(result.current.tokenConfigured).toBe(true));
-
-    await act(async () => {
-      await result.current.clearToken();
-    });
-
-    expect(bridge.clearUpdateToken).toHaveBeenCalledTimes(1);
-    expect(result.current.tokenConfigured).toBe(false);
   });
 
   it('cambiar de canal refleja lo que el proceso principal aplicó', async () => {
@@ -170,9 +119,9 @@ describe('useAppUpdate', () => {
     const { bridge } = installBridge(available);
     const { result } = renderHook(() => useAppUpdate());
 
-    act(() => result.current.openExternal?.('https://github.com/settings/personal-access-tokens/new'));
+    act(() => result.current.openExternal?.('https://github.com/earenbaz80/omni-commander'));
 
-    expect(bridge.openExternal).toHaveBeenCalledWith('https://github.com/settings/personal-access-tokens/new');
+    expect(bridge.openExternal).toHaveBeenCalledWith('https://github.com/earenbaz80/omni-commander');
   });
 
   it('en el navegador no ofrece actualizaciones y no revienta al pulsar', () => {
@@ -196,10 +145,6 @@ describe('normalizeUpdateSnapshot', () => {
       percent: 100,
       error: null,
       enabled: false,
-      tokenConfigured: false,
-      tokenSource: null,
-      tokenPath: null,
-      tokenExpiresAt: null,
       channel: 'stable',
     });
   });
@@ -211,10 +156,6 @@ describe('normalizeUpdateSnapshot', () => {
       percent: 0,
       error: null,
       enabled: false,
-      tokenConfigured: false,
-      tokenSource: null,
-      tokenPath: null,
-      tokenExpiresAt: null,
       channel: 'stable',
     });
     expect(normalizeUpdateSnapshot(null).status).toBe('idle');
@@ -227,27 +168,5 @@ describe('normalizeUpdateSnapshot', () => {
     expect(normalizeUpdateSnapshot({ status: 'idle', channel: 'prerelease' }).channel).toBe('stable');
     expect(normalizeUpdateSnapshot({ status: 'idle', channel: true }).channel).toBe('stable');
     expect(normalizeUpdateSnapshot(null).channel).toBe('stable');
-  });
-
-  it('solo acepta la fecha de caducidad con la forma que escribe el campo de fecha', () => {
-    // Anything else would be formatted as a date the settings cannot read, so it
-    // is treated as "no date recorded" instead of being shown as-is.
-    expect(normalizeUpdateSnapshot({ tokenExpiresAt: '2027-01-12' }).tokenExpiresAt).toBe('2027-01-12');
-    expect(normalizeUpdateSnapshot({ tokenExpiresAt: '12/01/2027' }).tokenExpiresAt).toBeNull();
-    expect(normalizeUpdateSnapshot({ tokenExpiresAt: 'nunca' }).tokenExpiresAt).toBeNull();
-    expect(normalizeUpdateSnapshot({ tokenExpiresAt: 20270112 }).tokenExpiresAt).toBeNull();
-  });
-
-  it('solo da por configurado un token que llega como verdadero y con ruta utilizable', () => {
-    // The interface uses this to decide whether it can tell the user where to put
-    // a credential: a truthy string from an older preload must not pass as "yes".
-    expect(normalizeUpdateSnapshot({ status: 'error', tokenConfigured: 'sí', tokenPath: 42 })).toMatchObject({
-      tokenConfigured: false,
-      tokenPath: null,
-    });
-    expect(normalizeUpdateSnapshot({ status: 'error', tokenConfigured: true, tokenPath: 'C:\\token' })).toMatchObject({
-      tokenConfigured: true,
-      tokenPath: 'C:\\token',
-    });
   });
 });
