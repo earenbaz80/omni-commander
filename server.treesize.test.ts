@@ -16,6 +16,12 @@ let server: TestServer;
 let root = '';
 /** A folder outside the measured root, so its size does not change the totals. */
 let bulk = '';
+/**
+ * The walk has to see more files than any plausible fixed entry budget, which is
+ * why the fixture is 1.500 and not ten: the endpoint has no entry cap and this
+ * number is what proves it.
+ */
+const BULK_FILES = 1500;
 let driveId = '';
 let driveLetter = '';
 
@@ -56,13 +62,13 @@ beforeAll(async () => {
   writeFile(path.join('otros', 'pequeno.txt'), 10);
 
   bulk = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-tree-bulk-'));
-  for (let i = 0; i < 1500; i++) fs.writeFileSync(path.join(bulk, `f${i}.txt`), 'x');
+  for (let i = 0; i < BULK_FILES; i++) fs.writeFileSync(path.join(bulk, `f${i}.txt`), 'x');
 
   driveLetter = `${path.parse(root).root.charAt(0).toUpperCase()}:`;
   driveId = `real_${driveLetter.charAt(0)}`;
 
   server = await startServer({ env: { OMNI_SESSION_TOKEN: '' } });
-}, 40000);
+}, 60_000);
 
 afterAll(async () => {
   await server.stop();
@@ -142,17 +148,20 @@ describe('GET /api/treesize', () => {
     expect(messages[messages.length - 1].type).toBe('done');
   });
 
-  // 1.500 freshly written files: the walk is bound by the disk, not by the
-  // assertions, and the 5 s default leaves no room on a loaded machine. The
-  // file's other tests measure a handful of entries and keep the default.
+  // 1.500 freshly written files, so the walk is bound by the disk and not by
+  // the assertions. The budget below is a hung-test guard, never a speed
+  // assertion: alone this finishes in about 0.4 s, yet it once ran past 20 s
+  // while two ffmpeg encodes and four browsers saturated every core, and a
+  // push was refused for it. A starved machine must not fail a test whose only
+  // claim is that every file got counted.
   it('measures a folder larger than any fixed entry budget to the last file', async () => {
     const { status, body } = await treeSize(bulk);
 
     expect(status).toBe(200);
-    expect(body.fileCount).toBe(1500);
-    expect(body.sizeBytes).toBe(1500);
+    expect(body.fileCount).toBe(BULK_FILES);
+    expect(body.sizeBytes).toBe(BULK_FILES);
     expect(body.truncated).toBe(false);
-  }, 20000);
+  }, 120_000);
 
   it('keeps refusing a folder that is not there, an unknown drive and a path outside it', async () => {
     const missing = await treeSize(path.join(root, 'no-existe'));
