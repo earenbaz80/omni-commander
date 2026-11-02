@@ -213,6 +213,25 @@ jobs:
           Compress-Archive -Path "OmniCommander-Pro-Setup-$version.exe" -DestinationPath "OmniCommander-Pro-Setup-$version.zip" -Force
         shell: pwsh
 
+      # A copy with the beta switch on asks for `<channel>.yml` first — `beta.yml`
+      # for 1.0.22-beta.1 — and only falls back to `latest.yml` when that file is
+      # missing, which is a 404 in the log and a fallback nobody wrote down. The
+      # GitHub provider makes electron-builder write a single update file, so the
+      # copy is made here and the beta is found on the first request instead of
+      # the second.
+      - name: Copy the channel file a beta asks for
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $dash = $version.IndexOf('-')
+          if ($dash -lt 0) {
+            Write-Host "Stable $version, nothing to copy."
+            exit 0
+          }
+          $channel = (($version.Substring($dash + 1)) -split '\.')[0]
+          Copy-Item release/latest.yml "release/$channel.yml"
+          Write-Host "release/$channel.yml copied from latest.yml for $version."
+
       # A release whose asset names disagree with latest.yml cannot be updated
       # to: the updater downloads the path named in the metadata. Failing here
       # keeps a release no client could install from being published at all.
@@ -224,6 +243,11 @@ jobs:
           if (-not $declared) { throw "release/latest.yml declares no path" }
           $target = $declared.Matches[0].Groups[1].Value.Trim()
 
+          # A beta also carries `<channel>.yml`: the file the updater asks for by
+          # name before falling back to latest.yml.
+          $dash = $version.IndexOf('-')
+          $channelFile = if ($dash -ge 0) { (($version.Substring($dash + 1)) -split '\.')[0] + '.yml' } else { $null }
+
           $expected = @(
             "OmniCommander-Pro-$version.exe",
             "OmniCommander-Pro-Setup-$version.exe",
@@ -232,6 +256,7 @@ jobs:
             "OmniCommander-Pro-Setup-$version.zip",
             "latest.yml"
           )
+          if ($channelFile) { $expected += $channelFile }
           foreach ($name in $expected) {
             if ($name -match '\s') { throw "Artifact '$name' has a space, which GitHub rewrites on upload" }
             if (-not (Test-Path (Join-Path release $name) -PathType Leaf)) { throw "Missing artifact '$name'" }
@@ -247,6 +272,14 @@ jobs:
             $actual = (Get-Item (Join-Path release $target)).Length
             if ($wanted -ne $actual) { throw "latest.yml declares $wanted bytes for '$target', the file has $actual" }
           }
+          # The channel file is a copy, so it has to name the same installer.
+          if ($channelFile) {
+            $channelPath = Select-String -Path (Join-Path release $channelFile) -Pattern '^path:\s*(.+)$' | Select-Object -First 1
+            if (-not $channelPath) { throw "$channelFile declares no path" }
+            if ($channelPath.Matches[0].Groups[1].Value.Trim() -ne $target) {
+              throw "$channelFile names a different artifact than latest.yml"
+            }
+          }
           Write-Host "latest.yml names '$target' and the release publishes it."
 
       # `latest.yml` and the block map are what the app's updater reads, so they
@@ -261,10 +294,12 @@ jobs:
           name: ${{ steps.version.outputs.version }}
           draft: false
           prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+          # `*.yml` rather than `latest.yml`: a beta publishes its channel file
+          # beside it, and that is the one its own copies read first.
           files: |
             release/*.exe
             release/*.blockmap
-            release/latest.yml
+            release/*.yml
             release/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
