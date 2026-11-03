@@ -1598,7 +1598,15 @@ export default function App() {
           }
           onOpenWith={() => {
             const item = contextMenuState.targetItem;
-            if (item) void fsEngine.openWith(item);
+            if (!item) return;
+            // The dialog belongs to the shell and can still be refused (a path
+            // the server will not hand to a program, an unregistered type), so
+            // the answer is surfaced instead of dropped: silence is what made
+            // this look like a dead menu item.
+            void (async () => {
+              if (await fsEngine.openWith(item)) return;
+              alert(fsEngine.lastServerError || 'No se pudo abrir el diálogo «Abrir con»');
+            })();
           }}
           canSendTo={
             !!contextMenuState.targetItem &&
