@@ -382,6 +382,48 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
           )}
         </div>
 
+        {/* Apps menu: the tools that live inside OmniCommander */}
+        <div className="relative inline-block" onMouseEnter={() => hoverMenu('apps')}>
+          <button
+            onClick={() => handleMenuClick('apps')}
+            className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'apps' ? 'bg-black/30 font-bold' : ''}`}
+          >
+            <u>{t.menuApps.charAt(0)}</u>
+            {t.menuApps.slice(1)}
+          </button>
+          {openMenu === 'apps' && (
+            <div
+              className="absolute left-0 mt-0.5 w-60 shadow-2xl border py-1 z-50 text-xs font-mono"
+              style={{ backgroundColor: theme.modalBg, color: theme.itemText, borderColor: theme.borderPanel }}
+            >
+              <button
+                onClick={() => handleAction(() => onOpenModal('calculator'))}
+                className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between"
+              >
+                <span>{t.toolCalculator}</span> <span className="opacity-60">1</span>
+              </button>
+              <button
+                onClick={() => handleAction(() => onOpenModal('calendar'))}
+                className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between"
+              >
+                <span>{t.toolCalendar}</span> <span className="opacity-60">2</span>
+              </button>
+              <button
+                onClick={() => handleAction(() => onOpenModal('image_studio'))}
+                className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between"
+              >
+                <span>{t.toolImageStudio}</span> <span className="opacity-60">3</span>
+              </button>
+              <button
+                onClick={() => handleAction(() => onOpenModal('maps'))}
+                className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between text-emerald-300 font-bold"
+              >
+                <span>{t.toolMaps}</span> <span className="opacity-60">4</span>
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Options menu */}
         <div className="relative inline-block" onMouseEnter={() => hoverMenu('options')}>
           <button

@@ -458,7 +458,11 @@ export type ActiveModal =
   | 'hotlist_bookmarks'
   | 'background_tasks'
   | 'transfer_monitor'
-  | 'archive_info';
+  | 'archive_info'
+  | 'calculator'
+  | 'calendar'
+  | 'image_studio'
+  | 'maps';
 
 export interface CommandHistoryItem {
   id: string;
