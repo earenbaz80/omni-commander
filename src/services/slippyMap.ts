@@ -15,7 +15,7 @@ export const MAX_ZOOM = 19;
 /** Latitude the Mercator projection is cut at; beyond it the value diverges. */
 export const MAX_LATITUDE = 85.05112878;
 
-export type MapLayer = 'osm' | 'topo';
+export type MapLayer = 'osm' | 'humanitarian' | 'cycle' | 'topo' | 'transport';
 
 export interface MapView {
   lat: number;
@@ -224,6 +224,48 @@ export function tilesForView(view: MapView, width: number, height: number): Tile
     left: tile.left + layout.offsetX,
     top: tile.top + layout.offsetY,
   }));
+}
+
+/**
+ * Every tile of one whole level that the viewport touches.
+ *
+ * `tileLayoutFor` answers what to draw right now; this answers what to save, so
+ * the caller can walk the levels it wants to keep for offline use. Longitudes
+ * wrap, so x folds into the world instead of being dropped at the
+ * antimeridian; latitudes do not, so y stays inside the world.
+ */
+export function tilesCoveringView(
+  view: MapView,
+  width: number,
+  height: number,
+  zoom: number,
+  padding = 0,
+): Array<{ z: number; x: number; y: number }> {
+  const level = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(zoom)));
+  const ring = Math.max(0, Math.floor(padding));
+  const count = Math.pow(2, level);
+  const scale = Math.pow(2, view.zoom - level);
+  const centerX = lonToWorldX(view.lon, level);
+  const centerY = latToWorldY(view.lat, level);
+  const left = (centerX - width / (2 * scale)) / TILE_SIZE;
+  const right = (centerX + width / (2 * scale)) / TILE_SIZE;
+  const top = (centerY - height / (2 * scale)) / TILE_SIZE;
+  const bottom = (centerY + height / (2 * scale)) / TILE_SIZE;
+
+  const firstX = Math.floor(left) - ring;
+  const lastX = Math.floor(right) + ring;
+  const firstY = Math.max(0, Math.floor(top) - ring);
+  const lastY = Math.min(count - 1, Math.floor(bottom) + ring);
+
+  const tiles: Array<{ z: number; x: number; y: number }> = [];
+  const seen = new Set<number>();
+  for (let x = firstX; x <= lastX; x += 1) {
+    const wrapped = ((x % count) + count) % count;
+    if (seen.has(wrapped)) continue;
+    seen.add(wrapped);
+    for (let y = firstY; y <= lastY; y += 1) tiles.push({ z: level, x: wrapped, y });
+  }
+  return tiles;
 }
 
 /**

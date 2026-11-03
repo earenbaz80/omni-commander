@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Crosshair, Layers, MapPin, Search } from 'lucide-react';
+import { Crosshair, Download, Layers, MapPin, Search, WifiOff } from 'lucide-react';
 import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
@@ -12,6 +12,7 @@ import {
   panBy,
   projectToScreen,
   tileLayoutFor,
+  tilesCoveringView,
   zoomAround,
   zoomForPinch,
   type MapLayer,
@@ -48,6 +49,39 @@ type Gesture =
   | { kind: 'pinch'; startDistance: number; startMid: Point; from: MapView };
 
 const DEFAULT_VIEW: MapView = { lat: 40.4168, lon: -3.7038, zoom: 6 };
+
+type Translate = ReturnType<typeof getTranslations>;
+
+interface MapLayerInfo {
+  id: MapLayer;
+  label: (t: Translate) => string;
+  attribution: (t: Translate) => string;
+  /** The tile server has no images past this level. */
+  maxZoom: number;
+}
+
+/**
+ * Free, keyless OSM renders, in the order the buttons appear. No layer needs an
+ * account or an API key, which is the whole reason the map needs no setup.
+ */
+const MAP_LAYERS: MapLayerInfo[] = [
+  { id: 'osm', label: (t) => t.mapsLayerStandard, attribution: (t) => t.mapsAttribution, maxZoom: MAX_ZOOM },
+  {
+    id: 'humanitarian',
+    label: (t) => t.mapsLayerHumanitarian,
+    attribution: (t) => t.mapsAttrHumanitarian,
+    maxZoom: MAX_ZOOM,
+  },
+  { id: 'cycle', label: (t) => t.mapsLayerCycle, attribution: (t) => t.mapsAttrCycle, maxZoom: MAX_ZOOM },
+  { id: 'topo', label: (t) => t.mapsLayerTopographic, attribution: (t) => t.mapsAttrTopo, maxZoom: 17 },
+  { id: 'transport', label: (t) => t.mapsLayerTransport, attribution: (t) => t.mapsAttrTransport, maxZoom: 18 },
+];
+
+/** Levels a "save this area" click keeps: what is on screen and two steps closer. */
+const OFFLINE_LEVELS = 3;
+/** Tiles per request, so one batch stays a quick round trip. */
+const OFFLINE_BATCH = 40;
+
 /** Tiles an extra ring beyond the viewport are kept, so short drags need no request. */
 const TILE_PADDING = 1;
 /** How long the images may stay behind a zoom change before the next level is fetched. */
@@ -71,6 +105,13 @@ function withToken(url: string): string {
 
 function tileUrl(layer: MapLayer, z: number, x: number, y: number): string {
   return withToken(`${API_BASE}/api/maps/tile?layer=${layer}&z=${z}&x=${x}&y=${y}`);
+}
+
+/** A POST cannot hide the token in the query: the server wants the header for it. */
+function sessionHeader(): Record<string, string> {
+  const token = (typeof window !== 'undefined' ? (window as any).electronAPI?.apiToken : null) as
+    string | null | undefined;
+  return typeof token === 'string' && token ? { 'x-omni-token': token } : {};
 }
 
 /**
@@ -105,6 +146,17 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
   // The dialog tells us when it has a height of its own — maximised or dragged
   // to a size — so the map can take that height instead of keeping its default.
   const [fills, setFills] = useState(false);
+  const [online, setOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine !== false);
+  /** Images that failed to arrive, which offline is every one of them. */
+  const [tileFailures, setTileFailures] = useState(0);
+  const [saving, setSaving] = useState<{ done: number; total: number } | null>(null);
+  const [saveNote, setSaveNote] = useState<{ text: string; ok: boolean } | null>(null);
+
+  const zoomCap = useMemo(() => MAP_LAYERS.find((entry) => entry.id === layer)?.maxZoom ?? MAX_ZOOM, [layer]);
+  const zoomCapRef = useRef(zoomCap);
+  useEffect(() => {
+    zoomCapRef.current = zoomCap;
+  }, [zoomCap]);
 
   /** Fingers currently down, by pointer id, in the order they arrived. */
   const pointers = useRef(new Map<number, Point>());
@@ -141,8 +193,12 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
    * frame keeps a drag at a steady cost no matter how chatty the device is.
    */
   const applyView = useCallback((next: MapView) => {
-    queuedView.current = next;
-    latestView.current = next;
+    // A layer that stops at 17 (OpenTopoMap) has to hold the view at its last
+    // level instead of asking for squares that do not exist.
+    const capped = Math.min(zoomCapRef.current, next.zoom);
+    const settledView = capped === next.zoom ? next : { ...next, zoom: capped };
+    queuedView.current = settledView;
+    latestView.current = settledView;
     if (frame.current !== null) return;
     const flush = () => {
       if (frame.current !== null) window.cancelAnimationFrame(frame.current);
@@ -172,12 +228,12 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
   // images stay a moment behind the pinch — stretched, not blank — and catch up
   // once it stops; a jump big enough to look blurred swaps at once.
   useEffect(() => {
-    const wanted = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(view.zoom)));
+    const wanted = Math.min(zoomCap, Math.max(MIN_ZOOM, Math.round(view.zoom)));
     if (wanted === tileZoom) return;
     const delay = Math.abs(view.zoom - tileZoom) >= 1.5 ? 0 : TILE_SETTLE_MS;
     const timer = window.setTimeout(() => setTileZoom(wanted), delay);
     return () => window.clearTimeout(timer);
-  }, [view.zoom, tileZoom]);
+  }, [view.zoom, tileZoom, zoomCap]);
 
   const layout = useMemo(
     () => tileLayoutFor(view, size.width, size.height, { padding: TILE_PADDING, tileZoom }),
@@ -313,6 +369,72 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
     return () => element.removeEventListener('wheel', onWheel);
   }, [applyView, size.width, size.height]);
 
+  // `navigator.onLine` only knows about the network interface, but it is what
+  // the window hears before a tile request fails, and the badge it drives says
+  // "saved tiles", which is what the map is actually doing.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const update = () => {
+      setOnline(navigator.onLine !== false);
+      setTileFailures(0);
+    };
+    update();
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => {
+      window.removeEventListener('online', update);
+      window.removeEventListener('offline', update);
+    };
+  }, []);
+
+  const selectLayer = (next: MapLayer) => {
+    soundManager.playKeyTick();
+    setLayer(next);
+    setTileFailures(0);
+    setSaveNote(null);
+    const cap = MAP_LAYERS.find((entry) => entry.id === next)?.maxZoom ?? MAX_ZOOM;
+    if (latestView.current.zoom > cap) {
+      setTileZoom(cap);
+      setView({ ...latestView.current, zoom: cap });
+    }
+  };
+
+  /**
+   * Saves what is on screen, and the two levels below it, so the same place can
+   * be opened again with no network. The server owns the disk and the fetch;
+   * this only decides which tiles to ask for and how far the bar has got.
+   */
+  const saveArea = useCallback(async () => {
+    soundManager.playKeyTick();
+    const base = Math.min(zoomCapRef.current, Math.max(MIN_ZOOM, Math.round(latestView.current.zoom)));
+    const levels = Array.from({ length: OFFLINE_LEVELS }, (_, step) => base + step).filter(
+      (level) => level <= zoomCapRef.current,
+    );
+    const tiles = levels.flatMap((level) => tilesCoveringView(latestView.current, size.width, size.height, level, 1));
+    if (tiles.length === 0) return;
+    setSaving({ done: 0, total: tiles.length });
+    setSaveNote(null);
+    let failed = 0;
+    for (let index = 0; index < tiles.length; index += OFFLINE_BATCH) {
+      const batch = tiles.slice(index, index + OFFLINE_BATCH);
+      try {
+        const response = await fetch(withToken(`${API_BASE}/api/maps/offline`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...sessionHeader() },
+          body: JSON.stringify({ layer, tiles: batch }),
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payload = (await response.json()) as { failed?: number };
+        failed += Number(payload.failed) || 0;
+      } catch {
+        failed += batch.length;
+      }
+      setSaving({ done: Math.min(tiles.length, index + batch.length), total: tiles.length });
+    }
+    setSaving(null);
+    setSaveNote({ text: failed > 0 ? t.mapsOfflineSaveFailed : t.mapsOfflineSaved, ok: failed === 0 });
+  }, [layer, size.width, size.height, t.mapsOfflineSaveFailed, t.mapsOfflineSaved]);
+
   const runSearch = useCallback(async () => {
     const term = query.trim();
     if (term.length < 2) return;
@@ -394,7 +516,7 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
   /** The +/- buttons land on whole levels; only the fingers ask for halves. */
   const zoomBy = (delta: number) => {
     const current = latestView.current;
-    const target = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(current.zoom) + delta));
+    const target = Math.min(zoomCap, Math.max(MIN_ZOOM, Math.round(current.zoom) + delta));
     setTileZoom(target);
     setView(
       zoomAround(current, target - current.zoom, { x: size.width / 2, y: size.height / 2 }, size.width, size.height),
@@ -405,8 +527,7 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
     <button
       key={id}
       onClick={() => {
-        soundManager.playKeyTick();
-        setLayer(id);
+        selectLayer(id);
       }}
       className={`cursor-pointer rounded border px-[var(--space-2)] py-[var(--space-1)] text-[11px] font-bold transition-colors ${
         layer === id
@@ -417,6 +538,8 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
       {label}
     </button>
   );
+
+  const activeLayer = MAP_LAYERS.find((entry) => entry.id === layer) ?? MAP_LAYERS[0];
 
   return (
     <ModalShell
@@ -474,10 +597,26 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
           <span className="flex items-center gap-[var(--space-1)] text-[11px] opacity-60">
             <Layers className="h-3.5 w-3.5" />
           </span>
-          {layerButton('osm', t.mapsLayerStandard)}
-          {layerButton('topo', t.mapsLayerTopographic)}
-          <span className="ml-auto text-[10px] opacity-50">{t.mapsAttribution}</span>
+          {MAP_LAYERS.map((entry) => layerButton(entry.id, entry.label(t)))}
+          <button
+            onClick={() => void saveArea()}
+            disabled={saving !== null}
+            title={t.mapsOfflineSave}
+            className="flex cursor-pointer items-center gap-[var(--space-1)] rounded border border-emerald-400/60 bg-emerald-400/15 px-[var(--space-2)] py-[var(--space-1)] text-[11px] font-bold text-emerald-200 hover:bg-emerald-400/25 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Download className="h-3.5 w-3.5" />
+            {saving ? t.mapsOfflineSaving : t.mapsOfflineSave}
+            {saving && (
+              <span className="opacity-70">
+                {saving.done}/{saving.total}
+              </span>
+            )}
+          </button>
+          <span className="ml-auto text-[10px] opacity-50">{activeLayer.attribution(t)}</span>
         </div>
+        {saveNote && (
+          <p className={`text-[11px] ${saveNote.ok ? 'text-emerald-300' : 'text-amber-300'}`}>{saveNote.text}</p>
+        )}
 
         {places.length > 0 && (
           <div className="max-h-36 overflow-y-auto rounded border border-white/15 bg-black/50 p-[var(--space-1)] text-xs">
@@ -538,6 +677,7 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
                 key={`${layer}-${tile.z}-${tile.x}-${tile.y}`}
                 src={tileUrl(layer, tile.z, tile.x, tile.y)}
                 alt=""
+                onError={() => setTileFailures((count) => count + 1)}
                 draggable={false}
                 decoding="async"
                 className="pointer-events-none absolute max-w-none select-none"
@@ -581,6 +721,12 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
           <span className="pointer-events-none absolute left-[var(--space-1)] top-[var(--space-1)] rounded bg-black/60 px-[var(--space-1)] py-[2px] text-[10px] text-white/80">
             {view.lat.toFixed(4)}, {view.lon.toFixed(4)} · z{view.zoom.toFixed(1)}
           </span>
+
+          {(!online || tileFailures > 0) && (
+            <span className="pointer-events-none absolute right-[var(--space-1)] top-[var(--space-1)] flex items-center gap-[var(--space-1)] rounded bg-amber-400/90 px-[var(--space-1)] py-[2px] text-[10px] font-bold text-black">
+              <WifiOff className="h-3 w-3" /> {t.mapsOffline}
+            </span>
+          )}
         </div>
 
         {notice && <p className="text-xs text-amber-300">{notice}</p>}

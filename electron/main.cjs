@@ -19,6 +19,9 @@ const sessionToken = crypto.randomBytes(32).toString('hex');
 // uses to announce its port through OMNI_API_PORT), so it must be set before
 // server.cjs is loaded.
 process.env.OMNI_SESSION_TOKEN = sessionToken;
+// The map's offline cache belongs beside the app's other data, not in the
+// temporary folder: an area saved before a flight has to survive a reboot.
+process.env.OMNI_MAP_CACHE_DIR = path.join(app.getPath('userData'), 'map-tiles');
 
 // Start the local real-drive API inside Electron so the packaged app is standalone.
 // The server never crashes on a busy port: it walks forward to the first free one,
