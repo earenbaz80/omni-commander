@@ -1046,12 +1046,24 @@ function parseByteRange(header, size) {
 // ---------------------------------------------------------------------------
 const MAP_LAYER_URLS = {
   osm: (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`,
+  humanitarian: (z, x, y) => `https://a.tile.openstreetmap.fr/hot/${z}/${x}/${y}.png`,
+  cycle: (z, x, y) => `https://a.tile-cyclosm.openstreetmap.fr/cyclosm/${z}/${x}/${y}.png`,
   topo: (z, x, y) => `https://a.tile.opentopomap.org/${z}/${x}/${y}.png`,
+  transport: (z, x, y) => `https://tile.memomaps.de/tilegen/${z}/${x}/${y}.png`,
 };
 const MAP_IDENTITY =
   'OmniCommanderPro/1.0 (Windows desktop file manager; +https://github.com/earenbaz80/omni-commander)';
 const MAP_TILE_MAX_ZOOM = 19;
 const MAP_TILE_CACHE_LIMIT = 400;
+/** Tiles kept on disk, which is what makes the map work with no network. */
+const MAP_TILE_DISK_LIMIT = 20000;
+const MAP_TILE_DISK_PRUNE_EVERY = 400;
+const MAP_OFFLINE_MAX_TILES = 400;
+const MAP_OFFLINE_CONCURRENCY = 2;
+// The app passes its userData folder; a bare server run falls back to the temp
+// folder so a test never writes into the real profile.
+const MAP_TILE_DISK_DIR =
+  String(process.env.OMNI_MAP_CACHE_DIR || '').trim() || path.join(os.tmpdir(), 'omnicommander-map-tiles');
 const MAP_SEARCH_CACHE_LIMIT = 200;
 const MAP_SEARCH_MIN_INTERVAL_MS = 1100;
 const MAP_SEARCH_CACHE_MS = 60 * 60 * 1000;
@@ -1082,6 +1094,84 @@ function rememberMapTile(key, buffer) {
   }
 }
 
+function mapTileDiskPath(layer, z, x, y) {
+  return path.join(MAP_TILE_DISK_DIR, layer, String(z), String(x), `${y}.png`);
+}
+
+/** A tile saved on an earlier run; a miss is an ordinary answer, not an error. */
+async function readMapTileFromDisk(key) {
+  const [layer, z, x, y] = String(key).split('/');
+  try {
+    return await fs.promises.readFile(mapTileDiskPath(layer, Number(z), Number(x), Number(y)));
+  } catch {
+    return null;
+  }
+}
+
+let mapTileDiskWrites = 0;
+
+async function writeMapTileToDisk(layer, z, x, y, buffer) {
+  try {
+    await fs.promises.mkdir(path.join(MAP_TILE_DISK_DIR, layer, String(z), String(x)), { recursive: true });
+    await fs.promises.writeFile(mapTileDiskPath(layer, z, x, y), buffer);
+  } catch {
+    // A profile that refuses the write still gets the in-memory cache.
+    return;
+  }
+  mapTileDiskWrites += 1;
+  if (mapTileDiskWrites % MAP_TILE_DISK_PRUNE_EVERY === 0) void pruneMapTileDisk();
+}
+
+/**
+ * Keeps the offline cache inside its budget. It runs every few hundred writes:
+ * walking the folder costs a stat per file, and a tile never has to disappear
+ * the instant the limit is crossed.
+ */
+async function pruneMapTileDisk() {
+  try {
+    const entries = await fs.promises.readdir(MAP_TILE_DISK_DIR, { recursive: true, withFileTypes: true });
+    const files = entries.filter((entry) => entry.isFile() && entry.name.endsWith('.png'));
+    if (files.length <= MAP_TILE_DISK_LIMIT) return;
+    const dated = await Promise.all(
+      files.map(async (entry) => {
+        const full = path.join(entry.parentPath || entry.path || '', entry.name);
+        const info = await fs.promises.stat(full).catch(() => null);
+        return { full, at: info ? info.mtimeMs : 0 };
+      }),
+    );
+    dated.sort((a, b) => a.at - b.at);
+    const excess = dated.length - MAP_TILE_DISK_LIMIT;
+    await Promise.all(dated.slice(0, excess).map((file) => fs.promises.unlink(file.full).catch(() => {})));
+  } catch {
+    /* A cache that cannot be pruned is still a working cache. */
+  }
+}
+
+/** Reads one tile number set into the shape the routes work with, or null. */
+function parseMapTile(layer, z, x, y) {
+  if (!MAP_LAYER_URLS[layer]) return null;
+  if (!Number.isInteger(z) || !Number.isInteger(x) || !Number.isInteger(y)) return null;
+  if (z < 0 || z > MAP_TILE_MAX_ZOOM) return null;
+  const count = Math.pow(2, z);
+  if (x < 0 || y < 0 || x >= count || y >= count) return null;
+  return { z, x, y };
+}
+
+/** Fetches one tile and stores it on both levels of the cache. */
+async function downloadMapTile(layer, z, x, y) {
+  const build = MAP_LAYER_URLS[layer];
+  const upstream = await fetch(build(z, x, y), {
+    headers: { 'User-Agent': MAP_IDENTITY, Accept: 'image/png,image/*;q=0.8' },
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!upstream.ok) throw new Error(`tile-upstream-${upstream.status}`);
+  const buffer = Buffer.from(await upstream.arrayBuffer());
+  if (!buffer.length) throw new Error('tile-empty');
+  rememberMapTile(`${layer}/${z}/${x}/${y}`, buffer);
+  await writeMapTileToDisk(layer, z, x, y, buffer);
+  return buffer;
+}
+
 /** Serialises searches so the one-request-per-second rule holds across tabs of the dialog. */
 function queueMapSearch(task) {
   const run = mapSearchQueue.then(async () => {
@@ -1097,23 +1187,9 @@ function queueMapSearch(task) {
 app.get('/api/maps/tile', async (req, res) => {
   if (mapsTokenRejected(req, res)) return;
   const layer = String(req.query.layer || 'osm');
-  const build = MAP_LAYER_URLS[layer];
-  const z = Number(req.query.z);
-  const x = Number(req.query.x);
-  const y = Number(req.query.y);
-  if (
-    !build ||
-    !Number.isInteger(z) ||
-    !Number.isInteger(x) ||
-    !Number.isInteger(y) ||
-    z < 0 ||
-    z > MAP_TILE_MAX_ZOOM
-  ) {
-    return res.status(400).json({ error: 'invalid-tile' });
-  }
-  const count = Math.pow(2, z);
-  if (x < 0 || y < 0 || x >= count || y >= count) return res.status(400).json({ error: 'invalid-tile' });
-
+  const tile = parseMapTile(layer, Number(req.query.z), Number(req.query.x), Number(req.query.y));
+  if (!tile) return res.status(400).json({ error: 'invalid-tile' });
+  const { z, x, y } = tile;
   const key = `${layer}/${z}/${x}/${y}`;
   const cached = mapTileCache.get(key);
   if (cached) {
@@ -1122,21 +1198,69 @@ app.get('/api/maps/tile', async (req, res) => {
     return res.send(cached);
   }
 
+  // The disk cache is what makes the map usable on a train or a plane: a tile
+  // seen once is answered without touching the network at all.
+  const stored = await readMapTileFromDisk(key);
+  if (stored) {
+    rememberMapTile(key, stored);
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'private, max-age=86400');
+    return res.send(stored);
+  }
+
   try {
-    const upstream = await fetch(build(z, x, y), {
-      headers: { 'User-Agent': MAP_IDENTITY, Accept: 'image/png,image/*;q=0.8' },
-      signal: AbortSignal.timeout(12000),
-    });
-    if (!upstream.ok) return res.status(502).json({ error: `tile-upstream-${upstream.status}` });
-    const buffer = Buffer.from(await upstream.arrayBuffer());
-    if (!buffer.length) return res.status(502).json({ error: 'tile-empty' });
-    rememberMapTile(key, buffer);
-    res.setHeader('Content-Type', upstream.headers.get('content-type') || 'image/png');
+    const buffer = await downloadMapTile(layer, z, x, y);
+    res.setHeader('Content-Type', 'image/png');
     res.setHeader('Cache-Control', 'private, max-age=86400');
     return res.send(buffer);
   } catch {
     return res.status(502).json({ error: 'tile-fetch-failed' });
   }
+});
+
+/**
+ * Saves a patch of map for later. The dialog works out which tiles it wants and
+ * sends them in batches; this route only fetches and stores, two at a time so a
+ * downloaded area stays a polite request rather than a bulk crawl.
+ */
+app.post('/api/maps/offline', async (req, res) => {
+  if (mapsTokenRejected(req, res)) return;
+  const layer = String((req.body && req.body.layer) || '');
+  if (!MAP_LAYER_URLS[layer]) return res.status(400).json({ error: 'invalid-layer' });
+  const asked = req.body && Array.isArray(req.body.tiles) ? req.body.tiles : null;
+  if (!asked || asked.length === 0 || asked.length > MAP_OFFLINE_MAX_TILES) {
+    return res.status(400).json({ error: 'invalid-tiles' });
+  }
+  const tiles = [];
+  for (const entry of asked) {
+    const tile = parseMapTile(layer, Number(entry && entry.z), Number(entry && entry.x), Number(entry && entry.y));
+    if (!tile) return res.status(400).json({ error: 'invalid-tiles' });
+    tiles.push(tile);
+  }
+
+  let stored = 0;
+  let skipped = 0;
+  let failed = 0;
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < tiles.length) {
+      const tile = tiles[cursor];
+      cursor += 1;
+      const key = `${layer}/${tile.z}/${tile.x}/${tile.y}`;
+      if (mapTileCache.has(key) || (await readMapTileFromDisk(key))) {
+        skipped += 1;
+        continue;
+      }
+      try {
+        await downloadMapTile(layer, tile.z, tile.x, tile.y);
+        stored += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: MAP_OFFLINE_CONCURRENCY }, worker));
+  res.json({ stored, skipped, failed, total: tiles.length });
 });
 
 app.get('/api/maps/search', async (req, res) => {
