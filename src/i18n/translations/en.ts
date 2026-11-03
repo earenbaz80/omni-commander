@@ -387,6 +387,8 @@ export const en = {
   toolbarNewFolder: 'New folder',
   toolbarFilter: 'Quick filter',
   openWith: 'Open with…',
+  openWithOtherApp: 'Choose another app…',
+  openWithNoPrograms: 'No programs are registered for this type',
   viewerPreviewUnavailable: 'This file cannot be previewed here.',
   settingsToolbarSection: 'Toolbar',
   settingsToolbarHint: 'Choose which buttons appear and in what order.',

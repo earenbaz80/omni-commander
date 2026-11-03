@@ -1596,6 +1596,22 @@ export default function App() {
             !contextMenuState.targetItem.isDirectory &&
             fsEngine.isRealFile(contextMenuState.targetItem)
           }
+          loadOpenWithPrograms={() => {
+            const item = contextMenuState.targetItem;
+            return item ? fsEngine.openWithPrograms(item) : Promise.resolve([]);
+          }}
+          onOpenWithProgram={(program) => {
+            const item = contextMenuState.targetItem;
+            if (!item) return;
+            void (async () => {
+              try {
+                if (await fsEngine.openWithProgram(item, program.id)) return;
+                alert(fsEngine.lastServerError || `No se pudo abrir el archivo con ${program.name}`);
+              } catch {
+                alert(`No se pudo contactar con el servidor para abrir el archivo con ${program.name}`);
+              }
+            })();
+          }}
           onOpenWith={() => {
             const item = contextMenuState.targetItem;
             if (!item) return;

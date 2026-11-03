@@ -360,6 +360,8 @@ export const ru = {
   toolbarNewFolder: 'Новая папка',
   toolbarFilter: 'Быстрый фильтр',
   openWith: 'Открыть с помощью…',
+  openWithOtherApp: 'Выбрать другое приложение…',
+  openWithNoPrograms: 'Для этого типа не зарегистрировано программ',
   viewerPreviewUnavailable: 'Предпросмотр этого файла здесь недоступен.',
   settingsToolbarSection: 'Панель инструментов',
   settingsToolbarHint: 'Выберите, какие кнопки показывать и в каком порядке.',
