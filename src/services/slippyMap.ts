@@ -42,8 +42,12 @@ export function wrapLongitude(lon: number): number {
   return wrapped === -180 ? 180 : wrapped;
 }
 
+/**
+ * A pinch is continuous, so this clamps without rounding: only the tile images
+ * need whole levels, and `tileLayoutFor` is the one that rounds for them.
+ */
 export function clampZoom(zoom: number): number {
-  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(zoom)));
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
 }
 
 export function worldSize(zoom: number): number {
@@ -132,22 +136,62 @@ export function zoomAround(
   return { lat: worldYToLat(worldY, target), lon: worldXToLon(worldX, target), zoom: target };
 }
 
+export interface TileLayout {
+  /** Zoom level the images themselves come from; always whole. */
+  zoom: number;
+  /** Screen pixels per tile pixel, which is `2^(view.zoom - zoom)`. */
+  scale: number;
+  /** Where the tile layer starts, relative to the viewport. */
+  offsetX: number;
+  offsetY: number;
+  /** Tiles placed relative to the layer origin, in screen pixels. */
+  tiles: TilePlacement[];
+}
+
+export interface TileLayoutOptions {
+  /**
+   * Extra rings of tiles kept around the viewport. One ring absorbs a 256px
+   * drag before a single new image has to be fetched.
+   */
+  padding?: number;
+  /**
+   * Zoom of the images when it should lag behind `view.zoom`, so a pinch is not
+   * a burst of requests for every level it passes through.
+   */
+  tileZoom?: number;
+}
+
 /**
- * Every tile that covers the viewport, with its offset. Tiles outside the map
- * (west of -180, for instance) are skipped: there is no image for them.
+ * The tile layer for a viewport, aligned to a tile boundary so that panning
+ * only moves the layer: tiles keep their position and the offsets change, which
+ * is what lets the browser move them without touching any image.
+ *
+ * Tiles outside the map (west of -180, for instance) are skipped: there is no
+ * image for them.
  */
-export function tilesForView(view: MapView, width: number, height: number): TilePlacement[] {
-  const zoom = view.zoom;
+export function tileLayoutFor(
+  view: MapView,
+  width: number,
+  height: number,
+  options: TileLayoutOptions = {},
+): TileLayout {
+  const padding = Math.max(0, Math.floor(options.padding ?? 0));
+  const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(options.tileZoom ?? view.zoom)));
+  // A fractional zoom only stretches the level it rounded to; no tile exists
+  // for zoom 12.4, so its images are drawn at 2^0.4 of their size instead.
+  const scale = Math.pow(2, view.zoom - zoom);
   const centerX = lonToWorldX(view.lon, zoom);
   const centerY = latToWorldY(view.lat, zoom);
-  const left = centerX - width / 2;
-  const top = centerY - height / 2;
+  const left = centerX - width / (2 * scale);
+  const top = centerY - height / (2 * scale);
   const count = Math.pow(2, zoom);
 
-  const firstX = Math.floor(left / TILE_SIZE);
-  const lastX = Math.floor((left + width) / TILE_SIZE);
-  const firstY = Math.floor(top / TILE_SIZE);
-  const lastY = Math.floor((top + height) / TILE_SIZE);
+  const originX = Math.floor(left / TILE_SIZE) * TILE_SIZE - padding * TILE_SIZE;
+  const originY = Math.floor(top / TILE_SIZE) * TILE_SIZE - padding * TILE_SIZE;
+  const firstX = originX / TILE_SIZE;
+  const firstY = originY / TILE_SIZE;
+  const lastX = Math.floor((left + width / scale) / TILE_SIZE) + padding;
+  const lastY = Math.floor((top + height / scale) / TILE_SIZE) + padding;
 
   const tiles: TilePlacement[] = [];
   for (let x = firstX; x <= lastX; x += 1) {
@@ -158,12 +202,37 @@ export function tilesForView(view: MapView, width: number, height: number): Tile
         z: zoom,
         x,
         y,
-        left: x * TILE_SIZE - left,
-        top: y * TILE_SIZE - top,
+        left: (x * TILE_SIZE - originX) * scale,
+        top: (y * TILE_SIZE - originY) * scale,
       });
     }
   }
-  return tiles;
+  return {
+    zoom,
+    scale,
+    offsetX: -(left - originX) * scale,
+    offsetY: -(top - originY) * scale,
+    tiles,
+  };
+}
+
+/** Every tile that covers the viewport, with its absolute screen offset. */
+export function tilesForView(view: MapView, width: number, height: number): TilePlacement[] {
+  const layout = tileLayoutFor(view, width, height);
+  return layout.tiles.map((tile) => ({
+    ...tile,
+    left: tile.left + layout.offsetX,
+    top: tile.top + layout.offsetY,
+  }));
+}
+
+/**
+ * The zoom two fingers ask for: the distance between them doubles, the map goes
+ * up one level. Sub-pixel distances and a missing first pinch are ignored.
+ */
+export function zoomForPinch(startZoom: number, startDistance: number, currentDistance: number): number {
+  if (!(startDistance > 0) || !(currentDistance > 0)) return clampZoom(startZoom);
+  return clampZoom(startZoom + Math.log2(currentDistance / startDistance));
 }
 
 export function boundsForView(view: MapView, width: number, height: number) {
