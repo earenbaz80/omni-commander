@@ -65,6 +65,19 @@ describe('política de contenido del documento', () => {
     expect(policy).not.toContain('ws://');
   });
 
+  // Thumbnails, the hover preview, the viewer and the player all point at
+  // http://127.0.0.1:<port>/api/media. connect-src does not apply to an <img> or
+  // a <video>, so the packaged app showed an icon for every picture until these
+  // two directives named the loopback hosts.
+  it('deja que las imágenes y el reproductor lean del API local', () => {
+    const policy = policyOf(htmlWithPolicy('build', 'production'));
+
+    expect(policy).toMatch(/img-src[^;]*http:\/\/127\.0\.0\.1:\*/);
+    expect(policy).toMatch(/img-src[^;]*http:\/\/localhost:\*/);
+    expect(policy).toMatch(/media-src[^;]*http:\/\/127\.0\.0\.1:\*/);
+    expect(policy).toMatch(/media-src[^;]*http:\/\/localhost:\*/);
+  });
+
   it('deja al servidor de desarrollo su preámbulo en línea y su websocket', () => {
     const policy = policyOf(htmlWithPolicy('serve', 'development'));
 
