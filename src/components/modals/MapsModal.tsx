@@ -6,11 +6,14 @@ import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 import { API_BASE } from '../../services/apiBase';
 import {
-  clampZoom,
+  MAX_ZOOM,
+  MIN_ZOOM,
+  TILE_SIZE,
   panBy,
   projectToScreen,
-  tilesForView,
+  tileLayoutFor,
   zoomAround,
+  zoomForPinch,
   type MapLayer,
   type MapView,
 } from '../../services/slippyMap';
@@ -30,7 +33,33 @@ interface Place {
   approximate?: boolean;
 }
 
+interface Point {
+  x: number;
+  y: number;
+}
+
+/**
+ * What the fingers are doing. Both variants remember the view the gesture
+ * started from and compute from it, so a drag cannot drift from rounding error
+ * and a pinch cannot compound its own zoom.
+ */
+type Gesture =
+  | { kind: 'pan'; start: Point; from: MapView }
+  | { kind: 'pinch'; startDistance: number; startMid: Point; from: MapView };
+
 const DEFAULT_VIEW: MapView = { lat: 40.4168, lon: -3.7038, zoom: 6 };
+/** Tiles an extra ring beyond the viewport are kept, so short drags need no request. */
+const TILE_PADDING = 1;
+/** How long the images may stay behind a zoom change before the next level is fetched. */
+const TILE_SETTLE_MS = 180;
+
+function midpoint(a: Point, b: Point): Point {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+
+function spread(a: Point, b: Point): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
 
 /** The per-launch token rides in the query: a tile is loaded by an <img>, which cannot send a header. */
 function withToken(url: string): string {
@@ -52,12 +81,18 @@ function tileUrl(layer: MapLayer, z: number, x: number, y: number): string {
  * through the local server: Nominatim requires a User-Agent a browser will not
  * let a page set, and the server adds the cache that keeps the app inside the
  * usage policy of both services.
+ *
+ * The viewport is a pointer surface rather than a scroll area: one finger or the
+ * mouse pans, two fingers pinch, and the wheel zooms towards the pointer. The
+ * tiles sit on a layer that is aligned to a tile boundary, so dragging moves one
+ * transform instead of asking for a fresh grid every frame.
  */
 export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) => {
   const t = getTranslations(lang);
   const containerRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ x: number; y: number } | null>(null);
   const [view, setView] = useState<MapView>(DEFAULT_VIEW);
+  /** Level the images come from; it follows `view.zoom` once the gesture settles. */
+  const [tileZoom, setTileZoom] = useState(DEFAULT_VIEW.zoom);
   const [layer, setLayer] = useState<MapLayer>('osm');
   const [size, setSize] = useState({ width: 820, height: 460 });
   const [query, setQuery] = useState('');
@@ -67,6 +102,19 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
   const [marker, setMarker] = useState<Place | null>(null);
   const [locating, setLocating] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+
+  /** Fingers currently down, by pointer id, in the order they arrived. */
+  const pointers = useRef(new Map<number, Point>());
+  const gesture = useRef<Gesture | null>(null);
+  /** The view as of the last frame applied, which can be ahead of `view`. */
+  const latestView = useRef(view);
+  const queuedView = useRef<MapView | null>(null);
+  const frame = useRef<number | null>(null);
+  const settle = useRef<number | null>(null);
+
+  useEffect(() => {
+    latestView.current = view;
+  }, [view]);
 
   // The tile grid has to know the real viewport, otherwise the edges stay empty
   // after the window is resized.
@@ -85,11 +133,167 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
     return () => observer.disconnect();
   }, []);
 
-  const tiles = useMemo(() => tilesForView(view, size.width, size.height), [view, size.width, size.height]);
+  /**
+   * Pointer events arrive far faster than the screen refreshes; one update per
+   * frame keeps a drag at a steady cost no matter how chatty the device is.
+   */
+  const applyView = useCallback((next: MapView) => {
+    queuedView.current = next;
+    latestView.current = next;
+    if (frame.current !== null) return;
+    const flush = () => {
+      if (frame.current !== null) window.cancelAnimationFrame(frame.current);
+      if (settle.current !== null) window.clearTimeout(settle.current);
+      frame.current = null;
+      settle.current = null;
+      const pending = queuedView.current;
+      queuedView.current = null;
+      if (pending) setView(pending);
+    };
+    frame.current = window.requestAnimationFrame(flush);
+    // A hidden or occluded window (a minimised Electron one, a background tab)
+    // never runs the animation frame, and the map would keep the old view until
+    // it was shown again. The timer applies the latest one regardless.
+    settle.current = window.setTimeout(flush, 120);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (frame.current !== null) window.cancelAnimationFrame(frame.current);
+      if (settle.current !== null) window.clearTimeout(settle.current);
+    },
+    [],
+  );
+
+  // Only whole levels have images, and a pinch crosses several of them. The
+  // images stay a moment behind the pinch — stretched, not blank — and catch up
+  // once it stops; a jump big enough to look blurred swaps at once.
+  useEffect(() => {
+    const wanted = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(view.zoom)));
+    if (wanted === tileZoom) return;
+    const delay = Math.abs(view.zoom - tileZoom) >= 1.5 ? 0 : TILE_SETTLE_MS;
+    const timer = window.setTimeout(() => setTileZoom(wanted), delay);
+    return () => window.clearTimeout(timer);
+  }, [view.zoom, tileZoom]);
+
+  const layout = useMemo(
+    () => tileLayoutFor(view, size.width, size.height, { padding: TILE_PADDING, tileZoom }),
+    [view, size.width, size.height, tileZoom],
+  );
+
   const markerPosition = useMemo(
     () => (marker ? projectToScreen({ lat: marker.lat, lon: marker.lon }, view, size.width, size.height) : null),
     [marker, view, size.width, size.height],
   );
+
+  /** Client coordinates to point inside the viewport. */
+  const toLocal = useCallback((point: Point): Point => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+    return { x: point.x - rect.left, y: point.y - rect.top };
+  }, []);
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const element = containerRef.current;
+    if (!element) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    // Captured on the container, not on the tile under the finger, so a drag
+    // that leaves the map keeps panning instead of stopping at the border. A
+    // platform that refuses the capture still pans, only without that margin.
+    try {
+      element.setPointerCapture?.(event.pointerId);
+    } catch {
+      /* no active pointer to capture on this platform */
+    }
+    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    const fingers = [...pointers.current.values()];
+    const from = latestView.current;
+    if (fingers.length === 1) {
+      gesture.current = { kind: 'pan', start: fingers[0], from };
+    } else if (fingers.length === 2) {
+      gesture.current = {
+        kind: 'pinch',
+        startDistance: spread(fingers[0], fingers[1]),
+        startMid: midpoint(fingers[0], fingers[1]),
+        from,
+      };
+    }
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const fingers = pointers.current;
+    if (!fingers.has(event.pointerId)) return;
+    fingers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    const active = gesture.current;
+    if (!active) return;
+    const points = [...fingers.values()];
+
+    if (active.kind === 'pinch' && points.length >= 2) {
+      const [first, second] = points;
+      const distance = spread(first, second);
+      const mid = midpoint(first, second);
+      const zoom = zoomForPinch(active.from.zoom, active.startDistance, distance);
+      // Hold the coordinate the fingers grabbed, then follow their midpoint so
+      // two fingers can also slide the map while they zoom it.
+      const zoomed = zoomAround(
+        active.from,
+        zoom - active.from.zoom,
+        toLocal(active.startMid),
+        size.width,
+        size.height,
+      );
+      applyView(panBy(zoomed, mid.x - active.startMid.x, mid.y - active.startMid.y));
+      return;
+    }
+
+    if (active.kind === 'pan') {
+      applyView(panBy(active.from, event.clientX - active.start.x, event.clientY - active.start.y));
+    }
+  };
+
+  const handlePointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    pointers.current.delete(event.pointerId);
+    const element = containerRef.current;
+    if (element?.hasPointerCapture?.(event.pointerId)) element.releasePointerCapture(event.pointerId);
+    const remaining = [...pointers.current.values()];
+    const from = latestView.current;
+    if (remaining.length >= 2) {
+      gesture.current = {
+        kind: 'pinch',
+        startDistance: spread(remaining[0], remaining[1]),
+        startMid: midpoint(remaining[0], remaining[1]),
+        from,
+      };
+    } else if (remaining.length === 1) {
+      // Lifting one finger of a pinch must not make the map jump to where the
+      // remaining finger was when the gesture began.
+      gesture.current = { kind: 'pan', start: remaining[0], from };
+    } else {
+      gesture.current = null;
+    }
+  };
+
+  // React listens for wheel passively, so `preventDefault` in an onWheel prop is
+  // ignored and the dialog scrolls while the map zooms. A native listener is the
+  // only way to own the gesture.
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const rect = element.getBoundingClientRect();
+      const anchor = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+      // A mouse wheel reports whole lines, a trackpad small pixels, and a
+      // trackpad pinch arrives as ctrl+wheel; normalising the three keeps one
+      // flick from crossing several levels.
+      const unit = event.deltaMode === 1 ? 16 : event.ctrlKey ? 1 : 0.35;
+      const step = Math.max(-0.75, Math.min(0.75, (-event.deltaY * unit) / 400));
+      if (step === 0) return;
+      applyView(zoomAround(latestView.current, step, anchor, size.width, size.height));
+    };
+    element.addEventListener('wheel', onWheel, { passive: false });
+    return () => element.removeEventListener('wheel', onWheel);
+  }, [applyView, size.width, size.height]);
 
   const runSearch = useCallback(async () => {
     const term = query.trim();
@@ -127,6 +331,7 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
           approximate: true,
         };
         setMarker(place);
+        setTileZoom(11);
         setView({ lat: place.lat, lon: place.lon, zoom: 11 });
         setNotice(t.mapsApproxLocation);
       } catch {
@@ -148,6 +353,7 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
           lon: position.coords.longitude,
         };
         setMarker(place);
+        setTileZoom(14);
         setView({ lat: place.lat, lon: place.lon, zoom: 14 });
         setLocating(false);
       },
@@ -161,14 +367,19 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
   const goToPlace = (place: Place) => {
     soundManager.playKeyTick();
     setMarker(place);
+    setTileZoom(14);
     setView({ lat: place.lat, lon: place.lon, zoom: 14 });
     setPlaces([]);
     setQuery(place.label);
   };
 
+  /** The +/- buttons land on whole levels; only the fingers ask for halves. */
   const zoomBy = (delta: number) => {
-    setView((current) =>
-      zoomAround(current, delta, { x: size.width / 2, y: size.height / 2 }, size.width, size.height),
+    const current = latestView.current;
+    const target = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(current.zoom) + delta));
+    setTileZoom(target);
+    setView(
+      zoomAround(current, target - current.zoom, { x: size.width / 2, y: size.height / 2 }, size.width, size.height),
     );
   };
 
@@ -255,47 +466,51 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
 
         <div
           ref={containerRef}
-          className="relative h-[46vh] min-h-56 touch-none overflow-hidden rounded border border-white/15 bg-slate-900"
-          onPointerDown={(event) => {
-            dragRef.current = { x: event.clientX, y: event.clientY };
-            (event.target as HTMLElement).setPointerCapture?.(event.pointerId);
-          }}
-          onPointerMove={(event) => {
-            const start = dragRef.current;
-            if (!start) return;
-            const dx = event.clientX - start.x;
-            const dy = event.clientY - start.y;
-            if (dx === 0 && dy === 0) return;
-            dragRef.current = { x: event.clientX, y: event.clientY };
-            setView((current) => panBy(current, dx, dy));
-          }}
-          onPointerUp={() => {
-            dragRef.current = null;
-          }}
-          onPointerLeave={() => {
-            dragRef.current = null;
-          }}
-          onWheel={(event) => {
-            const element = containerRef.current;
-            if (!element) return;
-            const rect = element.getBoundingClientRect();
-            const anchor = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-            setView((current) => zoomAround(current, event.deltaY < 0 ? 1 : -1, anchor, size.width, size.height));
+          className="relative h-[46vh] min-h-56 cursor-grab touch-none select-none overflow-hidden rounded border border-white/15 bg-slate-900 active:cursor-grabbing"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerEnd}
+          onPointerCancel={handlePointerEnd}
+          onLostPointerCapture={handlePointerEnd}
+          onDoubleClick={(event) => {
+            const current = latestView.current;
+            const target = Math.min(MAX_ZOOM, Math.round(current.zoom) + 1);
+            setTileZoom(target);
+            setView(
+              zoomAround(
+                current,
+                target - current.zoom,
+                toLocal({ x: event.clientX, y: event.clientY }),
+                size.width,
+                size.height,
+              ),
+            );
           }}
         >
-          {tiles.map((tile) => (
-            <img
-              key={`${layer}-${tile.z}-${tile.x}-${tile.y}`}
-              src={tileUrl(layer, tile.z, tile.x, tile.y)}
-              alt=""
-              draggable={false}
-              width={256}
-              height={256}
-              loading="lazy"
-              className="pointer-events-none absolute select-none"
-              style={{ left: `${tile.left}px`, top: `${tile.top}px` }}
-            />
-          ))}
+          <div
+            className="pointer-events-none absolute left-0 top-0"
+            style={{
+              transform: `translate3d(${layout.offsetX}px, ${layout.offsetY}px, 0)`,
+              willChange: 'transform',
+            }}
+          >
+            {layout.tiles.map((tile) => (
+              <img
+                key={`${layer}-${tile.z}-${tile.x}-${tile.y}`}
+                src={tileUrl(layer, tile.z, tile.x, tile.y)}
+                alt=""
+                draggable={false}
+                decoding="async"
+                className="pointer-events-none absolute select-none"
+                style={{
+                  left: `${tile.left}px`,
+                  top: `${tile.top}px`,
+                  width: `${TILE_SIZE * layout.scale}px`,
+                  height: `${TILE_SIZE * layout.scale}px`,
+                }}
+              />
+            ))}
+          </div>
 
           {markerPosition && (
             <span
@@ -325,7 +540,7 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
           </div>
 
           <span className="pointer-events-none absolute left-[var(--space-1)] top-[var(--space-1)] rounded bg-black/60 px-[var(--space-1)] py-[2px] text-[10px] text-white/80">
-            {view.lat.toFixed(4)}, {view.lon.toFixed(4)} · z{clampZoom(view.zoom)}
+            {view.lat.toFixed(4)}, {view.lon.toFixed(4)} · z{view.zoom.toFixed(1)}
           </span>
         </div>
 
