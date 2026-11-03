@@ -102,6 +102,8 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
   const [marker, setMarker] = useState<Place | null>(null);
   const [locating, setLocating] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // The dialog tells us when it fills the viewport so the map can grow with it.
+  const [expanded, setExpanded] = useState(false);
 
   /** Fingers currently down, by pointer id, in the order they arrived. */
   const pointers = useRef(new Map<number, Point>());
@@ -179,6 +181,21 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
   const layout = useMemo(
     () => tileLayoutFor(view, size.width, size.height, { padding: TILE_PADDING, tileZoom }),
     [view, size.width, size.height, tileZoom],
+  );
+
+  // The layer is positioned but empty, so it has no size of its own. Giving it
+  // the extent of the grid keeps percentage-based rules (the base sheet sets
+  // `img { max-width: 100% }`) from clamping every tile to zero width.
+  const layerExtent = useMemo(
+    () =>
+      layout.tiles.reduce(
+        (extent, tile) => ({
+          width: Math.max(extent.width, tile.left + TILE_SIZE * layout.scale),
+          height: Math.max(extent.height, tile.top + TILE_SIZE * layout.scale),
+        }),
+        { width: 0, height: 0 },
+      ),
+    [layout],
   );
 
   const markerPosition = useMemo(
@@ -401,7 +418,17 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
   );
 
   return (
-    <ModalShell title={t.toolMaps} theme={theme} onClose={onClose} closeButtonLabel={t.btnClose}>
+    <ModalShell
+      title={t.toolMaps}
+      theme={theme}
+      onClose={onClose}
+      closeButtonLabel={t.btnClose}
+      windowControls
+      minimizeLabel={t.minimize}
+      maximizeLabel={t.maximizeRestore}
+      restoreLabel={t.maximizeRestore}
+      onMaximizeChange={setExpanded}
+    >
       <div className="flex flex-col gap-[var(--space-2)] font-mono">
         <div className="flex flex-wrap items-center gap-[var(--space-1)]">
           <form
@@ -466,7 +493,9 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
 
         <div
           ref={containerRef}
-          className="relative h-[46vh] min-h-56 cursor-grab touch-none select-none overflow-hidden rounded border border-white/15 bg-slate-900 active:cursor-grabbing"
+          className={`relative min-h-56 cursor-grab touch-none select-none overflow-hidden rounded border border-white/15 bg-slate-900 active:cursor-grabbing ${
+            expanded ? 'h-[calc(100vh-19rem)]' : 'h-[46vh]'
+          }`}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerEnd}
@@ -490,6 +519,8 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
           <div
             className="pointer-events-none absolute left-0 top-0"
             style={{
+              width: `${layerExtent.width}px`,
+              height: `${layerExtent.height}px`,
               transform: `translate3d(${layout.offsetX}px, ${layout.offsetY}px, 0)`,
               willChange: 'transform',
             }}
@@ -501,7 +532,7 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
                 alt=""
                 draggable={false}
                 decoding="async"
-                className="pointer-events-none absolute select-none"
+                className="pointer-events-none absolute max-w-none select-none"
                 style={{
                   left: `${tile.left}px`,
                   top: `${tile.top}px`,

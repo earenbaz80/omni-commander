@@ -1,6 +1,7 @@
 import { ThemeConfig } from '../services/themeManager';
 import ModalShell from './ModalShell';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { vi } from 'vitest';
 
 // Mock theme object for tests
 const mockTheme: ThemeConfig = {
@@ -126,5 +127,53 @@ describe('ModalShell', () => {
     const body = screen.getByText('contenido').parentElement as HTMLElement;
     expect(body.className).toContain('overflow-y-auto');
     expect(body.className).toContain('min-h-0');
+  });
+
+  // Dialogs that work like a window of their own get the three title-bar
+  // buttons; the rest would only gain two controls that do nothing useful.
+  it('rolls the window up to its title bar', () => {
+    render(
+      <ModalShell label="Mapas" theme={mockTheme} windowControls minimizeLabel="Minimizar">
+        <p>contenido</p>
+      </ModalShell>,
+    );
+    const body = screen.getByText('contenido').parentElement as HTMLElement;
+    fireEvent.click(screen.getByLabelText('Minimizar'));
+    expect(body.hasAttribute('hidden')).toBe(true);
+    fireEvent.click(screen.getByLabelText('Minimizar'));
+    expect(body.hasAttribute('hidden')).toBe(false);
+  });
+
+  it('fills the viewport when maximised and tells the content', () => {
+    const onMaximizeChange = vi.fn();
+    render(
+      <ModalShell
+        label="Mapas"
+        theme={mockTheme}
+        windowControls
+        maximizeLabel="Maximizar"
+        restoreLabel="Restaurar"
+        onMaximizeChange={onMaximizeChange}
+      >
+        <p>contenido</p>
+      </ModalShell>,
+    );
+    fireEvent.click(screen.getByLabelText('Maximizar'));
+    expect(screen.getByRole('dialog').className).toContain('max-w-none');
+    expect(onMaximizeChange).toHaveBeenLastCalledWith(true);
+
+    fireEvent.click(screen.getByLabelText('Restaurar'));
+    expect(screen.getByRole('dialog').className).toContain('max-w-3xl');
+    expect(onMaximizeChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it('leaves the window buttons out unless they are asked for', () => {
+    render(
+      <ModalShell label="Ajustes" theme={mockTheme} onClose={() => {}} closeButtonLabel="Cerrar">
+        <p>contenido</p>
+      </ModalShell>,
+    );
+    expect(screen.queryByLabelText('Minimizar')).toBeNull();
+    expect(screen.getByLabelText('Cerrar')).toBeTruthy();
   });
 });
