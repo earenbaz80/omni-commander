@@ -65,7 +65,7 @@ function ModalShell({
   minimizeLabel = 'Minimizar',
   maximizeLabel = 'Maximizar',
   restoreLabel = 'Restaurar',
-  resizable = false,
+  resizable = true,
   resizeLabel = 'Redimensionar ventana',
   fill = false,
   onFillChange,
@@ -74,14 +74,19 @@ function ModalShell({
   // Rolled up to its title bar, like the window it imitates.
   const [minimized, setMinimized] = useState(false);
   const [maximized, setMaximized] = useState(false);
-  /** The size the corner was dragged out to; `null` means the dialog's own. */
-  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  /**
+   * The size the corner was dragged out to, plus the corner it was dragged
+   * from. `null` means the dialog's own size, still centred by the overlay.
+   */
+  const [size, setSize] = useState<{ width: number; height: number; left: number; top: number } | null>(null);
   const dragging = useRef<{
     pointerId: number;
     x: number;
     y: number;
     width: number;
     height: number;
+    left: number;
+    top: number;
   } | null>(null);
 
   // Use the shared modal dialog hook for consistent behavior
@@ -99,6 +104,27 @@ function ModalShell({
     onFillChange?.(fills);
   }, [fills, onFillChange]);
 
+  // A panel dragged out to a size is anchored, so it no longer follows the
+  // overlay's centring. If the window itself shrinks afterwards the panel has to
+  // be pulled back inside it instead of hanging off the edge.
+  useEffect(() => {
+    if (!size) return;
+    const fit = () => {
+      setSize((current) => {
+        if (!current) return current;
+        const width = Math.min(current.width, Math.max(MIN_PANEL_WIDTH, window.innerWidth - SCREEN_GUTTER));
+        const height = Math.min(current.height, Math.max(MIN_PANEL_HEIGHT, window.innerHeight - SCREEN_GUTTER));
+        const left = Math.max(0, Math.min(current.left, window.innerWidth - width));
+        const top = Math.max(0, Math.min(current.top, window.innerHeight - height));
+        return width === current.width && height === current.height && left === current.left && top === current.top
+          ? current
+          : { width, height, left, top };
+      });
+    };
+    window.addEventListener('resize', fit);
+    return () => window.removeEventListener('resize', fit);
+  }, [size]);
+
   const toggleMaximized = () => {
     setMaximized((current) => !current);
   };
@@ -113,6 +139,8 @@ function ModalShell({
       y: event.clientY,
       width: rect.width,
       height: rect.height,
+      left: rect.left,
+      top: rect.top,
     };
     // The pointer leaves the small corner as soon as the drag starts; without
     // the capture the panel would stop following it a few pixels later.
@@ -127,11 +155,19 @@ function ModalShell({
   const moveResize = (event: React.PointerEvent<HTMLDivElement>) => {
     const start = dragging.current;
     if (!start || start.pointerId !== event.pointerId) return;
-    const widest = Math.max(MIN_PANEL_WIDTH, window.innerWidth - SCREEN_GUTTER);
-    const tallest = Math.max(MIN_PANEL_HEIGHT, window.innerHeight - SCREEN_GUTTER);
+    // The corner under the pointer is the one being dragged, so the panel has to
+    // keep the top-left it started with. A centred panel grew both ways and the
+    // corner ran away from the cursor at half speed, which is why the drag never
+    // felt like it was landing where the pointer was.
+    const widest = Math.max(MIN_PANEL_WIDTH, window.innerWidth - SCREEN_GUTTER - start.left);
+    const tallest = Math.max(MIN_PANEL_HEIGHT, window.innerHeight - SCREEN_GUTTER - start.top);
+    const width = Math.min(widest, Math.max(MIN_PANEL_WIDTH, start.width + event.clientX - start.x));
+    const height = Math.min(tallest, Math.max(MIN_PANEL_HEIGHT, start.height + event.clientY - start.y));
     setSize({
-      width: Math.min(widest, Math.max(MIN_PANEL_WIDTH, start.width + event.clientX - start.x)),
-      height: Math.min(tallest, Math.max(MIN_PANEL_HEIGHT, start.height + event.clientY - start.y)),
+      width,
+      height,
+      left: Math.max(0, Math.min(start.left, window.innerWidth - width)),
+      top: Math.max(0, Math.min(start.top, window.innerHeight - height)),
     });
   };
 
@@ -171,7 +207,9 @@ function ModalShell({
         style={{
           borderColor: theme.modalBorder,
           backgroundColor: theme.modalBg,
-          ...(size && !maximized ? { width: size.width, height: size.height } : null),
+          ...(size && !maximized
+            ? { position: 'absolute' as const, left: size.left, top: size.top, width: size.width, height: size.height }
+            : null),
         }}
       >
         {/* Header */}
@@ -239,10 +277,10 @@ function ModalShell({
             onPointerUp={endResize}
             onPointerCancel={endResize}
             onLostPointerCapture={endResize}
-            className="absolute bottom-0 right-0 flex h-4 w-4 cursor-nwse-resize touch-none items-end justify-end"
+            className="absolute bottom-0 right-0 z-10 flex h-5 w-5 cursor-nwse-resize touch-none items-end justify-end p-[2px] hover:bg-white/10"
             style={{ color: theme.modalBorder }}
           >
-            <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" focusable="false">
+            <svg width="12" height="12" viewBox="0 0 10 10" aria-hidden="true" focusable="false">
               <path d="M9 2 L2 9 M9 6 L6 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none" />
             </svg>
           </div>

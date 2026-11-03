@@ -192,6 +192,45 @@ describe('ModalShell', () => {
     expect(panel.className).toContain('max-w-none');
   });
 
+  // The overlay centres the panel, so a drag used to grow it in both
+  // directions and the corner slid away from the pointer at half speed. The
+  // panel is anchored where the drag started instead.
+  it('keeps the dragged corner under the pointer', () => {
+    render(
+      <ModalShell label="Mapas" theme={mockTheme} resizable resizeLabel="Redimensionar ventana">
+        <p>contenido</p>
+      </ModalShell>,
+    );
+    const panel = screen.getByRole('dialog') as HTMLElement;
+    panel.getBoundingClientRect = () =>
+      ({ left: 200, top: 100, width: 400, height: 300, right: 600, bottom: 400, x: 200, y: 100 }) as DOMRect;
+
+    const handle = screen.getByLabelText('Redimensionar ventana');
+    const down = new Event('pointerdown', { bubbles: true, cancelable: true });
+    Object.assign(down, { pointerId: 1, clientX: 600, clientY: 400 });
+    fireEvent(handle, down);
+    const move = new Event('pointermove', { bubbles: true, cancelable: true });
+    Object.assign(move, { pointerId: 1, clientX: 660, clientY: 430 });
+    fireEvent(handle, move);
+
+    // The corner moved 60 by 30, so the panel grew by exactly that and its
+    // top-left stayed where it was.
+    expect(panel.style.width).toBe('460px');
+    expect(panel.style.height).toBe('330px');
+    expect(panel.style.position).toBe('absolute');
+    expect(panel.style.left).toBe('200px');
+    expect(panel.style.top).toBe('100px');
+  });
+
+  it('lets any dialog be dragged out to a size, not just the map', () => {
+    render(
+      <ModalShell label="Borrar" theme={mockTheme}>
+        <p>contenido</p>
+      </ModalShell>,
+    );
+    expect(screen.getByLabelText('Redimensionar ventana')).toBeTruthy();
+  });
+
   it('never drags the panel below a usable size', () => {
     render(
       <ModalShell label="Mapas" theme={mockTheme} resizable resizeLabel="Redimensionar ventana">
