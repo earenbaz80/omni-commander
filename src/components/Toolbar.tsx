@@ -292,6 +292,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       Arrangement of the two panes. Both layouts are first class, so this is a
       switch and not a preference buried in a dialog: the shape of the window is
       what decides which one is useful today.
+
+     The icon has to picture the arrangement the click produces, like the
+     tooltip already did: it used to show the layout already on screen, so the
+     button read as "go to columns" while it went to rows.
     */
     layout: onTogglePanelLayout ? (
       <button
@@ -305,7 +309,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         title={panelStacked ? t.panelLayoutColumns : t.panelLayoutRows}
         aria-pressed={panelStacked}
       >
-        {panelStacked ? <Rows2 className="w-4 h-4" /> : <Columns2 className="w-4 h-4" />}
+        {panelStacked ? <Columns2 className="w-4 h-4" /> : <Rows2 className="w-4 h-4" />}
       </button>
     ) : null,
     /*
