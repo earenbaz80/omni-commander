@@ -1046,6 +1046,7 @@ export const fr = {
   treeEmptyDisk: '(disque vide)',
   lockDefaultUser: 'Utilisateur par défaut :',
   driveNoRealDrives: 'Aucun lecteur système réel détecté.',
+  driveOffline: 'Hors ligne (le lecteur réseau ne répond pas)',
 
   // Textes de modales qui étaient des littéraux anglais dans le composant.
   aboutTagline: 'Gestionnaire de fichiers avancé à deux panneaux pour Windows',

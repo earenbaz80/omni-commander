@@ -214,7 +214,7 @@ function makeDrive(info) {
     totalBytes: Number(info.size) || 0,
     freeBytes: Number(info.free) || 0,
     description: `${volumeName} [${mapped.kind}] ${info.fileSystem ? `(${info.fileSystem})` : 'desconocido'}`.trim(),
-    isMounted: true,
+    isMounted: info.isMounted !== false,
   };
 }
 
@@ -314,6 +314,22 @@ async function probeDriveLetters() {
   return drives;
 }
 
+// A mapped network drive keeps its letter while the server behind it is
+// unreachable: `fs.stat` fails, the probe drops the letter, and the drive used
+// to disappear from every list until it came back on its own. WMI still
+// reports it, so it is added as a drive that is not mounted and the tree
+// shows it dimmed instead of forgetting it.
+function withNetworkFromMeta(drives) {
+  const seen = new Set(drives.map((drive) => drive.letter.toUpperCase()));
+  const offline = [];
+  for (const [letter, meta] of drivesMeta) {
+    if (seen.has(letter)) continue;
+    if (Number(meta.driveType) !== 4) continue;
+    offline.push(makeDrive({ letter, ...meta, isMounted: false }));
+  }
+  return offline.length ? [...drives, ...offline] : drives;
+}
+
 function drivesFromMeta(meta) {
   const drives = [];
   for (const [letter, m] of meta) {
@@ -326,6 +342,7 @@ function drivesFromMeta(meta) {
         free: m.free,
         fileSystem: m.fileSystem,
         serialNumber: m.serialNumber,
+        isMounted: Number(m.driveType) !== 4,
       }),
     );
   }
@@ -402,7 +419,7 @@ async function computeRealDrives() {
     const fast = await withTimeout(probeDriveLetters(), 8000, []);
     if (fast.length) {
       enrichForNewLetters(fast.map((d) => d.letter));
-      return fast;
+      return withNetworkFromMeta(fast);
     }
     // Fall back to WMI only when the filesystem probe found nothing at all.
     // Shares the inflight flag with the background warm-up so a slow WMI query
