@@ -1076,6 +1076,30 @@ app.get('/api/media', async (req, res) => {
 });
 
 /**
+ * Asks the shell for its "Open with" picker and returns once it has started.
+ *
+ * The picker is modal: rundll32 stays alive until the user chooses a program.
+ * Waiting for it to exit — what an execFile with a timeout does — is what made
+ * the menu item do nothing: the request blocked for 15 s, the launcher was
+ * killed while its dialog was still on screen, and the app only ever heard about
+ * it as a 502 it did not show. The child is unref'd instead, so the dialog
+ * outlives the request and stays with the user until they close it.
+ */
+function launchOpenWithPicker(target) {
+  return new Promise((resolve, reject) => {
+    const child = spawn('rundll32.exe', ['shell32.dll,OpenAs_RunDLL', target], {
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+    child.once('error', reject);
+    child.once('spawn', () => {
+      child.unref();
+      resolve();
+    });
+  });
+}
+
+/**
  * The Windows "Open with" chooser for one file.
  *
  * Kept apart from /api/open, which hands the file to whatever is registered:
@@ -1103,10 +1127,7 @@ app.post('/api/open-with', async (req, res) => {
     return res.json({ path: resolved, launched: ['rundll32.exe', 'shell32.dll,OpenAs_RunDLL', resolved] });
   }
   try {
-    await execFileAsync('rundll32.exe', ['shell32.dll,OpenAs_RunDLL', resolved], {
-      timeout: 15000,
-      windowsHide: true,
-    });
+    await launchOpenWithPicker(resolved);
     return res.json({ path: resolved });
   } catch (error) {
     logDebug('open-with failed', resolved, error?.message || error);
