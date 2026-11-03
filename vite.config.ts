@@ -60,8 +60,16 @@ export default defineConfig(({ command, mode }) => {
     // repainting the whole interface through classes first.
     "style-src 'self' 'unsafe-inline'",
     // Previews come from blob: object URLs, and the SVG viewer builds a data: URL.
-    "img-src 'self' data: blob:",
+    // Thumbnails, the viewer's picture and the tooltip load their bytes from the
+    // local API, which is a different origin from the document (`file://` once
+    // packaged). connect-src does not cover an <img>: without the loopback hosts
+    // here every thumbnail is blocked and the cell silently falls back to the
+    // file's icon.
+    "img-src 'self' data: blob: http://127.0.0.1:* http://localhost:*",
     "font-src 'self' data:",
+    // The player streams from that same API. It falls back to default-src when
+    // this is absent, so a video would render its controls and never a frame.
+    "media-src 'self' blob: http://127.0.0.1:* http://localhost:*",
     // The archive bridge and libarchive's wasm worker load from the bundle.
     "worker-src 'self' blob:",
     // The only server this page may reach is the local API, on whichever port it
