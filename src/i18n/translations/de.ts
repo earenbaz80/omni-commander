@@ -362,6 +362,8 @@ export const de = {
   toolbarNewFolder: 'Neuer Ordner',
   toolbarFilter: 'Schnellfilter',
   openWith: 'Öffnen mit…',
+  openWithOtherApp: 'Andere App auswählen…',
+  openWithNoPrograms: 'Für diesen Typ ist kein Programm registriert',
   viewerPreviewUnavailable: 'Diese Datei lässt sich hier nicht anzeigen.',
   settingsToolbarSection: 'Werkzeugleiste',
   settingsToolbarHint: 'Wähle, welche Schaltflächen erscheinen und in welcher Reihenfolge.',

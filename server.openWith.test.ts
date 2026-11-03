@@ -87,3 +87,68 @@ describe('POST /api/open-with', () => {
     expect(body.error).toBe('invalid-path');
   });
 });
+
+/**
+ * The submenu's own two routes. Windows will not raise the shell's chooser above
+ * the app when the process that asked for it is not in the foreground, so the
+ * menu has to be able to list and start the registered programs itself.
+ */
+describe('GET /api/open-with/programs', () => {
+  const get = async (target: string) => {
+    const response = await fetch(server.url(`/api/open-with/programs?path=${encodeURIComponent(target)}`));
+    return { status: response.status, body: (await response.json().catch(() => ({}))) as any };
+  };
+
+  it('answers with a list the menu can render', async () => {
+    const { status, body } = await get(file);
+    expect(status).toBe(200);
+    expect(body.path).toBe(file);
+    // The registry read is skipped under the dry-run switch, so the shape is what
+    // this asserts: the menu renders the same either way.
+    expect(Array.isArray(body.programs)).toBe(true);
+  });
+
+  it('refuses a folder, a missing file and a rejected path', async () => {
+    expect((await get(folder)).body.error).toBe('not-a-file');
+    expect((await get(path.join(root, 'fantasma.bin'))).status).toBe(404);
+    expect((await get('\\\\servidor-remoto\\recurso\\nota.txt')).body.error).toBe('invalid-path');
+  });
+});
+
+describe('POST /api/open-with/app', () => {
+  // A real executable on the machine, so the check that it exists is honest.
+  const program = process.execPath;
+
+  const postApp = async (body: unknown) => {
+    const response = await fetch(server.url('/api/open-with/app'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return { status: response.status, body: (await response.json().catch(() => ({}))) as any };
+  };
+
+  it('runs the chosen program with the file as its own argument', async () => {
+    const { status, body } = await postApp({ path: file, program });
+    expect(status).toBe(200);
+    expect(body.program).toBe(program);
+    expect(body.launched).toEqual([program, file]);
+  });
+
+  it('refuses a program that is not an absolute executable on disk', async () => {
+    expect((await postApp({ path: file, program: 'bloc-de-notas.exe' })).body.error).toBe('invalid-program');
+    expect((await postApp({ path: file, program: path.join(root, 'nota.txt') })).body.error).toBe('invalid-program');
+    expect((await postApp({ path: file, program: path.join(root, 'no-existe.exe') })).body.error).toBe(
+      'invalid-program',
+    );
+    expect((await postApp({ path: file })).body.error).toBe('invalid-program');
+  });
+
+  it('refuses a folder and a path the safety check rejects', async () => {
+    expect((await postApp({ path: folder, program })).body.error).toBe('not-a-file');
+    expect((await postApp({ path: '\\\\servidor-remoto\\recurso\\nota.txt', program })).body.error).toBe(
+      'invalid-path',
+    );
+    expect((await postApp({ path: path.join(root, 'fantasma.bin'), program })).status).toBe(404);
+  });
+});

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   Eye,
   Edit3,
@@ -23,6 +23,7 @@ import { ThemeConfig } from '../services/themeManager';
 import { SendToDestination } from '../services/fileSystem';
 import { getTranslations } from '../i18n/translations';
 import { soundManager } from '../services/soundEffects';
+import type { OpenWithProgram } from '../services/openWith';
 
 interface ContextMenuProps {
   theme: ThemeConfig;
@@ -60,6 +61,10 @@ interface ContextMenuProps {
   /** Opens the folder picker, starting on the other panel. */
   onSendToFolder?: () => void;
   canSendTo?: boolean;
+  /** Programs Windows registered for the target's type, loaded when expanded. */
+  loadOpenWithPrograms?: () => Promise<OpenWithProgram[]>;
+  /** Opens the target with one of those programs. */
+  onOpenWithProgram?: (program: OpenWithProgram) => void;
 }
 
 /**
@@ -104,10 +109,30 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   isFavorite = false,
   canSendTo = false,
   canOpenWith = false,
+  loadOpenWithPrograms,
+  onOpenWithProgram,
 }) => {
   const t = getTranslations(lang);
   const menuRef = useRef<HTMLDivElement>(null);
   const restoreRef = useRef<HTMLElement | null>(null);
+  // The submenu expands in place rather than opening a second floating panel: a
+  // positioned popup inside a menu that already clamps itself to the window is
+  // how a nested menu ends up half off-screen.
+  const [openWithExpanded, setOpenWithExpanded] = useState(false);
+  const [openWithPrograms, setOpenWithPrograms] = useState<OpenWithProgram[] | null>(null);
+  const [openWithLoading, setOpenWithLoading] = useState(false);
+
+  const toggleOpenWith = () => {
+    soundManager.playKeyTick();
+    // Expanding is not an action, so the menu stays open to pick a program.
+    setOpenWithExpanded((expanded) => !expanded);
+    if (openWithPrograms !== null || openWithLoading || !loadOpenWithPrograms) return;
+    setOpenWithLoading(true);
+    void loadOpenWithPrograms()
+      .then((list) => setOpenWithPrograms(list))
+      .catch(() => setOpenWithPrograms([]))
+      .finally(() => setOpenWithLoading(false));
+  };
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -180,8 +205,21 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   };
 
   // Adjust coordinates so menu doesn't go offscreen
-  const adjustedX = Math.min(x, window.innerWidth - 220);
-  const adjustedY = Math.min(y, window.innerHeight - 340);
+  // The menu grows with the item (archive block, send-to block, split), so its
+  // height is measured rather than guessed: the old fixed 340 px allowance put
+  // a right-click near the bottom edge half off the screen. A menu taller than
+  // the window scrolls instead of being cut off.
+  const [pos, setPos] = useState({ left: x, top: y });
+  useLayoutEffect(() => {
+    const element = menuRef.current;
+    if (!element) return;
+    const margin = 8;
+    const { offsetWidth: width, offsetHeight: height } = element;
+    setPos({
+      left: Math.max(margin, Math.min(x, window.innerWidth - width - margin)),
+      top: Math.max(margin, Math.min(y, window.innerHeight - height - margin)),
+    });
+  }, [x, y, targetItem]);
 
   return (
     <div
@@ -190,10 +228,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       aria-label={t.contextMenuLabel}
       tabIndex={-1}
       onKeyDown={handleKeyDown}
-      className="fixed z-50 w-56 rounded border shadow-2xl py-[var(--space-1)] text-xs font-mono select-none"
+      className="fixed z-50 max-h-[calc(100vh-16px)] w-56 overflow-y-auto rounded border shadow-2xl py-[var(--space-1)] text-xs font-mono select-none"
       style={{
-        left: `${adjustedX}px`,
-        top: `${adjustedY}px`,
+        left: `${pos.left}px`,
+        top: `${pos.top}px`,
         backgroundColor: theme.modalBg,
         borderColor: theme.borderPanel,
         color: theme.itemText,
@@ -220,12 +258,51 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           </MenuItem>
 
           {!targetItem.isDirectory && canOpenWith && onOpenWith && (
-            <MenuItem
-              onClick={() => handleAction(onOpenWith)}
-              className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-white/20 flex items-center gap-[var(--space-2)] cursor-pointer"
-            >
-              <ExternalLink className="w-3.5 h-3.5 text-violet-300" /> {t.openWith}
-            </MenuItem>
+            <>
+              <MenuItem
+                aria-expanded={openWithExpanded}
+                onClick={toggleOpenWith}
+                className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-white/20 flex items-center justify-between cursor-pointer"
+              >
+                <span className="flex items-center gap-[var(--space-2)]">
+                  <ExternalLink className="w-3.5 h-3.5 text-violet-300" /> {t.openWith}
+                </span>
+                <span className="opacity-60">{openWithExpanded ? '▾' : '▸'}</span>
+              </MenuItem>
+              {openWithExpanded && (
+                <div
+                  role="group"
+                  aria-label={t.openWith}
+                  className="ml-[var(--space-3)] border-l border-white/10 pl-[var(--space-1)]"
+                >
+                  {openWithLoading && (
+                    <div role="presentation" className="px-[var(--space-3)] py-[var(--space-1)] opacity-60">
+                      …
+                    </div>
+                  )}
+                  {!openWithLoading && openWithPrograms?.length === 0 && (
+                    <div role="presentation" className="px-[var(--space-3)] py-[var(--space-1)] opacity-60">
+                      {t.openWithNoPrograms}
+                    </div>
+                  )}
+                  {(openWithPrograms ?? []).map((program) => (
+                    <MenuItem
+                      key={program.id}
+                      onClick={() => handleAction(() => onOpenWithProgram?.(program))}
+                      className="w-full truncate text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 cursor-pointer"
+                    >
+                      {program.name}
+                    </MenuItem>
+                  ))}
+                  <MenuItem
+                    onClick={() => handleAction(onOpenWith)}
+                    className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 cursor-pointer opacity-80"
+                  >
+                    {t.openWithOtherApp}
+                  </MenuItem>
+                </div>
+              )}
+            </>
           )}
 
           {!targetItem.isDirectory && (

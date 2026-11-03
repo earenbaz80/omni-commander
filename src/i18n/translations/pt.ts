@@ -360,6 +360,8 @@ export const pt = {
   toolbarNewFolder: 'Nova pasta',
   toolbarFilter: 'Filtro rápido',
   openWith: 'Abrir com…',
+  openWithOtherApp: 'Escolher outro aplicativo…',
+  openWithNoPrograms: 'Nenhum programa registrado para este tipo',
   viewerPreviewUnavailable: 'Este arquivo não pode ser pré-visualizado aqui.',
   settingsToolbarSection: 'Barra de ferramentas',
   settingsToolbarHint: 'Escolha quais botões aparecem e em que ordem.',

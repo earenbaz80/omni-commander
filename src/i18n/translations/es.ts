@@ -388,6 +388,8 @@ export const es = {
   toolbarNewFolder: 'Nueva carpeta',
   toolbarFilter: 'Filtro rápido',
   openWith: 'Abrir con…',
+  openWithOtherApp: 'Elegir otra aplicación…',
+  openWithNoPrograms: 'No hay programas registrados para este tipo',
   viewerPreviewUnavailable: 'Aquí no se puede mostrar la vista previa de este archivo.',
   settingsToolbarSection: 'Barra de herramientas',
   settingsToolbarHint: 'Elige qué botones aparecen y en qué orden.',

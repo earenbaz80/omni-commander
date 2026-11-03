@@ -128,4 +128,77 @@ describe('ContextMenu on a selected item', () => {
     expect(props.onMkDir).toHaveBeenCalledTimes(1);
     expect(props.onNewFile).toHaveBeenCalledTimes(1);
   });
+
+  /**
+   * A right-click on the last row used to place the menu at a fixed offset from
+   * the click, which left its lower half outside the window where nothing could
+   * be clicked. The menu is measured and pushed back inside instead.
+   */
+  it('keeps the menu inside the window when opened at the bottom edge', () => {
+    const menuHeight = 600;
+    const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get: () => menuHeight });
+
+    try {
+      render(<ContextMenu {...buildProps(file)} x={100} y={window.innerHeight - 10} />);
+
+      const menu = screen.getByRole('menu');
+      expect(menu.style.top).toBe(`${window.innerHeight - menuHeight - 8}px`);
+      expect(menu.style.left).toBe('100px');
+      expect(menu.className).toContain('overflow-y-auto');
+    } finally {
+      if (original) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', original);
+      else delete (HTMLElement.prototype as unknown as Record<string, unknown>).offsetHeight;
+    }
+  });
+
+  /**
+   * "Abrir con" used to hand the file straight to the shell dialog, which Windows
+   * will not raise above the app when the process that asked for it is not in the
+   * foreground: the dialog was created behind the window and the menu looked dead.
+   * The submenu lists the programs itself, and keeps the chooser as a last entry.
+   */
+  it('expands "Abrir con" into the programs registered for the type', async () => {
+    const program = { id: 'C:\\Windows\\notepad.exe', name: 'Bloc de notas' };
+    const loadOpenWithPrograms = vi.fn().mockResolvedValue([program]);
+    const onOpenWithProgram = vi.fn();
+    const onOpenWith = vi.fn();
+    render(
+      <ContextMenu
+        {...buildProps(file)}
+        canOpenWith={true}
+        onOpenWith={onOpenWith}
+        loadOpenWithPrograms={loadOpenWithPrograms}
+        onOpenWithProgram={onOpenWithProgram}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Abrir con…'));
+
+    expect(await screen.findByText('Bloc de notas')).toBeTruthy();
+    expect(loadOpenWithPrograms).toHaveBeenCalledTimes(1);
+    // Expanding is not opening: nothing has been launched yet.
+    expect(onOpenWith).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('Bloc de notas'));
+    expect(onOpenWithProgram).toHaveBeenCalledWith(program);
+  });
+
+  it('says so when the type has no registered programs, and still offers the chooser', async () => {
+    const onOpenWith = vi.fn();
+    render(
+      <ContextMenu
+        {...buildProps(file)}
+        canOpenWith={true}
+        onOpenWith={onOpenWith}
+        loadOpenWithPrograms={() => Promise.resolve([])}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Abrir con…'));
+    expect(await screen.findByText('No hay programas registrados para este tipo')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('Elegir otra aplicación…'));
+    expect(onOpenWith).toHaveBeenCalledTimes(1);
+  });
 });

@@ -361,6 +361,8 @@ export const fr = {
   toolbarNewFolder: 'Nouveau dossier',
   toolbarFilter: 'Filtre rapide',
   openWith: 'Ouvrir avec…',
+  openWithOtherApp: 'Choisir une autre application…',
+  openWithNoPrograms: 'Aucun programme n’est enregistré pour ce type',
   viewerPreviewUnavailable: 'Ce fichier ne peut pas être prévisualisé ici.',
   settingsToolbarSection: 'Barre d’outils',
   settingsToolbarHint: 'Choisissez les boutons affichés et leur ordre.',

@@ -12,6 +12,7 @@ import {
   type OpenableArchiveFormat,
 } from './archiveBackend';
 import { API_BASE } from './apiBase';
+import type { OpenWithProgram } from './openWith';
 import { loadServerArchiveBackend } from './serverArchive';
 import {
   ConflictResolution,
@@ -967,6 +968,37 @@ class FileSystemEngine {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: absolute }),
+      timeoutMs: 20000,
+      retries: 0,
+    });
+    return response.ok;
+  }
+
+  /**
+   * The programs registered for this file's extension, for the submenu. An empty
+   * list is normal (a type nothing claims), so a refusal is not an error here:
+   * the menu then offers only the shell's own chooser.
+   */
+  public async openWithPrograms(file: FileItem): Promise<OpenWithProgram[]> {
+    const absolute = this.absolutePathFor(file);
+    if (!absolute) return [];
+    const response = await fetchWithRetry(`${API_BASE}/api/open-with/programs?path=${encodeURIComponent(absolute)}`, {
+      timeoutMs: 15000,
+      retries: 0,
+    });
+    if (!response.ok) return [];
+    const payload = (await response.json().catch(() => ({}))) as { programs?: OpenWithProgram[] };
+    return Array.isArray(payload.programs) ? payload.programs : [];
+  }
+
+  /** Opens one file with one of the programs the submenu listed. */
+  public async openWithProgram(file: FileItem, program: string): Promise<boolean> {
+    const absolute = this.absolutePathFor(file);
+    if (!absolute || !program) return false;
+    const response = await fetchWithRetry(`${API_BASE}/api/open-with/app`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: absolute, program }),
       timeoutMs: 20000,
       retries: 0,
     });

@@ -361,6 +361,8 @@ export const ja = {
   toolbarNewFolder: '新しいフォルダ',
   toolbarFilter: 'クイックフィルター',
   openWith: 'プログラムから開く…',
+  openWithOtherApp: '別のアプリで開く…',
+  openWithNoPrograms: 'この種類に登録されたプログラムはありません',
   viewerPreviewUnavailable: 'このファイルはここでプレビューできません。',
   settingsToolbarSection: 'ツールバー',
   settingsToolbarHint: '表示するボタンと並び順を選びます。',
