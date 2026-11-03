@@ -956,6 +956,148 @@ app.get('/api/treesize', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// Media bytes for the renderer's own decoders
+//
+// The thumbnail grid, the preview and the player all need the same thing: a URL
+// the browser can put in an <img> or a <video>. Reading the file into a Blob
+// first (which is what the quick view does) copies the whole thing through the
+// IPC bridge and cannot seek inside a video; a URL with Range support can.
+//
+// Only media types are served, so this route cannot be turned into a general
+// file reader, and an <img> cannot send the session header, so the token comes
+// in the query string. That token is per launch, and the response is private to
+// the app's own window.
+const MEDIA_TYPES = new Map([
+  ['PNG', 'image/png'],
+  ['JPG', 'image/jpeg'],
+  ['JPEG', 'image/jpeg'],
+  ['WEBP', 'image/webp'],
+  ['GIF', 'image/gif'],
+  ['BMP', 'image/bmp'],
+  ['ICO', 'image/x-icon'],
+  ['AVIF', 'image/avif'],
+  ['MP3', 'audio/mpeg'],
+  ['WAV', 'audio/wav'],
+  ['OGG', 'audio/ogg'],
+  ['OPUS', 'audio/ogg'],
+  ['M4A', 'audio/mp4'],
+  ['AAC', 'audio/aac'],
+  ['FLAC', 'audio/flac'],
+  ['WMA', 'audio/x-ms-wma'],
+  ['MID', 'audio/midi'],
+  ['MP4', 'video/mp4'],
+  ['M4V', 'video/mp4'],
+  ['WEBM', 'video/webm'],
+  ['MKV', 'video/x-matroska'],
+  ['AVI', 'video/x-msvideo'],
+  ['MOV', 'video/quicktime'],
+  ['WMV', 'video/x-ms-wmv'],
+  ['MPG', 'video/mpeg'],
+  ['MPEG', 'video/mpeg'],
+]);
+
+/**
+ * Turns a single `bytes=start-end` header into a byte window, or null when the
+ * request asks for something this file cannot give. Only one range is honoured:
+ * the browser's own players ask for one at a time.
+ */
+function parseByteRange(header, size) {
+  const match = /^bytes=(\d*)-(\d*)$/.exec(String(header || '').trim());
+  if (!match) return null;
+  const [, rawStart, rawEnd] = match;
+  // "bytes=-500" is the last 500 bytes, which is how a player looks for a moov
+  // atom at the end of an MP4.
+  let start = rawStart === '' ? size - Number(rawEnd) : Number(rawStart);
+  let end = rawStart === '' || rawEnd === '' ? size - 1 : Number(rawEnd);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+  start = Math.max(0, start);
+  end = Math.min(size - 1, end);
+  if (start > end || size === 0) return null;
+  return { start, end };
+}
+
+app.get('/api/media', async (req, res) => {
+  // An <img> or a <video> cannot carry the session header, so the per-launch
+  // token travels in the query string instead of being dropped.
+  if (SESSION_TOKEN && String(req.query.t || '') !== SESSION_TOKEN) {
+    return res.status(403).json({ error: 'Missing or invalid session token' });
+  }
+  let resolved;
+  try {
+    resolved = assertSafePath(String(req.query.path || ''));
+  } catch {
+    return res.status(400).json({ error: 'invalid-path' });
+  }
+  const type = MEDIA_TYPES.get(path.extname(resolved).slice(1).toUpperCase());
+  if (!type) return res.status(415).json({ error: 'unsupported-media-type' });
+
+  const stat = await fs.promises.stat(resolved).catch(() => null);
+  if (!stat || !stat.isFile()) return res.status(404).json({ error: 'not-found' });
+
+  res.setHeader('Content-Type', type);
+  res.setHeader('Cache-Control', 'private, max-age=300');
+  res.setHeader('Accept-Ranges', 'bytes');
+
+  const range = parseByteRange(req.headers.range, stat.size);
+  if (req.headers.range && !range) {
+    res.setHeader('Content-Range', `bytes */${stat.size}`);
+    return res.status(416).json({ error: 'range-not-satisfiable' });
+  }
+  if (!range) {
+    res.setHeader('Content-Length', String(stat.size));
+    const whole = fs.createReadStream(resolved);
+    whole.on('error', () => res.destroy());
+    return whole.pipe(res);
+  }
+
+  res.status(206);
+  res.setHeader('Content-Range', `bytes ${range.start}-${range.end}/${stat.size}`);
+  res.setHeader('Content-Length', String(range.end - range.start + 1));
+  const part = fs.createReadStream(resolved, { start: range.start, end: range.end });
+  part.on('error', () => res.destroy());
+  part.pipe(res);
+});
+
+/**
+ * The Windows "Open with" chooser for one file.
+ *
+ * Kept apart from /api/open, which hands the file to whatever is registered:
+ * this is the dialog the shell shows when there is no default, or when the user
+ * wants a different program than the one that would start. The path is resolved
+ * through the same safety check as every other route, so only a real file on an
+ * allowed drive can be offered to a program.
+ */
+app.post('/api/open-with', async (req, res) => {
+  const raw = typeof (req.body || {}).path === 'string' ? req.body.path : '';
+  if (!raw.trim()) return res.status(400).json({ error: 'empty-path' });
+  let resolved;
+  try {
+    resolved = assertSafePath(raw);
+  } catch {
+    return res.status(400).json({ error: 'invalid-path' });
+  }
+  const stat = await fs.promises.stat(resolved).catch(() => null);
+  if (!stat) return res.status(404).json({ error: 'not-found' });
+  if (stat.isDirectory()) return res.status(400).json({ error: 'not-a-file' });
+
+  // Same dry-run switch as the Run box, so the tests can assert the argv
+  // without a dialog opening on the machine.
+  if (process.env.OMNI_RUN_DRY_RUN === '1') {
+    return res.json({ path: resolved, launched: ['rundll32.exe', 'shell32.dll,OpenAs_RunDLL', resolved] });
+  }
+  try {
+    await execFileAsync('rundll32.exe', ['shell32.dll,OpenAs_RunDLL', resolved], {
+      timeout: 15000,
+      windowsHide: true,
+    });
+    return res.json({ path: resolved });
+  } catch (error) {
+    logDebug('open-with failed', resolved, error?.message || error);
+    return res.status(502).json({ error: 'launch-failed' });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Real filesystem operations: copy / move / delete / mkdir / rename / write
 // ---------------------------------------------------------------------------
 // A renderer cannot write to arbitrary paths (the File System Access API needs

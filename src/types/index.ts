@@ -271,6 +271,11 @@ export interface UserSettings {
   showHiddenFiles: boolean;
   showSystemFiles: boolean;
   showToolbar: boolean;
+  /**
+   * Ids of the toolbar commands to show, in order. Missing means every one of
+   * them: a profile saved before the row was configurable has no list.
+   */
+  toolbarItems?: string[];
   /** Menus open when the pointer crosses their title, without a click. */
   menuBarHoverOpen?: boolean;
   confirmDelete: boolean;

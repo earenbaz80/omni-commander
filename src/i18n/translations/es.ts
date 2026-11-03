@@ -386,6 +386,13 @@ export const es = {
 
   // Extended UI (toolbar/settings)
   toolbarNewFolder: 'Nueva carpeta',
+  toolbarFilter: 'Filtro rápido',
+  openWith: 'Abrir con…',
+  viewerPreviewUnavailable: 'Aquí no se puede mostrar la vista previa de este archivo.',
+  settingsToolbarSection: 'Barra de herramientas',
+  settingsToolbarHint: 'Elige qué botones aparecen y en qué orden.',
+  toolbarItemMoveUp: 'Subir',
+  toolbarItemMoveDown: 'Bajar',
   toolbarDelete: 'Eliminar (F8/Del)',
   toolbarSearch: 'Buscar archivos',
   toolbarFilterPlaceholder: 'Filtro: *.ext, nombre...',

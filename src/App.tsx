@@ -1261,6 +1261,7 @@ export default function App() {
         currentTheme={currentTheme}
         t={t}
         showToolbar={settings.showToolbar}
+        toolbarItems={settings.toolbarItems}
         activePanel={activePanel}
         leftTab={leftTab}
         rightTab={rightTab}
@@ -1589,6 +1590,15 @@ export default function App() {
               setSelectedFileForModal(contextMenuState.targetItem);
               setActiveModal('archive_info');
             }
+          }}
+          canOpenWith={
+            !!contextMenuState.targetItem &&
+            !contextMenuState.targetItem.isDirectory &&
+            fsEngine.isRealFile(contextMenuState.targetItem)
+          }
+          onOpenWith={() => {
+            const item = contextMenuState.targetItem;
+            if (item) void fsEngine.openWith(item);
           }}
           canSendTo={
             !!contextMenuState.targetItem &&

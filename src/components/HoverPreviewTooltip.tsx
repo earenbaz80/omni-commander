@@ -1,9 +1,26 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { FileItem, LanguageCode } from '../types';
 import { ThemeConfig } from '../services/themeManager';
 import { Image as ImageIcon, Calendar, HardDrive, Shield } from 'lucide-react';
 import { createSvgDataUrl } from '../utils/svgPreview';
+import { mediaUrlFor } from '../services/mediaUrl';
 import { getTranslations } from '../i18n/translations';
+
+/**
+ * The real picture when the local server can serve it, the old placeholder when
+ * it cannot. The tooltip used to show that placeholder for every raster image,
+ * so hovering a PNG never showed the PNG.
+ */
+const ThumbnailImage: React.FC<{ src: string | null; alt: string; placeholder: React.ReactNode }> = ({
+  src,
+  alt,
+  placeholder,
+}) => {
+  const [broken, setBroken] = useState(false);
+  useEffect(() => setBroken(false), [src]);
+  if (!src || broken) return <>{placeholder}</>;
+  return <img src={src} alt={alt} className="max-w-full max-h-full object-contain" onError={() => setBroken(true)} />;
+};
 
 interface HoverPreviewTooltipProps {
   theme: ThemeConfig;
@@ -76,9 +93,17 @@ export const HoverPreviewTooltip: React.FC<HoverPreviewTooltipProps> = ({ theme,
               />
             </div>
           ) : (
-            <div className="w-28 h-28 rounded bg-black/40 border border-white/20 flex flex-col items-center justify-center text-amber-300">
-              <ImageIcon className="w-10 h-10 mb-[var(--space-1)] opacity-70" />
-              <span className="text-[10px] font-bold uppercase">{t.hoverImageLabel.replace('{ext}', ext)}</span>
+            <div className="w-28 h-28 rounded bg-black/40 border border-white/20 flex items-center justify-center overflow-hidden text-amber-300">
+              <ThumbnailImage
+                src={mediaUrlFor(item)}
+                alt={t.commonPreviewOf.replace('{name}', item.name).replace('{ext}', item.ext)}
+                placeholder={
+                  <>
+                    <ImageIcon className="w-10 h-10 mb-[var(--space-1)] opacity-70" />
+                    <span className="text-[10px] font-bold uppercase">{t.hoverImageLabel.replace('{ext}', ext)}</span>
+                  </>
+                }
+              />
             </div>
           )}
           <span className="text-[10px] opacity-75 mt-[var(--space-1)] font-semibold text-emerald-300">

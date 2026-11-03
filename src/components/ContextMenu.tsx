@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Lock,
   Star,
+  ExternalLink,
 } from 'lucide-react';
 import { FileItem, LanguageCode } from '../types';
 import { ThemeConfig } from '../services/themeManager';
@@ -31,6 +32,9 @@ interface ContextMenuProps {
   targetItem: FileItem | null;
   onClose: () => void;
   onView: () => void;
+  /** Hands the target to the Windows "Open with" chooser. */
+  onOpenWith?: () => void;
+  canOpenWith?: boolean;
   onEdit: () => void;
   onCopy: () => void;
   onMove: () => void;
@@ -77,6 +81,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   targetItem,
   onClose,
   onView,
+  onOpenWith,
   onEdit,
   onCopy,
   onMove,
@@ -98,6 +103,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onToggleFavorite,
   isFavorite = false,
   canSendTo = false,
+  canOpenWith = false,
 }) => {
   const t = getTranslations(lang);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -212,6 +218,15 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             </span>
             <span className="opacity-60">F3</span>
           </MenuItem>
+
+          {!targetItem.isDirectory && canOpenWith && onOpenWith && (
+            <MenuItem
+              onClick={() => handleAction(onOpenWith)}
+              className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-white/20 flex items-center gap-[var(--space-2)] cursor-pointer"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-violet-300" /> {t.openWith}
+            </MenuItem>
+          )}
 
           {!targetItem.isDirectory && (
             <MenuItem
