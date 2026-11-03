@@ -77,6 +77,14 @@ const BackgroundTasksModal = React.lazy(() =>
 const ArchiveInfoModal = React.lazy(() =>
   import('./modals/ArchiveInfoModal').then((m) => ({ default: m.ArchiveInfoModal })),
 );
+const CalculatorModal = React.lazy(() =>
+  import('./modals/CalculatorModal').then((m) => ({ default: m.CalculatorModal })),
+);
+const CalendarModal = React.lazy(() => import('./modals/CalendarModal').then((m) => ({ default: m.CalendarModal })));
+const ImageStudioModal = React.lazy(() =>
+  import('./modals/ImageStudioModal').then((m) => ({ default: m.ImageStudioModal })),
+);
+const MapsModal = React.lazy(() => import('./modals/MapsModal').then((m) => ({ default: m.MapsModal })));
 
 type UnlockTarget = {
   side: 'left' | 'right';
@@ -592,6 +600,26 @@ export const AppModals: React.FC<AppModalsProps> = ({
             onClose={() => setActiveModal(null)}
           />
         )}
+
+        {activeModal === 'calculator' && (
+          <CalculatorModal theme={currentTheme} lang={lang} onClose={() => setActiveModal(null)} />
+        )}
+
+        {activeModal === 'calendar' && (
+          <CalendarModal theme={currentTheme} lang={lang} onClose={() => setActiveModal(null)} />
+        )}
+
+        {activeModal === 'image_studio' && (selectedFileForModal || activeFocusedItem) && (
+          <ImageStudioModal
+            theme={currentTheme}
+            lang={lang}
+            file={selectedFileForModal || activeFocusedItem}
+            onSaved={() => setFsTick((tick) => tick + 1)}
+            onClose={() => setActiveModal(null)}
+          />
+        )}
+
+        {activeModal === 'maps' && <MapsModal theme={currentTheme} lang={lang} onClose={() => setActiveModal(null)} />}
 
         {/* Floating Background Task Queue Bar */}
         {activeModal !== 'copy' && activeModal !== 'move' && (

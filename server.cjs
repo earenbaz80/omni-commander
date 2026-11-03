@@ -1036,6 +1036,166 @@ function parseByteRange(header, size) {
   return { start, end };
 }
 
+// ---------------------------------------------------------------------------
+// Maps: tile proxy, place search and approximate positioning
+//
+// Both upstream services require an identifiable User-Agent, which a page is
+// not allowed to set, and both ask clients to cache instead of hammering them.
+// So the renderer asks this server, and this server identifies itself, keeps an
+// in-memory cache and never issues more than one Nominatim search per second.
+// ---------------------------------------------------------------------------
+const MAP_LAYER_URLS = {
+  osm: (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`,
+  topo: (z, x, y) => `https://a.tile.opentopomap.org/${z}/${x}/${y}.png`,
+};
+const MAP_IDENTITY =
+  'OmniCommanderPro/1.0 (Windows desktop file manager; +https://github.com/earenbaz80/omni-commander)';
+const MAP_TILE_MAX_ZOOM = 19;
+const MAP_TILE_CACHE_LIMIT = 400;
+const MAP_SEARCH_CACHE_LIMIT = 200;
+const MAP_SEARCH_MIN_INTERVAL_MS = 1100;
+const MAP_SEARCH_CACHE_MS = 60 * 60 * 1000;
+const mapTileCache = new Map();
+const mapSearchCache = new Map();
+let mapSearchLastAt = 0;
+let mapSearchQueue = Promise.resolve();
+
+/** Answers 403 itself when the per-launch token is missing; the token rides in the query because an <img> cannot send a header. */
+function mapsTokenRejected(req, res) {
+  if (SESSION_TOKEN && String(req.query.t || '') !== SESSION_TOKEN) {
+    res.status(403).json({ error: 'Missing or invalid session token' });
+    return true;
+  }
+  return false;
+}
+
+function rememberMapTile(key, buffer) {
+  mapTileCache.set(key, buffer);
+  if (mapTileCache.size <= MAP_TILE_CACHE_LIMIT) return;
+  // Map keeps insertion order, so the first keys are the oldest.
+  const excess = mapTileCache.size - MAP_TILE_CACHE_LIMIT;
+  let dropped = 0;
+  for (const oldKey of mapTileCache.keys()) {
+    if (dropped >= excess) break;
+    mapTileCache.delete(oldKey);
+    dropped += 1;
+  }
+}
+
+/** Serialises searches so the one-request-per-second rule holds across tabs of the dialog. */
+function queueMapSearch(task) {
+  const run = mapSearchQueue.then(async () => {
+    const wait = MAP_SEARCH_MIN_INTERVAL_MS - (Date.now() - mapSearchLastAt);
+    if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+    mapSearchLastAt = Date.now();
+    return task();
+  });
+  mapSearchQueue = run.catch(() => {});
+  return run;
+}
+
+app.get('/api/maps/tile', async (req, res) => {
+  if (mapsTokenRejected(req, res)) return;
+  const layer = String(req.query.layer || 'osm');
+  const build = MAP_LAYER_URLS[layer];
+  const z = Number(req.query.z);
+  const x = Number(req.query.x);
+  const y = Number(req.query.y);
+  if (
+    !build ||
+    !Number.isInteger(z) ||
+    !Number.isInteger(x) ||
+    !Number.isInteger(y) ||
+    z < 0 ||
+    z > MAP_TILE_MAX_ZOOM
+  ) {
+    return res.status(400).json({ error: 'invalid-tile' });
+  }
+  const count = Math.pow(2, z);
+  if (x < 0 || y < 0 || x >= count || y >= count) return res.status(400).json({ error: 'invalid-tile' });
+
+  const key = `${layer}/${z}/${x}/${y}`;
+  const cached = mapTileCache.get(key);
+  if (cached) {
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'private, max-age=86400');
+    return res.send(cached);
+  }
+
+  try {
+    const upstream = await fetch(build(z, x, y), {
+      headers: { 'User-Agent': MAP_IDENTITY, Accept: 'image/png,image/*;q=0.8' },
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!upstream.ok) return res.status(502).json({ error: `tile-upstream-${upstream.status}` });
+    const buffer = Buffer.from(await upstream.arrayBuffer());
+    if (!buffer.length) return res.status(502).json({ error: 'tile-empty' });
+    rememberMapTile(key, buffer);
+    res.setHeader('Content-Type', upstream.headers.get('content-type') || 'image/png');
+    res.setHeader('Cache-Control', 'private, max-age=86400');
+    return res.send(buffer);
+  } catch {
+    return res.status(502).json({ error: 'tile-fetch-failed' });
+  }
+});
+
+app.get('/api/maps/search', async (req, res) => {
+  if (mapsTokenRejected(req, res)) return;
+  const query = String(req.query.q || '').trim();
+  if (query.length < 2) return res.status(400).json({ error: 'query-too-short' });
+
+  const cacheKey = query.toLowerCase();
+  const cached = mapSearchCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < MAP_SEARCH_CACHE_MS) return res.json({ results: cached.results });
+
+  try {
+    const results = await queueMapSearch(async () => {
+      const url = new URL('https://nominatim.openstreetmap.org/search');
+      url.searchParams.set('format', 'jsonv2');
+      url.searchParams.set('limit', '8');
+      url.searchParams.set('q', query);
+      const upstream = await fetch(url, {
+        headers: { 'User-Agent': MAP_IDENTITY, Accept: 'application/json', 'Accept-Language': 'es,en;q=0.8' },
+        signal: AbortSignal.timeout(12000),
+      });
+      if (!upstream.ok) throw new Error(`nominatim-${upstream.status}`);
+      const payload = await upstream.json();
+      if (!Array.isArray(payload)) return [];
+      return payload.flatMap((entry) => {
+        const lat = Number(entry && entry.lat);
+        const lon = Number(entry && entry.lon);
+        const label = String((entry && (entry.display_name || entry.name)) || '').trim();
+        if (!Number.isFinite(lat) || !Number.isFinite(lon) || !label) return [];
+        return [{ label, lat, lon }];
+      });
+    });
+    if (mapSearchCache.size >= MAP_SEARCH_CACHE_LIMIT) mapSearchCache.clear();
+    mapSearchCache.set(cacheKey, { at: Date.now(), results });
+    return res.json({ results });
+  } catch {
+    return res.status(502).json({ error: 'search-failed' });
+  }
+});
+
+app.get('/api/maps/locate', async (req, res) => {
+  if (mapsTokenRejected(req, res)) return;
+  try {
+    const upstream = await fetch('https://ipwho.is/', {
+      headers: { 'User-Agent': MAP_IDENTITY, Accept: 'application/json' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!upstream.ok) return res.status(502).json({ error: 'locate-failed' });
+    const payload = await upstream.json();
+    const lat = Number(payload && payload.latitude);
+    const lon = Number(payload && payload.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return res.status(502).json({ error: 'locate-failed' });
+    const label = [payload.city, payload.region, payload.country].filter(Boolean).join(', ');
+    return res.json({ lat, lon, label, approximate: true });
+  } catch {
+    return res.status(502).json({ error: 'locate-failed' });
+  }
+});
+
 app.get('/api/media', async (req, res) => {
   // An <img> or a <video> cannot carry the session header, so the per-launch
   // token travels in the query string instead of being dropped.
