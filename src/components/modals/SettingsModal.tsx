@@ -5,6 +5,13 @@ import { UserSettings, ThemeId, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations, TranslationKey } from '../../i18n/translations';
 import { buildShortcutGroups } from '../../services/shortcutGroups';
+import {
+  TOOLBAR_ITEMS,
+  DEFAULT_TOOLBAR_ITEMS,
+  resolveToolbarItems,
+  toggleToolbarItem,
+  moveToolbarItem,
+} from '../../services/toolbarItems';
 import { soundManager } from '../../services/soundEffects';
 import { checkPassword, createPasswordRecord } from '../../services/appLock';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -503,6 +510,73 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             </select>
           </div>
         )}
+      </SectionCard>
+
+      <SectionCard title={t.settingsToolbarSection}>
+        <p className="text-[var(--fs-sm)] opacity-70">{t.settingsToolbarHint}</p>
+        <div className="space-y-[var(--space-1)]">
+          {resolveToolbarItems(formData.toolbarItems).map((id, index, list) => {
+            const definition = TOOLBAR_ITEMS.find((entry) => entry.id === id);
+            if (!definition) return null;
+            return (
+              <div key={id} className="flex items-center gap-[var(--space-2)]">
+                <input
+                  type="checkbox"
+                  checked
+                  onChange={() =>
+                    setFormData((prev) => ({ ...prev, toolbarItems: toggleToolbarItem(prev.toolbarItems, id) }))
+                  }
+                />
+                <span className="flex-1 truncate">{t[definition.labelKey]}</span>
+                <button
+                  type="button"
+                  disabled={index === 0}
+                  title={t.toolbarItemMoveUp}
+                  aria-label={t.toolbarItemMoveUp}
+                  onClick={() =>
+                    setFormData((prev) => ({ ...prev, toolbarItems: moveToolbarItem(prev.toolbarItems, id, -1) }))
+                  }
+                  className="px-[var(--space-1)] rounded border border-white/20 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  disabled={index === list.length - 1}
+                  title={t.toolbarItemMoveDown}
+                  aria-label={t.toolbarItemMoveDown}
+                  onClick={() =>
+                    setFormData((prev) => ({ ...prev, toolbarItems: moveToolbarItem(prev.toolbarItems, id, 1) }))
+                  }
+                  className="px-[var(--space-1)] rounded border border-white/20 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  ↓
+                </button>
+              </div>
+            );
+          })}
+        </div>
+        <div className="h-px bg-white/10 my-[var(--space-1)]"></div>
+        {/* Hidden commands stay listed, so turning one back on is a click and
+            not a guess about which buttons this build even has. */}
+        <div className="space-y-[var(--space-1)]">
+          {DEFAULT_TOOLBAR_ITEMS.filter((id) => !resolveToolbarItems(formData.toolbarItems).includes(id)).map((id) => {
+            const definition = TOOLBAR_ITEMS.find((entry) => entry.id === id);
+            if (!definition) return null;
+            return (
+              <label key={id} className="flex items-center gap-[var(--space-2)] cursor-pointer opacity-70">
+                <input
+                  type="checkbox"
+                  checked={false}
+                  onChange={() =>
+                    setFormData((prev) => ({ ...prev, toolbarItems: toggleToolbarItem(prev.toolbarItems, id) }))
+                  }
+                />
+                <span className="truncate">{t[definition.labelKey]}</span>
+              </label>
+            );
+          })}
+        </div>
       </SectionCard>
     </div>
   );

@@ -24,12 +24,45 @@ import { soundManager } from '../services/soundEffects';
 import { loadColumnWidths, saveColumnWidths, autoFitWidth, MIN_COLUMN_WIDTH } from '../utils/columnWidths';
 import { log } from '../utils/logger';
 import { FileListStatusBar } from './FileListStatusBar';
+import { isImageItem, mediaUrlFor } from '../services/mediaUrl';
 
 const THUMB_MIN = 48;
 const THUMB_MAX = 192;
 const THUMB_STEP = 16;
 const THUMB_DEFAULT = 80;
 const THUMB_CELL_PADDING = 24;
+
+/**
+ * One picture cell.
+ *
+ * Every grid cell used to draw a generic icon even for a PNG: the listing of a
+ * real drive carries no bytes, and the old branch only rendered an `<img>` when
+ * the item arrived with a `data:` preload, which only archive entries do. The
+ * image now comes from the local server, the browser decodes it, and a file it
+ * cannot serve falls back to the icon the cell had before.
+ */
+const CellThumbnail: React.FC<{
+  src: string | null;
+  alt: string;
+  fit: 'cover' | 'contain';
+  fallback: React.ReactNode;
+}> = ({ src, alt, fit, fallback }) => {
+  const [broken, setBroken] = useState(false);
+  // A recycled cell must not keep the failure of the file it showed before.
+  useEffect(() => setBroken(false), [src]);
+  if (!src || broken) return <>{fallback}</>;
+  return (
+    <img
+      src={src}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      draggable={false}
+      onError={() => setBroken(true)}
+      className={fit === 'cover' ? 'w-full h-full object-cover' : 'max-w-full max-h-full object-contain'}
+    />
+  );
+};
 
 interface FileListProps {
   theme: ThemeConfig;
@@ -963,10 +996,15 @@ const FileListComponent: React.FC<FileListProps> = ({
                         }`}
                       >
                         <div
-                          className="flex items-center justify-center mb-1"
+                          className="flex items-center justify-center mb-1 overflow-hidden rounded bg-black/40"
                           style={{ width: thumbSize, height: thumbSize }}
                         >
-                          {getFileIcon(item, '', { width: thumbSize, height: thumbSize })}
+                          <CellThumbnail
+                            src={isImageItem(item) ? mediaUrlFor(item) : null}
+                            alt={item.name}
+                            fit="contain"
+                            fallback={getFileIcon(item, '', { width: thumbSize, height: thumbSize })}
+                          />
                         </div>
                         <span className="truncate w-full text-[11px] font-medium" style={{ color: textColor }}>
                           {item.name}
@@ -1060,13 +1098,18 @@ const FileListComponent: React.FC<FileListProps> = ({
                       >
                         {/* Card Thumbnail Box */}
                         <div className="w-full h-24 rounded bg-black/60 border border-white/10 flex items-center justify-center overflow-hidden relative mb-1.5">
-                          {isImage && item.content?.startsWith('data:image') ? (
-                            <img src={item.content} alt={item.name} className="w-full h-full object-cover" />
-                          ) : isImage ? (
-                            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-indigo-950 to-purple-950 text-indigo-300">
-                              <ImageIcon className="w-8 h-8 opacity-80" />
-                              <span className="text-[9px] font-bold mt-1 uppercase">{ext} IMAGE</span>
-                            </div>
+                          {isImage ? (
+                            <CellThumbnail
+                              src={mediaUrlFor(item)}
+                              alt={item.name}
+                              fit="cover"
+                              fallback={
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-indigo-950 to-purple-950 text-indigo-300">
+                                  <ImageIcon className="w-8 h-8 opacity-80" />
+                                  <span className="text-[9px] font-bold mt-1 uppercase">{ext} IMAGE</span>
+                                </div>
+                              }
+                            />
                           ) : isAudio ? (
                             <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-amber-950 to-orange-950 text-amber-300">
                               <Music className="w-8 h-8 animate-pulse" />

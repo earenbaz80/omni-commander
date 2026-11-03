@@ -946,6 +946,34 @@ class FileSystemEngine {
   }
 
   /**
+   * Absolute path of a file the server owns, for the browser to load on its own
+   * (the thumbnail grid, the preview and the media player all need a URL).
+   * A virtual entry has no such path, and a folder has no bytes to serve.
+   */
+  public absolutePathFor(file: FileItem): string | null {
+    if (file.isDirectory || !this.isRealFile(file)) return null;
+    return this.realAbsolutePath(file);
+  }
+
+  /**
+   * Hands one file to the Windows "Open with" chooser, so it can be opened by a
+   * program that is not the registered default. The dialog belongs to the shell,
+   * not to this app: this only asks for it for a path the server validated.
+   */
+  public async openWith(file: FileItem): Promise<boolean> {
+    const absolute = this.absolutePathFor(file);
+    if (!absolute) return false;
+    const response = await fetchWithRetry(`${API_BASE}/api/open-with`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: absolute }),
+      timeoutMs: 20000,
+      retries: 0,
+    });
+    return response.ok;
+  }
+
+  /**
    * Saves the transfer list on disk. Returns the file that was written, or null
    * when the server could not be reached.
    */

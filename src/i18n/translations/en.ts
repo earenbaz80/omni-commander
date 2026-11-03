@@ -385,6 +385,13 @@ export const en = {
 
   // Extended UI (toolbar/settings)
   toolbarNewFolder: 'New folder',
+  toolbarFilter: 'Quick filter',
+  openWith: 'Open with…',
+  viewerPreviewUnavailable: 'This file cannot be previewed here.',
+  settingsToolbarSection: 'Toolbar',
+  settingsToolbarHint: 'Choose which buttons appear and in what order.',
+  toolbarItemMoveUp: 'Move up',
+  toolbarItemMoveDown: 'Move down',
   toolbarDelete: 'Delete (F8/Del)',
   toolbarSearch: 'Search files',
   toolbarFilterPlaceholder: 'Filter: *.ext, name...',

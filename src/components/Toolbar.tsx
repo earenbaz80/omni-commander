@@ -19,6 +19,7 @@ import { ActiveModal, FileItem, PanelState, PanelTab } from '../types';
 import { soundManager } from '../services/soundEffects';
 import { cleanupTargets, CleanupTargetId } from '../services/fileSystem';
 import { cleanupTargetLabel } from '../utils/cleanupTargets';
+import { resolveToolbarItems } from '../services/toolbarItems';
 import { RunLauncher } from './RunLauncher';
 
 interface ToolbarProps {
@@ -53,11 +54,20 @@ interface ToolbarProps {
   /** True while the two panes are stacked one above the other. */
   panelStacked?: boolean;
   onTogglePanelLayout?: () => void;
+  /**
+   * Which commands to show, in order. Undefined means all of them: that is what
+   * a profile saved before the row was configurable carries.
+   */
+  toolbarItems?: string[];
 }
 
 /**
  * Quick-action toolbar (new folder, copy, move, delete, search, live filter,
- * refresh, properties). Extracted from App to keep the component focused.
+ * refresh, properties).
+ *
+ * The row used to be a fixed run of buttons, so hiding one meant editing this
+ * file. Each command now has an id, the settings file decides which of those ids
+ * appear and in what order, and this component only maps an id to its button.
  */
 export const Toolbar: React.FC<ToolbarProps> = ({
   currentTheme,
@@ -81,6 +91,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onLauncherDismiss,
   panelStacked = false,
   onTogglePanelLayout,
+  toolbarItems,
 }) => {
   const [cleanupMenuOpen, setCleanupMenuOpen] = React.useState(false);
 
@@ -129,11 +140,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     );
   }
 
-  return (
-    <div
-      className="flex items-center gap-[var(--space-1)] px-[var(--space-2)] py-[var(--space-1)] border-b shrink-0 flex-wrap"
-      style={{ backgroundColor: currentTheme.headerBg, borderColor: currentTheme.borderPanel }}
-    >
+  /**
+   * Every command the row can show, keyed by the id the settings file stores.
+   * An id that needs a prop the caller did not pass draws nothing rather than a
+   * button that does not work.
+   */
+  const commands: Record<string, React.ReactNode> = {
+    newFolder: (
       <button
         onClick={() => {
           soundManager.playKeyTick();
@@ -144,6 +157,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       >
         <FolderPlus className="w-4 h-4" />
       </button>
+    ),
+    copy: (
       <button
         onClick={() => {
           soundManager.playKeyTick();
@@ -154,6 +169,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       >
         <Copy className="w-4 h-4" />
       </button>
+    ),
+    move: (
       <button
         onClick={() => {
           soundManager.playKeyTick();
@@ -164,6 +181,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       >
         <Scissors className="w-4 h-4" />
       </button>
+    ),
+    delete: (
       <button
         onClick={() => {
           soundManager.playKeyTick();
@@ -174,6 +193,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       >
         <Trash2 className="w-4 h-4" />
       </button>
+    ),
+    search: (
       <button
         onClick={() => {
           soundManager.playKeyTick();
@@ -184,6 +205,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       >
         <Search className="w-4 h-4" />
       </button>
+    ),
+    filter: (
       <div className="flex items-center bg-black/50 border border-amber-400/70 rounded px-[var(--space-1)].5 py-[var(--space-1)]">
         <Filter className="w-3 h-3 text-amber-400 mr-[var(--space-1)]" />
         <input
@@ -207,6 +230,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           className="w-28 bg-transparent border-none outline-none text-xs text-white font-mono"
         />
       </div>
+    ),
+    refresh: (
       <button
         onClick={() => {
           soundManager.playKeyTick();
@@ -217,6 +242,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       >
         <RefreshCw className="w-4 h-4" />
       </button>
+    ),
+    properties: (
       <button
         onClick={() => {
           if (activeFocusedItem) {
@@ -229,6 +256,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       >
         <Info className="w-4 h-4" />
       </button>
+    ),
+    diskUsage: (
       <button
         onClick={() => {
           setActiveModal('disk_usage');
@@ -238,53 +267,55 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       >
         <FolderTree className="w-4 h-4 text-amber-300" />
       </button>
-      {/*
-        The same report as a panel body, so one side can keep browsing while the
-        other measures a drive. It only exists for the right panel: the left one
-        is the pane the user navigates with.
-      */}
-      {onToggleRightPanelDiskUsage && (
-        <button
-          onClick={() => {
-            soundManager.playKeyTick();
-            onToggleRightPanelDiskUsage?.();
-          }}
-          className={`px-[var(--space-2)] py-[var(--space-1)] rounded border mb-0 ${
-            rightPanelShowsDiskUsage ? 'bg-amber-400 text-black border-amber-300 font-bold' : 'bg-amber-900/30'
-          }`}
-          title={rightPanelShowsDiskUsage ? t.diskPaneClose : t.diskPaneOpen}
-          aria-pressed={rightPanelShowsDiskUsage}
-        >
-          <PanelRight className="w-4 h-4" />
-        </button>
-      )}
-      {/*
-        Arrangement of the two panes. Both layouts are first class, so this is
-        a switch and not a preference buried in a dialog: the shape of the
-        window is what decides which one is useful today.
-      */}
-      {onTogglePanelLayout && (
-        <button
-          onClick={() => {
-            soundManager.playKeyTick();
-            onTogglePanelLayout();
-          }}
-          className={`px-[var(--space-2)] py-[var(--space-1)] rounded border cursor-pointer ${
-            panelStacked ? 'bg-amber-400 text-black border-amber-300 font-bold' : 'bg-black/20'
-          }`}
-          title={panelStacked ? t.panelLayoutColumns : t.panelLayoutRows}
-          aria-pressed={panelStacked}
-        >
-          {panelStacked ? <Rows2 className="w-4 h-4" /> : <Columns2 className="w-4 h-4" />}
-        </button>
-      )}
-      {/*
-        One entry point for the disposable folders. It replaces a pair of
-        buttons that did not do what they said: the "%TEMP%" one opened the disk
-        usage modal, and "Limpiar Temp / Prefetch" only raised an alert. The
-        folder list comes from the server, which owns the real paths and refuses
-        the two that need an elevated token.
-      */}
+    ),
+    /*
+      The same report as a panel body, so one side can keep browsing while the
+      other measures a drive. It only exists for the right panel: the left one
+      is the pane the user navigates with.
+    */
+    diskPane: onToggleRightPanelDiskUsage ? (
+      <button
+        onClick={() => {
+          soundManager.playKeyTick();
+          onToggleRightPanelDiskUsage?.();
+        }}
+        className={`px-[var(--space-2)] py-[var(--space-1)] rounded border mb-0 ${
+          rightPanelShowsDiskUsage ? 'bg-amber-400 text-black border-amber-300 font-bold' : 'bg-amber-900/30'
+        }`}
+        title={rightPanelShowsDiskUsage ? t.diskPaneClose : t.diskPaneOpen}
+        aria-pressed={rightPanelShowsDiskUsage}
+      >
+        <PanelRight className="w-4 h-4" />
+      </button>
+    ) : null,
+    /*
+      Arrangement of the two panes. Both layouts are first class, so this is a
+      switch and not a preference buried in a dialog: the shape of the window is
+      what decides which one is useful today.
+    */
+    layout: onTogglePanelLayout ? (
+      <button
+        onClick={() => {
+          soundManager.playKeyTick();
+          onTogglePanelLayout();
+        }}
+        className={`px-[var(--space-2)] py-[var(--space-1)] rounded border cursor-pointer ${
+          panelStacked ? 'bg-amber-400 text-black border-amber-300 font-bold' : 'bg-black/20'
+        }`}
+        title={panelStacked ? t.panelLayoutColumns : t.panelLayoutRows}
+        aria-pressed={panelStacked}
+      >
+        {panelStacked ? <Rows2 className="w-4 h-4" /> : <Columns2 className="w-4 h-4" />}
+      </button>
+    ) : null,
+    /*
+      One entry point for the disposable folders. It replaces a pair of buttons
+      that did not do what they said: the "%TEMP%" one opened the disk usage
+      modal, and "Limpiar Temp / Prefetch" only raised an alert. The folder list
+      comes from the server, which owns the real paths and refuses the two that
+      need an elevated token.
+    */
+    cleanup: (
       <div className="relative">
         <button
           onClick={(event) => {
@@ -333,6 +364,17 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           </div>
         )}
       </div>
+    ),
+  };
+
+  return (
+    <div
+      className="flex items-center gap-[var(--space-1)] px-[var(--space-2)] py-[var(--space-1)] border-b shrink-0 flex-wrap"
+      style={{ backgroundColor: currentTheme.headerBg, borderColor: currentTheme.borderPanel }}
+    >
+      {resolveToolbarItems(toolbarItems).map((id) => (
+        <React.Fragment key={id}>{commands[id] ?? null}</React.Fragment>
+      ))}
       {/* The Run line lives at the end of the row and is always visible: it is a
           launcher, not one of the file actions the rest of the toolbar performs,
           so opening it behind a button would only add a click to every command. */}

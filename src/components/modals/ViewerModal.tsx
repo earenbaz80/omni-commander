@@ -6,6 +6,7 @@ import {
   Copy,
   Edit3,
   Eye,
+  Film,
   FileCode,
   Image as ImageIcon,
   Loader2,
@@ -22,6 +23,7 @@ import { fsEngine } from '../../services/fileSystem';
 import { createSvgDataUrl } from '../../utils/svgPreview';
 import { MAX_TEXT_FILE_BYTES } from '../../utils/fileContent';
 import { useFileContent } from '../../hooks/useFileContent';
+import { mediaUrlFor } from '../../services/mediaUrl';
 
 import ModalShell from '../ModalShell';
 
@@ -81,7 +83,11 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({ theme, lang, file, onC
   const content = ready ? ready.text : '';
   const ext = file.ext.toUpperCase();
   const isImage = ['PNG', 'JPG', 'JPEG', 'SVG', 'WEBP', 'GIF', 'BMP', 'ICO'].includes(ext);
-  const isAudio = ['MP3', 'WAV', 'OGG', 'MID', 'FLAC'].includes(ext);
+  const isAudio = ['MP3', 'WAV', 'OGG', 'MID', 'FLAC', 'AAC', 'M4A', 'OPUS'].includes(ext);
+  const isVideo = ['MP4', 'M4V', 'WEBM', 'MKV', 'AVI', 'MOV', 'WMV', 'MPG', 'MPEG'].includes(ext);
+  // The bytes come from the local server with Range support, so the browser can
+  // decode the picture and seek inside the video instead of downloading it whole.
+  const mediaUrl = mediaUrlFor(file);
   const isCSV = ext === 'CSV';
   const realFile = fsEngine.isRealFile(file);
 
@@ -250,7 +256,7 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({ theme, lang, file, onC
               </button>
             )}
 
-            {(isImage || isAudio) && (
+            {(isImage || isAudio || isVideo) && (
               <button
                 onClick={() => {
                   soundManager.playKeyTick();
@@ -260,7 +266,14 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({ theme, lang, file, onC
                   activeTab === 'preview' ? 'bg-amber-400 text-black font-bold' : 'hover:bg-white/10 text-white/80'
                 }`}
               >
-                {isImage ? <ImageIcon className="w-3.5 h-3.5" /> : <Music className="w-3.5 h-3.5" />} {t.viewerPreview}
+                {isImage ? (
+                  <ImageIcon className="w-3.5 h-3.5" />
+                ) : isVideo ? (
+                  <Film className="w-3.5 h-3.5" />
+                ) : (
+                  <Music className="w-3.5 h-3.5" />
+                )}{' '}
+                {t.viewerPreview}
               </button>
             )}
           </div>
@@ -404,8 +417,8 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({ theme, lang, file, onC
               {activeTab === 'csv' && (ready.binary ? binaryNotice : renderCsvTable())}
 
               {activeTab === 'preview' && (
-                <div className="flex flex-col items-center justify-center p-8 space-y-[var(--space-4)]">
-                  {ext === 'SVG' && !ready.binary && (
+                <div className="flex flex-col items-center justify-center gap-[var(--space-3)] p-8">
+                  {ext === 'SVG' && !ready.binary ? (
                     <div className="w-48 h-48 border border-white/20 p-[var(--space-4)] rounded bg-white/5 flex items-center justify-center">
                       <img
                         src={createSvgDataUrl(content)}
@@ -413,21 +426,36 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({ theme, lang, file, onC
                         className="max-w-full max-h-full object-contain"
                       />
                     </div>
-                  )}
-
-                  {isAudio && (
-                    <div className="text-center space-y-[var(--space-3)]">
-                      <Music className="w-16 h-16 text-violet-400 mx-auto animate-pulse" />
-                      <p className="font-bold text-base">
-                        {file.name}.{file.ext}
-                      </p>
-                      <button
-                        onClick={() => soundManager.playSuccess()}
-                        className="px-[var(--space-4)] py-[var(--space-2)] bg-amber-400 text-black font-bold rounded hover:bg-amber-300 cursor-pointer shadow"
-                      >
-                        {t.viewerPlayTone}
-                      </button>
-                    </div>
+                  ) : mediaUrl ? (
+                    <>
+                      {isImage && (
+                        <img
+                          src={mediaUrl}
+                          alt={file.name}
+                          className="max-h-[60vh] max-w-full object-contain rounded border border-white/20 bg-black/40"
+                        />
+                      )}
+                      {isVideo && (
+                        <video
+                          src={mediaUrl}
+                          controls
+                          autoPlay
+                          className="w-full max-w-3xl max-h-[60vh] rounded bg-black"
+                        />
+                      )}
+                      {isAudio && (
+                        <div className="w-full max-w-xl space-y-[var(--space-2)] text-center">
+                          <Music className="w-14 h-14 text-violet-400 mx-auto" />
+                          <p className="font-bold text-base">
+                            {file.name}.{file.ext}
+                          </p>
+                          <audio src={mediaUrl} controls autoPlay className="w-full" />
+                        </div>
+                      )}
+                      <p className="text-[11px] opacity-60 tabular-nums">{formatBytes(file.size)}</p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-amber-300">{t.viewerPreviewUnavailable}</p>
                   )}
                 </div>
               )}
