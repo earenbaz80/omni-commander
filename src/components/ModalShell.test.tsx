@@ -231,6 +231,51 @@ describe('ModalShell', () => {
     expect(screen.getByLabelText('Redimensionar ventana')).toBeTruthy();
   });
 
+  // The other half of behaving like a window: the title bar carries it.
+  it('moves the panel when its title bar is dragged', () => {
+    render(
+      <ModalShell label="Mapas" theme={mockTheme}>
+        <p>contenido</p>
+      </ModalShell>,
+    );
+    const panel = screen.getByRole('dialog') as HTMLElement;
+    panel.getBoundingClientRect = () =>
+      ({ left: 200, top: 100, width: 400, height: 300, right: 600, bottom: 400, x: 200, y: 100 }) as DOMRect;
+
+    const title = screen.getByText('Mapas');
+    const down = new Event('pointerdown', { bubbles: true, cancelable: true });
+    Object.assign(down, { pointerId: 1, clientX: 300, clientY: 120 });
+    fireEvent(title, down);
+    const move = new Event('pointermove', { bubbles: true, cancelable: true });
+    Object.assign(move, { pointerId: 1, clientX: 360, clientY: 160 });
+    fireEvent(title, move);
+
+    expect(panel.style.left).toBe('260px');
+    expect(panel.style.top).toBe('140px');
+    // Carrying a window does not resize it.
+    expect(panel.style.width).toBe('400px');
+    expect(panel.style.height).toBe('300px');
+  });
+
+  it('leaves a press on a title-bar control to that control', () => {
+    render(
+      <ModalShell label="Mapas" theme={mockTheme} onClose={() => {}} closeButtonLabel="Cerrar ventana">
+        <p>contenido</p>
+      </ModalShell>,
+    );
+    const panel = screen.getByRole('dialog') as HTMLElement;
+    const close = screen.getByLabelText('Cerrar ventana');
+    const down = new Event('pointerdown', { bubbles: true, cancelable: true });
+    Object.assign(down, { pointerId: 1, clientX: 300, clientY: 120 });
+    fireEvent(close, down);
+    const move = new Event('pointermove', { bubbles: true, cancelable: true });
+    Object.assign(move, { pointerId: 1, clientX: 380, clientY: 170 });
+    fireEvent(close, move);
+
+    expect(panel.style.left).toBe('');
+    expect(panel.style.top).toBe('');
+  });
+
   it('never drags the panel below a usable size', () => {
     render(
       <ModalShell label="Mapas" theme={mockTheme} resizable resizeLabel="Redimensionar ventana">

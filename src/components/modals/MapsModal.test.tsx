@@ -49,7 +49,8 @@ describe('MapsModal', () => {
   // chrome around it, so the window grew and the map did not.
   it('lets the map take the room the window gained', () => {
     render(<MapsModal theme={mockTheme} lang="es" onClose={() => {}} />);
-    const surface = () => document.querySelector<HTMLElement>('[class*="cursor-grab"]')!;
+    // The title bar is grabbable too now, so the surface needs its own anchor.
+    const surface = () => document.querySelector<HTMLElement>('[data-map-surface]')!;
     expect(surface().className).toContain('h-[46vh]');
 
     fireEvent.click(document.querySelector('[aria-label="Maximizar / Restaurar"]') as HTMLElement);

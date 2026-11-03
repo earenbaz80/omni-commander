@@ -27,6 +27,11 @@ interface ModalShellProps {
   resizable?: boolean;
   resizeLabel?: string;
   /**
+   * Lets the title bar carry the panel around, which is the other half of
+   * behaving like a window. Buttons in the bar keep working as buttons.
+   */
+  movable?: boolean;
+  /**
    * The body takes the remaining height and hands it to its content instead of
    * scrolling it. Dialogs whose content has a height of its own (the map) need
    * this to grow with the panel.
@@ -67,6 +72,7 @@ function ModalShell({
   restoreLabel = 'Restaurar',
   resizable = true,
   resizeLabel = 'Redimensionar ventana',
+  movable = true,
   fill = false,
   onFillChange,
 }: ModalShellProps): React.JSX.Element {
@@ -87,6 +93,15 @@ function ModalShell({
     height: number;
     left: number;
     top: number;
+  } | null>(null);
+  const moving = useRef<{
+    pointerId: number;
+    x: number;
+    y: number;
+    left: number;
+    top: number;
+    width: number;
+    height: number;
   } | null>(null);
 
   // Use the shared modal dialog hook for consistent behavior
@@ -183,6 +198,52 @@ function ModalShell({
   const controlButton =
     'p-[var(--space-1)] rounded hover:bg-black/20 cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-40';
 
+  /**
+   * The title bar is the window's handle. The corner alone only grows a dialog
+   * towards the bottom right, which on a centred overlay can run out of screen
+   * before the dialog is the size you wanted; being able to pick it up and put
+   * it where there is room is what makes the size usable.
+   */
+  const startMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const panel = modalRef.current;
+    if (!panel || !movable || maximized) return;
+    // A press that lands on a title-bar control belongs to that control.
+    if ((event.target as HTMLElement).closest('button, input, select, textarea, a')) return;
+    const rect = panel.getBoundingClientRect();
+    moving.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      left: size?.left ?? rect.left,
+      top: size?.top ?? rect.top,
+      width: size?.width ?? rect.width,
+      height: size?.height ?? rect.height,
+    };
+    try {
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    } catch {
+      /* no active pointer to capture on this platform */
+    }
+    event.preventDefault();
+  };
+
+  const moveMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const start = moving.current;
+    if (!start || start.pointerId !== event.pointerId) return;
+    const left = Math.max(0, Math.min(window.innerWidth - start.width, start.left + event.clientX - start.x));
+    const top = Math.max(0, Math.min(window.innerHeight - start.height, start.top + event.clientY - start.y));
+    setSize({ width: start.width, height: start.height, left, top });
+  };
+
+  const endMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const start = moving.current;
+    if (!start || start.pointerId !== event.pointerId) return;
+    moving.current = null;
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
   // `max-w-none` is what lets a dragged panel pass the dialog width it was
   // designed for; the inline size is clamped to the viewport above.
   const panelSizeClass = maximized ? 'h-full w-full max-w-none' : size ? 'max-w-none' : 'max-h-full w-full max-w-3xl';
@@ -214,7 +275,14 @@ function ModalShell({
       >
         {/* Header */}
         <div
-          className="flex shrink-0 items-center justify-between px-[var(--space-4)] py-[var(--space-3)] border-b"
+          onPointerDown={startMove}
+          onPointerMove={moveMove}
+          onPointerUp={endMove}
+          onPointerCancel={endMove}
+          onLostPointerCapture={endMove}
+          className={`flex shrink-0 select-none items-center justify-between px-[var(--space-4)] py-[var(--space-3)] border-b ${
+            movable && !maximized ? 'cursor-grab touch-none active:cursor-grabbing' : ''
+          }`}
           style={{
             backgroundColor: theme.modalHeaderBg,
             borderColor: theme.modalBorder,
