@@ -1195,6 +1195,8 @@ export const fr = {
   calcInvalidExpression: 'Expression invalide',
   calcDivisionByZero: 'Division par zéro impossible',
   calcNoHistory: 'Aucun calcul pour le moment',
+  calcHistoryShow: 'Afficher l’historique',
+  calcHistoryHide: 'Masquer l’historique',
   calcReuse: 'Réutiliser ce résultat',
   calcKeyboardHint: 'Le pavé numérique et les touches d’opérateur fonctionnent aussi ; Entrée calcule.',
   calendarToday: "Aujourd'hui",

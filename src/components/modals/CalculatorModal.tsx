@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { History, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, History, Trash2 } from 'lucide-react';
 import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
@@ -91,6 +91,8 @@ export const CalculatorModal: React.FC<CalculatorModalProps> = ({ theme, lang, o
   const [expression, setExpression] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>(readHistory);
+  /** The history panel folds away: on a small window the keypad needs the room. */
+  const [historyOpen, setHistoryOpen] = useState(true);
 
   const preview = expression.trim() ? tryEvaluateExpression(expression) : null;
 
@@ -211,11 +213,21 @@ export const CalculatorModal: React.FC<CalculatorModalProps> = ({ theme, lang, o
           </div>
         </div>
 
-        <div className="flex w-full flex-col sm:w-60">
-          <div className="mb-[var(--space-1)] flex items-center justify-between text-xs opacity-80">
-            <span className="flex items-center gap-[var(--space-1)]">
+        <div className={`flex w-full flex-col ${historyOpen ? 'sm:w-60' : 'sm:w-auto'}`}>
+          <div className="mb-[var(--space-1)] flex items-center justify-between gap-[var(--space-2)] text-xs opacity-80">
+            <button
+              onClick={() => {
+                soundManager.playKeyTick();
+                setHistoryOpen((open) => !open);
+              }}
+              aria-expanded={historyOpen}
+              aria-controls="calc-history"
+              title={historyOpen ? t.calcHistoryHide : t.calcHistoryShow}
+              className="flex cursor-pointer items-center gap-[var(--space-1)] hover:text-amber-300"
+            >
               <History className="h-3 w-3" /> {t.calcHistory}
-            </span>
+              {historyOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </button>
             {history.length > 0 && (
               <button
                 onClick={clearHistory}
@@ -226,28 +238,35 @@ export const CalculatorModal: React.FC<CalculatorModalProps> = ({ theme, lang, o
               </button>
             )}
           </div>
-          <div className="min-h-28 flex-1 overflow-y-auto rounded border border-white/15 bg-black/30 p-[var(--space-1)] text-xs">
-            {history.length === 0 ? (
-              <p className="p-[var(--space-1)] opacity-60">{t.calcNoHistory}</p>
-            ) : (
-              history.map((entry, index) => (
-                <button
-                  key={`${entry.expression}-${index}`}
-                  onClick={() => {
-                    soundManager.playKeyTick();
-                    setExpression(entry.result);
-                    setError(null);
-                  }}
-                  className="w-full cursor-pointer rounded px-[var(--space-1)] py-0.5 text-right hover:bg-white/10"
-                  title={t.calcReuse}
-                >
-                  <span className="block truncate opacity-60">{entry.expression}</span>
-                  <span className="block truncate text-emerald-300">= {entry.result}</span>
-                </button>
-              ))
-            )}
-          </div>
-          <p className="mt-[var(--space-2)] text-[10px] leading-snug opacity-60">{t.calcKeyboardHint}</p>
+          {historyOpen && (
+            <>
+              <div
+                id="calc-history"
+                className="min-h-28 flex-1 overflow-y-auto rounded border border-white/15 bg-black/30 p-[var(--space-1)] text-xs"
+              >
+                {history.length === 0 ? (
+                  <p className="p-[var(--space-1)] opacity-60">{t.calcNoHistory}</p>
+                ) : (
+                  history.map((entry, index) => (
+                    <button
+                      key={`${entry.expression}-${index}`}
+                      onClick={() => {
+                        soundManager.playKeyTick();
+                        setExpression(entry.result);
+                        setError(null);
+                      }}
+                      className="w-full cursor-pointer rounded px-[var(--space-1)] py-0.5 text-right hover:bg-white/10"
+                      title={t.calcReuse}
+                    >
+                      <span className="block truncate opacity-60">{entry.expression}</span>
+                      <span className="block truncate text-emerald-300">= {entry.result}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+              <p className="mt-[var(--space-2)] text-[10px] leading-snug opacity-60">{t.calcKeyboardHint}</p>
+            </>
+          )}
         </div>
       </div>
     </ModalShell>

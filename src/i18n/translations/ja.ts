@@ -1187,6 +1187,8 @@ export const ja = {
   calcInvalidExpression: '式が正しくありません',
   calcDivisionByZero: '0 では割れません',
   calcNoHistory: '計算履歴はまだありません',
+  calcHistoryShow: '履歴を表示',
+  calcHistoryHide: '履歴を隠す',
   calcReuse: 'この結果を使う',
   calcKeyboardHint: 'テンキーと演算子キーでも入力できます。Enter で計算します。',
   calendarToday: '今日',
