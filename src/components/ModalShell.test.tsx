@@ -110,4 +110,21 @@ describe('ModalShell', () => {
     expect(document.activeElement).toBe(trigger);
     trigger.remove();
   });
+
+  // A dialog taller than the window used to be clipped at both edges with no
+  // way to reach its footer (the folder-sync table grew past the screen).
+  it('caps the panel to the viewport and scrolls its body', () => {
+    render(
+      <ModalShell label="Sincronizar" theme={mockTheme}>
+        <p>contenido</p>
+      </ModalShell>,
+    );
+    const panel = screen.getByRole('dialog');
+    expect(panel.className).toContain('max-h-full');
+    expect(panel.className).toContain('flex-col');
+
+    const body = screen.getByText('contenido').parentElement as HTMLElement;
+    expect(body.className).toContain('overflow-y-auto');
+    expect(body.className).toContain('min-h-0');
+  });
 });
