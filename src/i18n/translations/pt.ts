@@ -1037,6 +1037,7 @@ export const pt = {
   treeEmptyDisk: '(disco vazio)',
   lockDefaultUser: 'Usuário padrão:',
   driveNoRealDrives: 'Nenhuma unidade real do sistema detectada.',
+  driveOffline: 'Offline (a unidade de rede não responde)',
 
   // Texto de modais que antes era literal em inglês dentro do componente.
   aboutTagline: 'Gerenciador de arquivos avançado de painel duplo para Windows',

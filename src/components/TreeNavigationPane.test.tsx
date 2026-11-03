@@ -234,3 +234,33 @@ describe('TreeNavigationPane double click', () => {
     expect(await screen.findByText('(disco vacío)')).toBeTruthy();
   });
 });
+
+describe('network drives', () => {
+  // A mapped share keeps its letter when its server is unreachable, and the tree
+  // used to drop it there: the drive vanished and came back on its own later.
+  it('shows a mapped share that is offline and refuses to navigate into it', () => {
+    const nas: Drive = {
+      id: 'real_Z',
+      letter: 'Z:',
+      name: 'NAS',
+      type: 'network',
+      driveKind: 'network',
+      totalBytes: 0,
+      freeBytes: 0,
+      isMounted: false,
+    };
+    const { onNavigate, onSelectDrive } = renderPane({ drives: [drive('real_C', 'C:'), nas] });
+
+    expect(screen.getByText('NAS')).toBeTruthy();
+    expect(screen.getByText('NAS').closest('div[title]')?.getAttribute('title')).toBe(
+      'Sin conexión (la unidad de red no responde)',
+    );
+    // A local drive that is not mounted is still left out: there is nothing it
+    // could point at.
+    expect(screen.queryByText('[D:]')).toBeNull();
+
+    fireEvent.click(screen.getByText('NAS'));
+    expect(onNavigate).not.toHaveBeenCalled();
+    expect(onSelectDrive).not.toHaveBeenCalled();
+  });
+});

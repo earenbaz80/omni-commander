@@ -5,6 +5,7 @@ import {
   ChevronRight,
   ChevronDown,
   HardDrive,
+  Network,
   Library,
   X,
   Search,
@@ -268,6 +269,12 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
 }) => {
   const pinnedFolders = favoriteFolders ?? NO_FOLDERS;
   const t = getTranslations(lang);
+
+  // A mapped share keeps its letter while its server is unreachable, and that
+  // is exactly when the tree used to drop it. Local drives still need to be
+  // mounted: an unplugged stick has no folder list to point at.
+  const isNetworkDrive = (drive: Drive) => drive.type === 'network' || drive.driveKind === 'network';
+  const visibleDrives = drives.filter((drive) => drive.isMounted || isNetworkDrive(drive));
   // Both lists are short and the first thing in the pane, so they start open.
   const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({
     LIBRARIES: true,
@@ -547,95 +554,108 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
             <span className="flex items-center gap-[var(--space-1)]">
               <HardDrive className="w-3 h-3" /> Unidades de Disco
             </span>
-            <span className="text-[9px] opacity-60 tabular-nums">({drives.filter((d) => d.isMounted).length})</span>
+            <span className="text-[9px] opacity-60 tabular-nums">({visibleDrives.length})</span>
           </div>
 
           <div className="space-y-[var(--space-1)] pt-0.5">
-            {drives
-              .filter((d) => d.isMounted)
-              .map((drive) => {
-                const driveLetter = drive.letter;
-                const isDriveExpanded = !!expandedPaths[driveLetter];
-                const isDriveActive = currentPath === driveLetter;
+            {visibleDrives.map((drive) => {
+              const offline = !drive.isMounted;
+              const network = isNetworkDrive(drive);
+              const driveLetter = drive.letter;
+              const isDriveExpanded = !!expandedPaths[driveLetter];
+              const isDriveActive = currentPath === driveLetter;
 
-                // Read top-level directories of this drive
-                const rootDirs = fsEngine.getFiles(drive.id, driveLetter).filter((f) => f.isDirectory);
-                const filteredRootDirs = searchFilter
-                  ? rootDirs.filter((r) => r.name.toLowerCase().includes(searchFilter.toLowerCase()))
-                  : rootDirs;
+              // Read top-level directories of this drive
+              // Listing a share that is down would fail on every render, and the row
+              // already says why it is dimmed.
+              const rootDirs = offline ? [] : fsEngine.getFiles(drive.id, driveLetter).filter((f) => f.isDirectory);
+              const filteredRootDirs = searchFilter
+                ? rootDirs.filter((r) => r.name.toLowerCase().includes(searchFilter.toLowerCase()))
+                : rootDirs;
 
-                return (
-                  <div key={drive.id} className="space-y-0.5">
-                    <div
-                      onClick={() => {
-                        soundManager.playDiskAccess();
-                        handleSelectNode(drive.id, driveLetter);
-                      }}
-                      onDoubleClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        soundManager.playKeyTick();
-                        toggleExpand(driveLetter);
-                      }}
-                      className={`flex items-center justify-between px-[var(--space-1)].5 py-[var(--space-1)] rounded cursor-pointer text-[11px] font-bold transition-all ${
-                        isDriveActive
-                          ? 'bg-sky-950 border border-sky-400 text-sky-200'
-                          : 'hover:bg-white/10 text-white/90'
-                      }`}
-                    >
-                      <div className="flex items-center gap-[var(--space-2)] min-w-0 truncate">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            soundManager.playKeyTick();
-                            toggleExpand(driveLetter);
-                          }}
-                          className="w-3.5 h-3.5 flex items-center justify-center hover:bg-black/30 rounded cursor-pointer shrink-0 opacity-70 hover:opacity-100"
-                        >
-                          {isDriveExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                        </button>
+              return (
+                <div key={drive.id} className="space-y-0.5">
+                  <div
+                    onClick={() => {
+                      // Navigating into a share with no server would open an empty panel;
+                      // the row is there so the drive is not silently missing.
+                      if (offline) return;
+                      soundManager.playDiskAccess();
+                      handleSelectNode(drive.id, driveLetter);
+                    }}
+                    aria-disabled={offline}
+                    title={offline ? t.driveOffline : undefined}
+                    onDoubleClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      soundManager.playKeyTick();
+                      toggleExpand(driveLetter);
+                    }}
+                    className={`flex items-center justify-between px-[var(--space-1)].5 py-[var(--space-1)] rounded ${offline ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} text-[11px] font-bold transition-all ${
+                      isDriveActive
+                        ? 'bg-sky-950 border border-sky-400 text-sky-200'
+                        : 'hover:bg-white/10 text-white/90'
+                    }`}
+                  >
+                    <div className="flex items-center gap-[var(--space-2)] min-w-0 truncate">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          soundManager.playKeyTick();
+                          toggleExpand(driveLetter);
+                        }}
+                        className="w-3.5 h-3.5 flex items-center justify-center hover:bg-black/30 rounded cursor-pointer shrink-0 opacity-70 hover:opacity-100"
+                      >
+                        {isDriveExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                      </button>
+                      {network ? (
+                        <Network className="w-3.5 h-3.5 text-purple-300 shrink-0" />
+                      ) : (
                         <HardDrive className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                        <span className="font-black text-amber-300">[{driveLetter}]</span>
-                        <span className="opacity-75 text-[10px] truncate">{drive.name}</span>
-                      </div>
-
-                      {rootDirs.length > 0 && (
-                        <span className="text-[9px] opacity-60 tabular-nums shrink-0 ml-[var(--space-1)]">
-                          {rootDirs.length}
-                        </span>
                       )}
+                      <span className={network ? 'font-black text-purple-300' : 'font-black text-amber-300'}>
+                        [{driveLetter}]
+                      </span>
+                      <span className="opacity-75 text-[10px] truncate">{drive.name}</span>
                     </div>
 
-                    {/* Subdirectories for this drive */}
-                    {isDriveExpanded && (
-                      <div className="border-l border-white/10 ml-[var(--space-2)].5">
-                        {filteredRootDirs.map((sub) => (
-                          <TreeNodeItem
-                            key={sub.id}
-                            theme={theme}
-                            driveId={drive.id}
-                            dirPath={`${driveLetter}\\${sub.name}`}
-                            dirName={sub.name}
-                            depth={1}
-                            currentPath={currentPath}
-                            expandedPaths={expandedPaths}
-                            onToggleExpand={toggleExpand}
-                            onSelectNode={handleSelectNode}
-                            onDropItems={onDropItems}
-                            searchFilter={searchFilter}
-                          />
-                        ))}
-
-                        {filteredRootDirs.length === 0 && (
-                          <div className="text-[10px] opacity-40 italic pl-4 py-[var(--space-1)]">
-                            {t.treeEmptyDisk}
-                          </div>
-                        )}
-                      </div>
+                    {rootDirs.length > 0 && (
+                      <span className="text-[9px] opacity-60 tabular-nums shrink-0 ml-[var(--space-1)]">
+                        {rootDirs.length}
+                      </span>
                     )}
                   </div>
-                );
-              })}
+
+                  {/* Subdirectories for this drive */}
+                  {isDriveExpanded && (
+                    <div className="border-l border-white/10 ml-[var(--space-2)].5">
+                      {filteredRootDirs.map((sub) => (
+                        <TreeNodeItem
+                          key={sub.id}
+                          theme={theme}
+                          driveId={drive.id}
+                          dirPath={`${driveLetter}\\${sub.name}`}
+                          dirName={sub.name}
+                          depth={1}
+                          currentPath={currentPath}
+                          expandedPaths={expandedPaths}
+                          onToggleExpand={toggleExpand}
+                          onSelectNode={handleSelectNode}
+                          onDropItems={onDropItems}
+                          searchFilter={searchFilter}
+                        />
+                      ))}
+
+                      {filteredRootDirs.length === 0 && (
+                        <div className="text-[10px] opacity-40 italic pl-4 py-[var(--space-1)]">
+                          {offline ? t.driveOffline : t.treeEmptyDisk}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

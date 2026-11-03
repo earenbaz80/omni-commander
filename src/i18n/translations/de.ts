@@ -1044,6 +1044,7 @@ export const de = {
   treeEmptyDisk: '(leerer Datenträger)',
   lockDefaultUser: 'Standardbenutzer:',
   driveNoRealDrives: 'Keine echten Systemlaufwerke erkannt.',
+  driveOffline: 'Nicht verbunden (das Netzlaufwerk antwortet nicht)',
 
   // Modaltext, der zuvor als englisches Literal im Bauteil stand.
   aboutTagline: 'Fortschrittlicher Dateimanager mit zwei Fenstern für Windows',

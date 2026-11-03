@@ -1040,6 +1040,7 @@ export const it = {
   treeEmptyDisk: '(disco vuoto)',
   lockDefaultUser: 'Utente predefinito:',
   driveNoRealDrives: 'Nessuna unità di sistema reale rilevata.',
+  driveOffline: 'Non in linea (l’unità di rete non risponde)',
 
   // Testo dei modali che prima era un letterale inglese nel componente.
   aboutTagline: 'Gestore di file avanzato a doppio pannello per Windows',

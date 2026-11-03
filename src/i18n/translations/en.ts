@@ -1065,6 +1065,7 @@ export const en = {
   treeEmptyDisk: '(empty disk)',
   lockDefaultUser: 'Default user:',
   driveNoRealDrives: 'No real system drives detected.',
+  driveOffline: 'Offline (the network drive is not responding)',
 
   // Modal text that used to be English literals inside the components.
   aboutTagline: 'Advanced Dual-Pane File Manager for Windows',

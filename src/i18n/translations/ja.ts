@@ -1040,6 +1040,7 @@ export const ja = {
   treeEmptyDisk: '（空のディスク）',
   lockDefaultUser: '既定のユーザー:',
   driveNoRealDrives: '実際のシステムドライブが検出されませんでした。',
+  driveOffline: 'オフライン（ネットワークドライブに応答がありません）',
 
   // 以前はコンポーネント内に英語で直書きされていたモーダルの文言。
   aboutTagline: 'Windows 向け高機能デュアルペイン・ファイルマネージャー',
