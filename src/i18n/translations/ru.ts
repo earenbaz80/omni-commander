@@ -162,6 +162,7 @@ export const ru = {
   protectThisFolder: 'Защитить эту папку',
   minimize: 'Свернуть',
   maximizeRestore: 'Развернуть / Восстановить',
+  resizeWindow: 'Изменить размер окна',
   bookmarks: 'Закладки / Избранное...',
   recycleBin: 'Корзина...',
   taskQueue: 'Очередь задач...',

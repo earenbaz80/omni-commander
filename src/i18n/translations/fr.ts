@@ -163,6 +163,7 @@ export const fr = {
   protectThisFolder: 'Protéger ce dossier',
   minimize: 'Réduire',
   maximizeRestore: 'Agrandir / Restaurer',
+  resizeWindow: 'Redimensionner la fenêtre',
   bookmarks: 'Signets / Favoris...',
   recycleBin: 'Corbeille...',
   taskQueue: "File d'attente des tâches...",

@@ -102,8 +102,9 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
   const [marker, setMarker] = useState<Place | null>(null);
   const [locating, setLocating] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  // The dialog tells us when it fills the viewport so the map can grow with it.
-  const [expanded, setExpanded] = useState(false);
+  // The dialog tells us when it has a height of its own — maximised or dragged
+  // to a size — so the map can take that height instead of keeping its default.
+  const [fills, setFills] = useState(false);
 
   /** Fingers currently down, by pointer id, in the order they arrived. */
   const pointers = useRef(new Map<number, Point>());
@@ -427,9 +428,12 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
       minimizeLabel={t.minimize}
       maximizeLabel={t.maximizeRestore}
       restoreLabel={t.maximizeRestore}
-      onMaximizeChange={setExpanded}
+      resizable
+      resizeLabel={t.resizeWindow}
+      fill
+      onFillChange={setFills}
     >
-      <div className="flex flex-col gap-[var(--space-2)] font-mono">
+      <div className={`flex min-h-0 flex-col gap-[var(--space-2)] font-mono ${fills ? 'flex-1' : ''}`}>
         <div className="flex flex-wrap items-center gap-[var(--space-1)]">
           <form
             className="flex min-w-0 flex-1 items-center gap-[var(--space-1)]"
@@ -491,10 +495,14 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
         )}
         {searchError && <p className="text-xs text-amber-300">{searchError}</p>}
 
+        {/* The map has no height of its own: it takes whatever the dialog
+            leaves, so maximising or dragging the window makes it bigger. */}
         <div
           ref={containerRef}
-          className={`relative min-h-56 cursor-grab touch-none select-none overflow-hidden rounded border border-white/15 bg-slate-900 active:cursor-grabbing ${
-            expanded ? 'h-[calc(100vh-19rem)]' : 'h-[46vh]'
+          // A window dragged small has to take the room from the map instead of
+          // pushing it past the panel's edge, so the floor drops in that mode.
+          className={`relative cursor-grab touch-none select-none overflow-hidden rounded border border-white/15 bg-slate-900 active:cursor-grabbing ${
+            fills ? 'min-h-24 flex-1' : 'h-[46vh] min-h-56'
           }`}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}

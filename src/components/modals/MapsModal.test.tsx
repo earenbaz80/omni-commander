@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { MapsModal } from './MapsModal';
 import { ThemeConfig } from '../../services/themeManager';
@@ -43,5 +43,23 @@ describe('MapsModal', () => {
 
     expect(document.querySelector('[aria-label="Minimizar"]')).toBeTruthy();
     expect(document.querySelector('[aria-label="Maximizar / Restaurar"]')).toBeTruthy();
+  });
+
+  // Maximising used to leave the map at `calc(100vh - 19rem)`, a guess at the
+  // chrome around it, so the window grew and the map did not.
+  it('lets the map take the room the window gained', () => {
+    render(<MapsModal theme={mockTheme} lang="es" onClose={() => {}} />);
+    const surface = () => document.querySelector<HTMLElement>('[class*="cursor-grab"]')!;
+    expect(surface().className).toContain('h-[46vh]');
+
+    fireEvent.click(document.querySelector('[aria-label="Maximizar / Restaurar"]') as HTMLElement);
+
+    expect(surface().className).toContain('flex-1');
+    expect(surface().className).not.toContain('h-[46vh]');
+  });
+
+  it('offers the corner that resizes the window', () => {
+    render(<MapsModal theme={mockTheme} lang="es" onClose={() => {}} />);
+    expect(document.querySelector('[aria-label="Redimensionar ventana"]')).toBeTruthy();
   });
 });

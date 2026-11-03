@@ -186,6 +186,7 @@ export const es = {
   protectThisFolder: 'Proteger esta Carpeta',
   minimize: 'Minimizar',
   maximizeRestore: 'Maximizar / Restaurar',
+  resizeWindow: 'Redimensionar ventana',
   bookmarks: 'Marcadores / Favoritos...',
   recycleBin: 'Papelera de Reciclaje...',
   taskQueue: 'Cola de Tareas...',

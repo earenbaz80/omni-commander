@@ -164,6 +164,7 @@ export const de = {
   protectThisFolder: 'Diesen Ordner schützen',
   minimize: 'Minimieren',
   maximizeRestore: 'Maximieren / Wiederherstellen',
+  resizeWindow: 'Fenstergröße ändern',
   bookmarks: 'Lesezeichen / Favoriten...',
   recycleBin: 'Papierkorb...',
   taskQueue: 'Aufgabenwarteschlange...',
