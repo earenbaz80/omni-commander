@@ -145,7 +145,7 @@ describe('ModalShell', () => {
   });
 
   it('fills the viewport when maximised and tells the content', () => {
-    const onMaximizeChange = vi.fn();
+    const onFillChange = vi.fn();
     render(
       <ModalShell
         label="Mapas"
@@ -153,18 +153,79 @@ describe('ModalShell', () => {
         windowControls
         maximizeLabel="Maximizar"
         restoreLabel="Restaurar"
-        onMaximizeChange={onMaximizeChange}
+        onFillChange={onFillChange}
       >
         <p>contenido</p>
       </ModalShell>,
     );
     fireEvent.click(screen.getByLabelText('Maximizar'));
     expect(screen.getByRole('dialog').className).toContain('max-w-none');
-    expect(onMaximizeChange).toHaveBeenLastCalledWith(true);
+    expect(onFillChange).toHaveBeenLastCalledWith(true);
 
     fireEvent.click(screen.getByLabelText('Restaurar'));
     expect(screen.getByRole('dialog').className).toContain('max-w-3xl');
-    expect(onMaximizeChange).toHaveBeenLastCalledWith(false);
+    expect(onFillChange).toHaveBeenLastCalledWith(false);
+  });
+
+  // A dialog that behaves like a window has to be sized like one; before this
+  // the map window could only be maximised, and its map never grew.
+  it('sizes the panel when its corner is dragged', () => {
+    render(
+      <ModalShell label="Mapas" theme={mockTheme} windowControls resizable resizeLabel="Redimensionar ventana">
+        <p>contenido</p>
+      </ModalShell>,
+    );
+    const handle = screen.getByLabelText('Redimensionar ventana');
+
+    const down = new Event('pointerdown', { bubbles: true, cancelable: true });
+    Object.assign(down, { pointerId: 1, clientX: 100, clientY: 100 });
+    fireEvent(handle, down);
+
+    const move = new Event('pointermove', { bubbles: true, cancelable: true });
+    Object.assign(move, { pointerId: 1, clientX: 700, clientY: 400 });
+    fireEvent(handle, move);
+
+    const panel = screen.getByRole('dialog') as HTMLElement;
+    expect(panel.style.width).toBe('600px');
+    expect(panel.style.height).toBe('300px');
+    // Wider than the width the dialog was designed for, so the cap has to go.
+    expect(panel.className).toContain('max-w-none');
+  });
+
+  it('never drags the panel below a usable size', () => {
+    render(
+      <ModalShell label="Mapas" theme={mockTheme} resizable resizeLabel="Redimensionar ventana">
+        <p>contenido</p>
+      </ModalShell>,
+    );
+    const handle = screen.getByLabelText('Redimensionar ventana');
+    const down = new Event('pointerdown', { bubbles: true, cancelable: true });
+    Object.assign(down, { pointerId: 1, clientX: 800, clientY: 600 });
+    fireEvent(handle, down);
+    const move = new Event('pointermove', { bubbles: true, cancelable: true });
+    Object.assign(move, { pointerId: 1, clientX: 100, clientY: 100 });
+    fireEvent(handle, move);
+
+    const panel = screen.getByRole('dialog') as HTMLElement;
+    expect(panel.style.width).toBe('320px');
+    expect(panel.style.height).toBe('220px');
+  });
+
+  it('drops the corner while the panel is maximised', () => {
+    render(
+      <ModalShell
+        label="Mapas"
+        theme={mockTheme}
+        windowControls
+        maximizeLabel="Maximizar"
+        resizable
+        resizeLabel="Redimensionar ventana"
+      >
+        <p>contenido</p>
+      </ModalShell>,
+    );
+    fireEvent.click(screen.getByLabelText('Maximizar'));
+    expect(screen.queryByLabelText('Redimensionar ventana')).toBeNull();
   });
 
   it('leaves the window buttons out unless they are asked for', () => {

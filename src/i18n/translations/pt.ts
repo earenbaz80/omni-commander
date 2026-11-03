@@ -162,6 +162,7 @@ export const pt = {
   protectThisFolder: 'Proteger esta Pasta',
   minimize: 'Minimizar',
   maximizeRestore: 'Maximizar / Restaurar',
+  resizeWindow: 'Redimensionar a janela',
   bookmarks: 'Favoritos / Marcadores...',
   recycleBin: 'Lixeira...',
   taskQueue: 'Fila de Tarefas...',

@@ -163,6 +163,7 @@ export const ja = {
   protectThisFolder: 'このフォルダを保護',
   minimize: '最小化',
   maximizeRestore: '最大化 / 元に戻す',
+  resizeWindow: 'ウィンドウのサイズを変更',
   bookmarks: 'ブックマーク / お気に入り...',
   recycleBin: 'ゴミ箱...',
   taskQueue: 'タスクキュー...',

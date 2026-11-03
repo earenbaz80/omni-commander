@@ -162,6 +162,7 @@ export const it = {
   protectThisFolder: 'Proteggi questa cartella',
   minimize: 'Riduci a icona',
   maximizeRestore: 'Massimizza / Ripristina',
+  resizeWindow: 'Ridimensiona la finestra',
   bookmarks: 'Segnalibri / Preferiti...',
   recycleBin: 'Cestino...',
   taskQueue: 'Coda attività...',

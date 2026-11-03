@@ -185,6 +185,7 @@ export const en = {
   protectThisFolder: 'Protect this Folder',
   minimize: 'Minimize',
   maximizeRestore: 'Maximize / Restore',
+  resizeWindow: 'Resize window',
   bookmarks: 'Bookmarks / Favorites...',
   recycleBin: 'Recycle Bin...',
   taskQueue: 'Task Queue...',
