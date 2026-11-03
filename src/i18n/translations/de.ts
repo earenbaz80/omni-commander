@@ -1227,4 +1227,8 @@ export const de = {
   mapsLayerStandard: 'OSM Standard',
   mapsLayerTopographic: 'Topografisch',
   mapsAttribution: '© OpenStreetMap-Mitwirkende · © OpenTopoMap (CC-BY-SA)',
+  openInApp: 'Mit OmniCommander',
+  openMediaPlayer: 'Audio- und Videoplayer',
+  openTextEditor: 'Texteditor',
+  openTerminal: 'Im Terminal öffnen',
 } as const;

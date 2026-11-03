@@ -198,6 +198,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
             theme={currentTheme}
             lang={lang}
             file={selectedFileForModal}
+            initialTab={modalData?.viewerTab === 'preview' ? 'preview' : 'text'}
             onClose={() => setActiveModal(null)}
             onEdit={() => setActiveModal('editor')}
           />

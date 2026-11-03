@@ -1223,4 +1223,8 @@ export const ja = {
   mapsLayerStandard: 'OSM 標準',
   mapsLayerTopographic: '地形図',
   mapsAttribution: '© OpenStreetMap 貢献者 · © OpenTopoMap (CC-BY-SA)',
+  openInApp: 'OmniCommander で開く',
+  openMediaPlayer: '音声・動画プレーヤー',
+  openTextEditor: 'テキストエディタ',
+  openTerminal: 'ターミナルで開く',
 } as const;

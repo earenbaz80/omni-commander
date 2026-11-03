@@ -1223,4 +1223,8 @@ export const ru = {
   mapsLayerStandard: 'OSM стандартный',
   mapsLayerTopographic: 'Топографический',
   mapsAttribution: '© участники OpenStreetMap · © OpenTopoMap (CC-BY-SA)',
+  openInApp: 'В OmniCommander',
+  openMediaPlayer: 'Плеер аудио и видео',
+  openTextEditor: 'Текстовый редактор',
+  openTerminal: 'Открыть в терминале',
 } as const;

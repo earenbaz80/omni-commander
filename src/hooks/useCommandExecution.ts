@@ -166,13 +166,16 @@ export function useCommandExecution(deps: CommandExecutionDeps) {
           }
           case 'type':
           case 'cat': {
+            // The console can be handed a name with spaces by the context menu,
+            // which quotes it: quotes are dropped before matching the listing.
+            const requested = args.replace(/^"(.*)"$/, '$1');
             const fileToRead = activeItems.find(
               (i) =>
-                i.name.toLowerCase() === args.toLowerCase() ||
-                `${i.name}.${i.ext}`.toLowerCase() === args.toLowerCase(),
+                i.name.toLowerCase() === requested.toLowerCase() ||
+                `${i.name}.${i.ext}`.toLowerCase() === requested.toLowerCase(),
             );
             if (!fileToRead || fileToRead.isDirectory) {
-              output = t.cmdFileNotFound.replace('{path}', args);
+              output = t.cmdFileNotFound.replace('{path}', requested);
               status = 'error';
               break;
             }
@@ -182,7 +185,7 @@ export function useCommandExecution(deps: CommandExecutionDeps) {
               const bytes = await fsEngine.readFileBytes(fileToRead, { maxBytes: 64 * 1024 });
               output = new TextDecoder('utf-8').decode(bytes);
             } catch {
-              output = t.cmdFileReadFail.replace('{path}', args);
+              output = t.cmdFileReadFail.replace('{path}', requested);
               status = 'error';
             }
             break;
