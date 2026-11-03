@@ -638,6 +638,7 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
             leaves, so maximising or dragging the window makes it bigger. */}
         <div
           ref={containerRef}
+          data-map-surface="true"
           // A window dragged small has to take the room from the map instead of
           // pushing it past the panel's edge, so the floor drops in that mode.
           className={`relative cursor-grab touch-none select-none overflow-hidden rounded border border-white/15 bg-slate-900 active:cursor-grabbing ${
