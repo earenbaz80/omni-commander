@@ -41,6 +41,7 @@ const AppLockModal = React.lazy(() =>
 import { CommandLineBar } from './components/CommandLineBar';
 import { FunctionKeyBar } from './components/FunctionKeyBar';
 import { ContextMenu } from './components/ContextMenu';
+import { consoleCommandFor } from './services/appOpeners';
 import { HoverPreviewTooltip } from './components/HoverPreviewTooltip';
 import { CollapsibleInfoDrawer } from './components/CollapsibleInfoDrawer';
 
@@ -166,6 +167,8 @@ export default function App() {
 
   // Active Modals & Operations
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
+  // Bumped to make the command console show its output drawer.
+  const [consoleOpenNonce, setConsoleOpenNonce] = useState(0);
   // Bumped by the launcher's shortcut; the Run box owns what "open" means.
   const [runLauncherOpenRequest, setRunLauncherOpenRequest] = useState(0);
   // True while the launcher stands on its own because the toolbar is off.
@@ -1444,6 +1447,7 @@ export default function App() {
           theme={currentTheme}
           currentPath={currentActiveTab.currentPath}
           onExecuteCommand={handleExecuteCommand}
+          logOpenNonce={consoleOpenNonce}
           commandHistory={commandHistory}
           onClearHistory={() => setCommandHistory([])}
           isAdminMode={isElevated}
@@ -1636,6 +1640,19 @@ export default function App() {
             fsEngine.isSystemDrive(contextMenuState.targetItem.driveId) &&
             !contextMenuState.targetItem.archiveRoot
           }
+          onOpenInApp={(target) => {
+            const item = contextMenuState.targetItem;
+            if (!item) return;
+            if (target === 'terminal') {
+              // The console prints the file in place; no window is launched.
+              setConsoleOpenNonce((nonce) => nonce + 1);
+              void handleExecuteCommand(consoleCommandFor(item));
+              return;
+            }
+            setSelectedFileForModal(item);
+            setModalData(target === 'media' ? { viewerTab: 'preview' } : null);
+            setActiveModal(target === 'image' ? 'image_studio' : target === 'media' ? 'viewer' : 'editor');
+          }}
           onSendTo={(destination) => {
             const item = contextMenuState.targetItem;
             if (!item) return;

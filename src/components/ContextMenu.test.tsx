@@ -201,4 +201,66 @@ describe('ContextMenu on a selected item', () => {
     fireEvent.click(screen.getByText('Elegir otra aplicación…'));
     expect(onOpenWith).toHaveBeenCalledTimes(1);
   });
+
+  /**
+   * "Abrir con" only listed programs registered with Windows, so the viewers and
+   * editors this app ships were unreachable from the menu that exists to choose
+   * an application.
+   */
+  it("lists the app's own image studio first for a picture", async () => {
+    const onOpenInApp = vi.fn();
+    const picture: FileItem = { ...file, ext: 'PNG', name: 'foto', fullName: 'foto.png' };
+    render(
+      <ContextMenu
+        {...buildProps(picture)}
+        canOpenWith={true}
+        onOpenWith={vi.fn()}
+        loadOpenWithPrograms={() => Promise.resolve([])}
+        onOpenInApp={onOpenInApp}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Abrir con…'));
+    expect(await screen.findByText('Imágenes (ver y editar)')).toBeTruthy();
+    // A picture is not audio, but it can still be shown in the console.
+    expect(screen.queryByText('Reproductor de audio y vídeo')).toBeNull();
+    expect(screen.getByText('Abrir en la terminal')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('Imágenes (ver y editar)'));
+    expect(onOpenInApp).toHaveBeenCalledWith('image');
+  });
+
+  it('offers the player for a video and the editor for text', async () => {
+    const onOpenInApp = vi.fn();
+    render(
+      <ContextMenu
+        {...buildProps({ ...file, ext: 'MP4', name: 'clip', fullName: 'clip.mp4' })}
+        canOpenWith={true}
+        onOpenWith={vi.fn()}
+        loadOpenWithPrograms={() => Promise.resolve([])}
+        onOpenInApp={onOpenInApp}
+      />,
+    );
+    fireEvent.click(screen.getByText('Abrir con…'));
+    fireEvent.click(await screen.findByText('Reproductor de audio y vídeo'));
+    expect(onOpenInApp).toHaveBeenCalledWith('media');
+  });
+
+  it('offers the text editor and the console for a text file', async () => {
+    const onOpenInApp = vi.fn();
+    render(
+      <ContextMenu
+        {...buildProps(file)}
+        canOpenWith={true}
+        onOpenWith={vi.fn()}
+        loadOpenWithPrograms={() => Promise.resolve([])}
+        onOpenInApp={onOpenInApp}
+      />,
+    );
+    fireEvent.click(screen.getByText('Abrir con…'));
+
+    expect(await screen.findByText('Editor de texto')).toBeTruthy();
+    fireEvent.click(screen.getByText('Abrir en la terminal'));
+    expect(onOpenInApp).toHaveBeenCalledWith('terminal');
+  });
 });

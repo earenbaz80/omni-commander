@@ -24,6 +24,7 @@ import { SendToDestination } from '../services/fileSystem';
 import { getTranslations } from '../i18n/translations';
 import { soundManager } from '../services/soundEffects';
 import type { OpenWithProgram } from '../services/openWith';
+import { appTargetsFor, type AppTarget } from '../services/appOpeners';
 
 interface ContextMenuProps {
   theme: ThemeConfig;
@@ -65,6 +66,8 @@ interface ContextMenuProps {
   loadOpenWithPrograms?: () => Promise<OpenWithProgram[]>;
   /** Opens the target with one of those programs. */
   onOpenWithProgram?: (program: OpenWithProgram) => void;
+  /** Opens the target in one of the app's own tools. */
+  onOpenInApp?: (target: AppTarget) => void;
 }
 
 /**
@@ -111,6 +114,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   canOpenWith = false,
   loadOpenWithPrograms,
   onOpenWithProgram,
+  onOpenInApp,
 }) => {
   const t = getTranslations(lang);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -275,6 +279,26 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                   aria-label={t.openWith}
                   className="ml-[var(--space-3)] border-l border-white/10 pl-[var(--space-1)]"
                 >
+                  {/* The app's own tools come first: they need no Windows dialog
+                      and no registration, and they are the reason to stay inside
+                      OmniCommander. */}
+                  {onOpenInApp &&
+                    appTargetsFor(targetItem).map((target) => (
+                      <MenuItem
+                        key={target}
+                        onClick={() => handleAction(() => onOpenInApp(target))}
+                        className="w-full truncate text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 cursor-pointer"
+                      >
+                        {target === 'image'
+                          ? t.toolImageStudio
+                          : target === 'media'
+                            ? t.openMediaPlayer
+                            : target === 'text'
+                              ? t.openTextEditor
+                              : t.openTerminal}
+                      </MenuItem>
+                    ))}
+                  {onOpenInApp && <div role="separator" className="h-px bg-current opacity-20 my-[var(--space-1)]" />}
                   {openWithLoading && (
                     <div role="presentation" className="px-[var(--space-3)] py-[var(--space-1)] opacity-60">
                       …

@@ -16,6 +16,8 @@ interface CommandLineBarProps {
   onToggleAdminMode?: () => void;
   availableItems?: FileItem[];
   availableFileNames?: string[];
+  /** Bumped by the host to open the output drawer, e.g. "Abrir en la terminal". */
+  logOpenNonce?: number;
 }
 
 const BUILTIN_COMMANDS = [
@@ -76,6 +78,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
   onToggleAdminMode,
   availableItems,
   availableFileNames,
+  logOpenNonce = 0,
 }) => {
   const t = getTranslations(lang);
   const [inputVal, setInputVal] = useState('');
@@ -83,6 +86,12 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState<number>(-1);
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(true);
+
+  // The drawer is closed by default, so a command sent from the context menu
+  // would run out of sight; the host asks for it explicitly.
+  useEffect(() => {
+    if (logOpenNonce > 0) setIsLogOpen(true);
+  }, [logOpenNonce]);
 
   // Tab completion state
   const [tabState, setTabState] = useState<{

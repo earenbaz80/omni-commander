@@ -34,6 +34,8 @@ interface ViewerModalProps {
   onClose: () => void;
   onEdit: () => void;
   onSave?: () => void;
+  /** "Abrir con" can ask for the media tab instead of the text one. */
+  initialTab?: 'text' | 'hex' | 'csv' | 'preview';
 }
 
 const formatBytes = (bytes: number): string => {
@@ -43,9 +45,9 @@ const formatBytes = (bytes: number): string => {
   return `${bytes} B`;
 };
 
-export const ViewerModal: React.FC<ViewerModalProps> = ({ theme, lang, file, onClose, onEdit, onSave }) => {
+export const ViewerModal: React.FC<ViewerModalProps> = ({ theme, lang, file, onClose, onEdit, onSave, initialTab }) => {
   const t = getTranslations(lang);
-  const [activeTab, setActiveTab] = useState<'text' | 'hex' | 'csv' | 'preview'>('text');
+  const [activeTab, setActiveTab] = useState<'text' | 'hex' | 'csv' | 'preview'>(initialTab ?? 'text');
   const [copied, setCopied] = useState(false);
   const [hexEditMode, setHexEditMode] = useState(false);
   // Hex edits are kept as a small diff against the loaded bytes rather than a

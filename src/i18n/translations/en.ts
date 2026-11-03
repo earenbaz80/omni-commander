@@ -1248,4 +1248,8 @@ export const en = {
   mapsLayerStandard: 'Standard OSM',
   mapsLayerTopographic: 'Topographic',
   mapsAttribution: '© OpenStreetMap contributors · © OpenTopoMap (CC-BY-SA)',
+  openInApp: 'With OmniCommander',
+  openMediaPlayer: 'Audio and video player',
+  openTextEditor: 'Text editor',
+  openTerminal: 'Open in the terminal',
 } as const;
