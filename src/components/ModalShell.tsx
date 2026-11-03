@@ -46,7 +46,10 @@ function ModalShell({
     >
       <div
         ref={modalRef}
-        className="relative w-full max-w-3xl overflow-hidden rounded border bg-app shadow-lg"
+        // A cap and a scroll area, not just `overflow-hidden`: a dialog taller
+        // than the window used to be clipped at both ends with no way to reach
+        // its footer (the folder-sync table grew past the screen edges).
+        className="relative flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded border bg-app shadow-lg"
         style={{
           borderColor: theme.modalBorder,
           backgroundColor: theme.modalBg,
@@ -54,7 +57,7 @@ function ModalShell({
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-[var(--space-4)] py-[var(--space-3)] border-b"
+          className="flex shrink-0 items-center justify-between px-[var(--space-4)] py-[var(--space-3)] border-b"
           style={{
             backgroundColor: theme.modalHeaderBg,
             borderColor: theme.modalBorder,
@@ -76,7 +79,7 @@ function ModalShell({
         </div>
 
         {/* Content */}
-        <div className="p-[var(--space-4)]">{children}</div>
+        <div className="min-h-0 overflow-y-auto p-[var(--space-4)]">{children}</div>
 
         {/* Footer - optional, can be conditionally rendered in child components */}
       </div>
