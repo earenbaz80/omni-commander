@@ -1604,8 +1604,15 @@ export default function App() {
             // the answer is surfaced instead of dropped: silence is what made
             // this look like a dead menu item.
             void (async () => {
-              if (await fsEngine.openWith(item)) return;
-              alert(fsEngine.lastServerError || 'No se pudo abrir el diálogo «Abrir con»');
+              try {
+                if (await fsEngine.openWith(item)) return;
+                alert(fsEngine.lastServerError || 'No se pudo abrir el diálogo «Abrir con»');
+              } catch {
+                // A request that never got an answer rejects instead of
+                // returning false, and an unhandled rejection is just as
+                // silent as the dead menu item this used to look like.
+                alert('No se pudo contactar con el servidor para abrir el diálogo «Abrir con»');
+              }
             })();
           }}
           canSendTo={
