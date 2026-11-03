@@ -1185,6 +1185,8 @@ export const pt = {
   calcInvalidExpression: 'Expressão inválida',
   calcDivisionByZero: 'Não é possível dividir por zero',
   calcNoHistory: 'Ainda não há cálculos',
+  calcHistoryShow: 'Mostrar histórico',
+  calcHistoryHide: 'Ocultar histórico',
   calcReuse: 'Reutilizar este resultado',
   calcKeyboardHint: 'O teclado numérico e os operadores também funcionam; Enter calcula.',
   calendarToday: 'Hoje',

@@ -1188,6 +1188,8 @@ export const it = {
   calcInvalidExpression: 'Espressione non valida',
   calcDivisionByZero: 'Impossibile dividere per zero',
   calcNoHistory: 'Nessun calcolo',
+  calcHistoryShow: 'Mostra cronologia',
+  calcHistoryHide: 'Nascondi cronologia',
   calcReuse: 'Riusa questo risultato',
   calcKeyboardHint: 'Funzionano anche il tastierino numerico e gli operatori; Invio calcola.',
   calendarToday: 'Oggi',

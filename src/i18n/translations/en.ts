@@ -1212,6 +1212,8 @@ export const en = {
   calcInvalidExpression: 'Invalid expression',
   calcDivisionByZero: 'Cannot divide by zero',
   calcNoHistory: 'No calculations yet',
+  calcHistoryShow: 'Show history',
+  calcHistoryHide: 'Hide history',
   calcReuse: 'Reuse this result',
   calcKeyboardHint: 'The number pad and the operator keys work too; Enter calculates.',
   calendarToday: 'Today',

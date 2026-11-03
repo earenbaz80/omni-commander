@@ -1219,6 +1219,8 @@ export const es = {
   calcInvalidExpression: 'Expresión no válida',
   calcDivisionByZero: 'No se puede dividir entre cero',
   calcNoHistory: 'Todavía no hay cálculos',
+  calcHistoryShow: 'Mostrar historial',
+  calcHistoryHide: 'Ocultar historial',
   calcReuse: 'Reutilizar este resultado',
   calcKeyboardHint: 'También funcionan el teclado numérico y los operadores; Intro calcula.',
   calendarToday: 'Hoy',

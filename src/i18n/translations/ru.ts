@@ -1187,6 +1187,8 @@ export const ru = {
   calcInvalidExpression: 'Неверное выражение',
   calcDivisionByZero: 'Деление на ноль невозможно',
   calcNoHistory: 'Вычислений пока нет',
+  calcHistoryShow: 'Показать историю',
+  calcHistoryHide: 'Скрыть историю',
   calcReuse: 'Использовать результат',
   calcKeyboardHint: 'Работают цифровой блок и клавиши операторов; Enter вычисляет.',
   calendarToday: 'Сегодня',

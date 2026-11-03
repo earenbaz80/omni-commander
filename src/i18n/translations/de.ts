@@ -1191,6 +1191,8 @@ export const de = {
   calcInvalidExpression: 'Ungültiger Ausdruck',
   calcDivisionByZero: 'Division durch null nicht möglich',
   calcNoHistory: 'Noch keine Berechnungen',
+  calcHistoryShow: 'Verlauf anzeigen',
+  calcHistoryHide: 'Verlauf ausblenden',
   calcReuse: 'Ergebnis übernehmen',
   calcKeyboardHint: 'Ziffernblock und Operatortasten funktionieren ebenfalls; Enter rechnet.',
   calendarToday: 'Heute',
