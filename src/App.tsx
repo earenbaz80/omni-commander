@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { parkTransferPlan, takeParkedTransferPlan } from './services/pendingTransfer';
 import {
   FileItem,
   Drive,
@@ -739,31 +740,18 @@ export default function App() {
   // Elevation restarts the process, so a pending transfer has to travel with it.
   // The plan is parked in local storage and replayed by the fresh instance, which
   // is why the copy used to disappear right after the restart.
-  const ELEVATED_PLAN_KEY = 'omnicommander.pendingElevatedTransfer';
-
   const handleElevateTransfer = async (op: 'copy' | 'move', targetPath: string, options: TransferOptions) => {
     if (!targetPath.trim()) return { ok: false as const, reason: 'empty destination' };
     const plan = buildTransferPlan(op, transferItems, targetPath.trim(), options);
-    if (plan) {
-      try {
-        localStorage.setItem(ELEVATED_PLAN_KEY, JSON.stringify(plan));
-      } catch {
-        // A full quota must not block the elevation itself.
-      }
-    }
+    // A full quota must not block the elevation itself; parking reports it and
+    // the elevation goes ahead.
+    if (plan) parkTransferPlan(plan);
     return (window as any).electronAPI?.relaunchAsAdmin?.();
   };
 
   useEffect(() => {
-    const parked = localStorage.getItem(ELEVATED_PLAN_KEY);
-    if (!parked) return;
-    localStorage.removeItem(ELEVATED_PLAN_KEY);
-    try {
-      const plan = JSON.parse(parked) as TransferPlan;
-      if (plan?.entries?.length) enqueueTransferPlan(plan, true);
-    } catch {
-      // A corrupt entry is dropped instead of being replayed blindly.
-    }
+    const plan = takeParkedTransferPlan();
+    if (plan?.entries?.length) enqueueTransferPlan(plan, true);
     // Consumed once, on the first mount after the elevated restart.
   }, []);
 
