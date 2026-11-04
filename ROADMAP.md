@@ -113,6 +113,8 @@ Tareas:
 
 **Primera tanda hecha (este commit).** El sondeo de unidades y la suscripción al catálogo vivían en dos `useEffect` de `App.tsx` que tenían que concordar entre sí: uno preguntaba al servidor cada cinco segundos y el otro republicaba lo que la tienda ya sabía. Ahora son un solo `useDrives`, que devuelve la lista y no expone su `setState`; App dejó de tener el estado de unidades y de saber cada cuánto se reintenta. `App.tsx` baja de 1 781 a 1 757 líneas —poco, porque el objetivo de esta fase es el reparto, no el recuento— y la suite no cambia ni un resultado: 114 ficheros y 847 tests.
 
+**Segunda tanda (este commit).** El estado de modales y el embudo de transferencia salieron a `useModalStack`: qué ventana está abierta, con qué datos y qué ficheros, incluidos los tres disparadores de copiar/mover/borrar. La instantánea de la selección se toma al abrir, que es la regla que el comentario del viejo `App.tsx` documentaba y que un refactor ya había roto una vez; ahora la regla y el test viven juntos, y `selectionRef` deja explícito el único ciclo que quedaba (los paneles saben qué está seleccionado, pero necesitan el setter). `setActiveModal` sigue siendo estable, porque lo consumen `usePanels` y los atajos: un setter nuevo por render reiniciaría ambos. `App.tsx` baja de 1 757 a 1 733 líneas; 5 tests nuevos del hook (instantánea, selección vacía, modal ajeno, actualizador funcional, estabilidad del setter).
+
 **Hecho cuando:** no cambia ni un comportamiento observable (los e2e y los tests de componentes siguen iguales) y los ficheros bajan de esos umbrales.
 
 **Riesgo:** medio. Es refactor puro; el peligro es mezclarlo con arreglos funcionales en el mismo commit.

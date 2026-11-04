@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import type { ModalData } from './types';
 import { parkTransferPlan, takeParkedTransferPlan } from './services/pendingTransfer';
 import {
   FileItem,
-  ActiveModal,
   CommandHistoryItem,
   ConflictResolution,
   FileProgressEntry,
@@ -31,6 +29,7 @@ import { ZipPasswordModal } from './components/modals/ZipPasswordModal';
 import { Toolbar } from './components/Toolbar';
 import { PanelView } from './components/PanelView';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useModalStack } from './hooks/useModalStack';
 import { useSettings } from './hooks/useSettings';
 import { useSplitter } from './hooks/useSplitter';
 import { useDrives } from './hooks/useDrives';
@@ -161,16 +160,30 @@ export default function App() {
     }
   }, [settings.appLockEnabled, lockApp]);
 
-  // Active Modals & Operations
-  const [activeModal, setActiveModal] = useState<ActiveModal>(null);
+  // Active Modals & Operations.
+  //
+  // The dialogs own this state, and they read the selection through a ref: the
+  // panel hook that provides the selection needs the modal setter in return, so
+  // one of the two has to be late-bound.
+  const selectionRef = useRef<() => FileItem[]>(() => []);
+  const {
+    activeModal,
+    setActiveModal,
+    modalData,
+    setModalData,
+    selectedFileForModal,
+    setSelectedFileForModal,
+    transferItems,
+    handleTriggerCopy,
+    handleTriggerMove,
+    handleTriggerDelete,
+  } = useModalStack(selectionRef);
   // Bumped to make the command console show its output drawer.
   const [consoleOpenNonce, setConsoleOpenNonce] = useState(0);
   // Bumped by the launcher's shortcut; the Run box owns what "open" means.
   const [runLauncherOpenRequest, setRunLauncherOpenRequest] = useState(0);
   // True while the launcher stands on its own because the toolbar is off.
   const [launcherOnly, setLauncherOnly] = useState(false);
-  const [modalData, setModalData] = useState<ModalData | null>(null);
-  const [selectedFileForModal, setSelectedFileForModal] = useState<FileItem | null>(null);
   // Folder the cleanup modal was opened for, picked in the toolbar's cleanup menu.
   const [cleanupTarget, setCleanupTarget] = useState<CleanupTargetId>('user-temp');
 
@@ -356,44 +369,9 @@ export default function App() {
     return [];
   };
 
-  // Snapshot-or-selection: one list shared by the transfer dialogs AND their
-  // confirm handlers, so what the dialog previews is exactly what gets copied.
-  // Falling back to the current selection guarantees a transfer can never run
-  // against zero sources, even when an entry point forgets to snapshot.
-  const transferItems: FileItem[] = modalData?.items?.length ? modalData.items : getSelectedOrFocusedItems();
-
-  // Single funnel for the copy/move/delete dialogs. Child components reach it
-  // through setActiveModal, so the toolbar, menu bar, user menu and F-key bar
-  // all snapshot the selection before the dialog is opened.
-  const openTransferModal = (modal: ActiveModal): boolean => {
-    if (modal !== 'copy' && modal !== 'move' && modal !== 'delete') return false;
-    // Snapshot the LIVE selection every time. Reading the previous snapshot made
-    // every later transfer silently repeat the first one: the stale entries were
-    // written back into modalData, so F5/F6 kept re-targeting the original folder.
-    const snapshot = getSelectedOrFocusedItems();
-    if (snapshot.length === 0) return true;
-    soundManager.playKeyTick();
-    setModalData({ items: snapshot, type: modal });
-    setActiveModal(modal);
-    return true;
-  };
-
-  const handleSetActiveModal: React.Dispatch<React.SetStateAction<ActiveModal>> = (action) => {
-    if (typeof action === 'string' && openTransferModal(action)) return;
-    setActiveModal(action);
-  };
-
-  const handleTriggerCopy = () => {
-    openTransferModal('copy');
-  };
-
-  const handleTriggerMove = () => {
-    openTransferModal('move');
-  };
-
-  const handleTriggerDelete = () => {
-    openTransferModal('delete');
-  };
+  // The hook snapshots the selection through this ref, so it has to point at the
+  // live one: the panel hook above is what knows what is selected.
+  selectionRef.current = getSelectedOrFocusedItems;
 
   /**
    * Forgets pinned folders the tree found deleted on disk. Called from the tree,
@@ -1175,7 +1153,7 @@ export default function App() {
             lockApp();
             return;
           }
-          handleSetActiveModal(m);
+          setActiveModal(m);
         }}
         onRefresh={() => {
           soundManager.playKeyTick();
@@ -1234,10 +1212,10 @@ export default function App() {
         setFsTick={setFsTick}
         activeFocusedItem={activeFocusedItem}
         setSelectedFileForModal={setSelectedFileForModal}
-        setActiveModal={handleSetActiveModal}
+        setActiveModal={setActiveModal}
         onCleanup={(target) => {
           setCleanupTarget(target);
-          handleSetActiveModal('cleanup');
+          setActiveModal('cleanup');
         }}
         rightPanelShowsDiskUsage={rightPanel.panelView === 'diskUsage'}
         onNavigate={handleNavigate}
@@ -1429,7 +1407,7 @@ export default function App() {
             if (m === 'viewer' || m === 'editor' || m === 'checksum' || m === 'properties') {
               if (activeFocusedItem) setSelectedFileForModal(activeFocusedItem);
             }
-            handleSetActiveModal(m);
+            setActiveModal(m);
           }}
           onCopy={handleTriggerCopy}
           onMove={handleTriggerMove}
@@ -1663,7 +1641,7 @@ export default function App() {
         currentTheme={currentTheme}
         lang={lang}
         selectedFileForModal={selectedFileForModal}
-        setActiveModal={handleSetActiveModal}
+        setActiveModal={setActiveModal}
         activeModal={activeModal}
         cleanupTarget={cleanupTarget}
         modalData={modalData?.items?.length ? modalData : { ...modalData, items: transferItems }}
