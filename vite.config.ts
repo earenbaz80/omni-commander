@@ -197,6 +197,42 @@ export default defineConfig(({ command, mode }) => {
       // and the result was a red run in which nothing was broken. A hang is
       // still a hang, reported twenty seconds later instead of five.
       testTimeout: 20000,
+      // Two pools, because one of them cannot run three files. vmThreads creates
+      // the jsdom environment once per worker instead of once per test file, and
+      // that creation is 160s of the suite's 124s -- but inside it `vite.config`
+      // and `scripts/engines-floor` fail at collection, and the PBKDF2 password
+      // suite never sees its mocks (crypto and timers behave differently in that
+      // VM). Those three keep the default pool; the rest runs on vmThreads, and
+      // the same 741 tests pass in roughly half the time. Measured, not assumed:
+      // on the whole suite vmThreads alone turned 7 tests red.
+      projects: [
+        {
+          extends: true,
+          test: {
+            name: 'vmThreads',
+            pool: 'vmThreads',
+            exclude: [
+              'e2e/**',
+              'node_modules/**',
+              'dist/**',
+              'vite.config.test.ts',
+              'scripts/engines-floor.test.ts',
+              'src/components/modals/SettingsModal.password.test.tsx',
+            ],
+          },
+        },
+        {
+          extends: true,
+          test: {
+            name: 'threads',
+            include: [
+              'vite.config.test.ts',
+              'scripts/engines-floor.test.ts',
+              'src/components/modals/SettingsModal.password.test.tsx',
+            ],
+          },
+        },
+      ],
       // Coverage is a gate, not a report nobody opens: the numbers below are the
       // baseline measured on the commit that added them, rounded down, so a
       // regression turns the run red and only a better number raises them.

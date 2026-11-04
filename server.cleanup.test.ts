@@ -84,7 +84,13 @@ async function holdFileOpen(filePath: string): Promise<void> {
     windowsHide: true,
   });
 
-  for (let attempt = 0; attempt < 100; attempt++) {
+  // PowerShell starts in about a second when the machine is idle and has been
+  // measured past ten while the rest of the suite saturated the box, which is
+  // how this suite went red with nothing wrong in the cleanup code. Thirty
+  // seconds is a budget for a cold process, not a longer wait for a broken
+  // lock: the marker file still has to prove the handle is held before any
+  // test runs, and it is removed the moment the holder dies.
+  for (let attempt = 0; attempt < 300; attempt++) {
     if (fs.existsSync(lockMarker)) {
       // Proof the handle really denies others: with FileShare.None even a read
       // open fails, while Node's own open (share-delete) would have succeeded.
@@ -136,7 +142,7 @@ beforeAll(async () => {
   server = await startServer({
     env: { OMNI_SESSION_TOKEN: '', OMNI_CLEANUP_USER_TEMP_ROOT: root },
   });
-}, 40000);
+}, 90000);
 
 afterAll(async () => {
   await server.stop();

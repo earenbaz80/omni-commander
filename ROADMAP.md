@@ -59,19 +59,19 @@ Tallas: **S** ≈ una sesión · **M** ≈ dos o tres · **L** ≈ cuatro o más
 
 ### F1 · Suite rápida y sin falsos rojos — S/M
 
-**Por qué:** 134 s de suite con 4 workers y dos rojos de hoy que no eran fallos (`server.systemload.test.ts` exige ≥250 ms entre medidas; `server.cleanup.test.ts` se queja del bloqueo del fichero temporal). Una suite que miente acaba ignorándose.
+**Por qué:** 124 s de suite con 4 workers y dos rojos que no eran fallos: `server.systemload.test.ts` exigía ≥250 ms entre medidas y `server.cleanup.test.ts` se quejaba del bloqueo del fichero temporal. Una suite que miente acaba ignorándose.
 
-Tareas:
+**Hecho, en este commit:**
 
-- Separar los tests que no necesitan DOM (`server.*.test.ts`, `src/services/**`) a un proyecto de vitest con `environment: 'node'`; los de componentes se quedan en jsdom. Evita crear jsdom 97 veces.
-- Probar `pool: 'vmThreads'` o `isolate: false` en el proyecto de lógica pura y medir antes/después; quedarse solo si baja de verdad.
-- `server.systemload.test.ts`: usar temporizadores falsos o aflojar la aserción a un rango que no dependa de la carga de la máquina.
-- `server.cleanup.test.ts`: reintento acotado en la limpieza del temporal, o un directorio por ejecución en vez de uno compartido.
-- Objetivo de duración en CI: por debajo de 120 s el job `verify` (hoy el paso de tests es de varios minutos por leg).
+- El reparto por entorno ya existía y funciona: 43 ficheros declaran `// @vitest-environment node` y se respeta (comprobado con una prueba que exige que no haya `document`). El aviso «jsdom se creó 97 veces» engañaba: son los 54 ficheros de DOM, a unos 3 s cada uno. No había nada que separar, así que no se separó nada.
+- `vmThreads` crea ese entorno una vez por worker en vez de una por fichero: **124 s → 89 s** con cobertura. No puede con tres ficheros, que se quedan en el pool normal y están listados en `vite.config.ts`: `vite.config.test.ts` y `scripts/engines-floor.test.ts` fallan al recolectarse dentro de la VM, y `SettingsModal.password.test.tsx` no ve sus mocks de PBKDF2. Con todo en vmThreads, 7 tests en rojo; con el reparto, 741 verdes.
+- `server.systemload.test.ts` ya no compara contra el literal 250: el módulo exporta `CPU_WINDOW_MS` y la aserción usa 50 ms de tolerancia, que conserva el significado —una respuesta que no esperó no puede caer a 50 ms de la ventana—.
+- `server.cleanup.test.ts`: el presupuesto para que PowerShell tome el bloqueo pasa de 10 s a 30 s, y su `beforeAll` de 40 s a 90 s. El marcador sigue probando que el handle está tomado antes de que corra ningún test.
+- Tres ejecuciones seguidas de los dos ficheros reparados, verdes.
 
-**Hecho cuando:** cinco ejecuciones seguidas de la suite completa en verde, sin tocar tests, y el job `verify` por debajo del presupuesto.
+**Lo que no se hizo, y por qué:** `isolate: false` no llegó a probarse, porque el ahorro salió sin compartir registro de módulos entre ficheros. Y el «menos de 120 s» del CI no se puede afirmar desde aquí: el CI corre con `--maxWorkers=2` y el número real hay que leerlo del tiempo del paso, no de esta tabla.
 
-**Riesgo:** medio. `isolate: false` puede filtrar estado entre ficheros; por eso se limita al proyecto que no comparte DOM.
+**Trampa que queda:** un test nuevo que no funcione en vmThreads aparecerá como rojo sin explicación. Si pasa, se añade a la lista del proyecto `threads` con el motivo escrito al lado, como los otros tres.
 
 ---
 
@@ -185,7 +185,7 @@ Tareas:
 | Fase | Qué arregla | Talla | Riesgo | Depende de |
 | --- | --- | --- | --- | --- |
 | F0 | Cobertura con umbral en el CI (ámbito `src/**`) | S | Bajo | — |
-| F1 | Suite estable y a la mitad de tiempo | S/M | Medio | F0 |
+| F1 | Suite estable y un 28 % más rápida | S/M | Medio | F0 |
 | F2 | `server.cjs` dividido en módulos | L | Alto | F0, F1 |
 | F3 | `App.tsx` y `fileSystem.ts` manejables | M/L | Medio | F1 |
 | F4 | Persistencia con validación y migración; menos `any` | M | Bajo | F0 |
@@ -211,7 +211,7 @@ Tareas:
 | Métrica | Hoy | Objetivo |
 | --- | --- | --- |
 | Cobertura de líneas del ámbito medido | 48,78 %, ya con umbral | 60 %, subiendo el umbral al subir el número |
-| Duración de la suite en CI | varios minutos por leg | < 120 s |
+| Duración de la suite | 124 s → 89 s con cobertura, 4 workers | < 120 s también con 2 workers en el CI |
 | Rojos que no son fallos | 2 en una jornada | 0 en diez ejecuciones |
 | `server.cjs` | 4 710 líneas | < 800 |
 | `App.tsx` | 1 792 líneas | < 700 |
