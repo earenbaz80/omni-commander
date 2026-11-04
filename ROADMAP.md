@@ -111,6 +111,8 @@ Tareas:
 - En `fileSystem.ts`, separar transferencias (`fileTransfer.ts`), compresión (`fileArchiveOps.ts`) y hashes, dejando el módulo como fachada. Mantener los re-exports para no tocar a los consumidores.
 - Objetivo: `App.tsx` por debajo de 700 líneas, `fileSystem.ts` por debajo de 1 000.
 
+**Primera tanda hecha (este commit).** El sondeo de unidades y la suscripción al catálogo vivían en dos `useEffect` de `App.tsx` que tenían que concordar entre sí: uno preguntaba al servidor cada cinco segundos y el otro republicaba lo que la tienda ya sabía. Ahora son un solo `useDrives`, que devuelve la lista y no expone su `setState`; App dejó de tener el estado de unidades y de saber cada cuánto se reintenta. `App.tsx` baja de 1 781 a 1 757 líneas —poco, porque el objetivo de esta fase es el reparto, no el recuento— y la suite no cambia ni un resultado: 114 ficheros y 847 tests.
+
 **Hecho cuando:** no cambia ni un comportamiento observable (los e2e y los tests de componentes siguen iguales) y los ficheros bajan de esos umbrales.
 
 **Riesgo:** medio. Es refactor puro; el peligro es mezclarlo con arreglos funcionales en el mismo commit.

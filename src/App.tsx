@@ -3,7 +3,6 @@ import type { ModalData } from './types';
 import { parkTransferPlan, takeParkedTransferPlan } from './services/pendingTransfer';
 import {
   FileItem,
-  Drive,
   ActiveModal,
   CommandHistoryItem,
   ConflictResolution,
@@ -34,6 +33,7 @@ import { PanelView } from './components/PanelView';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useSettings } from './hooks/useSettings';
 import { useSplitter } from './hooks/useSplitter';
+import { useDrives } from './hooks/useDrives';
 import { usePanels } from './hooks/usePanels';
 import { useCommandExecution } from './hooks/useCommandExecution';
 
@@ -50,12 +50,6 @@ import { CollapsibleInfoDrawer } from './components/CollapsibleInfoDrawer';
 // Modals
 import { taskQueue } from './services/taskQueueManager';
 import { startTrayBridge } from './services/trayBridge';
-
-// Real drives are polled so a USB device plugged in after startup appears
-// without restarting the app. A failed poll backs off, which rides out the
-// embedded server's start-up window and web mode without a running server.
-const DRIVE_POLL_MS = 5000;
-const DRIVE_POLL_RETRY_MS = 15000;
 
 export default function App() {
   // Global System Settings
@@ -92,7 +86,7 @@ export default function App() {
   }
 
   // File system state
-  const [drives, setDrives] = useState<Drive[]>(() => fsEngine.getDrives());
+  const drives = useDrives();
   const [activePanel, setActivePanel] = useState<'left' | 'right'>('left');
 
   // Hover Tooltip state
@@ -214,27 +208,6 @@ export default function App() {
     stackedPanels,
   );
 
-  // Load real OS drives when a local drive API is available, then keep the
-  // list fresh so removable devices can be plugged in and unplugged live.
-  useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    // The poll is cancelled for real on unmount, not just ignored: otherwise a
-    // retrying read outlives the window and logs a failure for it.
-    const controller = new AbortController();
-    const poll = async () => {
-      const answered = await fsEngine.loadRealDrivesFromApi({ signal: controller.signal });
-      if (cancelled) return;
-      timer = setTimeout(poll, answered ? DRIVE_POLL_MS : DRIVE_POLL_RETRY_MS);
-    };
-    void poll();
-    return () => {
-      cancelled = true;
-      controller.abort();
-      if (timer) clearTimeout(timer);
-    };
-  }, []);
-
   // Sync with FileSystem changes
   const [fsTick, setFsTick] = useState(0);
 
@@ -347,7 +320,6 @@ export default function App() {
 
   useEffect(() => {
     return fsEngine.subscribe(() => {
-      setDrives(fsEngine.getDrives());
       setFsTick((t) => t + 1);
     });
   }, []);
