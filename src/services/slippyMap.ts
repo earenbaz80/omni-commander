@@ -277,7 +277,15 @@ export function zoomForPinch(startZoom: number, startDistance: number, currentDi
   return clampZoom(startZoom + Math.log2(currentDistance / startDistance));
 }
 
-export function boundsForView(view: MapView, width: number, height: number) {
+/** A box of coordinates, as `boundsForView` returns it and a dragged rectangle becomes one. */
+export interface MapBounds {
+  north: number;
+  south: number;
+  west: number;
+  east: number;
+}
+
+export function boundsForView(view: MapView, width: number, height: number): MapBounds {
   const northWest = unprojectFromScreen({ x: 0, y: 0 }, view, width, height);
   const southEast = unprojectFromScreen({ x: width, y: height }, view, width, height);
   return {
@@ -286,4 +294,47 @@ export function boundsForView(view: MapView, width: number, height: number) {
     south: southEast.lat,
     east: southEast.lon,
   };
+}
+
+/**
+ * Every tile of one level inside a coordinate box, which is what a rectangle
+ * dragged on the map asks to keep. `tilesCoveringView` answers "what covers the
+ * window"; this answers "what covers what I picked", which can be much larger.
+ *
+ * The box may arrive in any orientation — a drag can start at its south-east
+ * corner — and may cross the antimeridian, where west is numerically greater
+ * than east. Columns therefore walk in world space and fold back into the world
+ * with the same wrap `tilesCoveringView` uses.
+ */
+export function tilesCoveringRect(
+  bounds: MapBounds,
+  zoom: number,
+  padding = 0,
+): Array<{ z: number; x: number; y: number }> {
+  const level = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(zoom)));
+  const ring = Math.max(0, Math.floor(padding));
+  const count = Math.pow(2, level);
+  const north = Math.max(bounds.north, bounds.south);
+  const south = Math.min(bounds.north, bounds.south);
+  // Latitudes do not wrap, so a box that runs past a pole stops at the edge of
+  // the world instead of folding onto the other side. Both rows are clamped
+  // before the ring is added: at exactly the cut latitude the projection lands a
+  // hair past zero, and its floor used to leave the range empty.
+  const topRow = Math.min(count - 1, Math.max(0, Math.floor(latToWorldY(north, level) / TILE_SIZE)));
+  const bottomRow = Math.min(count - 1, Math.max(0, Math.floor(latToWorldY(south, level) / TILE_SIZE)));
+  const firstRow = Math.max(0, topRow - ring);
+  const lastRow = Math.min(count - 1, bottomRow + ring);
+  const firstColumn = Math.floor(lonToWorldX(bounds.west, level) / TILE_SIZE) - ring;
+  let lastColumn = Math.floor(lonToWorldX(bounds.east, level) / TILE_SIZE) + ring;
+  // East of the antimeridian the second corner is numerically west of the
+  // first: the selection is the short way round, not the whole world.
+  if (lastColumn < firstColumn) lastColumn += count;
+  const columns = Math.min(count, lastColumn - firstColumn + 1);
+
+  const tiles: Array<{ z: number; x: number; y: number }> = [];
+  for (let column = firstColumn; column < firstColumn + columns; column += 1) {
+    const x = ((column % count) + count) % count;
+    for (let y = firstRow; y <= lastRow; y += 1) tiles.push({ z: level, x, y });
+  }
+  return tiles;
 }

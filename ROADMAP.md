@@ -170,6 +170,12 @@ Tareas:
 - Enlazar la atribución de cada capa con su página de licencia (requisito de OSM/OpenTopoMap/CyclOSM).
 - Test del recorte del rectángulo en `tilesCoveringView` y del vaciado en `server.maps.test.ts`.
 
+**Hecho (este commit).** El diálogo dice cuántas teselas guarda y cuánto pesan, leídas de la carpeta de disco (`GET /api/maps/cache`) en vez de deducidas de lo descargado en esta sesión, y las vacía con `DELETE /api/maps/cache`: memoria, caché de búsquedas y el árbol entero, no solo los ficheros. Un rectángulo arrastrado fija la zona (`tilesCoveringRect`), se guarda a los mismos tres niveles que «guardar lo visible» y pasa por el mismo bucle de tandas, que ahora comparten función: 900 teselas como tope por rectángulo, 40 por petición y concurrencia 2 en el servidor, para no convertir una selección ambiciosa en un rastreo. La atribución de cada capa es un enlace a su licencia que se entrega al shell, porque la ventana bloquea la navegación.
+
+Tres cosas que solo aparecieron al ejecutar los tests. La primera: el guardián del token miraba únicamente la query, que es lo que necesita un `<img>`; ahora acepta también la cabecera, que es lo que puede mandar el `fetch` del vaciado. La segunda: en la latitud límite la proyección cae una pizca por debajo de cero, el suelo de la fila daba `-1` y el rango salía vacío — un arrastre pegado al polo no habría guardado nada. La tercera: el antimeridiano, donde el oeste es numéricamente mayor que el este y normalizar con mínimo y máximo habría convertido una selección de dos columnas en la vuelta al mundo; las columnas caminan en espacio de mundo y se pliegan con el mismo `wrap` que ya usaba el guardado por vista.
+
+Tests: 4 del servidor (recuento y peso reales, carpeta ausente, vaciado completo, 403 sin token y 200 con cabecera), 7 del recorte (mundo entero, caja pequeña, orientación del arrastre, antimeridiano, polos, relleno, redondeo de nivel) y 1 del diálogo. La suite pasa de 847 a 851 pruebas verdes y el tope por tanda se mantiene bajo.
+
 **Hecho cuando:** el diálogo informa del tamaño, permite vaciar, y se puede guardar una zona mayor que la pantalla.
 
 **Riesgo:** medio: la descarga por zona multiplica peticiones a los servidores de teselas; hay que mantener el tope y la concurrencia baja.

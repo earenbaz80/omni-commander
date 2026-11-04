@@ -15,6 +15,8 @@ export interface ElectronBridge {
   apiToken?: string;
   /** UAC restarts the process, so refusing is a normal answer rather than a throw. */
   relaunchAsAdmin?: () => Promise<ElevationResult>;
+  /** Hands a URL to the shell: the app blocks navigation out of its window. */
+  openExternal?: (url: string) => Promise<unknown>;
   minimizeWindow?: () => void;
   maximizeWindow?: () => void;
   closeWindow?: () => void;
