@@ -7,6 +7,17 @@ import { soundManager } from '../services/soundEffects';
 import { PWAInstallButton } from './PWAInstallButton';
 import { UpdateBadge } from './UpdateBadge';
 
+/**
+ * How long a hover-opened menu survives the pointer leaving the bar.
+ *
+ * The few pixels between a title and its panel belong to neither the title nor
+ * the panel, so walking down to the menu leaves the bar on the way. Closing at
+ * once made the menu unreachable with the mouse; this delay is long enough to
+ * cross that gap and short enough to feel immediate when the pointer really
+ * leaves.
+ */
+const MENU_CLOSE_DELAY_MS = 200;
+
 interface HeaderMenuBarProps {
   theme: ThemeConfig;
   lang: LanguageCode;
@@ -63,6 +74,8 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
   const [timeStr, setTimeStr] = useState(() => new Date().toLocaleTimeString());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  /** Pending close of a hover-opened menu, cancelled when the pointer comes back. */
+  const closeTimer = useRef<number | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -96,6 +109,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
 
   const handleMenuClick = (menuName: string) => {
     soundManager.playKeyTick();
+    cancelScheduledClose();
     setOpenMenu(openMenu === menuName ? null : menuName);
   };
 
@@ -111,19 +125,48 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
 
   const handleAction = (action: () => void) => {
     soundManager.playKeyTick();
+    cancelScheduledClose();
     setOpenMenu(null);
     action();
   };
 
-  // Leaving the whole bar closes what hovering opened; the panels live inside
-  // it, so opening one does not count as leaving. A menu opened by a click is
-  // left alone: that is the behaviour this bar had before the setting existed.
+  const cancelScheduledClose = () => {
+    if (closeTimer.current !== null) {
+      window.clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  };
+
+  /** Closes a hover-opened menu once the pointer has had time to reach the panel. */
+  const scheduleClose = () => {
+    if (!hoverOpen) return;
+    cancelScheduledClose();
+    closeTimer.current = window.setTimeout(() => {
+      closeTimer.current = null;
+      setOpenMenu(null);
+    }, MENU_CLOSE_DELAY_MS);
+  };
+
+  /** A pointer that comes back onto the bar, or onto another title, keeps the menu. */
+  const enterMenu = (menuName: string) => {
+    cancelScheduledClose();
+    hoverMenu(menuName);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    };
+  }, []);
+
+  // Leaving the whole bar closes what hovering opened, once the pointer has had
+  // time to cross the gap onto the panel. A menu opened by a click is left
+  // alone: that is the behaviour this bar had before the setting existed.
   return (
     <div
       ref={menuRef}
-      onMouseLeave={() => {
-        if (hoverOpen) setOpenMenu(null);
-      }}
+      onMouseEnter={cancelScheduledClose}
+      onMouseLeave={scheduleClose}
       className="nc-drag flex items-center justify-between px-[var(--space-2)] py-[var(--space-1)] text-xs select-none border-b shrink-0 z-30 font-mono tracking-wide"
       style={{
         backgroundColor: theme.headerBg,
@@ -166,7 +209,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         </div>
 
         {/* Menu items */}
-        <div className="relative inline-block" onMouseEnter={() => hoverMenu('left')}>
+        <div className="relative inline-block" onMouseEnter={() => enterMenu('left')}>
           <button
             onClick={() => handleMenuClick('left')}
             className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'left' ? 'bg-black/30 font-bold' : ''}`}
@@ -209,7 +252,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         </div>
 
         {/* Files menu */}
-        <div className="relative inline-block" onMouseEnter={() => hoverMenu('files')}>
+        <div className="relative inline-block" onMouseEnter={() => enterMenu('files')}>
           <button
             onClick={() => handleMenuClick('files')}
             className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'files' ? 'bg-black/30 font-bold' : ''}`}
@@ -288,7 +331,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         </div>
 
         {/* Commands menu */}
-        <div className="relative inline-block" onMouseEnter={() => hoverMenu('commands')}>
+        <div className="relative inline-block" onMouseEnter={() => enterMenu('commands')}>
           <button
             onClick={() => handleMenuClick('commands')}
             className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'commands' ? 'bg-black/30 font-bold' : ''}`}
@@ -383,7 +426,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         </div>
 
         {/* Apps menu: the tools that live inside OmniCommander */}
-        <div className="relative inline-block" onMouseEnter={() => hoverMenu('apps')}>
+        <div className="relative inline-block" onMouseEnter={() => enterMenu('apps')}>
           <button
             onClick={() => handleMenuClick('apps')}
             className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'apps' ? 'bg-black/30 font-bold' : ''}`}
@@ -425,7 +468,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         </div>
 
         {/* Options menu */}
-        <div className="relative inline-block" onMouseEnter={() => hoverMenu('options')}>
+        <div className="relative inline-block" onMouseEnter={() => enterMenu('options')}>
           <button
             onClick={() => handleMenuClick('options')}
             className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'options' ? 'bg-black/30 font-bold' : ''}`}
@@ -490,7 +533,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         </div>
 
         {/* FTP menu */}
-        <div className="relative inline-block" onMouseEnter={() => hoverMenu('ftp')}>
+        <div className="relative inline-block" onMouseEnter={() => enterMenu('ftp')}>
           <button
             onClick={() => handleMenuClick('ftp')}
             className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'ftp' ? 'bg-black/30 font-bold' : ''}`}
@@ -513,7 +556,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         </div>
 
         {/* Right menu */}
-        <div className="relative inline-block" onMouseEnter={() => hoverMenu('right')}>
+        <div className="relative inline-block" onMouseEnter={() => enterMenu('right')}>
           <button
             onClick={() => handleMenuClick('right')}
             className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'right' ? 'bg-black/30 font-bold' : ''}`}
@@ -549,7 +592,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         </div>
 
         {/* Help menu */}
-        <div className="relative inline-block" onMouseEnter={() => hoverMenu('help')}>
+        <div className="relative inline-block" onMouseEnter={() => enterMenu('help')}>
           <button
             onClick={() => handleMenuClick('help')}
             className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'help' ? 'bg-black/30 font-bold' : ''}`}
