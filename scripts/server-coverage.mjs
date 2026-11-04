@@ -59,7 +59,7 @@ const isServerScript = (url) => {
   if (!url.startsWith('file:')) return false;
   const file = fileURLToPath(url);
   const normalised = file.split(path.sep).join('/');
-  return /\/server\.cjs$/.test(normalised) || /\/server\/[^/]+\.cjs$/.test(normalised);
+  return /\/server\.cjs$/.test(normalised) || /\/server\/.+\.cjs$/.test(normalised);
 };
 
 /** Offsets of the first character of every line, for offset -> line without splitting per range. */

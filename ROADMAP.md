@@ -71,6 +71,8 @@ Tallas: **S** ≈ una sesión · **M** ≈ dos o tres · **L** ≈ cuatro o más
 
 **Lo que no se hizo, y por qué:** `isolate: false` no llegó a probarse, porque el ahorro salió sin compartir registro de módulos entre ficheros. Y el «menos de 120 s» del CI no se puede afirmar desde aquí: el CI corre con `--maxWorkers=2` y el número real hay que leerlo del tiempo del paso, no de esta tabla.
 
+**Falso rojo encontrado después, y arreglado:** una corrida completa hizo fallar los seis tests de `server.readbytes.test.ts` con `fetch failed: bad port`, y la siguiente pasó entera. No era el código: `fetch` (undici) rechaza ciertos puertos —6566 y 6665-6669 caen dentro del rango efímero de Windows— y `freePort()` podía devolver uno de ellos, con lo que el servidor arrancaba bien y la URL era inalcanzable. El arnés ahora descarta esos puertos antes de usarlos (`isFetchablePort`). Es el segundo rojo de esta clase que aparece, así que el contador «0 en diez ejecuciones» de la sección 5 sigue sin cumplirse.
+
 **Trampa que queda:** un test nuevo que no funcione en vmThreads aparecerá como rojo sin explicación. Si pasa, se añade a la lista del proyecto `threads` con el motivo escrito al lado, como los otros tres.
 
 ---
@@ -82,7 +84,7 @@ Tallas: **S** ≈ una sesión · **M** ≈ dos o tres · **L** ≈ cuatro o más
 Tandas, cada una un commit:
 
 0. **Medir el servidor — hecho.** `npm run test:server:coverage` corre las 20 suites con `NODE_V8_COVERAGE` y suma los volcados de cada hijo: **`server.cjs` está en 65 % de líneas (3 075/4 728) y 75,2 % de funciones (235/317)**; `server/pathSafety.cjs`, 97,1 %, y `server/systemLoad.cjs`, 93,5 %. Hubo que resolver dos cosas para que el número existiera: un hijo matado no escribe su volcado —en Windows `kill()` no ejecuta nada dentro del proceso—, así que el servidor expone un cierre ordenado `/api/__coverage-shutdown` **solo** cuando la medición define `SERVER_COVERAGE_SHUTDOWN`, y el arnés lo llama antes de matar; y V8 anida los bloques que no corrieron dentro de la función que sí, así que el primer cálculo daba 100 % — ahora decide el rango más pequeño que llega a cada línea. Es cobertura de líneas por bloques, no de ramas: sirve para comparar antes y después de partir el fichero, que es para lo que está.
-1. **Rutas de sistema** (`/api/fs/*`, unidad, drives) → `server/routes/fs.cjs`. Ya hay precedente en `server/pathSafety.cjs` y `server/systemLoad.cjs`.
+1. **Rutas de sistema** (`/api/fs/*`, unidad, drives) → `server/routes/fs.cjs`. Ya hay precedente en `server/pathSafety.cjs` y `server/systemLoad.cjs`. **Primera tanda hecha:** las cuatro rutas que solo leen el motor de trabajos (`/api/fs/jobs`, `/api/fs/dashboard`, `/api/fs/job/:id`, `/api/fs/job/:id/:action`) viven ahora en `server/routes/jobs.cjs`, con sus dependencias pasadas explícitamente y seis tests propios que no arrancan un servidor completo.
 2. **Rutas de mapa** (teselas, búsqueda, caché offline) → `server/routes/maps.cjs`. Es la más reciente y la más autocontenida; sirve de ensayo.
 3. **Motor de trabajos** (cola, pausa, reanudación, SSE) → `server/jobs.cjs`.
 4. **Panel HTML de transferencias** (`server.cjs:1682` en adelante) → fuera del servidor o a `server/dashboard.cjs`, con su escape revisado.
