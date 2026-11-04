@@ -6,6 +6,7 @@ import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 import { taskQueue } from '../../services/taskQueueManager';
 import { fsEngine } from '../../services/fileSystem';
+import { readAfterFinishChoice, writeAfterFinishChoice, type AfterFinish } from '../../services/afterFinish';
 import { RetroProgressBar } from '../RetroProgressBar';
 import ModalShell from '../ModalShell';
 
@@ -18,12 +19,6 @@ interface TransferMonitorModalProps {
 
 const TRANSFER_TYPES: Array<BackgroundTask['type']> = ['copy', 'move', 'delete'];
 
-// The copy form writes this same key, so a choice made in either window stays
-// the same choice. Duplicating the literal is the price of not importing the
-// component just for a constant.
-const AFTER_FINISH_KEY = 'omnicommander.afterFinish';
-type AfterFinish = 'stay' | 'close' | 'ask';
-
 const SPEED_OPTIONS_MB = [0, 1, 5, 10, 50];
 
 type Tab = 'list' | 'errors' | 'options';
@@ -33,16 +28,6 @@ interface LogEntry {
   time: string;
   title: string;
   message: string;
-}
-
-function readAfterFinish(): AfterFinish {
-  try {
-    const stored = localStorage.getItem(AFTER_FINISH_KEY);
-    if (stored === 'close' || stored === 'ask' || stored === 'stay') return stored;
-  } catch {
-    // Storage can be unavailable; the default is still the safe one.
-  }
-  return 'stay';
 }
 
 function formatBytes(bytes: number): string {
@@ -76,7 +61,7 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({ them
   const [tab, setTab] = useState<Tab>('list');
   const [folded] = useState(false);
   const [log, setLog] = useState<LogEntry[]>([]);
-  const [afterFinish, setAfterFinish] = useState<AfterFinish>(readAfterFinish);
+  const [afterFinish, setAfterFinish] = useState<AfterFinish>(readAfterFinishChoice);
   const dismissed = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -123,11 +108,7 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({ them
 
   const chooseAfterFinish = (next: AfterFinish) => {
     setAfterFinish(next);
-    try {
-      localStorage.setItem(AFTER_FINISH_KEY, next);
-    } catch {
-      // A full quota costs the reminder, never the transfer.
-    }
+    writeAfterFinishChoice(next);
   };
 
   const clearLog = () => {
