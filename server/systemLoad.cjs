@@ -103,4 +103,4 @@ async function readElevation() {
   return elevation;
 }
 
-module.exports = { readSystemStats, readElevation };
+module.exports = { CPU_WINDOW_MS, readSystemStats, readElevation };
