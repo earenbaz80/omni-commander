@@ -164,6 +164,7 @@ export const ja = {
   minimize: '最小化',
   maximizeRestore: '最大化 / 元に戻す',
   resizeWindow: 'ウィンドウのサイズを変更',
+  moveWindow: 'ウィンドウを移動',
   bookmarks: 'ブックマーク / お気に入り...',
   recycleBin: 'ゴミ箱...',
   taskQueue: 'タスクキュー...',

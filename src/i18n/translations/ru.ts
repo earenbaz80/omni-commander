@@ -163,6 +163,7 @@ export const ru = {
   minimize: 'Свернуть',
   maximizeRestore: 'Развернуть / Восстановить',
   resizeWindow: 'Изменить размер окна',
+  moveWindow: 'Переместить окно',
   bookmarks: 'Закладки / Избранное...',
   recycleBin: 'Корзина...',
   taskQueue: 'Очередь задач...',

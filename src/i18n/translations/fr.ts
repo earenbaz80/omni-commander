@@ -164,6 +164,7 @@ export const fr = {
   minimize: 'Réduire',
   maximizeRestore: 'Agrandir / Restaurer',
   resizeWindow: 'Redimensionner la fenêtre',
+  moveWindow: 'Déplacer la fenêtre',
   bookmarks: 'Signets / Favoris...',
   recycleBin: 'Corbeille...',
   taskQueue: "File d'attente des tâches...",

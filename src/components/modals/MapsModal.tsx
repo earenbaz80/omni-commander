@@ -553,6 +553,7 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
       restoreLabel={t.maximizeRestore}
       resizable
       resizeLabel={t.resizeWindow}
+      moveLabel={t.moveWindow}
       fill
       onFillChange={setFills}
     >

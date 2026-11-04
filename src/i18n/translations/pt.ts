@@ -163,6 +163,7 @@ export const pt = {
   minimize: 'Minimizar',
   maximizeRestore: 'Maximizar / Restaurar',
   resizeWindow: 'Redimensionar a janela',
+  moveWindow: 'Mover a janela',
   bookmarks: 'Favoritos / Marcadores...',
   recycleBin: 'Lixeira...',
   taskQueue: 'Fila de Tarefas...',

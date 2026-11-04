@@ -4,6 +4,7 @@ import { SettingsModal } from './SettingsModal';
 import { themes } from '../../services/themeManager';
 import { translations } from '../../i18n/translations';
 import type { UserSettings } from '../../types';
+import { MODAL_FOCUSABLE_SELECTOR } from '../../hooks/useModalDialog';
 
 const settings: UserSettings = {
   theme: 'classic_blue',
@@ -80,7 +81,9 @@ describe('SettingsModal accessibility', () => {
     );
 
     const dialog = screen.getByRole('dialog');
-    const focusables = Array.from(dialog.querySelectorAll<HTMLElement>('button, input, select, textarea, a[href]'));
+    // Same selector the trap walks: a window is also moved and sized from its
+    // title bar and its corner, and those are tab stops of the ring too.
+    const focusables = Array.from(dialog.querySelectorAll<HTMLElement>(MODAL_FOCUSABLE_SELECTOR));
     expect(focusables.length).toBeGreaterThan(2);
 
     const first = focusables[0];

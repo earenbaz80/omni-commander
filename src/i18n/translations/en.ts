@@ -186,6 +186,7 @@ export const en = {
   minimize: 'Minimize',
   maximizeRestore: 'Maximize / Restore',
   resizeWindow: 'Resize window',
+  moveWindow: 'Move window',
   bookmarks: 'Bookmarks / Favorites...',
   recycleBin: 'Recycle Bin...',
   taskQueue: 'Task Queue...',

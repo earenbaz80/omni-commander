@@ -165,6 +165,7 @@ export const de = {
   minimize: 'Minimieren',
   maximizeRestore: 'Maximieren / Wiederherstellen',
   resizeWindow: 'Fenstergröße ändern',
+  moveWindow: 'Fenster verschieben',
   bookmarks: 'Lesezeichen / Favoriten...',
   recycleBin: 'Papierkorb...',
   taskQueue: 'Aufgabenwarteschlange...',
