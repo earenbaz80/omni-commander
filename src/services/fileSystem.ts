@@ -1,19 +1,8 @@
-import JSZip from 'jszip';
-import { archiveEntryPath, base64ToBytes, bytesToBase64 } from './zipArchive';
-import { buildTar, gzip } from './tarArchive';
-import {
-  UnsupportedArchiveError,
-  formatFromExtension,
-  formatLabel,
-  isServerReadable,
-  loadArchiveBackend,
-  withFormatExtension,
-  type ArchiveBackend,
-  type OpenableArchiveFormat,
-} from './archiveBackend';
+import { base64ToBytes } from './zipArchive';
+import type { OpenableArchiveFormat } from './archiveBackend';
 import { API_BASE } from './apiBase';
+import { createArchiveOps, type ArchiveOps } from './fileArchiveOps';
 import type { OpenWithProgram } from './openWith';
-import { loadServerArchiveBackend } from './serverArchive';
 import {
   ConflictResolution,
   Drive,
@@ -442,7 +431,7 @@ class FileSystemEngine {
   }
 
   public getFiles(driveId: string, currentPath: string): FileItem[] {
-    const mount = this.findArchive(driveId, currentPath);
+    const mount = this.archiveOps.findArchive(driveId, currentPath);
     if (mount) return mount.items.filter((item) => this.normalizePath(item.path) === this.normalizePath(currentPath));
     if (this.filesIndexVersion !== this.filesVersion) {
       this.filesIndex.clear();
@@ -491,10 +480,7 @@ class FileSystemEngine {
   }
 
   public getFileById(id: string): FileItem | undefined {
-    return (
-      this.files.find((f) => f.id === id) ||
-      [...this.archives.values()].flatMap((m) => m.items).find((f) => f.id === id)
-    );
+    return this.files.find((f) => f.id === id) || this.archiveOps.findMountedItem(id);
   }
 
   public normalizePath(path: string): string {
@@ -1633,34 +1619,6 @@ class FileSystemEngine {
     return calculateFileHashesImpl(file);
   }
 
-  private archives = new Map<string, { source: FileItem; root: string; backend: ArchiveBackend; items: FileItem[] }>();
-
-  private findArchive(driveId: string, path: string) {
-    const normalized = this.normalizePath(path).toLowerCase();
-    return [...this.archives.values()].find(
-      (m) =>
-        m.source.driveId === driveId &&
-        (normalized === m.root.toLowerCase() || normalized.startsWith(`${m.root.toLowerCase()}\\`)),
-    );
-  }
-
-  public getArchiveSource(driveId: string, path: string): FileItem | undefined {
-    return this.findArchive(driveId, path)?.source;
-  }
-
-  /**
-   * The backend of an archive that is already mounted, matched by the file it
-   * was opened from. An encrypted archive can only be read through the backend
-   * that was opened with its password, so extraction must reuse it rather than
-   * open the file again without one.
-   */
-  private mountedArchiveBackend(archiveFile: FileItem): ArchiveBackend | undefined {
-    const target = this.realAbsolutePath(archiveFile).toLowerCase();
-    return [...this.archives.values()].find(
-      (mounted) => mounted.source.driveId === archiveFile.driveId && mounted.root.toLowerCase() === target,
-    )?.backend;
-  }
-
   /**
    * Raw bytes of a file. `maxBytes` caps what comes back and is forwarded to the
    * server as well, so a caller that only needs a preview (the viewer and the
@@ -1678,7 +1636,7 @@ class FileSystemEngine {
       maxBytes && bytes.length > maxBytes ? bytes.subarray(0, maxBytes) : bytes;
 
     if (file.archiveRoot && file.archiveEntry) {
-      const mount = this.findArchive(file.driveId, file.archiveRoot);
+      const mount = this.archiveOps.findArchive(file.driveId, file.archiveRoot);
       if (!mount) throw new Error(tGlobal('zipErrEmpty'));
       return cap(await mount.backend.readEntry(file.archiveEntry));
     }
@@ -1741,130 +1699,58 @@ class FileSystemEngine {
     return response.json();
   }
 
-  private async writeBytes(driveId: string, root: string, relative: string, bytes: Uint8Array): Promise<FileItem> {
-    if (this.getArchiveSource(driveId, root)) throw new Error(tGlobal('zipReadOnly'));
-    const safe = archiveEntryPath(relative);
-    // Kept drive-relative for the catalogue entry, which indexes panels by that
-    // form; only the request to the server needs the drive letter.
-    const target = this.childAbsolutePath(root, safe);
-    if (this.isSystemDrive(driveId)) {
-      const response = await fetchWithRetry(
-        `${API_BASE}/api/fs/write-bytes?path=${encodeURIComponent(this.absoluteForDrive(driveId, target))}&root=${encodeURIComponent(this.absoluteForDrive(driveId, root))}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/octet-stream' },
-          body: new Blob([new Uint8Array(bytes)]),
-          retries: 0,
-          timeoutMs: 120000,
-        },
-      );
-      if (!response.ok) throw new Error((await response.json()).error);
-    }
-    const parent = this.getParentPath(target);
-    const fullName = safe.split('\\').pop()!;
-    if (
-      !this.isSystemDrive(driveId) &&
-      this.getFiles(driveId, parent).some((f) => this.realEntryName(f).toLowerCase() === fullName.toLowerCase())
-    ) {
-      throw new Error(tGlobal('zipErrExists').replace('{name}', fullName));
-    }
-    const dot = fullName.lastIndexOf('.');
-    const now = new Date().toISOString();
-    const item: FileItem = {
-      id: `bytes_${Date.now()}_${Math.random()}`,
-      driveId,
-      path: parent,
-      fullName,
-      name: dot > 0 ? fullName.slice(0, dot) : fullName,
-      ext: dot > 0 ? fullName.slice(dot + 1) : '',
-      isDirectory: false,
-      size: bytes.length,
-      createdAt: now,
-      modifiedAt: now,
-      attributes: { readOnly: false, hidden: false, system: false, archive: true },
-      content: bytesToBase64(bytes),
-      contentEncoding: 'base64',
-    };
+  // -------------------------------------------------------------------------
+  // Archives
+  // -------------------------------------------------------------------------
+
+  /**
+   * The archive subsystem, built the first time something needs it.
+   *
+   * Mounting, creating and extracting an archive used to be a 340-line block of
+   * this class that reached into eighteen of its members: path arithmetic, the
+   * catalogue index, the server bridge and the directory re-list. It lives in
+   * `fileArchiveOps` now, and the dependencies it is handed below are named one
+   * by one, so what it needs is visible in its signature instead of hidden in
+   * `this`. Lazy on purpose: several of those members only exist once this
+   * class has finished building itself.
+   */
+  private archiveOpsInstance: ArchiveOps | null = null;
+
+  private get archiveOps(): ArchiveOps {
+    this.archiveOpsInstance ??= createArchiveOps({
+      normalizePath: (path) => this.normalizePath(path),
+      getParentPath: (path) => this.getParentPath(path),
+      childAbsolutePath: (parentPath, childName) => this.childAbsolutePath(parentPath, childName),
+      absoluteForDrive: (driveId, targetPath) => this.absoluteForDrive(driveId, targetPath),
+      realAbsolutePath: (file) => this.realAbsolutePath(file),
+      realEntryName: (file) => this.realEntryName(file),
+      isSystemDrive: (driveId) => this.isSystemDrive(driveId),
+      getFiles: (driveId, currentPath) => this.getFiles(driveId, currentPath),
+      readFileBytes: (file, options) => this.readFileBytes(file, options),
+      createDirectory: (driveId, parentPath, dirName) => this.createDirectory(driveId, parentPath, dirName),
+      callServerFs: (route, body) => this.callServerFs(route, body),
+      lastCallError: () => this.lastCallError,
+      rememberFile: (item) => this.rememberFile(item),
+      saveToStorage: () => this.saveToStorage(),
+      loadSystemDriveDirectory: (driveId, path) => this.loadSystemDriveDirectory(driveId, path),
+    });
+    return this.archiveOpsInstance;
+  }
+
+  /** Adds a catalogue entry and persists it, which is what a written file is. */
+  private rememberFile(item: FileItem): void {
     this.files.push(item);
     this.saveToStorage();
-    return item;
   }
 
-  /**
-   * Picks the engine that can actually read an archive.
-   *
-   * ZIP and TAR are parsed in the renderer. RAR, 7-Zip and the bzip2/lzma TARs
-   * are read by the local server, which runs libarchive's WASM and already owns
-   * the file, so a large archive is never copied into the renderer to be parsed
-   * there. An extension can lie, so a file the local engine refuses is offered
-   * to the server when its magic bytes name a format the server can read.
-   */
-  private async openArchiveBackend(source: FileItem, password?: string): Promise<ArchiveBackend> {
-    const fileName = this.realEntryName(source);
-    const declared = formatFromExtension(fileName);
-    // An entry mounted from another archive is not a file on disk: the server
-    // has no path to open for it.
-    const onDisk = this.isSystemDrive(source.driveId) && !source.archiveRoot;
-    if (onDisk && isServerReadable(declared)) {
-      return loadServerArchiveBackend(this.realAbsolutePath(source), fileName, declared, password);
-    }
-    try {
-      return await loadArchiveBackend(await this.readFileBytes(source, { unlimited: true }), fileName, password);
-    } catch (error) {
-      if (onDisk && error instanceof UnsupportedArchiveError && isServerReadable(error.format)) {
-        return loadServerArchiveBackend(this.realAbsolutePath(source), fileName, error.format, password);
-      }
-      if (!onDisk && isServerReadable(declared)) {
-        throw new Error(tGlobal('zipServerDrive').replace('{format}', formatLabel(declared)), { cause: error });
-      }
-      throw error;
-    }
+  public getArchiveSource(driveId: string, path: string): FileItem | undefined {
+    return this.archiveOps.getArchiveSource(driveId, path);
   }
 
-  /**
-   * Mounts any archive this build can read into a virtual root inside the
-   * catalogue. The format dispatch decides what is openable, so a RAR or a 7Z
-   * is refused here naming its format, instead of being handed to JSZip and
-   * reported as a corrupt file.
-   */
   public async openArchive(source: FileItem, password?: string): Promise<string> {
-    const backend = await this.openArchiveBackend(source, password);
-    const root = this.realAbsolutePath(source);
-    const items: FileItem[] = [];
-    for (const entry of backend.entries) {
-      const relative = archiveEntryPath(entry.name);
-      const fullPath = this.childAbsolutePath(root, relative);
-      const fullName = relative.split('\\').pop()!;
-      const dot = entry.dir ? -1 : fullName.lastIndexOf('.');
-      items.push({
-        id: `archive_${source.driveId}_${fullPath}`,
-        driveId: source.driveId,
-        path: this.getParentPath(fullPath),
-        name: dot > 0 ? fullName.slice(0, dot) : fullName,
-        ext: dot > 0 ? fullName.slice(dot + 1) : '',
-        fullName,
-        isDirectory: entry.dir,
-        size: entry.dir ? 0 : entry.size,
-        createdAt: entry.date.toISOString(),
-        modifiedAt: entry.date.toISOString(),
-        attributes: { readOnly: true, hidden: false, system: false, archive: true },
-        archiveRoot: root,
-        archiveEntry: entry.name,
-      });
-    }
-    this.archives.set(`${source.driveId}|${root}`, { source, root, backend, items });
-    this.saveToStorage();
-    return root;
+    return this.archiveOps.openArchive(source, password);
   }
 
-  /**
-   * Creates an archive of the requested format from real bytes, including
-   * recursively listed disk folders.
-   *
-   * The tree is collected once and each format serialises it, so ZIP and TAR
-   * cannot drift apart; the stored name always carries the extension of the
-   * format that was actually written, never a compound one.
-   */
   public async createArchive(
     items: FileItem[],
     archiveName: string,
@@ -1872,62 +1758,7 @@ class FileSystemEngine {
     targetPath: string,
     format: OpenableArchiveFormat = 'ZIP',
   ): Promise<FileItem> {
-    const collected: { path: string; dir: boolean; bytes?: Uint8Array; mtime?: Date }[] = [];
-
-    const add = async (item: FileItem, prefix = ''): Promise<void> => {
-      const relative = `${prefix}${this.realEntryName(item)}`;
-      archiveEntryPath(relative);
-      if (item.isDirectory) {
-        collected.push({ path: relative, dir: true });
-        const path = this.realAbsolutePath(item);
-        if (this.isSystemDrive(item.driveId) && !item.archiveRoot) {
-          const response = await fetchWithRetry(
-            `${API_BASE}/api/list?driveId=${encodeURIComponent(item.driveId)}&path=${encodeURIComponent(path)}`,
-            { retries: 0, timeoutMs: 20000 },
-          );
-          if (!response.ok) throw new Error((await response.json()).error);
-          const children = (await response.json()) as FileItem[];
-          for (const child of children) await add({ ...child, driveId: item.driveId, path }, `${relative}/`);
-        } else {
-          for (const child of this.getFiles(item.driveId, path)) await add(child, `${relative}/`);
-        }
-        return;
-      }
-      collected.push({
-        path: relative,
-        dir: false,
-        // An archive is only an archive with every byte: the central directory
-        // that lists its entries sits at the end of the file.
-        bytes: await this.readFileBytes(item, { unlimited: true }),
-        mtime: new Date(item.modifiedAt || Date.now()),
-      });
-    };
-    for (const item of items) await add(item);
-
-    const bytes = await this.serializeArchive(collected, format);
-    const result = await this.writeBytes(targetDriveId, targetPath, withFormatExtension(archiveName, format), bytes);
-    if (this.isSystemDrive(targetDriveId)) await this.loadSystemDriveDirectory(targetDriveId, targetPath);
-    return result;
-  }
-
-  /** Serialises a collected tree into the bytes of the chosen format. */
-  private async serializeArchive(
-    entries: { path: string; dir: boolean; bytes?: Uint8Array; mtime?: Date }[],
-    format: OpenableArchiveFormat,
-  ): Promise<Uint8Array> {
-    if (format === 'ZIP') {
-      const zip = new JSZip();
-      for (const entry of entries) {
-        // Directories are registered explicitly so empty folders survive.
-        if (entry.dir) zip.folder(entry.path);
-        else zip.file(entry.path, entry.bytes ?? new Uint8Array(0));
-      }
-      return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
-    }
-    const tar = buildTar(
-      entries.map((entry) => ({ name: entry.path, dir: entry.dir, bytes: entry.bytes, mtime: entry.mtime })),
-    );
-    return format === 'TAR.GZ' ? gzip(tar) : tar;
+    return this.archiveOps.createArchive(items, archiveName, targetDriveId, targetPath, format);
   }
 
   public async extractArchive(
@@ -1936,46 +1767,12 @@ class FileSystemEngine {
     targetPath: string,
     selectedEntry?: string,
   ): Promise<number> {
-    if (this.getArchiveSource(targetDriveId, targetPath)) throw new Error(tGlobal('zipReadOnly'));
-    const backend = this.mountedArchiveBackend(archiveFile) ?? (await this.openArchiveBackend(archiveFile));
-    const wanted = selectedEntry?.replace(/\/+$/, '');
-    const entries = backend.entries.filter(
-      (entry) => !wanted || entry.name === wanted || entry.name.startsWith(`${wanted}/`),
-    );
-    const stripPrefix = selectedEntry ? selectedEntry.replace(/\/$/, '').split('/').slice(0, -1).join('/') : '';
-    let extractedCount = 0;
-    try {
-      for (const entry of entries) {
-        const relative = archiveEntryPath(stripPrefix ? entry.name.slice(stripPrefix.length + 1) : entry.name);
-        const parts = relative.split('\\');
-        const directories = entry.dir ? parts : parts.slice(0, -1);
-        let parent = this.normalizePath(targetPath);
-        for (const dir of directories) {
-          if (this.isSystemDrive(targetDriveId)) {
-            const result = await this.callServerFs('mkdir', {
-              path: this.childAbsolutePath(parent, dir),
-              archiveRoot: targetPath,
-            });
-            if (!result) throw new Error(this.lastCallError);
-          } else if (!this.getFiles(targetDriveId, parent).some((f) => f.isDirectory && f.name === dir)) {
-            this.createDirectory(targetDriveId, parent, dir);
-          }
-          parent = this.childAbsolutePath(parent, dir);
-        }
-        if (!entry.dir) {
-          await this.writeBytes(targetDriveId, targetPath, relative, await entry.read());
-          extractedCount++;
-        }
-      }
-    } finally {
-      if (this.isSystemDrive(targetDriveId)) await this.loadSystemDriveDirectory(targetDriveId, targetPath);
-    }
-    return extractedCount;
+    return this.archiveOps.extractArchive(archiveFile, targetDriveId, targetPath, selectedEntry);
   }
 
   // Import external real file from browser input
   public async importBrowserFile(file: File, targetDriveId: string, targetPath: string): Promise<FileItem> {
-    return this.writeBytes(targetDriveId, targetPath, file.name, new Uint8Array(await file.arrayBuffer()));
+    return this.archiveOps.writeBytes(targetDriveId, targetPath, file.name, new Uint8Array(await file.arrayBuffer()));
   }
 
   // File Splitter (Splits file into .part001, .part002, etc.)
