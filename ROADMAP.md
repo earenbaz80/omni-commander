@@ -12,9 +12,9 @@
 | --- | --- | --- |
 | Tests | 741 en 97 ficheros | `npx vitest run` |
 | Tests del servidor | 20 ficheros | `ls server.*.test.ts` |
-| Cobertura de `src/**` | 46,36 % sentencias · 40,90 % ramas · 37,58 % funciones · 48,38 % líneas | `vitest run --coverage --coverage.include='src/**'` |
-| `server.cjs` en esa medida | **fuera** | el `include` lo excluye |
-| Duración | ~140 s sin cobertura · 255 s con cobertura | el entorno jsdom se creó 97 veces: 211 s (32 %) |
+| Cobertura de `src/**` | 46,68 % sentencias · 40,85 % ramas · 37,97 % funciones · 48,78 % líneas | `npm run test:coverage` (sin tests ni stories) |
+| `server.cjs` en esa medida | **fuera, y no puede entrar así** | cada suite lo arranca como proceso hijo; V8 solo informa del suyo |
+| Duración | 134 s con cobertura y 4 workers | el entorno jsdom se crea 97 veces y se lleva el 39 % |
 | Dependencias de producción | 7 · 0 vulnerabilidades | `npm audit --omit=dev` |
 | `tsc --noEmit` y `typecheck:strict` | limpios | `npm run lint`, `npm run typecheck:strict` |
 | eslint | 0 avisos con `--max-warnings 0` | `npm run lint:eslint` |
@@ -43,24 +43,23 @@ Tallas: **S** ≈ una sesión · **M** ≈ dos o tres · **L** ≈ cuatro o más
 
 ### F0 · Medir la cobertura y publicarla en el CI — S
 
-**Por qué:** hoy la cobertura no tiene umbral ni script, y el fichero que borra, mueve y cifra archivos del usuario (`server.cjs`) no entra en la medida.
+**Por qué:** la cobertura existía como medición manual, sin script y sin umbral, así que nadie la miraba y nada impedía que bajara.
 
-Tareas:
+**Hecho, en este commit:**
 
-- Añadir `test:coverage` a `package.json` con `--coverage.include=['src/**','server.cjs','server/**']`.
-- Umbral inicial igual a la línea base medida (no «subir a 80 %»): `lines: 46`, `functions: 37`, `branches: 40`, y solo se sube cuando sube el número real.
-- Paso nuevo en el job `verify` de `release.yml` que publique el resumen como artefacto (`coverage/`), sin bloquear por ahora.
-- Documentar en el README qué entra y qué no en la medida, para que nadie compare peras con manzanas como pasó con el 54,01 %.
+- `npm run test:coverage` mide `src/**/*.{ts,tsx}` sin los ficheros de test ni las stories, que si no suben el número solos al crecer la suite.
+- Umbral en `vite.config.ts` igual a la línea base redondeada a la baja: 46 sentencias, 40 ramas, 37 funciones, 48 líneas. Sube solo cuando sube el número real.
+- En el CI un solo leg mide en vez de repetir la suite: el leg de Node 22 corre `test:coverage` y sube `coverage/` como artefacto, también cuando falla. El tiempo del job no cambia.
 
-**Hecho cuando:** `npm run test:coverage` corre en local y en CI, el umbral falla si la cobertura baja, y el informe incluye `server.cjs`.
+**Lo que esta fase no puede hacer:** `server.cjs` no entra en la medida, y no es un olvido. Cada suite lo arranca como proceso hijo (`scripts/serverHarness.ts`) y la cobertura de V8 solo describe el proceso en el que corre; incluirlo daría cero sobre 4 710 líneas y un número falso. Medirlo pide `NODE_V8_COVERAGE` en ese hijo y una pasada que una los informes: es la tanda 0 de la F2, donde además habrá algo que medir.
 
-**Riesgo:** bajo. El peligro es poner el umbral donde hoy no llega y bloquear `master` con rojo desde el primer día.
+**Riesgo:** bajo. El umbral está donde hoy llega el código; el peligro habría sido ponerlo en una aspiración y bloquear `master` desde el primer push.
 
 ---
 
 ### F1 · Suite rápida y sin falsos rojos — S/M
 
-**Por qué:** 255 s con cobertura y dos rojos de hoy que no eran fallos (`server.systemload.test.ts` exige ≥250 ms entre medidas; `server.cleanup.test.ts` se queja del bloqueo del fichero temporal). Una suite que miente acaba ignorándose.
+**Por qué:** 134 s de suite con 4 workers y dos rojos de hoy que no eran fallos (`server.systemload.test.ts` exige ≥250 ms entre medidas; `server.cleanup.test.ts` se queja del bloqueo del fichero temporal). Una suite que miente acaba ignorándose.
 
 Tareas:
 
@@ -82,6 +81,7 @@ Tareas:
 
 Tandas, cada una un commit:
 
+0. **Medir el servidor:** el arnés pasa `NODE_V8_COVERAGE` al hijo y un paso une esos informes con el de `src`. Sin esta red, refactorizar el servidor es mover código a ciegas.
 1. **Rutas de sistema** (`/api/fs/*`, unidad, drives) → `server/routes/fs.cjs`. Ya hay precedente en `server/pathSafety.cjs` y `server/systemLoad.cjs`.
 2. **Rutas de mapa** (teselas, búsqueda, caché offline) → `server/routes/maps.cjs`. Es la más reciente y la más autocontenida; sirve de ensayo.
 3. **Motor de trabajos** (cola, pausa, reanudación, SSE) → `server/jobs.cjs`.
@@ -184,7 +184,7 @@ Tareas:
 
 | Fase | Qué arregla | Talla | Riesgo | Depende de |
 | --- | --- | --- | --- | --- |
-| F0 | Cobertura medida con umbral, `server.cjs` incluido | S | Bajo | — |
+| F0 | Cobertura con umbral en el CI (ámbito `src/**`) | S | Bajo | — |
 | F1 | Suite estable y a la mitad de tiempo | S/M | Medio | F0 |
 | F2 | `server.cjs` dividido en módulos | L | Alto | F0, F1 |
 | F3 | `App.tsx` y `fileSystem.ts` manejables | M/L | Medio | F1 |
@@ -210,7 +210,7 @@ Tareas:
 
 | Métrica | Hoy | Objetivo |
 | --- | --- | --- |
-| Cobertura de líneas (`src` + servidor) | 48,38 % (`src` solo) | 60 % y subiendo con umbral |
+| Cobertura de líneas del ámbito medido | 48,78 %, ya con umbral | 60 %, subiendo el umbral al subir el número |
 | Duración de la suite en CI | varios minutos por leg | < 120 s |
 | Rojos que no son fallos | 2 en una jornada | 0 en diez ejecuciones |
 | `server.cjs` | 4 710 líneas | < 800 |

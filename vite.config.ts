@@ -197,6 +197,30 @@ export default defineConfig(({ command, mode }) => {
       // and the result was a red run in which nothing was broken. A hang is
       // still a hang, reported twenty seconds later instead of five.
       testTimeout: 20000,
+      // Coverage is a gate, not a report nobody opens: the numbers below are the
+      // baseline measured on the commit that added them, rounded down, so a
+      // regression turns the run red and only a better number raises them.
+      // The scope is the app without its tests or stories, which would otherwise
+      // inflate the count as the suite grows.
+      // `server.cjs` is deliberately absent: every suite drives it as a child
+      // process (see scripts/serverHarness.ts) and V8 reports only on the process
+      // it runs in, so including it here would report zero for four thousand
+      // lines and mean nothing. Covering the server needs NODE_V8_COVERAGE on
+      // that child plus a merge pass, which belongs with the split of that file.
+      // Until then this number speaks for the renderer and its services only.
+      coverage: {
+        provider: 'v8',
+        include: ['src/**/*.{ts,tsx}'],
+        exclude: ['**/*.test.{ts,tsx}', '**/*.stories.{ts,tsx}', 'src/test/**'],
+        reporter: ['text-summary', 'html', 'json-summary'],
+        reportsDirectory: './coverage',
+        thresholds: {
+          statements: 46,
+          branches: 40,
+          functions: 37,
+          lines: 48,
+        },
+      },
     },
   };
 });
