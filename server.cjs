@@ -137,13 +137,40 @@ function isTokenValid(req) {
   return typeof provided === 'string' && provided === SESSION_TOKEN;
 }
 
+/**
+ * The same secret, as it travels for things that cannot send a header.
+ *
+ * An `<img>` or a `<video>` gets the per-launch token in the query string
+ * (`?t=`), which is the only place it can carry one. This is proof for the
+ * origin gate, not for the token requirement: a mutation still has to send the
+ * header, so a token that ends up in a URL can never authorise a write.
+ */
+function hasQueryToken(req) {
+  if (!SESSION_TOKEN) return true;
+  const fromQuery = req.query && typeof req.query.t === 'string' ? req.query.t : '';
+  if (fromQuery) return fromQuery === SESSION_TOKEN;
+  try {
+    // Middleware can run before the query parser has filled `req.query` in.
+    const parsed = new URL(String(req.originalUrl || req.url || ''), 'http://127.0.0.1');
+    return String(parsed.searchParams.get('t') || '') === SESSION_TOKEN;
+  } catch {
+    return false;
+  }
+}
+
 app.use((req, res, next) => {
   // Marks every response as ours, even error responses. The bind handshake at
   // the bottom of this file relies on it to prove that the socket which
   // answered is this server and not a foreign app sharing the same port.
   res.setHeader('X-OmniCmd-Server', '1');
   const origin = req.headers.origin;
-  const tokenValid = isTokenValid(req);
+  // Two proofs are accepted for the origin gate: the header a fetch can send,
+  // and the query parameter an <img> can be given. The packaged renderer is
+  // loaded from file://, where Chromium reports `Origin: null` for every
+  // subresource — a tile carried its token in the query and was still refused as
+  // an opaque origin, so the map and the media viewer painted nothing.
+  const headerTokenValid = isTokenValid(req);
+  const tokenValid = headerTokenValid || hasQueryToken(req);
   // Refusing here (rather than leaving it to the browser) matters: a
   // cross-origin "simple" request would otherwise still reach the handler and
   // mutate the disk, even though the browser hides the response.
@@ -151,7 +178,9 @@ app.use((req, res, next) => {
     res.status(403).json({ error: 'Origin not allowed' });
     return;
   }
-  if (requiresSessionToken(req) && !tokenValid) {
+  // A write still has to prove itself with the header: the query token is only
+  // good enough to load a picture.
+  if (requiresSessionToken(req) && !headerTokenValid) {
     res.status(403).json({ error: 'Missing or invalid session token' });
     return;
   }
