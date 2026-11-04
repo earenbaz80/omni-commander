@@ -2,6 +2,7 @@ import { base64ToBytes } from './zipArchive';
 import type { OpenableArchiveFormat } from './archiveBackend';
 import { API_BASE } from './apiBase';
 import { createArchiveOps, type ArchiveOps } from './fileArchiveOps';
+import { createTransferOps, type RealFsJob, type TransferOps } from './fileTransfer';
 import type { OpenWithProgram } from './openWith';
 import {
   ConflictResolution,
@@ -28,6 +29,8 @@ import { readCatalogue, writeCatalogue } from './filesystemStorage';
 // The archive errors live with the format dispatch that raises them; they stay
 // re-exported here because this module is the engine's public surface.
 export { ArchivePasswordError, UnsupportedArchiveError } from './archiveBackend';
+// The transfer policy lives with the poller now; tests still import it from here.
+export { lostJobRetryPolicy } from './fileTransfer';
 export type { ArchiveBackend, OpenableArchiveFormat } from './archiveBackend';
 import { calculateFileHashes as calculateFileHashesImpl } from './fileSystemCrypto';
 
@@ -74,35 +77,6 @@ interface ScanMessage {
   folder?: DiskUsageItem;
   tree?: DiskUsageScan;
   error?: string;
-}
-
-/** Progress snapshot of a real filesystem job owned by the local server. */
-interface RealFsJob {
-  id: string;
-  op: string;
-  status: 'running' | 'paused' | 'waiting' | 'done' | 'done-with-errors' | 'cancelled' | 'error';
-  totalBytes: number;
-  copiedBytes: number;
-  itemsTotal: number;
-  itemsDone: number;
-  itemsSkipped: number;
-  currentFile: string;
-  /** Destination parked for a human answer; present only while status is 'waiting'. */
-  pendingConflict: {
-    source: string;
-    destination: string;
-    isDirectory?: boolean;
-    sourceSize?: number;
-    destinationSize?: number;
-    sourceModified?: number;
-    destinationModified?: number;
-    identical?: boolean;
-  } | null;
-  /** Tail of the files this job touched, newest last. Bounded by the server. */
-  recentFiles: FileProgressEntry[];
-  speedBps: number;
-  etaSeconds: number;
-  errors: Array<{ path: string; message: string }>;
 }
 
 /**
@@ -161,19 +135,6 @@ export interface CleanupRun {
   skipped: number;
   truncated: boolean;
 }
-
-/**
- * How long an unobservable job is retried before a transfer is declared failed.
- * The defaults hold a transfer for about ten seconds, which rides out a brief
- * hiccup but refuses to call a dead server a success. Exposed so tests can
- * shrink the window instead of waiting ten real seconds.
- */
-export const lostJobRetryPolicy = {
-  /** Consecutive polls that may fail to observe the job before giving up. */
-  maxPolls: 20,
-  /** Delay between those polls, in milliseconds. */
-  pollDelayMs: 500,
-};
 
 /**
  * Bound on the in-memory listing cache. Every directory ever listed used to
@@ -661,27 +622,45 @@ class FileSystemEngine {
     return this.callServerFs<CleanupRun>('cleanup/run', { target, minAgeDays });
   }
 
-  /**
-   * Reads a job snapshot. A 404 means the server no longer knows about the job,
-   * which the caller decides how to treat. Transport failures deliberately
-   * PROPAGATE: swallowing them here is what let a dead server look like a
-   * finished transfer, turning a half-written file into a green 100% in the UI.
-   */
-  private async getServerJob(jobId: string): Promise<RealFsJob | null> {
-    const response = await fetchWithRetry(`${API_BASE}/api/fs/job/${encodeURIComponent(jobId)}`, {
-      timeoutMs: 10000,
-      retries: 1,
-    });
-    if (response.status === 404) return null;
-    if (!response.ok) throw new Error(`Job status request failed with HTTP ${response.status}`);
-    return (await response.json()) as RealFsJob;
-  }
+  // -------------------------------------------------------------------------
+  // Server-side transfers
+  // -------------------------------------------------------------------------
 
   /**
-   * Follows a server-side job to completion. The caller's pause/cancel intent
-   * is mirrored onto the running job, so pausing in the UI actually stops the
-   * transfer on disk instead of only freezing the progress bar.
+   * The transfer layer, built the first time a job starts.
+   *
+   * Starting a job, following it, mirroring pause/cancel onto the server and
+   * raising one collision prompt per destination used to be ~270 lines of this
+   * class. It lives in `fileTransfer` now; what it needs from here is the
+   * catalogue after the transfer and nothing else, and that arrives named.
    */
+  private transferOpsInstance: TransferOps | null = null;
+
+  private get transferOps(): TransferOps {
+    this.transferOpsInstance ??= createTransferOps({
+      callServerFs: (route, body) => this.callServerFs(route, body),
+      lastCallError: () => this.lastCallError,
+      normalizePath: (path) => this.normalizePath(path),
+      realAbsolutePath: (file) => this.realAbsolutePath(file),
+      realEntryName: (file) => this.realEntryName(file),
+      isSystemDrive: (driveId) => this.isSystemDrive(driveId),
+      loadSystemDriveDirectory: (driveId, path) => this.loadSystemDriveDirectory(driveId, path),
+      catalogueEntryAt: (driveId, path, name) => this.catalogueEntryAt(driveId, path, name),
+    });
+    return this.transferOpsInstance;
+  }
+
+  /** The catalogue entry that landed in a folder, after the server re-listed it. */
+  private catalogueEntryAt(driveId: string, path: string, name: string): FileItem | undefined {
+    const normTarget = this.normalizePath(path);
+    return this.files.find(
+      (candidate) =>
+        candidate.driveId === driveId &&
+        this.normalizePath(candidate.path) === normTarget &&
+        this.realEntryName(candidate) === name,
+    );
+  }
+
   private async awaitServerJob(
     jobId: string,
     onProgress?: (transferred: number, total: number) => void,
@@ -689,134 +668,25 @@ class FileSystemEngine {
     onJob?: (job: RealFsJob) => void,
     onConflict?: (conflict: PendingConflict) => void,
   ): Promise<RealFsJob | null> {
-    let lastPaused = false;
-    let lastCancelled = false;
-    // Tracks the conflict already handed to the UI so one prompt is raised per
-    // destination instead of once per poll. Cleared once the prompt is gone.
-    let promptedConflict = '';
-    // A job that cannot be observed is NOT a finished job. With the server gone
-    // we keep asking for a bounded window before giving up, so a brief hiccup
-    // does not fail an otherwise healthy transfer, but a real outage is reported
-    // instead of silently completing with a truncated destination file.
-    let lostPolls = 0;
-    for (;;) {
-      let job: RealFsJob | null = null;
-      let unobservable = false;
-      try {
-        job = await this.getServerJob(jobId);
-      } catch {
-        unobservable = true;
-      }
-
-      if (unobservable || !job) {
-        lostPolls += 1;
-        if (lostPolls > lostJobRetryPolicy.maxPolls) {
-          throw new Error(
-            'Transfer lost: the local file server stopped responding, so the destination may be incomplete.',
-          );
-        }
-        await new Promise((resolve) => setTimeout(resolve, lostJobRetryPolicy.pollDelayMs));
-        continue;
-      }
-      lostPolls = 0;
-
-      onProgress?.(job.copiedBytes, job.totalBytes);
-      // Callers that need entry counts (delete has no byte total) read the raw
-      // snapshot here instead of the byte-oriented `onProgress` hook.
-      onJob?.(job);
-
-      // Raise a collision prompt at most once. Fire and forget on purpose: the
-      // poller must never block on a human, and the UI answers through
-      // resolveConflict(), which is what releases the parked server job.
-      if (job.pendingConflict) {
-        const signature = `${job.id}|${job.pendingConflict.source}|${job.pendingConflict.destination}`;
-        if (signature !== promptedConflict) {
-          promptedConflict = signature;
-          onConflict?.({
-            jobId: job.id,
-            source: job.pendingConflict.source,
-            destination: job.pendingConflict.destination,
-            name:
-              job.pendingConflict.destination.split(/[\\/]/).filter(Boolean).pop() || job.pendingConflict.destination,
-            isDirectory: job.pendingConflict.isDirectory,
-            sourceSize: job.pendingConflict.sourceSize,
-            destinationSize: job.pendingConflict.destinationSize,
-            sourceModified: job.pendingConflict.sourceModified,
-            destinationModified: job.pendingConflict.destinationModified,
-            identical: job.pendingConflict.identical,
-          });
-        }
-      } else {
-        promptedConflict = '';
-      }
-
-      if (signal) {
-        if (signal.cancelled && !lastCancelled) {
-          lastCancelled = true;
-          await this.callServerFs(`job/${encodeURIComponent(jobId)}/cancel`, {});
-        } else if (!signal.cancelled && signal.paused !== lastPaused) {
-          lastPaused = signal.paused;
-          await this.callServerFs(`job/${encodeURIComponent(jobId)}/${signal.paused ? 'pause' : 'resume'}`, {});
-        }
-      }
-
-      if (job.status !== 'running' && job.status !== 'paused' && job.status !== 'waiting') return job;
-      await new Promise((resolve) => setTimeout(resolve, 200));
-    }
+    return this.transferOps.awaitServerJob(jobId, onProgress, signal, onJob, onConflict);
   }
 
-  /**
-   * Answers a collision prompt raised by a running job. `applyToAll` promotes the
-   * single answer into the policy for the rest of that transfer, so a large copy
-   * does not ask once per colliding file.
-   */
   public async resolveConflict(jobId: string, action: ConflictResolution, applyToAll: boolean): Promise<void> {
-    await this.callServerFs(`job/${encodeURIComponent(jobId)}/resolve`, {
-      decision: action,
-      applyToAll: !!applyToAll,
-    });
+    return this.transferOps.resolveConflict(jobId, action, applyToAll);
   }
 
-  /** Aborts a job outright, used when the user backs out of a collision prompt. */
   public async cancelJob(jobId: string): Promise<void> {
-    await this.callServerFs(`job/${encodeURIComponent(jobId)}/cancel`, {});
+    return this.transferOps.cancelJob(jobId);
   }
 
-  /**
-   * Changes the speed limit of a job already in flight. The server applies it
-   * from the next chunk, so a large transfer can be slowed down while it runs.
-   * A value of 0 means unlimited.
-   */
   public async setJobThrottle(jobId: string, throttleBps: number): Promise<void> {
-    await this.callServerFs(`job/${encodeURIComponent(jobId)}/throttle`, { throttleBps });
+    return this.transferOps.setJobThrottle(jobId, throttleBps);
   }
 
-  // Fire-and-forget mutation helper: start the server job, wait for it and then
-  // re-read the directory from disk. Reloading unconditionally is deliberate —
-  // it repairs the optimistic in-memory state after a cancel or a failure.
   private runRealJob(route: string, body: unknown, driveId: string, reloadPath: string): void {
-    void (async () => {
-      try {
-        const started = await this.callServerFs<{ jobId?: string }>(route, body);
-        if (started?.jobId) await this.awaitServerJob(started.jobId);
-      } catch (error) {
-        // A fire-and-forget job has no task to report on, but a lost transfer
-        // must not become an unhandled rejection either.
-        console.error('[fileSystem] background job failed', error);
-      }
-      try {
-        await this.loadSystemDriveDirectory(driveId, reloadPath);
-      } catch (error) {
-        console.error('[fileSystem] directory reload failed', error);
-      }
-    })();
+    this.transferOps.runRealJob(route, body, driveId, reloadPath);
   }
 
-  /**
-   * Runs one server-side transfer of absolute source paths and waits for it.
-   * This is the shared core of both a live selection transfer and a transfer
-   * replayed from a saved copy list, which only has paths to work with.
-   */
   public async transferPaths(
     op: 'copy' | 'move',
     sources: string[],
@@ -829,51 +699,18 @@ class FileSystemEngine {
     onFiles?: (files: FileProgressEntry[]) => void,
     onStart?: (info: { totalBytes: number; itemsTotal: number; jobId: string }) => void,
   ): Promise<void> {
-    const started = await this.callServerFs<{ jobId?: string; totalBytes?: number; itemsTotal?: number }>(op, {
+    return this.transferOps.transferPaths(
+      op,
       sources,
-      // Panels address a drive root as a bare letter ("C:"), which the server's
-      // path guard used to reject. Normalizing here keeps the request well formed
-      // whatever the caller passed.
-      targetDir: this.normalizePath(targetDir),
+      targetDir,
       overwrite,
-      // SuperCopier-style knobs. Omitted when the caller has no preference, so
-      // the server keeps its `overwrite`-derived default.
-      ...(options
-        ? {
-            collision: options.collision,
-            throttleBps: options.throttleBps,
-            ...(options.force ? { force: true } : {}),
-          }
-        : {}),
-    });
-    if (!started?.jobId) {
-      // `callServerFs` keeps the server's own reason out of band; surface it so
-      // the user sees "Unsafe path: ..." instead of an opaque "could not start".
-      const reason = this.lastCallError || 'the local file service did not answer';
-      throw new Error(`${op === 'move' ? 'Move' : 'Copy'} could not start: ${reason}`);
-    }
-
-    // The server already walked the tree to size the job. Report it so a
-    // folder selection does not fall back to the 1 MiB floor, which made an
-    // untouched copy look finished at 100%.
-    onStart?.({
-      totalBytes: Number(started.totalBytes) || 0,
-      itemsTotal: Number(started.itemsTotal) || 0,
-      jobId: String(started.jobId),
-    });
-
-    // The per-file rows come from the same snapshot the progress callback reads,
-    // so both surfaces stay in lockstep without a second poll.
-    const job = await this.awaitServerJob(
-      started.jobId,
       onProgress,
       signal,
-      onFiles ? (snapshot) => onFiles(snapshot.recentFiles || []) : undefined,
+      options,
       onConflict,
+      onFiles,
+      onStart,
     );
-    if (job && job.status === 'done-with-errors') {
-      throw new Error(job.errors[0]?.message || 'Operation failed');
-    }
   }
 
   private async realCopyOrMove(
@@ -888,9 +725,10 @@ class FileSystemEngine {
     onConflict?: (conflict: PendingConflict) => void,
     onFiles?: (files: FileProgressEntry[]) => void,
   ): Promise<FileItem | undefined> {
-    await this.transferPaths(
+    return this.transferOps.realCopyOrMove(
+      file,
       op,
-      [this.realAbsolutePath(file)],
+      targetDriveId,
       targetPath,
       overwrite,
       onProgress,
@@ -899,23 +737,7 @@ class FileSystemEngine {
       onConflict,
       onFiles,
     );
-
-    const sourceDriveId = file.driveId;
-    await this.loadSystemDriveDirectory(targetDriveId, targetPath);
-    if (op === 'move' && sourceDriveId !== targetDriveId) {
-      await this.loadSystemDriveDirectory(sourceDriveId, file.path);
-    }
-
-    const normTarget = this.normalizePath(targetPath);
-    const wanted = this.realEntryName(file);
-    return this.files.find(
-      (candidate) =>
-        candidate.driveId === targetDriveId &&
-        this.normalizePath(candidate.path) === normTarget &&
-        this.realEntryName(candidate) === wanted,
-    );
   }
-
   /**
    * Absolute on-disk path of a real-drive entry, for callers that need to record
    * or replay a transfer without holding the in-memory catalogue entry.
