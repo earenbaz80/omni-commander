@@ -4,6 +4,7 @@ import { BackgroundTask, CollisionPolicy, FileItem, LanguageCode, TransferOption
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
+import { readAfterFinishChoice, writeAfterFinishChoice, type AfterFinish } from '../../services/afterFinish';
 import { taskQueue } from '../../services/taskQueueManager';
 import { addEntriesToPlan, planFileBytes } from '../../services/transferPlanEdits';
 import { canPickPaths, pickPathsFromDisk, PickMode } from '../../services/nativePicker';
@@ -53,28 +54,12 @@ const COLLISION_OPTIONS: Array<
 
 const SPEED_OPTIONS_MB = [1, 5, 10, 50];
 
-// Closing a finished transfer on its own is convenient for fire-and-forget
-// copies and hostile for everything else, so it is always an explicit choice.
-type AfterFinish = 'stay' | 'close' | 'ask';
-
-const AFTER_FINISH_KEY = 'omnicommander.afterFinish';
-
 type Tab = 'list' | 'errors' | 'options';
 interface LogEntry {
   key: string;
   time: string;
   title: string;
   message: string;
-}
-
-function readAfterFinish(): AfterFinish {
-  try {
-    const stored = localStorage.getItem(AFTER_FINISH_KEY);
-    if (stored === 'close' || stored === 'ask' || stored === 'stay') return stored;
-  } catch {
-    // Storage can be unavailable; the default is still the safe one.
-  }
-  return 'stay';
 }
 
 function formatBytes(bytes: number): string {
@@ -106,7 +91,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
   // 0 means "no cap"; anything else is a cap in MB/s, converted to bytes on submit.
   const [speedLimitMb, setSpeedLimitMb] = useState(0);
   // Remembered across sessions: nobody wants to re-pick this on every copy.
-  const [afterFinish, setAfterFinish] = useState<AfterFinish>(readAfterFinish);
+  const [afterFinish, setAfterFinish] = useState<AfterFinish>(readAfterFinishChoice);
   const [finishedPrompt, setFinishedPrompt] = useState(false);
   const [listNote, setListNote] = useState('');
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -184,11 +169,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
 
   const chooseAfterFinish = (next: AfterFinish) => {
     setAfterFinish(next);
-    try {
-      localStorage.setItem(AFTER_FINISH_KEY, next);
-    } catch {
-      // A full quota costs the reminder, never the transfer.
-    }
+    writeAfterFinishChoice(next);
   };
 
   const clearLog = () => {
@@ -949,15 +930,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
               <select
                 id="afterFinishSelect"
                 value={afterFinish}
-                onChange={(e) => {
-                  const next = e.target.value as AfterFinish;
-                  setAfterFinish(next);
-                  try {
-                    localStorage.setItem(AFTER_FINISH_KEY, next);
-                  } catch {
-                    // A full quota costs the reminder, never the transfer.
-                  }
-                }}
+                onChange={(e) => chooseAfterFinish(e.target.value as AfterFinish)}
                 className="w-full bg-black/50 border border-white/30 rounded px-[var(--space-3)] py-[var(--space-2)] text-white font-mono text-xs focus:ring-1 focus:ring-amber-400 outline-none cursor-pointer"
               >
                 <option value="stay">{t.afterFinishStay}</option>

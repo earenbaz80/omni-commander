@@ -115,17 +115,16 @@ Tareas:
 
 **Por qué:** 62 usos de `localStorage`, cada uno con su `try/catch`; un valor corrupto resetea un ajuste en silencio. Y 75 `any`/`as any`, casi todos donde la respuesta del servidor se convierte en tipos del cliente.
 
-Tareas:
+**Hecho, primera tanda (este commit):**
 
-- `src/services/storage.ts`: `readStored(key, validate, fallback)` y `writeStored`, con `schemaVersion` por clave y migración declarada.
-- `usePersistedState` para los componentes; migrar primero el historial de la calculadora, el tema y los ajustes del mapa, y luego el resto.
-- Un test por clave migrada con: valor válido, valor corrupto, y valor de una versión anterior.
-- Sustituir `any` por tipos derivados de una única definición de la respuesta del servidor; empezar por `fileSystem.ts` (transferencias y árbol de uso de disco).
-- Activar `@typescript-eslint/no-explicit-any` en `warn` y bajarlo a `error` cuando queden menos de 30.
+- `src/services/storage.ts`: `readStored(key, spec)` con `validate`, `version` y `migrate`, más `writeStored` y `removeStored`. El valor vive en un sobre `{version, value}`; lo escrito antes del sobre se lee como versión 0, **incluida una palabra suelta que no es JSON**. Un valor que ya encaja con la forma actual se usa tal cual — si no, cada ajuste existente se habría reseteado una vez al desplegar, que es el fallo que este módulo existe para evitar — y solo lo que no encaja pasa por `migrate`. Lo que no se puede rescatar se borra con su clave, en vez de repetir el mismo error en cada montaje.
+- `usePersistedState` escribe el sobre al cambiar y **no** al montar: si escribiera al montar, una clave inexistente aparecería con el valor por defecto y «nunca configurado» dejaría de distinguirse de «configurado al valor por defecto».
+- Migradas tres claves: el historial de la calculadora (que además rescata las líneas buenas de una lista a medias), los anchos de columna y la elección de qué hacer al terminar una transferencia. Esa última estaba dos veces, con su lector y su literal en `CopyMoveModal` y en `TransferMonitorModal`; ahora un solo módulo decide qué significa el valor guardado.
+- Tests nuevos: 9 del módulo, 4 del hook y 4 de la elección, además de los que ya cubrían los anchos de columna.
 
-**Hecho cuando:** no queda ningún `JSON.parse(localStorage...)` suelto en componentes, hay migración probada, y el contador de `any` baja de 30.
+**Lo que queda de la fase:** los ajustes (`nc_settings_v1`), el árbol de ficheros (`nc_filesystem_v1` y compañía), los marcadores y el historial de búsqueda, y los `any`. Los ajustes se dejan para su propia tanda a propósito: son el valor con el que arranca la app y su normalización ya existe (`normalizeProtectedFolders`, `migrateThemeId`), así que moverla es un cambio de arranque y merece su propia comprobación.
 
-**Riesgo:** bajo, pero toca ajustes del usuario: cada migración necesita su test de valor corrupto.
+**Riesgo:** bajo, pero toca ajustes del usuario: cada migración necesita su test de valor corrupto y de valor antiguo, que es lo que esta tanda añade.
 
 ---
 
@@ -188,7 +187,7 @@ Tareas:
 | F1 | Suite estable y un 28 % más rápida | S/M | Medio | F0 |
 | F2 | `server.cjs` dividido en módulos | L | Alto | F0, F1 |
 | F3 | `App.tsx` y `fileSystem.ts` manejables | M/L | Medio | F1 |
-| F4 | Persistencia con validación y migración; menos `any` | M | Bajo | F0 |
+| F4 | Persistencia con validación (primera tanda hecha) | M | Bajo | F0 |
 | F5 | Ventanas usables con teclado, `aria` correcto | S | Bajo | — (queda el caso con `axe`) |
 | F6 | Caché del mapa visible y descarga por zona | M | Medio | — |
 | F7 | Release con checklist y firma comprobada | S | Bajo | — |

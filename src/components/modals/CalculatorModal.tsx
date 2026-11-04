@@ -4,6 +4,8 @@ import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
+import { removeStored, type StoredSpec } from '../../services/storage';
+import { usePersistedState } from '../../hooks/usePersistedState';
 import { CalculatorError, evaluateExpression, formatResult, tryEvaluateExpression } from '../../services/calculator';
 
 import ModalShell from '../ModalShell';
@@ -58,22 +60,24 @@ const KEYS: KeyDef[] = [
   { label: '=', action: 'equals', tone: 'accent' },
 ];
 
-function readHistory(): HistoryEntry[] {
-  try {
-    const raw = localStorage.getItem(HISTORY_KEY);
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.flatMap((entry) => {
-      if (!entry || typeof entry !== 'object') return [];
-      const record = entry as Record<string, unknown>;
-      if (typeof record.expression !== 'string' || typeof record.result !== 'string') return [];
-      return [{ expression: record.expression, result: record.result }];
-    });
-  } catch {
-    return [];
-  }
-}
+const isHistoryEntry = (value: unknown): value is HistoryEntry => {
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Record<string, unknown>;
+  return typeof record.expression === 'string' && typeof record.result === 'string';
+};
+
+const HISTORY_SPEC: StoredSpec<HistoryEntry[]> = {
+  fallback: [],
+  validate: (value): value is HistoryEntry[] => Array.isArray(value) && value.every(isHistoryEntry),
+  version: 1,
+  migrate: (value) => {
+    // One bad line used to take the whole history with it, because the reader
+    // threw on the first entry it could not use. A list is worth rescuing line by
+    // line, so a stale shape is cleaned instead of dropped.
+    if (!Array.isArray(value)) return null;
+    return value.filter(isHistoryEntry);
+  },
+};
 
 const keyClasses = (key: KeyDef): string => {
   if (key.tone === 'accent') return 'bg-amber-400 text-black border-amber-300 hover:bg-amber-300';
@@ -90,7 +94,7 @@ export const CalculatorModal: React.FC<CalculatorModalProps> = ({ theme, lang, o
   const t = getTranslations(lang);
   const [expression, setExpression] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [history, setHistory] = useState<HistoryEntry[]>(readHistory);
+  const [history, setHistory] = usePersistedState<HistoryEntry[]>(HISTORY_KEY, HISTORY_SPEC);
   /** The history panel folds away: on a small window the keypad needs the room. */
   const [historyOpen, setHistoryOpen] = useState(true);
 
@@ -103,15 +107,7 @@ export const CalculatorModal: React.FC<CalculatorModalProps> = ({ theme, lang, o
         const text = formatResult(evaluateExpression(value));
         setError(null);
         setExpression(text);
-        setHistory((previous) => {
-          const next = [{ expression: value, result: text }, ...previous].slice(0, HISTORY_LIMIT);
-          try {
-            localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
-          } catch {
-            // A disabled storage only costs the history, not the calculation.
-          }
-          return next;
-        });
+        setHistory((previous) => [{ expression: value, result: text }, ...previous].slice(0, HISTORY_LIMIT));
       } catch (caught) {
         const reason = caught instanceof CalculatorError ? caught.reason : 'invalid';
         setError(reason === 'division-by-zero' ? t.calcDivisionByZero : t.calcInvalidExpression);
@@ -174,11 +170,7 @@ export const CalculatorModal: React.FC<CalculatorModalProps> = ({ theme, lang, o
   const clearHistory = () => {
     soundManager.playKeyTick();
     setHistory([]);
-    try {
-      localStorage.removeItem(HISTORY_KEY);
-    } catch {
-      // Nothing to do: the list is already gone from the screen.
-    }
+    removeStored(HISTORY_KEY);
   };
 
   return (
