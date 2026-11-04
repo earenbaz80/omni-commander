@@ -1,87 +1,71 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import http from 'node:http';
 import { startServer, type TestServer } from '@/scripts/serverHarness';
 
 /**
- * The origin guard is what keeps a third-party page from driving the loopback
- * filesystem API, so it has to refuse everything that is not the app itself —
- * and it has to keep accepting the app. Both halves are load-bearing, and the
- * second one broke silently: the guard compared the parsed hostname against a
- * bare `::1`, but WHATWG parsing keeps the brackets around an IPv6 literal, so
- * `http://[::1]:3000` never matched. A dev server that binds IPv6 loopback (this
- * one does) then answered 403 to every mutation.
+ * Tiles and media are loaded by <img> and <video>, which cannot send a header:
+ * their per-launch token travels in the query. The packaged renderer runs from
+ * file://, where Chromium reports `Origin: null` for those subresources, so the
+ * origin gate has to accept the query token — while a write still has to prove
+ * itself with the header. Otherwise every tile came back 403 and the map painted
+ * black squares with an "offline" badge, even with a working connection.
  */
-const ROUTE = '/api/fs/freespace';
-
 let server: TestServer;
-
-/**
- * Sends a deliberately malformed body through the guard. Node's `fetch` may
- * rewrite `Origin`, so the header is set on a raw request to test what the
- * server actually receives.
- *
- * The status separates the two outcomes: 403 means the guard refused, while 400
- * means the request got past it and the route rejected the body.
- */
-const statusFor = (origin: string): Promise<number> =>
-  new Promise((resolve, reject) => {
-    const body = JSON.stringify({ plans: 'nope' });
-    const req = http.request(
-      {
-        host: '127.0.0.1',
-        port: server.port,
-        path: ROUTE,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(body),
-          Origin: origin,
-        },
-      },
-      (res) => {
-        res.resume();
-        res.on('end', () => resolve(res.statusCode ?? 0));
-      },
-    );
-    req.on('error', reject);
-    req.end(body);
-  });
+const TOKEN = 'origin-test-token';
 
 beforeAll(async () => {
-  // No session token: the other guard is not what this file is about.
-  server = await startServer({ env: { OMNI_SESSION_TOKEN: '' } });
-}, 30000);
+  server = await startServer({ env: { OMNI_SESSION_TOKEN: TOKEN } });
+}, 40000);
 
 afterAll(async () => {
   await server.stop();
 });
 
-describe('origin guard', () => {
-  it('accepts the IPv6 form of loopback, brackets and all', async () => {
-    expect(await statusFor('http://[::1]:3000')).toBe(400);
+const statusOf = async (path: string, init: RequestInit = {}) => {
+  const response = await fetch(server.url(path), init);
+  return response.status;
+};
+
+describe('the origin gate', () => {
+  it('lets the packaged renderer load a subresource with the token in the query', async () => {
+    expect(await statusOf(`/api/maps/cache?t=${TOKEN}`, { headers: { Origin: 'null' } })).toBe(200);
   });
 
-  it('accepts localhost', async () => {
-    expect(await statusFor('http://localhost:3000')).toBe(400);
+  it('refuses that subresource without the token', async () => {
+    expect(await statusOf('/api/maps/cache', { headers: { Origin: 'null' } })).toBe(403);
   });
 
-  it('accepts 127.0.0.1', async () => {
-    expect(await statusFor('http://127.0.0.1:3000')).toBe(400);
+  it('refuses another origin even when it carries the token', async () => {
+    expect(await statusOf(`/api/maps/cache?t=${TOKEN}`, { headers: { Origin: 'https://evil.example' } })).toBe(403);
   });
 
-  it('refuses a third-party origin', async () => {
-    expect(await statusFor('https://evil.example.com')).toBe(403);
+  it('accepts the app’s own dev origin', async () => {
+    expect(await statusOf(`/api/maps/cache?t=${TOKEN}`, { headers: { Origin: 'http://localhost:3000' } })).toBe(200);
   });
 
-  // A loopback host alone used to be enough, which let any other dev server or
-  // local tool on 127.0.0.1 drive this API. The port is part of the app.
-  it('refuses another loopback port, which is some other local app', async () => {
-    expect(await statusFor('http://localhost:3010')).toBe(403);
-    expect(await statusFor('http://127.0.0.1:8080')).toBe(403);
+  it('still demands the header for a write', async () => {
+    const empty = JSON.stringify({});
+    // A query token can load a picture; it cannot change the disk.
+    expect(
+      await statusOf(`/api/maps/offline?t=${TOKEN}`, {
+        method: 'POST',
+        headers: { Origin: 'null', 'Content-Type': 'application/json' },
+        body: empty,
+      }),
+    ).toBe(403);
+
+    // With the header it gets past the gate and is refused for its empty body,
+    // which is the proof that the 403 above was about the token and not the body.
+    expect(
+      await statusOf('/api/maps/offline', {
+        method: 'POST',
+        headers: { Origin: 'null', 'Content-Type': 'application/json', 'x-omni-token': TOKEN },
+        body: empty,
+      }),
+    ).toBe(400);
   });
 
-  it('refuses a loopback host over https, which this server never serves', async () => {
-    expect(await statusFor('https://localhost:3000')).toBe(403);
+  it('keeps an ordinary request with no origin working, which is what curl does', async () => {
+    expect(await statusOf(`/api/maps/cache?t=${TOKEN}`)).toBe(200);
   });
 });
