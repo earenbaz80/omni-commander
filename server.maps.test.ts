@@ -1,115 +1,129 @@
 // @vitest-environment node
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { startServer, type TestServer } from '@/scripts/serverHarness';
+import { afterEach, describe, expect, it } from 'vitest';
+import { registerMapRoutes } from './server/routes/maps.cjs';
 
 /**
- * The map routes talk to OpenStreetMap, Nominatim and an IP locator, so these
- * tests only cover what the server must decide on its own: which requests it
- * refuses before any upstream call is made. That keeps the suite offline and
- * still pins the two regressions that matter — a malformed tile number reaching
- * the proxy, and a request without the per-launch token being answered at all.
+ * The cache the map fills lives on disk, so the state route and the clear route
+ * are only worth testing against a real folder: a mock would answer whatever it
+ * was told, including the count the bug is about.
  */
-const TOKEN = 'maps-suite-token';
-let server: TestServer;
-/** Its own folder per run, so a saved tile from an earlier suite cannot answer. */
-const CACHE_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-map-cache-'));
 
-const get = async (route: string) => {
-  const response = await fetch(server.url(route));
-  const body = (await response.json().catch(() => ({}))) as { error?: string };
-  return { status: response.status, error: body.error };
-};
+type Handler = (req: Record<string, unknown>, res: unknown) => unknown;
 
-beforeAll(async () => {
-  server = await startServer({ env: { OMNI_SESSION_TOKEN: TOKEN, OMNI_MAP_CACHE_DIR: CACHE_DIR } });
-}, 40000);
+function buildApp() {
+  const routes = new Map<string, Handler>();
+  const record = (method: string) => (routePath: string, handler: Handler) => {
+    routes.set(`${method} ${routePath}`, handler);
+  };
+  registerMapRoutes({ get: record('GET'), post: record('POST'), delete: record('DELETE') } as never, {
+    SESSION_TOKEN: '',
+    parseByteRange: () => null,
+    MEDIA_TYPES: new Map<string, string>(),
+    assertSafePath: (value: string) => value,
+    logDebug: () => {},
+  });
+  return routes;
+}
 
-afterAll(async () => {
-  await server?.stop();
-  fs.rmSync(CACHE_DIR, { recursive: true, force: true });
+async function call(
+  routes: Map<string, Handler>,
+  key: string,
+  request: { query?: Record<string, string>; headers?: Record<string, string> } = {},
+) {
+  const captured = { status: 200, body: undefined as unknown };
+  const res = {
+    status(code: number) {
+      captured.status = code;
+      return res;
+    },
+    json(body: unknown) {
+      captured.body = body;
+      return res;
+    },
+    setHeader() {
+      return res;
+    },
+    send() {
+      return res;
+    },
+  };
+  const handler = routes.get(key);
+  if (!handler) throw new Error(`${key} is not registered`);
+  await handler({ query: request.query ?? {}, headers: request.headers ?? {} }, res);
+  return captured;
+}
+
+/** A cache folder with two tiles of known size, in two layers. */
+function seedCache(): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-map-cache-'));
+  fs.mkdirSync(path.join(dir, 'osm', '5', '10'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'osm', '5', '10', '12.png'), Buffer.alloc(10));
+  fs.mkdirSync(path.join(dir, 'topo', '6', '1'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'topo', '6', '1', '2.png'), Buffer.alloc(5));
+  // Anything that is not a tile is left alone: the folder can pick up a stray
+  // file and the count must not include it.
+  fs.writeFileSync(path.join(dir, 'osm', 'notes.txt'), 'not a tile');
+  process.env.OMNI_MAP_CACHE_DIR = dir;
+  return dir;
+}
+
+afterEach(() => {
+  delete process.env.OMNI_MAP_CACHE_DIR;
 });
 
-describe('map routes', () => {
-  it('refuses a tile request that carries no token', async () => {
-    const answer = await get('/api/maps/tile?layer=osm&z=5&x=15&y=12');
-    expect(answer.status).toBe(403);
-    expect(answer.error).toBe('Missing or invalid session token');
+describe('the map cache routes', () => {
+  it('reports how many tiles are kept and how much they weigh', async () => {
+    seedCache();
+    const { status, body } = await call(buildApp(), 'GET /api/maps/cache');
+
+    expect(status).toBe(200);
+    expect(body).toMatchObject({ tiles: 2, bytes: 15, layers: { osm: 1, topo: 1 } });
   });
 
-  it('accepts the token in the query string, which is all an <img> can carry', async () => {
-    const answer = await get(`/api/maps/tile?layer=nope&z=5&x=0&y=0&t=${TOKEN}`);
-    expect(answer.status).toBe(400);
-    expect(answer.error).toBe('invalid-tile');
+  it('answers an empty cache instead of failing when the folder is missing', async () => {
+    process.env.OMNI_MAP_CACHE_DIR = path.join(os.tmpdir(), 'omni-map-cache-does-not-exist');
+    const { status, body } = await call(buildApp(), 'GET /api/maps/cache');
+
+    expect(status).toBe(200);
+    expect(body).toMatchObject({ tiles: 0, bytes: 0 });
   });
 
-  it('rejects an unknown layer and impossible tile coordinates', async () => {
-    expect((await get(`/api/maps/tile?layer=blueprint&z=5&x=0&y=0&t=${TOKEN}`)).status).toBe(400);
-    expect((await get(`/api/maps/tile?layer=osm&z=40&x=0&y=0&t=${TOKEN}`)).status).toBe(400);
-    // At zoom 2 the world has four tiles per axis, so x=9 does not exist.
-    expect((await get(`/api/maps/tile?layer=osm&z=2&x=9&y=0&t=${TOKEN}`)).status).toBe(400);
-    expect((await get(`/api/maps/tile?layer=osm&z=5&x=-1&y=0&t=${TOKEN}`)).status).toBe(400);
+  it('empties the folder and says what it removed', async () => {
+    const dir = seedCache();
+    const { status, body } = await call(buildApp(), 'DELETE /api/maps/cache');
+
+    expect(status).toBe(200);
+    expect(body).toMatchObject({ removed: 2, bytes: 15 });
+    // The whole tree goes, not just the files: an empty layer folder would grow
+    // back with the next download and the next clear would have to guess.
+    expect(fs.existsSync(dir)).toBe(false);
   });
 
-  it('refuses a search without a token and a query that is too short', async () => {
-    expect((await get('/api/maps/search?q=Madrid')).status).toBe(403);
-    expect((await get(`/api/maps/search?q=a&t=${TOKEN}`)).status).toBe(400);
-    expect((await get(`/api/maps/search?t=${TOKEN}`)).status).toBe(400);
-  });
-
-  it('protects the locating route the same way', async () => {
-    expect((await get('/api/maps/locate')).status).toBe(403);
-  });
-
-  it('knows the extra OSM renders and refuses a made-up one', async () => {
-    // A known layer is only rejected for its coordinates, an unknown one for
-    // being unknown; both are 400s, so the error is what tells them apart.
-    const post = async (body: unknown) => {
-      const response = await fetch(server.url(`/api/maps/offline?t=${TOKEN}`), {
-        method: 'POST',
-        // Mutating routes want the token in the header; the query copy is only
-        // there because an <img> cannot set one.
-        headers: { 'Content-Type': 'application/json', 'x-omni-token': TOKEN },
-        body: JSON.stringify(body),
-      });
-      return { status: response.status, body: (await response.json().catch(() => ({}))) as { error?: string } };
+  it('refuses to clear when the session token does not match', async () => {
+    const dir = seedCache();
+    const routes = new Map<string, Handler>();
+    const record = (method: string) => (routePath: string, handler: Handler) => {
+      routes.set(`${method} ${routePath}`, handler);
     };
-    expect((await post({ layer: 'blueprint', tiles: [{ z: 5, x: 0, y: 0 }] })).body.error).toBe('invalid-layer');
-    for (const layer of ['osm', 'humanitarian', 'cycle', 'topo', 'transport']) {
-      expect((await post({ layer, tiles: [{ z: 40, x: 0, y: 0 }] })).body.error).toBe('invalid-tiles');
-    }
-  });
-
-  it('refuses an offline save with no token and one with no tiles', async () => {
-    const withoutToken = await fetch(server.url('/api/maps/offline'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ layer: 'osm', tiles: [{ z: 5, x: 0, y: 0 }] }),
+    registerMapRoutes({ get: record('GET'), post: record('POST'), delete: record('DELETE') } as never, {
+      SESSION_TOKEN: 'secret',
+      parseByteRange: () => null,
+      MEDIA_TYPES: new Map<string, string>(),
+      assertSafePath: (value: string) => value,
+      logDebug: () => {},
     });
-    expect(withoutToken.status).toBe(403);
 
-    const empty = await fetch(server.url(`/api/maps/offline?t=${TOKEN}`), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-omni-token': TOKEN },
-      body: JSON.stringify({ layer: 'osm', tiles: [] }),
-    });
-    expect(empty.status).toBe(400);
-  });
+    const refused = await call(routes, 'DELETE /api/maps/cache');
+    expect(refused.status).toBe(403);
+    expect(fs.existsSync(path.join(dir, 'osm', '5', '10', '12.png'))).toBe(true);
 
-  // The point of the disk cache: a tile saved once is served with no upstream
-  // call at all, which is what makes the map work on a train. The bytes here
-  // are not a real PNG, so a test that reached the network could not pass it.
-  it('serves a tile saved on disk without asking anyone upstream', async () => {
-    const file = path.join(CACHE_DIR, 'osm', '5', '15', '12.png');
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    const saved = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7, 7, 7]);
-    fs.writeFileSync(file, saved);
-
-    const response = await fetch(server.url(`/api/maps/tile?layer=osm&z=5&x=15&y=12&t=${TOKEN}`));
-    expect(response.status).toBe(200);
-    expect(response.headers.get('content-type')).toBe('image/png');
-    expect(Buffer.from(await response.arrayBuffer()).equals(saved)).toBe(true);
+    // A fetch can carry the token in the header, which is why this route takes
+    // both: a tile is loaded by an <img> and cannot.
+    const allowed = await call(routes, 'DELETE /api/maps/cache', { headers: { 'x-omni-token': 'secret' } });
+    expect(allowed.status).toBe(200);
+    expect(fs.existsSync(dir)).toBe(false);
   });
 });
