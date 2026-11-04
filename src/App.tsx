@@ -13,7 +13,7 @@ import { ConflictPromptModal } from './components/modals/ConflictPromptModal';
 import { FreeSpaceModal } from './components/modals/FreeSpaceModal';
 import { ZipPasswordModal } from './components/modals/ZipPasswordModal';
 import { Toolbar } from './components/Toolbar';
-import { PanelView } from './components/PanelView';
+import { DualPaneView } from './components/DualPaneView';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useModalStack } from './hooks/useModalStack';
 import { useSettings } from './hooks/useSettings';
@@ -768,125 +768,75 @@ export default function App() {
       />
 
       {/* 2. Main Dual-Panel Viewport */}
-      <div
-        id="dual-panel-container"
-        className={`flex-1 flex ${stackedPanels ? 'flex-col' : 'flex-col md:flex-row'} min-h-0 relative p-1 gap-1`}
-      >
-        <PanelView
-          side="left"
-          widthPercent={dualPaneRatio}
-          stacked={stackedPanels}
-          currentTheme={currentTheme}
-          themeForFileList={themeForFileList}
-          lang={lang}
-          settings={settings}
-          activePanel={activePanel}
-          setActivePanel={setActivePanel}
-          onRefresh={handleLeftRefresh}
-          onMissingFavorites={handleMissingFavorites}
-          quickSearchQuery={quickSearchQuery}
-          drives={drives}
-          panel={leftPanel}
-          setPanel={setLeftPanel}
-          tab={leftTab}
-          items={leftItems}
-          otherItems={rightItems}
-          otherTab={rightTab}
-          drive={currentActiveDrive}
-          isFilterOpen={isLeftFilterOpen}
-          setIsFilterOpen={setIsLeftFilterOpen}
-          treePaneRef={leftTreePaneRef}
-          isTreeVisible={leftPanel.isTreeVisible}
-          onToggleTree={() => setLeftPanel((p) => ({ ...p, isTreeVisible: !p.isTreeVisible }))}
-          onDropItems={handleDropItems}
-          onDropNativeFiles={handleDropNativeFiles}
-          onNavigate={(p) => handleNavigate('left', p)}
-          onSelectDrive={(dId) => handleSelectDrive('left', dId)}
-          onSelectTab={(tId) => handleSelectTab('left', tId)}
-          onNewTab={() => handleNewTab('left')}
-          onCloseTab={(tId) => handleCloseTab('left', tId)}
-          onToggleLockTab={(tId) => handleToggleLockTab('left', tId)}
-          onDuplicateTab={(tId) => handleDuplicateTab('left', tId)}
-          onGoParent={handleLeftGoParent}
-          onGoBack={() => handleGoBack('left')}
-          onGoForward={() => handleGoForward('left')}
-          onSort={handleLeftSort}
-          onSelectIndex={handleLeftSelectIndex}
-          onToggleSelect={handleLeftToggleSelect}
-          onOpenItem={handleOpenItem}
-          onContextMenu={handleLeftContextMenu}
-          onItemHover={handleLeftItemHover}
-        />
 
-        {/* Interactive Resizable Divider Bar */}
-        <div
-          onMouseDown={(e) => {
-            e.preventDefault();
-            setIsDraggingSplitter(true);
-          }}
-          onTouchStart={(e) => {
-            e.preventDefault();
-            setIsDraggingSplitter(true);
-          }}
-          role="separator"
-          aria-orientation={stackedPanels ? 'horizontal' : 'vertical'}
-          className={`${
-            stackedPanels
-              ? 'flex h-2.5 w-full hover:h-3.5 cursor-row-resize'
-              : 'hidden md:flex w-2.5 hover:w-3.5 cursor-col-resize'
-          } shrink-0 bg-black/40 hover:bg-amber-400/90 items-center justify-center transition-all group z-30 select-none rounded border border-white/10 hover:border-amber-300`}
-          title={t.appResizerTitle}
-        >
-          <div
-            className={`${
-              stackedPanels ? 'w-10 h-0.5' : 'w-0.5 h-10'
-            } bg-amber-400/60 group-hover:bg-black rounded-full`}
-          />
-        </div>
-
-        <PanelView
-          side="right"
-          widthPercent={100 - dualPaneRatio}
-          stacked={stackedPanels}
-          currentTheme={currentTheme}
-          themeForFileList={themeForFileList}
-          lang={lang}
-          settings={settings}
-          activePanel={activePanel}
-          setActivePanel={setActivePanel}
-          onRefresh={handleRightRefresh}
-          onMissingFavorites={handleMissingFavorites}
-          quickSearchQuery={quickSearchQuery}
-          drives={drives}
-          panel={rightPanel}
-          setPanel={setRightPanel}
-          tab={rightTab}
-          items={rightItems}
-          otherItems={leftItems}
-          otherTab={leftTab}
-          drive={currentInactiveDrive}
-          isFilterOpen={isRightFilterOpen}
-          setIsFilterOpen={setIsRightFilterOpen}
-          onDropItems={handleDropItems}
-          onDropNativeFiles={handleDropNativeFiles}
-          onNavigate={(p) => handleNavigate('right', p)}
-          onSelectDrive={(dId) => handleSelectDrive('right', dId)}
-          onSelectTab={(tId) => handleSelectTab('right', tId)}
-          onNewTab={() => handleNewTab('right')}
-          onCloseTab={(tId) => handleCloseTab('right', tId)}
-          onToggleLockTab={(tId) => handleToggleLockTab('right', tId)}
-          onDuplicateTab={(tId) => handleDuplicateTab('right', tId)}
-          onGoParent={handleRightGoParent}
-          onGoBack={() => handleGoBack('right')}
-          onGoForward={() => handleGoForward('right')}
-          onSort={handleRightSort}
-          onSelectIndex={handleRightSelectIndex}
-          onToggleSelect={handleRightToggleSelect}
-          onOpenItem={handleOpenItem}
-          onContextMenu={handleRightContextMenu}
-          onItemHover={handleRightItemHover}
-        />
-      </div>
+      <DualPaneView
+        theme={currentTheme}
+        themeForFileList={themeForFileList}
+        lang={lang}
+        settings={settings}
+        activePanel={activePanel}
+        setActivePanel={setActivePanel}
+        quickSearchQuery={quickSearchQuery}
+        drives={drives}
+        stacked={stackedPanels}
+        ratio={dualPaneRatio}
+        dragging={isDraggingSplitter}
+        onDragStart={() => setIsDraggingSplitter(true)}
+        handlers={{
+          navigate: handleNavigate,
+          selectDrive: handleSelectDrive,
+          selectTab: handleSelectTab,
+          newTab: handleNewTab,
+          closeTab: handleCloseTab,
+          toggleLockTab: handleToggleLockTab,
+          duplicateTab: handleDuplicateTab,
+          goBack: handleGoBack,
+          goForward: handleGoForward,
+          dropItems: handleDropItems,
+          dropNativeFiles: handleDropNativeFiles,
+          openItem: handleOpenItem,
+        }}
+        left={{
+          panel: leftPanel,
+          setPanel: setLeftPanel,
+          tab: leftTab,
+          items: leftItems,
+          otherItems: rightItems,
+          otherTab: rightTab,
+          drive: currentActiveDrive,
+          isFilterOpen: isLeftFilterOpen,
+          setIsFilterOpen: setIsLeftFilterOpen,
+          treePaneRef: leftTreePaneRef,
+          treeVisible: leftPanel.isTreeVisible,
+          onToggleTree: () => setLeftPanel((p) => ({ ...p, isTreeVisible: !p.isTreeVisible })),
+          onRefresh: handleLeftRefresh,
+          onMissingFavorites: handleMissingFavorites,
+          onGoParent: handleLeftGoParent,
+          onSort: handleLeftSort,
+          onSelectIndex: handleLeftSelectIndex,
+          onToggleSelect: handleLeftToggleSelect,
+          onContextMenu: handleLeftContextMenu,
+          onItemHover: handleLeftItemHover,
+        }}
+        right={{
+          panel: rightPanel,
+          setPanel: setRightPanel,
+          tab: rightTab,
+          items: rightItems,
+          otherItems: leftItems,
+          otherTab: leftTab,
+          drive: currentInactiveDrive,
+          isFilterOpen: isRightFilterOpen,
+          setIsFilterOpen: setIsRightFilterOpen,
+          onRefresh: handleRightRefresh,
+          onGoParent: handleRightGoParent,
+          onSort: handleRightSort,
+          onSelectIndex: handleRightSelectIndex,
+          onToggleSelect: handleRightToggleSelect,
+          onContextMenu: handleRightContextMenu,
+          onItemHover: handleRightItemHover,
+        }}
+      />
 
       {/* 3. Collapsible Info & System Performance Drawer */}
       {settings.showCollapsibleInfoDrawer && (
