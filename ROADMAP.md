@@ -126,6 +126,8 @@ Tareas:
 
 **Tercera tanda (este commit):** el árbol de ficheros —unidades, listado y papelera— a `filesystemStorage.ts`, con un validador por lista y la entrada dañada filtrada en vez de tirar el catálogo entero. La duda de la tanda anterior se resolvió leyendo el código: `initialDrives` e `initialFiles` son listas vacías, así que «sembrar las iniciales» y «no hay nada» resultaban ser lo mismo y no había decisión de producto que tomar. Tests: catálogo ausente, guardado antiguo sin envoltorio, envoltorio, entrada dañada entre buenas, clave corrupta que no arrastra a las demás y escritura fallida.
 
+**Cierre del almacenamiento:** el plan de transferencia que sobrevive al reinicio elevado (`omnicommander.pendingElevatedTransfer`) también pasa por el lector, y con él no queda ningún `localStorage` crudo fuera de `storage.ts` y `filesystemStorage.ts`; lo que sigue leyendo del navegador lo hace detrás de una tienda inyectable (`calendarStore`, `runLauncher`), que ya era la forma correcta.
+
 **Lo que queda de la fase:** los `any` y el aviso de `no-explicit-any`, que es la otra mitad de la F4 y no se tocó.
 
 **Riesgo:** bajo, pero toca ajustes del usuario: cada migración necesita su test de valor corrupto y de valor antiguo, que es lo que esta tanda añade.
