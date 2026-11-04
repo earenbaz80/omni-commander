@@ -13,7 +13,7 @@
  * runs without a token, so no header is added.
  */
 export function sessionTokenHeader(): Record<string, string> {
-  const bridge = typeof window !== 'undefined' ? (window as any).electronAPI : undefined;
+  const bridge = typeof window !== 'undefined' ? window.electronAPI : undefined;
   const token = bridge?.apiToken;
   return token ? { 'x-omni-token': String(token) } : {};
 }
@@ -56,11 +56,12 @@ export async function fetchWithRetry(
         continue;
       }
       return response;
-    } catch (e: any) {
-      lastError = e;
+    } catch (e) {
+      const error = e instanceof Error ? e : new Error(String(e));
+      lastError = error;
       // Cancelled by the caller: report it now instead of retrying work that
       // was abandoned, and let the caller decide that it is not a failure.
-      if (signal?.aborted) throw e;
+      if (signal?.aborted) throw error;
       if (attempt < retries) {
         await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
         continue;

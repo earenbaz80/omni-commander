@@ -30,7 +30,7 @@ export function mediaUrlFor(item: FileItem | null): string | null {
   const absolute = fsEngine.absolutePathFor(item);
   if (!absolute) return null;
   const query = new URLSearchParams({ path: absolute });
-  const token = typeof window !== 'undefined' ? (window as any).electronAPI?.apiToken : null;
+  const token = typeof window !== 'undefined' ? window.electronAPI?.apiToken : null;
   if (typeof token === 'string' && token) query.set('t', token);
   return `${API_BASE}/api/media?${query.toString()}`;
 }

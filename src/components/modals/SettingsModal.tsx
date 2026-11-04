@@ -223,7 +223,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
 
   // Validación en tiempo real
   const validateField = useCallback(
-    (name: keyof FormSettings, value: any) => {
+    <K extends keyof FormSettings>(name: K, value: unknown) => {
       const newErrors = { ...errors };
       if (name === 'newPassword' && value && value !== formData.confirmPassword) {
         newErrors.confirmPassword = t.protectMismatch;
@@ -238,8 +238,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
   );
 
   const handleChange = useCallback(
-    (name: keyof FormSettings, value: any) => {
-      setFormData((prev) => ({ ...prev, [name]: value }));
+    <K extends keyof FormSettings>(name: K, value: unknown) => {
+      // A `<select>` hands over a string, so the field's own type is the one
+      // place where the narrowing belongs; the form is validated before saving.
+      setFormData((prev) => ({ ...prev, [name]: value as FormSettings[K] }));
       validateField(name, value);
     },
     [validateField],
@@ -866,7 +868,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
               active={activeTab === tabId}
               onClick={() => setActiveTab(tabId)}
               icon={TAB_ICONS[tabId]}
-              label={(t as any)[TAB_LABEL_KEYS[tabId]] || tabId}
+              label={t[TAB_LABEL_KEYS[tabId] as TranslationKey] || tabId}
             />
           ))}
         </div>

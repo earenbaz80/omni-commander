@@ -168,10 +168,10 @@ class TaskQueueManager {
             task.transferredBytes = task.totalBytes;
             this.notify();
           }
-        } catch (e: any) {
+        } catch (e) {
           if (!signal.cancelled) {
             task.status = 'failed';
-            task.error = e?.message || 'Unknown error';
+            task.error = e instanceof Error ? e.message : 'Unknown error';
             this.notify();
           }
         }

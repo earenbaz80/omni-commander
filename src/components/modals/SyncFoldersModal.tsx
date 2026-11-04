@@ -228,8 +228,8 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
       soundManager.playSuccess();
       onSyncComplete();
       onClose();
-    } catch (err: any) {
-      alert(t.syncError.replace('{error}', err.message));
+    } catch (err) {
+      alert(t.syncError.replace('{error}', err instanceof Error ? err.message : String(err)));
     } finally {
       setIsProcessing(false);
     }

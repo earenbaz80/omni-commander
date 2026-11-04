@@ -97,8 +97,7 @@ function spread(a: Point, b: Point): number {
 
 /** The per-launch token rides in the query: a tile is loaded by an <img>, which cannot send a header. */
 function withToken(url: string): string {
-  const token = (typeof window !== 'undefined' ? (window as any).electronAPI?.apiToken : null) as
-    string | null | undefined;
+  const token = typeof window !== 'undefined' ? window.electronAPI?.apiToken : null;
   if (typeof token !== 'string' || !token) return url;
   return `${url}${url.includes('?') ? '&' : '?'}t=${encodeURIComponent(token)}`;
 }
@@ -109,8 +108,7 @@ function tileUrl(layer: MapLayer, z: number, x: number, y: number): string {
 
 /** A POST cannot hide the token in the query: the server wants the header for it. */
 function sessionHeader(): Record<string, string> {
-  const token = (typeof window !== 'undefined' ? (window as any).electronAPI?.apiToken : null) as
-    string | null | undefined;
+  const token = typeof window !== 'undefined' ? window.electronAPI?.apiToken : null;
   return typeof token === 'string' && token ? { 'x-omni-token': token } : {};
 }
 

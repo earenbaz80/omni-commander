@@ -27,7 +27,7 @@ export interface FileHashes {
 // Resolved per call (not at module load) so the bridge is read whenever the
 // renderer actually asks for a hash.
 function apiBase(): string {
-  const bridge = typeof window !== 'undefined' ? (window as any).electronAPI : undefined;
+  const bridge = typeof window !== 'undefined' ? window.electronAPI : undefined;
   if (!bridge?.isElectron) return '';
   const port = Number(bridge.apiPort);
   return `http://127.0.0.1:${Number.isFinite(port) && port > 0 ? port : 3001}`;

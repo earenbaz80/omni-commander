@@ -1,4 +1,5 @@
 import React from 'react';
+import type { LanguageCode } from '../types';
 import { ThemeConfig } from '../services/themeManager';
 import { getTranslations, type TranslationKey } from '../i18n/translations';
 
@@ -13,13 +14,13 @@ export interface FunctionKey {
 
 interface FunctionBarProps {
   theme: ThemeConfig;
-  lang: string;
+  lang: LanguageCode;
   keys: FunctionKey[];
   className?: string;
 }
 
 export const FunctionBar: React.FC<FunctionBarProps> = ({ theme, lang, keys, className = '' }) => {
-  const t = getTranslations(lang as any);
+  const t = getTranslations(lang);
 
   return (
     <div

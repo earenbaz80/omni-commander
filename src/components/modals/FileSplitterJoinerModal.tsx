@@ -86,8 +86,8 @@ export const FileSplitterJoinerModal: React.FC<FileSplitterJoinerModalProps> = (
         onComplete();
         onClose();
       }, 1200);
-    } catch (err: any) {
-      alert(t.splitterError.replace('{error}', err.message));
+    } catch (err) {
+      alert(t.splitterError.replace('{error}', err instanceof Error ? err.message : String(err)));
     } finally {
       setIsProcessing(false);
     }
@@ -156,7 +156,7 @@ export const FileSplitterJoinerModal: React.FC<FileSplitterJoinerModalProps> = (
                   ].map((preset) => (
                     <button
                       key={preset.id}
-                      onClick={() => setChunkPreset(preset.id as any)}
+                      onClick={() => setChunkPreset(preset.id as typeof chunkPreset)}
                       className={`p-[var(--space-2)] rounded border text-[10px] font-bold text-center cursor-pointer transition-all ${
                         chunkPreset === preset.id
                           ? 'bg-amber-400 text-black border-amber-300'

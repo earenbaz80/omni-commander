@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { ArchivePasswordError } from '../services/archiveBackend';
 import { fsEngine } from '../services/fileSystem';
 import { soundManager } from '../services/soundEffects';
 import {
@@ -209,14 +210,14 @@ export function usePanels(deps: PanelDeps) {
         if (a.isDirectory && !b.isDirectory) return -1;
         if (!a.isDirectory && b.isDirectory) return 1;
 
-        const valA: any = a[tab.sortField];
-        const valB: any = b[tab.sortField];
+        const valA = a[tab.sortField];
+        const valB = b[tab.sortField];
 
-        if (typeof valA === 'string') {
+        if (typeof valA === 'string' && typeof valB === 'string') {
           const cmp = valA.localeCompare(valB);
           return tab.sortDirection === 'asc' ? cmp : -cmp;
         }
-        if (typeof valA === 'number') {
+        if (typeof valA === 'number' && typeof valB === 'number') {
           return tab.sortDirection === 'asc' ? valA - valB : valB - valA;
         }
         return 0;
@@ -571,7 +572,7 @@ export function usePanels(deps: PanelDeps) {
               // closing silently as if nothing had been opened.
               if (e instanceof Error && e.name === 'ArchivePasswordError') {
                 const next = requestArchivePassword
-                  ? await requestArchivePassword(item.name, (e as any).reason === 'invalid')
+                  ? await requestArchivePassword(item.name, (e as ArchivePasswordError).reason === 'invalid')
                   : null;
                 if (!next) {
                   alert(tGlobal('zipErrPasswordNeeded').replace('{name}', `${item.name}.${item.ext}`));

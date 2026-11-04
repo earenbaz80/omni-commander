@@ -29,12 +29,14 @@ interface SearchResult {
   matches: { line: number; text: string }[];
 }
 
+type DatePreset = 'all' | 'today' | 'last_7' | 'last_30';
+
 interface SearchHistoryItem {
   id: string;
   timestamp: string;
   filePattern: string;
   grepText: string;
-  datePreset: 'all' | 'today' | 'last_7' | 'last_30';
+  datePreset: DatePreset;
   minSizeKB: string;
   maxSizeKB: string;
   filterReadOnly: boolean;
@@ -316,7 +318,7 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
               </span>
               <select
                 value={datePreset}
-                onChange={(e) => setDatePreset(e.target.value as any)}
+                onChange={(e) => setDatePreset(e.target.value as DatePreset)}
                 className="w-full px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-white font-mono"
               >
                 <option value="all">{t.searchDateAll}</option>
