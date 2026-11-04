@@ -122,7 +122,9 @@ Tareas:
 - Migradas tres claves: el historial de la calculadora (que además rescata las líneas buenas de una lista a medias), los anchos de columna y la elección de qué hacer al terminar una transferencia. Esa última estaba dos veces, con su lector y su literal en `CopyMoveModal` y en `TransferMonitorModal`; ahora un solo módulo decide qué significa el valor guardado.
 - Tests nuevos: 9 del módulo, 4 del hook y 4 de la elección, además de los que ya cubrían los anchos de columna.
 
-**Lo que queda de la fase:** los ajustes (`nc_settings_v1`), el árbol de ficheros (`nc_filesystem_v1` y compañía), los marcadores y el historial de búsqueda, y los `any`. Los ajustes se dejan para su propia tanda a propósito: son el valor con el que arranca la app y su normalización ya existe (`normalizeProtectedFolders`, `migrateThemeId`), así que moverla es un cambio de arranque y merece su propia comprobación.
+**Segunda tanda (este commit):** los ajustes (`nc_settings_v1`, el valor con el que arranca la app), el historial de búsqueda y los marcadores. Los ajustes conservan su normalización (`normalizeProtectedFolders`, `migrateThemeId`) y ahora se leen como versión 2; un objeto guardado sin envoltorio sigue siendo válido y se usa tal cual, que es lo que impide que la actualización resetee todo una vez. Tests: la clave de ajustes en sus cuatro formas (nada guardado, objeto antiguo, envoltorio, valor corrupto), además del que ya cubría las contraseñas en claro.
+
+**Lo que queda de la fase:** el árbol de ficheros (`nc_filesystem_v1`, unidades y papelera) y los `any`. El árbol va aparte a propósito: `loadFromStorage` siembra unidades iniciales cuando el valor no se puede leer, y decidir si eso debe cambiar es una decisión de producto, no un detalle de la migración.
 
 **Riesgo:** bajo, pero toca ajustes del usuario: cada migración necesita su test de valor corrupto y de valor antiguo, que es lo que esta tanda añade.
 
