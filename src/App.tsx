@@ -1,19 +1,17 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { FileItem, CommandHistoryItem, FolderPasswordRecord, LanguageCode, ThemeId } from './types';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { FileItem, CommandHistoryItem, FolderPasswordRecord, LanguageCode } from './types';
 import { CleanupTargetId, fsEngine } from './services/fileSystem';
 import { themes, ThemeConfig } from './services/themeManager';
-import { soundManager } from './services/soundEffects';
 import { createPasswordRecord } from './services/appLock';
 import { getTranslations, setCurrentLang } from './i18n/translations';
 
 // Components
-import { HeaderMenuBar } from './components/HeaderMenuBar';
 import { AppModals } from './components/AppModals';
 import { ConflictPromptModal } from './components/modals/ConflictPromptModal';
 import { FreeSpaceModal } from './components/modals/FreeSpaceModal';
 import { ZipPasswordModal } from './components/modals/ZipPasswordModal';
-import { Toolbar } from './components/Toolbar';
 import { DualPaneView } from './components/DualPaneView';
+import { WindowChrome } from './components/WindowChrome';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useModalStack } from './hooks/useModalStack';
 import { useSettings } from './hooks/useSettings';
@@ -26,9 +24,6 @@ import { useCommandExecution } from './hooks/useCommandExecution';
 import { useTransferQueue } from './hooks/useTransferQueue';
 import { useFileOperations } from './hooks/useFileOperations';
 
-const AppLockModal = React.lazy(() =>
-  import('./components/modals/AppLockModal').then((m) => ({ default: m.AppLockModal })),
-);
 import { CommandLineBar } from './components/CommandLineBar';
 import { FunctionKeyBar } from './components/FunctionKeyBar';
 import { FileContextMenu, type FileContextMenuState } from './components/FileContextMenu';
@@ -446,128 +441,37 @@ export default function App() {
         color: currentTheme.itemText,
       }}
     >
-      {/* Retro CRT Monitor Scanline & Vignette Overlay */}
-      {settings.crtEffectEnabled && (
-        <div
-          className={`fixed inset-0 pointer-events-none z-[9999] ${
-            settings.crtIntensity === 'subtle'
-              ? 'crt-overlay-subtle'
-              : settings.crtIntensity === 'intense'
-                ? 'crt-overlay-intense'
-                : 'crt-overlay-classic'
-          }`}
-        />
-      )}
-      {/* App Lock Overlay if app lock active. It sits above the modal layer
-          (ModalShell renders at z-[60] and Settings is mounted later in the tree)
-          because enabling the lock from Settings leaves that dialog open: the
-          lock has to cover it, not hide underneath it. */}
-      {isAppLocked && (
-        <div className="fixed inset-0 z-[70]">
-          <AppLockModal
-            theme={currentTheme}
-            lang={lang}
-            expectedUser={settings.appUsername || 'admin'}
-            expectedPassHash={settings.appPasswordHash}
-            expectedPassSalt={settings.appPasswordSalt}
-            onUnlockSuccess={unlockApp}
-          />
-        </div>
-      )}
-
-      {/* 1. Retro Pull-down Menu Bar */}
-      <HeaderMenuBar
+      <WindowChrome
         theme={currentTheme}
         lang={lang}
-        showClock={settings.showClock}
-        clockPosition={settings.clockPosition}
-        hoverOpen={settings.menuBarHoverOpen}
-        crtEffectEnabled={settings.crtEffectEnabled}
-        onToggleCrt={() => setSettings((s) => ({ ...s, crtEffectEnabled: !s.crtEffectEnabled }))}
-        onOpenModal={(m) => {
-          if (m === 'viewer' || m === 'editor' || m === 'checksum' || m === 'properties') {
-            if (activeFocusedItem) setSelectedFileForModal(activeFocusedItem);
-          }
-          if (m === 'app_lock') {
-            lockApp();
-            return;
-          }
-          setActiveModal(m);
-        }}
-        onRefresh={() => {
-          soundManager.playKeyTick();
-          setFsTick((t) => t + 1);
-        }}
-        onSelectAll={handleSelectAll}
-        onInvertSelection={handleInvertSelection}
-        onToggleQuickView={() => {
-          soundManager.playKeyTick();
-          const targetSet = activePanel === 'left' ? setRightPanel : setLeftPanel;
-          targetSet((p) => ({ ...p, isQuickView: !p.isQuickView }));
-        }}
-        onToggleTree={() => {
-          soundManager.playKeyTick();
-          const targetSet = activePanel === 'left' ? setLeftPanel : setRightPanel;
-          targetSet((p) => ({ ...p, isTreeVisible: !p.isTreeVisible }));
-        }}
-        onSwapPanels={handleSwapPanels}
-        onNewTab={(side) => handleNewTab(side)}
-        onChangeDrive={(side, dId) => handleSelectDrive(side, dId)}
+        settings={settings}
+        setSettings={setSettings}
         activePanel={activePanel}
-        isQuickView={inactivePanelState.isQuickView}
-        isTreeVisible={activePanelState.isTreeVisible}
-        onSetTheme={(themeId: ThemeId) => setSettings((s) => ({ ...s, theme: themeId }))}
-        onSetLang={(newLang: LanguageCode) => setSettings((s) => ({ ...s, language: newLang }))}
-        onResetDefaults={() => {
-          if (confirm(t.appResetConfirm)) {
-            fsEngine.resetToDefaults();
-          }
-        }}
-        onMinimizeWindow={() => {
-          const api = window.electronAPI;
-          if (api?.minimizeWindow) api.minimizeWindow();
-        }}
-        onMaximizeWindow={() => {
-          const api = window.electronAPI;
-          if (api?.maximizeWindow) api.maximizeWindow();
-        }}
-        onCloseWindow={() => {
-          const api = window.electronAPI;
-          if (api?.closeWindow) api.closeWindow();
-          else window.close();
-        }}
-      />
-
-      <Toolbar
-        currentTheme={currentTheme}
-        t={t}
-        showToolbar={settings.showToolbar}
-        toolbarItems={settings.toolbarItems}
-        activePanel={activePanel}
+        activePanelState={activePanelState}
+        inactivePanelState={inactivePanelState}
+        setLeftPanel={setLeftPanel}
+        rightPanel={rightPanel}
+        setRightPanel={setRightPanel}
         leftTab={leftTab}
         rightTab={rightTab}
-        setLeftPanel={setLeftPanel}
-        setRightPanel={setRightPanel}
-        setFsTick={setFsTick}
         activeFocusedItem={activeFocusedItem}
         setSelectedFileForModal={setSelectedFileForModal}
         setActiveModal={setActiveModal}
-        onCleanup={(target) => {
-          setCleanupTarget(target);
-          setActiveModal('cleanup');
-        }}
-        rightPanelShowsDiskUsage={rightPanel.panelView === 'diskUsage'}
+        setCleanupTarget={setCleanupTarget}
+        setFsTick={setFsTick}
+        isAppLocked={isAppLocked}
+        lockApp={lockApp}
+        unlockApp={unlockApp}
+        onSelectAll={handleSelectAll}
+        onInvertSelection={handleInvertSelection}
+        onSwapPanels={handleSwapPanels}
+        onNewTab={handleNewTab}
+        onSelectDrive={handleSelectDrive}
         onNavigate={handleNavigate}
         runLauncherOpenRequest={runLauncherOpenRequest}
         launcherOnly={launcherOnly}
-        onLauncherDismiss={() => setLauncherOnly(false)}
-        panelStacked={stackedPanels}
-        onTogglePanelLayout={() =>
-          setSettings((s) => ({ ...s, splitLayout: s.splitLayout === 'vertical' ? 'horizontal' : 'vertical' }))
-        }
-        onToggleRightPanelDiskUsage={() =>
-          setRightPanel((p) => ({ ...p, panelView: p.panelView === 'diskUsage' ? 'files' : 'diskUsage' }))
-        }
+        setLauncherOnly={setLauncherOnly}
+        stackedPanels={stackedPanels}
       />
 
       {/* 2. Main Dual-Panel Viewport */}
