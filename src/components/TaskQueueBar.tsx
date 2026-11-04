@@ -193,12 +193,12 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
           {/* A protected destination can only be written with an elevated
               token. Explorer asks for it silently; this app has to relaunch
               itself, so keep that door in the window at all times. */}
-          {needsAdmin && (window as any).electronAPI?.relaunchAsAdmin && (
+          {needsAdmin && window.electronAPI?.relaunchAsAdmin && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 soundManager.playKeyTick();
-                void (window as any).electronAPI.relaunchAsAdmin();
+                void window.electronAPI?.relaunchAsAdmin?.();
               }}
               className={`w-full px-[var(--space-1)].5 py-[var(--space-1)] border rounded cursor-pointer font-bold text-[12px] ${
                 needsAdmin

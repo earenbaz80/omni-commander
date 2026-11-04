@@ -14,7 +14,7 @@
  * without importing the whole filesystem engine (and without an import cycle).
  */
 export const API_BASE = (() => {
-  const bridge = typeof window !== 'undefined' ? (window as any).electronAPI : undefined;
+  const bridge = typeof window !== 'undefined' ? window.electronAPI : undefined;
   if (!bridge?.isElectron) return '';
   const port = Number(bridge.apiPort);
   return `http://127.0.0.1:${Number.isFinite(port) && port > 0 ? port : 3001}`;

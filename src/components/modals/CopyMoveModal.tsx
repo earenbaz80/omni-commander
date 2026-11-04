@@ -1077,7 +1077,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
               </div>
             )}
 
-            {showAdmin && (window as any).electronAPI?.relaunchAsAdmin && (
+            {showAdmin && window.electronAPI?.relaunchAsAdmin && (
               <button
                 type="button"
                 onClick={async () => {
@@ -1085,7 +1085,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                   setAdminNote(t.inProgress);
                   const result = onElevate
                     ? await onElevate(destPath.trim(), submitOptions())
-                    : await (window as any).electronAPI.relaunchAsAdmin();
+                    : await window.electronAPI?.relaunchAsAdmin?.();
                   if (!result?.ok) {
                     setAdminNote(`${t.runAsAdmin}: ${result?.reason || 'failed'}`);
                   }

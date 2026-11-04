@@ -118,7 +118,7 @@ export default function App() {
 
   /** Ask Windows for an elevated restart; there is no way to gain rights in-process. */
   const requestElevation = useCallback(async () => {
-    const bridge = (window as any).electronAPI;
+    const bridge = window.electronAPI;
     if (typeof bridge?.relaunchAsAdmin !== 'function') return;
     try {
       await bridge.relaunchAsAdmin();
@@ -746,7 +746,7 @@ export default function App() {
     // A full quota must not block the elevation itself; parking reports it and
     // the elevation goes ahead.
     if (plan) parkTransferPlan(plan);
-    return (window as any).electronAPI?.relaunchAsAdmin?.();
+    return window.electronAPI?.relaunchAsAdmin?.();
   };
 
   useEffect(() => {
@@ -983,8 +983,8 @@ export default function App() {
       fsEngine.renameItem(target.id, newName);
       soundManager.playSuccess();
       setActiveModal(null);
-    } catch (e: any) {
-      alert(e.message);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -993,8 +993,8 @@ export default function App() {
       fsEngine.createDirectory(currentActiveTab.driveId, currentActiveTab.currentPath, dirName);
       soundManager.playSuccess();
       setActiveModal(null);
-    } catch (e: any) {
-      alert(e.message);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -1003,8 +1003,8 @@ export default function App() {
       fsEngine.createFile(currentActiveTab.driveId, currentActiveTab.currentPath, fileName, '');
       soundManager.playSuccess();
       setActiveModal(null);
-    } catch (e: any) {
-      alert(e.message);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -1234,15 +1234,15 @@ export default function App() {
           }
         }}
         onMinimizeWindow={() => {
-          const api = (window as any).electronAPI;
+          const api = window.electronAPI;
           if (api?.minimizeWindow) api.minimizeWindow();
         }}
         onMaximizeWindow={() => {
-          const api = (window as any).electronAPI;
+          const api = window.electronAPI;
           if (api?.maximizeWindow) api.maximizeWindow();
         }}
         onCloseWindow={() => {
-          const api = (window as any).electronAPI;
+          const api = window.electronAPI;
           if (api?.closeWindow) api.closeWindow();
           else window.close();
         }}

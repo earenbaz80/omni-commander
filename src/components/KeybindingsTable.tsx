@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import type { LanguageCode } from '../types';
 import { ThemeConfig } from '../services/themeManager';
 import { getTranslations } from '../i18n/translations';
 import { Search } from 'lucide-react';
@@ -12,7 +13,7 @@ interface Keybinding {
 
 interface KeybindingsTableProps {
   theme: ThemeConfig;
-  lang: string;
+  lang: LanguageCode;
   keybindings: Keybinding[];
   categories: string[];
   filterPreset?: string;
@@ -28,7 +29,7 @@ export const KeybindingsTable: React.FC<KeybindingsTableProps> = ({
   onFilterChange,
   presets = [],
 }) => {
-  const t = getTranslations(lang as any);
+  const t = getTranslations(lang);
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('all');
 

@@ -53,7 +53,7 @@ export function useCommandExecution(deps: CommandExecutionDeps) {
 
       /** Elevation is the one thing this shell cannot do to itself. */
       const requestElevation = async (): Promise<void> => {
-        const bridge = (window as any).electronAPI;
+        const bridge = window.electronAPI;
         if (typeof bridge?.relaunchAsAdmin !== 'function') {
           output = t.cmdElevationUnavailable;
           status = 'error';
@@ -63,8 +63,8 @@ export function useCommandExecution(deps: CommandExecutionDeps) {
           const result = await bridge.relaunchAsAdmin();
           output = result?.ok === false ? `${t.cmdElevationUnavailable} (${result.reason})` : t.cmdElevatedMsg;
           status = result?.ok === false ? 'error' : 'info';
-        } catch (error: any) {
-          output = error?.message || t.cmdElevationUnavailable;
+        } catch (error) {
+          output = error instanceof Error ? error.message : t.cmdElevationUnavailable;
           status = 'error';
         }
       };
@@ -142,8 +142,8 @@ export function useCommandExecution(deps: CommandExecutionDeps) {
               try {
                 fsEngine.createDirectory(currentActiveTab.driveId, currentActiveTab.currentPath, args);
                 output = t.cmdMkdirOk.replace('{path}', args);
-              } catch (e: any) {
-                output = e.message;
+              } catch (e) {
+                output = e instanceof Error ? e.message : String(e);
                 status = 'error';
               }
             }
@@ -216,11 +216,11 @@ export function useCommandExecution(deps: CommandExecutionDeps) {
             status = 'error';
             break;
         }
-      } catch (error: any) {
+      } catch (error) {
         // A read that throws used to leave the drawer empty: the command looked
         // like it had done nothing, which is the one way left for the shell to
         // hide an answer. Whatever failed is now what the user reads.
-        output = t.cmdFailed.replace('{error}', error?.message || String(error));
+        output = t.cmdFailed.replace('{error}', error instanceof Error ? error.message : String(error));
         status = 'error';
       }
 

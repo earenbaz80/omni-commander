@@ -177,7 +177,7 @@ export const ImageStudioModal: React.FC<ImageStudioModalProps> = ({ theme, lang,
       const directory = source.slice(0, source.lastIndexOf(separator));
       const base = (file.name || 'imagen').replace(/[\\/:*?"<>|]/g, '_');
       const target = `${directory}${separator}${base}-editada-${stamp(new Date())}.png`;
-      const token = (window as any).electronAPI?.apiToken;
+      const token = window.electronAPI?.apiToken;
       const response = await fetch(
         `${API_BASE}/api/fs/write-bytes?path=${encodeURIComponent(target)}&root=${encodeURIComponent(directory)}`,
         {
