@@ -47,13 +47,18 @@ function registerMapRoutes(app, deps) {
   let mapSearchLastAt = 0;
   let mapSearchQueue = Promise.resolve();
 
-  /** Answers 403 itself when the per-launch token is missing; the token rides in the query because an <img> cannot send a header. */
+  /**
+   * Answers 403 itself when the per-launch token is missing. A tile is loaded by
+   * an <img>, which cannot send a header, so the token rides in the query; a
+   * fetch can send one, and the routes that change state take it there.
+   */
   function mapsTokenRejected(req, res) {
-    if (SESSION_TOKEN && String(req.query.t || '') !== SESSION_TOKEN) {
-      res.status(403).json({ error: 'Missing or invalid session token' });
-      return true;
-    }
-    return false;
+    if (!SESSION_TOKEN) return false;
+    const fromQuery = String(req.query.t || '');
+    const fromHeader = String((req.headers || {})['x-omni-token'] || '');
+    if (fromQuery === SESSION_TOKEN || fromHeader === SESSION_TOKEN) return false;
+    res.status(403).json({ error: 'Missing or invalid session token' });
+    return true;
   }
 
   function rememberMapTile(key, buffer) {
@@ -236,6 +241,56 @@ function registerMapRoutes(app, deps) {
     };
     await Promise.all(Array.from({ length: MAP_OFFLINE_CONCURRENCY }, worker));
     res.json({ stored, skipped, failed, total: tiles.length });
+  });
+
+  /**
+   * What the disk cache holds, so the dialog can say it instead of the user
+   * guessing why the map still works on a plane. Walking the folder costs a
+   * stat per tile; the dialog asks for it when it opens and after a download.
+   */
+  async function measureMapTileDisk() {
+    let tiles = 0;
+    let bytes = 0;
+    const layers = {};
+    try {
+      const entries = await fs.promises.readdir(MAP_TILE_DISK_DIR, { recursive: true, withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isFile() || !entry.name.endsWith('.png')) continue;
+        const full = path.join(entry.parentPath || entry.path || '', entry.name);
+        const info = await fs.promises.stat(full).catch(() => null);
+        if (!info) continue;
+        tiles += 1;
+        bytes += info.size;
+        const layer = path.relative(MAP_TILE_DISK_DIR, full).split(path.sep)[0];
+        if (layer) layers[layer] = (layers[layer] || 0) + 1;
+      }
+    } catch {
+      // No folder yet is an empty cache, not an error.
+    }
+    return { tiles, bytes, layers };
+  }
+
+  app.get('/api/maps/cache', async (req, res) => {
+    if (mapsTokenRejected(req, res)) return;
+    res.json(await measureMapTileDisk());
+  });
+
+  /**
+   * Empties both levels of the cache. The in-memory copy goes first, so nothing
+   * is served from a folder that is about to disappear, and the search cache
+   * goes with it: names and coordinates are as reusable as the squares.
+   */
+  app.delete('/api/maps/cache', async (req, res) => {
+    if (mapsTokenRejected(req, res)) return;
+    const measured = await measureMapTileDisk();
+    mapTileCache.clear();
+    mapSearchCache.clear();
+    try {
+      await fs.promises.rm(MAP_TILE_DISK_DIR, { recursive: true, force: true });
+    } catch {
+      return res.status(500).json({ error: 'cache-clear-failed' });
+    }
+    return res.json({ removed: measured.tiles, bytes: measured.bytes });
   });
 
   app.get('/api/maps/search', async (req, res) => {
