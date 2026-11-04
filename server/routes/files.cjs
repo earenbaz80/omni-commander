@@ -8,6 +8,18 @@
  * that know how a path becomes a file (the archive guard, the "send to" folders,
  * the shortcut writer) stay in `server.cjs` and are passed in.
  */
+/** 64 MiB: what a caller that never asked for a size may pull at once. */
+const DEFAULT_READ_BYTES_LIMIT = 64 * 1024 * 1024;
+
+/**
+ * The limit is settable so a test can cross it with a file of a few bytes; the
+ * app never sets it. Read once, when this module is first required.
+ */
+const READ_BYTES_LIMIT = (() => {
+  const configured = Number(process.env.OMNI_READ_BYTES_LIMIT);
+  return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : DEFAULT_READ_BYTES_LIMIT;
+})();
+
 function registerFileRoutes(app, deps) {
   const {
     fs,
@@ -182,6 +194,53 @@ function registerFileRoutes(app, deps) {
     }
 
     res.json({ entries, missing });
+  });
+  /**
+   * Reads a file for the renderer. Three callers, three intents:
+   *
+   * - `maxBytes` is a preview: the viewer and the editor ask for a little more
+   *   than they show, and get exactly that much of a long file (truncation is
+   *   the point, so it is never an error).
+   * - `unlimited` is the archive engine, which has to parse the file end to end.
+   * - neither means "the whole file, if it is a file": past the limit that is a
+   *   413 with the numbers, because the alternative -- what this route used to
+   *   do -- is pulling a multi-gigabyte ISO into the server's memory for a caller
+   *   that forgot to say how much it needed.
+   */
+  app.post('/api/fs/read-bytes', async (req, res) => {
+    try {
+      const body = req.body || {};
+      const target = assertSafePath(body.path);
+      const maxBytes = Number(body.maxBytes);
+      if (Number.isFinite(maxBytes) && maxBytes > 0) {
+        const wanted = Math.min(Math.floor(maxBytes), READ_BYTES_LIMIT);
+        const handle = await fs.promises.open(target, 'r');
+        try {
+          const buffer = Buffer.alloc(wanted);
+          const { bytesRead } = await handle.read(buffer, 0, wanted, 0);
+          res.type('application/octet-stream').send(buffer.subarray(0, bytesRead));
+        } finally {
+          await handle.close();
+        }
+        return;
+      }
+      if (body.unlimited !== true) {
+        const stat = await fs.promises.stat(target);
+        if (!stat.isFile()) throw new Error('Not a file');
+        if (stat.size > READ_BYTES_LIMIT) {
+          res.status(413).json({
+            error: `File is too large to read (${stat.size} bytes, limit ${READ_BYTES_LIMIT})`,
+            size: stat.size,
+            limit: READ_BYTES_LIMIT,
+          });
+          return;
+        }
+      }
+      const bytes = await fs.promises.readFile(target);
+      res.type('application/octet-stream').send(bytes);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
   });
 }
 

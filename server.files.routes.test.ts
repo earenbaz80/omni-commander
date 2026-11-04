@@ -115,4 +115,17 @@ describe('rutas de un solo fichero', () => {
     const response = await post('/api/fs/stat', { paths: 'no-es-un-array' });
     expect(response.status).toBe(400);
   });
+
+  it('trunca una previsualización en vez de tratarla como un error', async () => {
+    const target = path.join(root, 'largo.txt');
+    await fs.promises.writeFile(target, 'x'.repeat(50));
+    const response = await post('/api/fs/read-bytes', { path: target, maxBytes: 10 });
+    expect(response.status).toBe(200);
+    expect((await response.arrayBuffer()).byteLength).toBe(10);
+  });
+
+  it('no lee una ruta que el servidor no acepta', async () => {
+    const response = await post('/api/fs/read-bytes', { path: 'relativa.txt', maxBytes: 10 });
+    expect(response.status).toBe(400);
+  });
 });
