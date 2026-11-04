@@ -186,6 +186,22 @@ El push de la etiqueta empaqueta el NSIS y el portable, renombra los artefactos 
 
 Una versión con sufijo en `package.json` (`1.0.19-beta.1`) se publica **sola** como prerelease: el paso de publicación marca `prerelease` cuando el número lleva un guion, así que una beta no aparece como Latest ni llega a las copias que no han marcado la casilla de arriba. La etiqueta sigue teniendo que coincidir con esa versión (`v1.0.19-beta.1`), y la release lleva su `latest.yml` como cualquier otra más un `beta.yml` copiado de él —el fichero que el updater pide primero dentro de la release elegida—, así que ambos apuntan al mismo instalador.
 
+### Firma y SmartScreen
+
+**Hoy no hay firma.** `package.json` no declara `certificateSubjectName` ni `signingHashAlgorithms`, el workflow no define `CSC_LINK`, y no hay ningún paso de `signtool` en el repositorio: electron-builder empaqueta el NSIS y el portable sin firmar. La consecuencia es la de cualquier binario sin reputación — la primera vez que alguien ejecuta el instalador, SmartScreen muestra «Windows protegió su PC» y hay que pasar por *Más información → Ejecutar de todas formas*. No es un fallo del build ni algo que se arregle con una opción: un certificado de firma de código con reputación se compra, y uno autofirmado no cambia ese aviso, solo lo hace aparecer con otro nombre.
+
+El día que haya certificado, el cambio es una línea en `build.win` (`certificateSubjectName`) más el secreto con el fichero `.pfx` que lea el job de build; nada más del flujo depende de ello, porque los artefactos ya se renombran sin espacios y `latest.yml` ya se comprueba.
+
+### Checklist de una release
+
+1. La rama está en verde: formato, tipos, lint, tests y e2e en el CI, no solo en local.
+2. `version` en `package.json` es la que va a publicarse y la etiqueta `v` coincide con ella (el job `build` falla si no).
+3. `git tag` no existe ya con ese número, ni en local ni en el remoto.
+4. Tras el push de la etiqueta: la release no está en borrador, lleva los dos `.exe`, sus `.zip`, el `.blockmap` y `latest.yml`.
+5. `latest.yml` apunta a un fichero que existe en la release y con el tamaño declarado.
+6. Se ha descargado el instalador de la release y se ha instalado en una máquina limpia: abre, encuentra la versión y el updater ve la siguiente.
+7. Los volcados `.txt` de la raíz y las builds viejas de `release/` se borran cuando ya no hacen falta; un `release/` con versiones de varias semanas ocupa más de un giga y no lo usa nadie.
+
 El orden que hace que la beta llegue antes es el del propio flujo: se publica primero la beta (`1.0.22-beta.1`), se deja rodar, y cuando toca se publica la estable (`1.0.22`). Una copia con la casilla marcada ve la beta en cuanto se publica, porque su lista de releases incluye las prereleases; una copia sin marcar sigue mirando `latest.yml` y no ve la beta ni cuando ya existe, porque `/releases/latest` excluye por definición todo lo que no es la última estable.
 
 ## Formato

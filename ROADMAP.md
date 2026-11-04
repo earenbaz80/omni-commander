@@ -178,7 +178,7 @@ Tareas:
 
 ### F7 · Release y firma — S
 
-**Por qué:** el build firma con `signtool`, pero si el certificado no es de confianza pública SmartScreen seguirá avisando al instalar; y hay trabajo sin publicar acumulado (seis commits sobre 1.0.30).
+**Por qué (corregido al hacerla):** la premisa era falsa. El build **no firma nada**: `package.json` no declara `certificateSubjectName` ni `signingHashAlgorithms`, el workflow no define `CSC_LINK` y no hay ningún `signtool` en el repositorio, así que el instalador sale sin firmar y SmartScreen avisa la primera vez. Lo que había que hacer no era confirmar un certificado sino escribir lo que pasa., pero si el certificado no es de confianza pública SmartScreen seguirá avisando al instalar; y hay trabajo sin publicar acumulado (seis commits sobre 1.0.30).
 
 Tareas:
 
@@ -186,6 +186,8 @@ Tareas:
 - Checklist de release en el README: versión, etiqueta, assets, `latest.yml`, comprobación de descarga.
 - Limpiar `release/` y los volcados `.txt` de la raíz (ignorados por git, pero ocupan espacio y confunden).
 - Decidir cadencia: una versión por bloque de arreglos, no un tag por cada commit.
+
+**Hecho (este commit).** El README explica ahora la situación real de la firma —qué falta, por qué un certificado autofirmado no lo arregla y qué habría que tocar el día que exista— y trae una checklist de release de siete pasos que incluye lo que el workflow ya garantiza (etiqueta igual a `version`, artefactos renombrados, `latest.yml` comprobado) y lo que no: instalar en una máquina limpia y mirar qué ve el updater. Los `.txt` de la raíz y las builds viejas de `release/` se quedan donde están por ahora: son artefactos de instalación y borrarlos sin permiso no es parte de documentar una checklist.
 
 **Hecho cuando:** un release sale con checklist cumplida y el instalador no dispara SmartScreen en una máquina limpia (o se documenta por qué sí).
 
