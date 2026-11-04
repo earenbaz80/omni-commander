@@ -13,6 +13,7 @@ vi.mock('../../services/fileSystem', () => ({
     isSystemDrive: () => true,
     getTreeSize: (...args: unknown[]) => getTreeSize(...args),
     getFolderSizes: () => null,
+    getSearchIndex: () => [],
     files: [],
   },
 }));

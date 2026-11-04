@@ -26,9 +26,12 @@ export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({ theme, lang, dri
   // the measured answer instead of the in-memory index.
   const [scan, setScan] = React.useState<DiskUsageScan | null>(null);
 
+  // The engine exposes the catalogue for exactly this; reaching into its
+  // private field meant the shape was never checked.
+  const allFiles: FileItem[] = scan ? [] : fsEngine.getSearchIndex(true);
   const topFiles: DiskUsageTopFile[] = scan
     ? scan.topFiles
-    : [...((fsEngine as any).files as FileItem[])]
+    : [...allFiles]
         .filter((f) => !f.isDirectory)
         .sort((a, b) => b.size - a.size)
         .slice(0, 10)

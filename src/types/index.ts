@@ -464,6 +464,24 @@ export type ActiveModal =
   | 'image_studio'
   | 'maps';
 
+/**
+ * What a modal needs beyond the current selection: the items a copy or move acts
+ * on, where "send to" should land, which viewer tab to open.
+ *
+ * It used to be `any`, so every key a modal read was invisible to the compiler
+ * and a rename in one place left the other reading `undefined`.
+ */
+export interface ModalData {
+  items?: FileItem[];
+  type?: ActiveModal;
+  sendToDriveId?: string;
+  sendToPath?: string;
+  targetFolderPath?: string;
+  viewerTab?: 'preview' | 'text';
+  isNewFile?: boolean;
+  [key: string]: unknown;
+}
+
 export interface CommandHistoryItem {
   id: string;
   timestamp: string;

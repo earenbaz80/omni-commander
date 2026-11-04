@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import type { ModalData } from './types';
 import { parkTransferPlan, takeParkedTransferPlan } from './services/pendingTransfer';
 import {
   FileItem,
@@ -174,7 +175,7 @@ export default function App() {
   const [runLauncherOpenRequest, setRunLauncherOpenRequest] = useState(0);
   // True while the launcher stands on its own because the toolbar is off.
   const [launcherOnly, setLauncherOnly] = useState(false);
-  const [modalData, setModalData] = useState<any>(null);
+  const [modalData, setModalData] = useState<ModalData | null>(null);
   const [selectedFileForModal, setSelectedFileForModal] = useState<FileItem | null>(null);
   // Folder the cleanup modal was opened for, picked in the toolbar's cleanup menu.
   const [cleanupTarget, setCleanupTarget] = useState<CleanupTargetId>('user-temp');
