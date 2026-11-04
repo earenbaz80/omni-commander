@@ -1274,6 +1274,13 @@ export const en = {
   mapsSelectAreaHint: 'Drag over the map to save the marked area',
   mapsOfflineTooMany: 'The area is larger than one batch: only part of it is saved',
   mapsLicense: 'Layer license',
+  mapsWorld: 'Download the world',
+  mapsWorldLevel: 'Maximum level',
+  mapsWorldTiles: 'tiles',
+  mapsWorldConfirm: 'Download now',
+  mapsWorldWarning:
+    'A level-6 world is over five thousand tiles, and the OpenStreetMap tile usage policy forbids bulk downloads: your IP can be blocked. They are fetched in batches, two at a time.',
+  mapsTileError: 'The map tiles could not be loaded',
   openInApp: 'With OmniCommander',
   openMediaPlayer: 'Audio and video player',
   openTextEditor: 'Text editor',

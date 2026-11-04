@@ -1250,6 +1250,13 @@ export const it = {
   mapsSelectAreaHint: 'Trascina sulla mappa per salvare l’area contrassegnata',
   mapsOfflineTooMany: 'L’area è più grande di un lotto: se ne salva solo una parte',
   mapsLicense: 'Licenza del livello',
+  mapsWorld: 'Scarica il mondo',
+  mapsWorldLevel: 'Livello massimo',
+  mapsWorldTiles: 'tile',
+  mapsWorldConfirm: 'Scarica ora',
+  mapsWorldWarning:
+    'Un mondo al livello 6 sono oltre cinquemila tile, e la politica d’uso di OpenStreetMap vieta i download massivi: il tuo IP può essere bloccato. Vengono scaricate a lotti, due alla volta.',
+  mapsTileError: 'Non è stato possibile caricare le tile della mappa',
   openInApp: 'Con OmniCommander',
   openMediaPlayer: 'Lettore audio e video',
   openTextEditor: 'Editor di testo',

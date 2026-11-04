@@ -1281,6 +1281,13 @@ export const es = {
   mapsSelectAreaHint: 'Arrastra sobre el mapa para guardar la zona marcada',
   mapsOfflineTooMany: 'La zona es mayor que una tanda: se guarda solo una parte',
   mapsLicense: 'Licencia de la capa',
+  mapsWorld: 'Descargar el mundo',
+  mapsWorldLevel: 'Nivel máximo',
+  mapsWorldTiles: 'teselas',
+  mapsWorldConfirm: 'Descargar ahora',
+  mapsWorldWarning:
+    'Un mundo a nivel 6 son más de cinco mil teselas, y la política de uso de OpenStreetMap prohíbe las descargas masivas: pueden bloquear tu IP. Se descargan en tandas y de dos en dos.',
+  mapsTileError: 'No se pudieron cargar las teselas',
   openInApp: 'Con OmniCommander',
   openMediaPlayer: 'Reproductor de audio y vídeo',
   openTextEditor: 'Editor de texto',

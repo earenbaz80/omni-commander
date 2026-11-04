@@ -272,6 +272,33 @@ export function tilesCoveringView(
  * The zoom two fingers ask for: the distance between them doubles, the map goes
  * up one level. Sub-pixel distances and a missing first pinch are ignored.
  */
+export function tilesForWorld(maxZoom: number): Array<{ z: number; x: number; y: number }> {
+  const top = Math.max(0, Math.min(MAX_ZOOM, Math.floor(maxZoom)));
+  const tiles: Array<{ z: number; x: number; y: number }> = [];
+  for (let z = 0; z <= top; z += 1) {
+    const count = Math.pow(2, z);
+    for (let x = 0; x < count; x += 1) {
+      for (let y = 0; y < count; y += 1) tiles.push({ z, x, y });
+    }
+  }
+  return tiles;
+}
+
+/**
+ * How many tiles `tilesForWorld` would return, without building the list: the
+ * dialog has to show the figure before anyone agrees to fetch it.
+ *
+ * Level `z` has `4^z` tiles, so the sum up to `top` is `(4^(top+1) - 1) / 3`.
+ */
+export function worldTileCount(maxZoom: number): number {
+  const top = Math.max(0, Math.min(MAX_ZOOM, Math.floor(maxZoom)));
+  return (Math.pow(4, top + 1) - 1) / 3;
+}
+
+/**
+ * The zoom two fingers ask for: the distance between them doubles, the map goes
+ * up one level. Sub-pixel distances and a missing first pinch are ignored.
+ */
 export function zoomForPinch(startZoom: number, startDistance: number, currentDistance: number): number {
   if (!(startDistance > 0) || !(currentDistance > 0)) return clampZoom(startZoom);
   return clampZoom(startZoom + Math.log2(currentDistance / startDistance));

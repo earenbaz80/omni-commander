@@ -1253,6 +1253,13 @@ export const de = {
   mapsSelectAreaHint: 'Ziehe über die Karte, um den markierten Bereich zu speichern',
   mapsOfflineTooMany: 'Der Bereich ist größer als ein Stapel: nur ein Teil wird gespeichert',
   mapsLicense: 'Lizenz der Ebene',
+  mapsWorld: 'Die Welt herunterladen',
+  mapsWorldLevel: 'Höchste Stufe',
+  mapsWorldTiles: 'Kacheln',
+  mapsWorldConfirm: 'Jetzt herunterladen',
+  mapsWorldWarning:
+    'Eine Welt bis Stufe 6 sind über fünftausend Kacheln, und die Nutzungsrichtlinie von OpenStreetMap verbietet Massendownloads: deine IP kann gesperrt werden. Sie werden in Stapeln und zu zweit geladen.',
+  mapsTileError: 'Die Kartenkacheln konnten nicht geladen werden',
   openInApp: 'Mit OmniCommander',
   openMediaPlayer: 'Audio- und Videoplayer',
   openTextEditor: 'Texteditor',

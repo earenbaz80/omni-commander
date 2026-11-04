@@ -1249,6 +1249,13 @@ export const ja = {
   mapsSelectAreaHint: '地図上をドラッグして、囲んだ範囲を保存します',
   mapsOfflineTooMany: '範囲が1回の上限を超えています。一部のみ保存します',
   mapsLicense: 'レイヤーのライセンス',
+  mapsWorld: '世界をダウンロード',
+  mapsWorldLevel: '最大ズーム',
+  mapsWorldTiles: 'タイル',
+  mapsWorldConfirm: '今すぐダウンロード',
+  mapsWorldWarning:
+    'レベル6までの世界は5千枚を超えるタイルで、OpenStreetMapの利用ポリシーは一括ダウンロードを禁じています。IPがブロックされる可能性があります。まとめて2枚ずつ取得します。',
+  mapsTileError: '地図タイルを読み込めませんでした',
   openInApp: 'OmniCommander で開く',
   openMediaPlayer: '音声・動画プレーヤー',
   openTextEditor: 'テキストエディタ',

@@ -1257,6 +1257,13 @@ export const fr = {
   mapsSelectAreaHint: 'Faites glisser sur la carte pour enregistrer la zone marquée',
   mapsOfflineTooMany: 'La zone dépasse un lot : seule une partie est enregistrée',
   mapsLicense: 'Licence de la couche',
+  mapsWorld: 'Télécharger le monde',
+  mapsWorldLevel: 'Niveau maximal',
+  mapsWorldTiles: 'tuiles',
+  mapsWorldConfirm: 'Télécharger maintenant',
+  mapsWorldWarning:
+    'Un monde au niveau 6, c’est plus de cinq mille tuiles, et la politique d’usage d’OpenStreetMap interdit les téléchargements massifs : votre IP peut être bloquée. Elles sont récupérées par lots, deux à la fois.',
+  mapsTileError: 'Les tuiles de la carte n’ont pas pu être chargées',
   openInApp: 'Avec OmniCommander',
   openMediaPlayer: 'Lecteur audio et vidéo',
   openTextEditor: 'Éditeur de texte',

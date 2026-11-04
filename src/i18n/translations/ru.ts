@@ -1249,6 +1249,13 @@ export const ru = {
   mapsSelectAreaHint: 'Проведите по карте, чтобы сохранить отмеченную область',
   mapsOfflineTooMany: 'Область больше одной партии: сохраняется только часть',
   mapsLicense: 'Лицензия слоя',
+  mapsWorld: 'Скачать мир',
+  mapsWorldLevel: 'Максимальный уровень',
+  mapsWorldTiles: 'тайлов',
+  mapsWorldConfirm: 'Скачать сейчас',
+  mapsWorldWarning:
+    'Мир до уровня 6 — это более пяти тысяч тайлов, а правила использования OpenStreetMap запрещают массовые загрузки: ваш IP могут заблокировать. Они загружаются партиями, по два одновременно.',
+  mapsTileError: 'Не удалось загрузить тайлы карты',
   openInApp: 'В OmniCommander',
   openMediaPlayer: 'Плеер аудио и видео',
   openTextEditor: 'Текстовый редактор',

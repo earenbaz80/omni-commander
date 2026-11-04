@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_LATITUDE, TILE_SIZE, tilesCoveringRect } from './slippyMap';
+import { MAX_LATITUDE, MAX_ZOOM, TILE_SIZE, tilesCoveringRect, tilesForWorld, worldTileCount } from './slippyMap';
 
 const columnsAt = (zoom: number) => Math.pow(2, zoom);
 
@@ -69,5 +69,28 @@ describe('tilesCoveringRect', () => {
     const box = { north: 40.5, south: 40.4, west: -3.8, east: -3.7 };
     expect(tilesCoveringRect(box, 7.4).every((tile) => tile.z === 7)).toBe(true);
     expect(tilesCoveringRect(box, 7.6).every((tile) => tile.z === 8)).toBe(true);
+  });
+});
+
+describe('tilesForWorld', () => {
+  it('builds as many tiles as the count promises', () => {
+    for (const level of [0, 1, 5, 6]) {
+      expect(tilesForWorld(level)).toHaveLength(worldTileCount(level));
+    }
+    expect(worldTileCount(0)).toBe(1);
+    expect(worldTileCount(5)).toBe(1365);
+    expect(worldTileCount(6)).toBe(5461);
+  });
+
+  it('covers every square of every level exactly once', () => {
+    const tiles = tilesForWorld(3);
+    expect(new Set(tiles.map((tile) => tile.z + '/' + tile.x + '/' + tile.y)).size).toBe(tiles.length);
+    expect(tiles.filter((tile) => tile.z === 3)).toHaveLength(64);
+    expect(tiles.filter((tile) => tile.z === 0)).toEqual([{ z: 0, x: 0, y: 0 }]);
+  });
+
+  it('never asks for more levels than the world has', () => {
+    expect(worldTileCount(99)).toBe(worldTileCount(MAX_ZOOM));
+    expect(worldTileCount(-4)).toBe(1);
   });
 });
