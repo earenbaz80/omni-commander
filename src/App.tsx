@@ -3,13 +3,10 @@ import { FileItem, CommandHistoryItem, FolderPasswordRecord, LanguageCode } from
 import { CleanupTargetId, fsEngine } from './services/fileSystem';
 import { themes, ThemeConfig } from './services/themeManager';
 import { createPasswordRecord } from './services/appLock';
-import { getTranslations, setCurrentLang } from './i18n/translations';
+import { setCurrentLang } from './i18n/translations';
 
 // Components
-import { AppModals } from './components/AppModals';
-import { ConflictPromptModal } from './components/modals/ConflictPromptModal';
-import { FreeSpaceModal } from './components/modals/FreeSpaceModal';
-import { ZipPasswordModal } from './components/modals/ZipPasswordModal';
+import { AppModalLayer } from './components/AppModalLayer';
 import { DualPaneView } from './components/DualPaneView';
 import { WindowChrome } from './components/WindowChrome';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -53,7 +50,6 @@ export default function App() {
     selectedBg: selectedSelectorPalette.selected,
   };
   const lang: LanguageCode = settings.language;
-  const t = getTranslations(lang);
 
   // Keep the module-level language store in sync for non-React consumers
   // (fsEngine, appLock, usePanels, ErrorBoundary, DriveBar). Set during render so
@@ -372,18 +368,7 @@ export default function App() {
     },
   });
 
-  const {
-    conflictPrompt,
-    freeSpacePrompt,
-    dismissFreeSpacePrompt,
-    handleResolveConflict,
-    handleAbortConflict,
-    handleForceTransfer,
-    handleRunCopyList,
-    handleElevateTransfer,
-    handleConfirmCopy,
-    handleConfirmMove,
-  } = useTransferQueue({
+  const transferQueue = useTransferQueue({
     lang,
     transferItems,
     currentActiveTab,
@@ -391,19 +376,7 @@ export default function App() {
     setFsTick,
   });
 
-  const {
-    handleConfirmDelete,
-    handleConfirmSendToFolder,
-    handleConfirmRename,
-    handleConfirmMkDir,
-    handleConfirmNewFile,
-    handleApplyBatchRename,
-    handleCompressZip,
-    handleExtractZip,
-    handleDropItems,
-    handleDropNativeFiles,
-    handleSetFolderPassword,
-  } = useFileOperations({
+  const fileOperations = useFileOperations({
     lang,
     transferItems,
     currentActiveTab,
@@ -499,8 +472,8 @@ export default function App() {
           duplicateTab: handleDuplicateTab,
           goBack: handleGoBack,
           goForward: handleGoForward,
-          dropItems: handleDropItems,
-          dropNativeFiles: handleDropNativeFiles,
+          dropItems: fileOperations.handleDropItems,
+          dropNativeFiles: fileOperations.handleDropNativeFiles,
           openItem: handleOpenItem,
         }}
         left={{
@@ -655,95 +628,43 @@ export default function App() {
         onExecuteCommand={handleExecuteCommand}
       />
 
-      <AppModals
-        currentTheme={currentTheme}
-        lang={lang}
-        selectedFileForModal={selectedFileForModal}
-        setActiveModal={setActiveModal}
-        activeModal={activeModal}
-        cleanupTarget={cleanupTarget}
-        modalData={modalData?.items?.length ? modalData : { ...modalData, items: transferItems }}
-        setModalData={setModalData}
-        onRunCopyList={handleRunCopyList}
-        currentActiveTab={currentActiveTab}
-        currentInactiveTab={currentInactiveTab}
-        activePanel={activePanel}
-        activeItems={activeItems}
-        activeFocusedItem={activeFocusedItem}
-        leftTab={leftTab}
-        rightTab={rightTab}
-        leftItems={leftItems}
-        rightItems={rightItems}
-        drives={drives}
-        settings={settings}
-        setSettings={setSettings}
-        unlockTarget={unlockTarget}
-        setUnlockTarget={setUnlockTarget}
-        setLeftPanel={setLeftPanel}
-        setRightPanel={setRightPanel}
-        setFsTick={setFsTick}
-        handleConfirmCopy={handleConfirmCopy}
-        handleConfirmMove={handleConfirmMove}
-        handleElevateTransfer={handleElevateTransfer}
-        handleConfirmDelete={handleConfirmDelete}
-        handleConfirmMkDir={handleConfirmMkDir}
-        handleConfirmNewFile={handleConfirmNewFile}
-        handleConfirmRename={handleConfirmRename}
-        handleConfirmSendToFolder={handleConfirmSendToFolder}
-        handleApplyBatchRename={handleApplyBatchRename}
-        getSelectedOrFocusedItems={getSelectedOrFocusedItems}
-        handleNavigate={handleNavigate}
-        handleSelectIndex={handleSelectIndex}
-        handleCompressZip={handleCompressZip}
-        handleExtractZip={handleExtractZip}
-        handleSetFolderPassword={handleSetFolderPassword}
-        handleExecuteCommand={handleExecuteCommand}
-      />
-
-      {conflictPrompt && (
-        <ConflictPromptModal
-          conflict={conflictPrompt}
-          theme={currentTheme}
-          lang={lang}
-          onAnswer={handleResolveConflict}
-          onCancel={handleAbortConflict}
-        />
-      )}
-
-      {freeSpacePrompt && (
-        <FreeSpaceModal
-          volumes={freeSpacePrompt.volumes}
-          theme={currentTheme}
-          lang={lang}
-          onForce={handleForceTransfer}
-          onCancel={dismissFreeSpacePrompt}
-        />
-      )}
-
-      {passwordRequest && (
-        <ZipPasswordModal
-          theme={currentTheme}
-          lang={lang}
-          fileName={passwordRequest.fileName}
-          invalid={passwordRequest.invalid}
-          onSubmit={settlePassword}
-          onClose={() => settlePassword(null)}
-        />
-      )}
-
-      <button
-        ref={leftTreeTabRef}
-        onClick={() => setLeftPanel((p) => ({ ...p, isTreeVisible: !p.isTreeVisible }))}
-        className="fixed left-0 top-1/2 -translate-y-1/2 z-[10000] w-6 h-14 rounded-r-md border border-l-0 text-[11px] font-bold flex items-center justify-center cursor-pointer shadow-lg"
-        style={{
-          backgroundColor: currentTheme.headerBg,
-          color: currentTheme.headerText,
-          borderColor: currentTheme.borderPanel,
+      <AppModalLayer
+        ui={{ theme: currentTheme, lang, settings, setSettings }}
+        panels={{
+          activePanel,
+          activeItems,
+          activeFocusedItem,
+          currentActiveTab,
+          currentInactiveTab,
+          leftTab,
+          rightTab,
+          leftItems,
+          rightItems,
+          drives,
+          setLeftPanel,
+          setRightPanel,
+          setFsTick,
+          selection: getSelectedOrFocusedItems,
         }}
-        title={t.toggleTreeTooltip}
-      >
-        {leftPanel.isTreeVisible ? '◁' : '▷'}
-      </button>
+        modal={{
+          activeModal,
+          setActiveModal,
+          modalData,
+          setModalData,
+          selectedFileForModal,
+          unlockTarget,
+          setUnlockTarget,
+          cleanupTarget,
+        }}
+        transfers={{ items: transferItems, queue: transferQueue, passwordRequest, submitPassword: settlePassword }}
+        files={fileOperations}
+        commands={{ navigate: handleNavigate, selectIndex: handleSelectIndex, executeCommand: handleExecuteCommand }}
+        treeHandle={{
+          visible: leftPanel.isTreeVisible,
+          onToggle: () => setLeftPanel((p) => ({ ...p, isTreeVisible: !p.isTreeVisible })),
+          buttonRef: leftTreeTabRef,
+        }}
+      />
     </div>
   );
 }
