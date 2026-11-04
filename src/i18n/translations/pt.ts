@@ -1247,6 +1247,13 @@ export const pt = {
   mapsSelectAreaHint: 'Arraste sobre o mapa para guardar a área marcada',
   mapsOfflineTooMany: 'A área é maior do que um lote: só uma parte é guardada',
   mapsLicense: 'Licença da camada',
+  mapsWorld: 'Descarregar o mundo',
+  mapsWorldLevel: 'Nível máximo',
+  mapsWorldTiles: 'mosaicos',
+  mapsWorldConfirm: 'Descarregar agora',
+  mapsWorldWarning:
+    'Um mundo ao nível 6 são mais de cinco mil mosaicos, e a política de uso do OpenStreetMap proíbe descargas massivas: o teu IP pode ser bloqueado. São obtidos em lotes, dois de cada vez.',
+  mapsTileError: 'Não foi possível carregar os mosaicos do mapa',
   openInApp: 'Com o OmniCommander',
   openMediaPlayer: 'Reprodutor de áudio e vídeo',
   openTextEditor: 'Editor de texto',

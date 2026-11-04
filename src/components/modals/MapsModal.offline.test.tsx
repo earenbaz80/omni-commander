@@ -63,6 +63,34 @@ describe('MapsModal layers and offline use', () => {
     expect(document.body.textContent).toContain('© OpenStreetMap contributors');
   });
 
+  it('asks before downloading the world, then sends exactly the levels promised', async () => {
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url: String(url), init });
+      if (String(url).includes('/api/maps/cache')) return { ok: true, json: async () => ({ tiles: 0, bytes: 0 }) };
+      return { ok: true, json: async () => ({ stored: 1, failed: 0 }) };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    open();
+
+    // Level 0 is a single tile, which keeps this test about the flow rather
+    // than about how large the world is.
+    fireEvent.change(screen.getByLabelText('Nivel máximo'), { target: { value: '0' } });
+    fireEvent.click(screen.getByTitle('Descargar el mundo'));
+    expect(document.body.textContent).toContain('política de uso de OpenStreetMap');
+
+    fireEvent.click(screen.getByText('Descargar ahora'));
+    await waitFor(() => expect(document.body.textContent).toContain('Zona guardada para consultarla sin conexión'));
+
+    const post = calls.find((call) => call.url.includes('/api/maps/offline') && call.init?.method === 'POST');
+    expect(post).toBeTruthy();
+    const body = JSON.parse(String((post as { init?: RequestInit }).init?.body)) as {
+      tiles: Array<{ z: number; x: number; y: number }>;
+    };
+    expect(body.tiles).toEqual([{ z: 0, x: 0, y: 0 }]);
+    vi.unstubAllGlobals();
+  });
+
   it('asks the server to save the visible area', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Crop, Crosshair, Download, Layers, MapPin, Search, Trash2, WifiOff } from 'lucide-react';
+import { Crop, Crosshair, Download, Globe, Layers, MapPin, Search, Trash2, WifiOff } from 'lucide-react';
 import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
@@ -13,6 +13,8 @@ import {
   projectToScreen,
   tileLayoutFor,
   tilesCoveringView,
+  tilesForWorld,
+  worldTileCount,
   tilesCoveringRect,
   unprojectFromScreen,
   zoomAround,
@@ -119,6 +121,13 @@ const TILE_SETTLE_MS = 180;
 /** Ceiling for one dragged rectangle: a careless selection must not crawl a continent. */
 const RECT_MAX_TILES = 900;
 
+/** Levels a whole-world download offers, and why the list stops there. */
+const WORLD_LEVELS = [4, 5, 6];
+/** The disk cache prunes to 20 000 tiles, and level 7 alone would be 21 845. */
+const WORLD_MAX_LEVEL = 6;
+/** Thousands of tiles at once: fewer, larger requests, still polite. */
+const WORLD_BATCH = 400;
+
 /** Bytes as a person reads them, because the cache is about disk space. */
 function formatCacheSize(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -196,6 +205,11 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
   const [selecting, setSelecting] = useState(false);
   const [selection, setSelection] = useState<{ from: Point; to: Point } | null>(null);
   const selectionStart = useRef<Point | null>(null);
+  /** How far down a whole-world download goes, and whether its warning is up. */
+  const [worldLevel, setWorldLevel] = useState(5);
+  const [worldPrompt, setWorldPrompt] = useState(false);
+  /** What the server answered once an image failed: a blank map hides the why. */
+  const [tileError, setTileError] = useState<string | null>(null);
 
   const zoomCap = useMemo(() => MAP_LAYERS.find((entry) => entry.id === layer)?.maxZoom ?? MAX_ZOOM, [layer]);
   const zoomCapRef = useRef(zoomCap);
@@ -357,13 +371,13 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
    * the batch ceiling are the same for the two.
    */
   const storeTiles = useCallback(
-    async (tiles: Array<{ z: number; x: number; y: number }>, truncated = false) => {
+    async (tiles: Array<{ z: number; x: number; y: number }>, truncated = false, batchSize = OFFLINE_BATCH) => {
       if (tiles.length === 0) return;
       setSaving({ done: 0, total: tiles.length });
       setSaveNote(null);
       let failed = 0;
-      for (let index = 0; index < tiles.length; index += OFFLINE_BATCH) {
-        const batch = tiles.slice(index, index + OFFLINE_BATCH);
+      for (let index = 0; index < tiles.length; index += batchSize) {
+        const batch = tiles.slice(index, index + batchSize);
         try {
           const response = await fetch(withToken(`${API_BASE}/api/maps/offline`), {
             method: 'POST',
@@ -412,6 +426,37 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
     },
     [size.height, size.width, storeTiles],
   );
+
+  /**
+   * A whole-world download at the level the user picked. Levels 0 to 2 are kept
+   * even though the map never zooms that far out: they cost 21 tiles and make
+   * the set complete for anything that later wants a coastline.
+   *
+   * The ceiling is not arbitrary. The disk cache prunes to 20 000 tiles and
+   * level 7 alone is 21 845, so offering it would download tiles that are
+   * deleted before the download finishes.
+   */
+  const saveWorld = useCallback(async () => {
+    setWorldPrompt(false);
+    soundManager.playKeyTick();
+    await storeTiles(tilesForWorld(worldLevel), false, WORLD_BATCH);
+  }, [storeTiles, worldLevel]);
+
+  const worldTotal = worldTileCount(worldLevel);
+
+  /**
+   * The first failed image asks the server what it answered. An image cannot
+   * report a status, so a blank map used to be indistinguishable from a blocked
+   * token, a provider outage or no network at all.
+   */
+  const explainTileFailure = useCallback(async () => {
+    try {
+      const response = await fetch(tileUrl(layer, Math.min(tileZoom, MAX_ZOOM), 0, 0));
+      setTileError(response.ok ? 'images' : String(response.status));
+    } catch {
+      setTileError('network');
+    }
+  }, [layer, tileZoom]);
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const element = containerRef.current;
@@ -563,6 +608,7 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
     soundManager.playKeyTick();
     setLayer(next);
     setTileFailures(0);
+    setTileError(null);
     setSaveNote(null);
     const cap = MAP_LAYERS.find((entry) => entry.id === next)?.maxZoom ?? MAX_ZOOM;
     if (latestView.current.zoom > cap) {
@@ -819,7 +865,51 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
             <Crop className="h-3.5 w-3.5" /> {selecting ? t.mapsSelectAreaOn : t.mapsSelectArea}
           </button>
         </div>
+        <div className="flex flex-wrap items-center gap-[var(--space-1)] text-[11px]">
+          <label className="flex items-center gap-[var(--space-1)] opacity-70">
+            <Globe className="h-3.5 w-3.5" />
+            {t.mapsWorldLevel}
+            <select
+              aria-label={t.mapsWorldLevel}
+              value={worldLevel}
+              onChange={(event) => {
+                setWorldLevel(Number(event.target.value));
+                setWorldPrompt(false);
+              }}
+              className="cursor-pointer rounded border border-white/15 bg-black/40 px-[var(--space-1)] py-[2px] text-[11px] text-white"
+            >
+              {WORLD_LEVELS.filter((level) => level <= WORLD_MAX_LEVEL).map((level) => (
+                <option key={level} value={level}>
+                  0–{level}
+                </option>
+              ))}
+            </select>
+          </label>
+          <span className="opacity-60">
+            {worldTotal.toLocaleString(lang)} {t.mapsWorldTiles}
+          </span>
+          <button
+            onClick={() => (worldPrompt ? void saveWorld() : setWorldPrompt(true))}
+            disabled={saving !== null}
+            title={t.mapsWorld}
+            className={
+              'flex cursor-pointer items-center gap-[var(--space-1)] rounded border px-[var(--space-2)] py-[2px] text-[11px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ' +
+              (worldPrompt
+                ? 'border-amber-300 bg-amber-400 text-black'
+                : 'border-white/15 bg-white/5 text-white hover:bg-white/15')
+            }
+          >
+            <Globe className="h-3.5 w-3.5" /> {worldPrompt ? t.mapsWorldConfirm : t.mapsWorld}
+          </button>
+        </div>
+        {worldPrompt && <p className="text-[11px] text-amber-300">{t.mapsWorldWarning}</p>}
         {selecting && <p className="text-[11px] text-amber-300">{t.mapsSelectAreaHint}</p>}
+        {tileError && (
+          <p className="text-[11px] text-amber-300">
+            {t.mapsTileError}
+            {/^[0-9]+$/.test(tileError) ? ' (HTTP ' + tileError + ')' : ''}
+          </p>
+        )}
         {cacheNote && <p className="text-[11px] text-emerald-300">{cacheNote}</p>}
         {saveNote && (
           <p className={`text-[11px] ${saveNote.ok ? 'text-emerald-300' : 'text-amber-300'}`}>{saveNote.text}</p>
@@ -885,7 +975,10 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
                 key={`${layer}-${tile.z}-${tile.x}-${tile.y}`}
                 src={tileUrl(layer, tile.z, tile.x, tile.y)}
                 alt=""
-                onError={() => setTileFailures((count) => count + 1)}
+                onError={() => {
+                  setTileFailures((count) => count + 1);
+                  if (!tileError) void explainTileFailure();
+                }}
                 draggable={false}
                 decoding="async"
                 className="pointer-events-none absolute max-w-none select-none"
