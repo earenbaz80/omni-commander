@@ -104,7 +104,26 @@ jobs:
       # The default worker count is flaky on the CI runner; the suite is stable
       # with an explicit cap.
       - name: Unit tests
+        if: matrix.node-version != '22'
         run: npm test -- --maxWorkers=2
+
+      # One leg measures instead of repeating the plain run, so the gate costs no
+      # extra time: the same suite, against the thresholds in vite.config.ts. A
+      # drop in coverage turns this leg red, which is the point of having them.
+      - name: Unit tests with coverage
+        if: matrix.node-version == '22'
+        run: npm run test:coverage -- --maxWorkers=2
+
+      # A red threshold says the number moved; the report says where. Uploading it
+      # even when the run failed, which is exactly when somebody wants to look.
+      - name: Keep the coverage report
+        if: always() && matrix.node-version == '22'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 7
+          if-no-files-found: ignore
 
   # The e2e specs lived outside the gate: eleven files nobody ran unless they
   # remembered, so a push could be green while the app was broken in a browser.

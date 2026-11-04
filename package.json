@@ -63,6 +63,7 @@
     "lint:eslint": "eslint src --max-warnings 0",
     "typecheck:strict": "tsc --noEmit -p tsconfig.strict.json",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "node scripts/install-git-hooks.cjs",
