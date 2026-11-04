@@ -73,22 +73,25 @@ describe('ModalShell', () => {
     expect(document.activeElement).toBe(screen.getByText('primero'));
   });
 
-  it('wraps Tab from the last control back to the first', () => {
+  // The title bar and the corner are tab stops of their own now, which is what
+  // makes a window movable from the keyboard; the trap has to wrap around the
+  // whole set, so these check its two ends instead of two buttons.
+  it('wraps Tab from the corner back to the title bar', () => {
     render(<TwoButtons />);
-    const first = screen.getByText('primero');
-    const second = screen.getByText('segundo');
-    second.focus();
-    fireEvent.keyDown(second, { key: 'Tab' });
-    expect(document.activeElement).toBe(first);
+    const titleBar = screen.getByRole('group', { name: 'Mover ventana' });
+    const corner = screen.getByLabelText('Redimensionar ventana');
+    corner.focus();
+    fireEvent.keyDown(corner, { key: 'Tab' });
+    expect(document.activeElement).toBe(titleBar);
   });
 
-  it('wraps Shift+Tab from the first control to the last', () => {
+  it('wraps Shift+Tab from the title bar back to the corner', () => {
     render(<TwoButtons />);
-    const first = screen.getByText('primero');
-    const second = screen.getByText('segundo');
-    first.focus();
-    fireEvent.keyDown(first, { key: 'Tab', shiftKey: true });
-    expect(document.activeElement).toBe(second);
+    const titleBar = screen.getByRole('group', { name: 'Mover ventana' });
+    const corner = screen.getByLabelText('Redimensionar ventana');
+    titleBar.focus();
+    fireEvent.keyDown(titleBar, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(corner);
   });
 
   it('lets Tab move forward normally between controls', () => {
@@ -310,6 +313,72 @@ describe('ModalShell', () => {
     );
     fireEvent.click(screen.getByLabelText('Maximizar'));
     expect(screen.queryByLabelText('Redimensionar ventana')).toBeNull();
+  });
+
+  // Moving a window was pointer-only, which left the layout out of reach of a
+  // keyboard. The bar carries the panel with the arrows; Shift sizes it.
+  it('moves the panel with the arrow keys on its title bar', () => {
+    render(
+      <ModalShell label="Mapas" theme={mockTheme}>
+        <p>contenido</p>
+      </ModalShell>,
+    );
+    const panel = screen.getByRole('dialog') as HTMLElement;
+    panel.getBoundingClientRect = () =>
+      ({ left: 200, top: 100, width: 400, height: 300, right: 600, bottom: 400, x: 200, y: 100 }) as DOMRect;
+
+    const titleBar = screen.getByRole('group', { name: 'Mover ventana' });
+    fireEvent.keyDown(titleBar, { key: 'ArrowRight' });
+    expect(panel.style.left).toBe('216px');
+    expect(panel.style.top).toBe('100px');
+    // Carrying a window does not resize it.
+    expect(panel.style.width).toBe('400px');
+    expect(panel.style.height).toBe('300px');
+  });
+
+  it('sizes the panel with Shift and the arrows on its title bar', () => {
+    render(
+      <ModalShell label="Mapas" theme={mockTheme}>
+        <p>contenido</p>
+      </ModalShell>,
+    );
+    const panel = screen.getByRole('dialog') as HTMLElement;
+    panel.getBoundingClientRect = () =>
+      ({ left: 200, top: 100, width: 400, height: 300, right: 600, bottom: 400, x: 200, y: 100 }) as DOMRect;
+
+    fireEvent.keyDown(screen.getByRole('group', { name: 'Mover ventana' }), { key: 'ArrowDown', shiftKey: true });
+    expect(panel.style.height).toBe('316px');
+    // Growing towards the corner leaves the top-left where it was.
+    expect(panel.style.top).toBe('100px');
+    expect(panel.style.left).toBe('200px');
+  });
+
+  // The corner does the same job with the arrows and is the only place the size
+  // can be read back, since nothing on screen prints it.
+  it('sizes the panel with the arrow keys on its corner and reads the result out', () => {
+    render(
+      <ModalShell label="Mapas" theme={mockTheme} resizable resizeLabel="Redimensionar ventana">
+        <p>contenido</p>
+      </ModalShell>,
+    );
+    const panel = screen.getByRole('dialog') as HTMLElement;
+    panel.getBoundingClientRect = () =>
+      ({ left: 200, top: 100, width: 400, height: 300, right: 600, bottom: 400, x: 200, y: 100 }) as DOMRect;
+
+    const corner = screen.getByLabelText('Redimensionar ventana');
+    corner.focus();
+    expect(corner.getAttribute('tabindex')).toBe('0');
+    expect(corner.getAttribute('aria-orientation')).toBe('horizontal');
+    expect(corner.getAttribute('aria-valuemin')).toBe('320');
+
+    fireEvent.keyDown(corner, { key: 'ArrowRight' });
+    expect(panel.style.width).toBe('416px');
+    expect(corner.getAttribute('aria-valuenow')).toBe('416');
+    expect(screen.getByRole('status').textContent).toBe('416 × 300');
+
+    // Shift is the fine step, for lining a window up exactly.
+    fireEvent.keyDown(corner, { key: 'ArrowLeft', shiftKey: true });
+    expect(panel.style.width).toBe('412px');
   });
 
   it('leaves the window buttons out unless they are asked for', () => {

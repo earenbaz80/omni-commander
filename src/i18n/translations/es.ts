@@ -187,6 +187,7 @@ export const es = {
   minimize: 'Minimizar',
   maximizeRestore: 'Maximizar / Restaurar',
   resizeWindow: 'Redimensionar ventana',
+  moveWindow: 'Mover ventana',
   bookmarks: 'Marcadores / Favoritos...',
   recycleBin: 'Papelera de Reciclaje...',
   taskQueue: 'Cola de Tareas...',

@@ -131,18 +131,18 @@ Tareas:
 
 ### F5 · Accesibilidad de lo interactivo nuevo — S
 
-**Por qué:** mover y redimensionar ventanas es solo ratón; el tirador es un `role="separator"` sin orientación ni valores, y no hay forma de colocar una ventana con teclado.
+**Por qué:** mover y redimensionar ventanas era solo ratón; el tirador era un `role="separator"` sin orientación ni valores, y no había forma de colocar una ventana con teclado.
 
-Tareas:
+**Hecho, en este commit:**
 
-- Flechas con modificador sobre la barra de título para mover; `Shift+flechas` para redimensionar desde la esquina.
-- `aria-orientation`, `aria-valuenow/valuemin/valuemax` en el separador, o convertirlo en un botón con nombre claro si el rol no aporta.
-- Anunciar el tamaño al soltar (región `aria-live` discreta), para que un lector de pantalla no quede a ciegas.
-- Caso e2e con `axe` sobre un modal redimensionado y movido.
+- La barra de título es un asa de teclado: `Tab` hasta ella y las flechas mueven la ventana 16 px; `Shift+flechas` la redimensionan. Se queda fuera cuando la ventana está maximizada, porque ahí no hay nada que mover.
+- La esquina es un `separator` enfocable, con `aria-orientation`, `aria-valuemin` y `aria-valuemax`; `aria-valuenow` aparece en cuanto hay un tamaño propio, porque antes el ancho es el que le da el diseño del diálogo y no uno que este código controle. Sus flechas redimensionan 16 px y con `Shift`, 4 px para ajustar fino.
+- Una región `role="status"` anuncia el tamaño después de cada pulsación (`416 × 300`), que es lo único que lo dice: nada en pantalla lo imprime.
+- `useModalDialog` sigue atrapando el `Tab` en todos los paradas nuevas, pero el foco inicial prefiere un control de verdad: si no, cada diálogo abriría con el foco en su propia barra y habría que tabular antes de poder hacer nada.
 
-**Hecho cuando:** se puede mover y redimensionar una ventana sin ratón, y `axe` no reporta violaciones en los modales abiertos.
+**Lo que queda de esta fase:** el caso con `axe` sobre un modal movido. Hoy no hay `@axe-core/playwright` en el proyecto y la guarda de roles existente (`modalA11y.guard.test.ts`, 77 comprobaciones) sigue cubriendo lo que sí se puede afirmar sin navegador; añadir la dependencia es una decisión aparte, no un detalle de esta fase.
 
-**Riesgo:** bajo.
+**Riesgo:** el que tenía. El cambio de foco inicial afecta a todos los diálogos, así que se comprobó con la suite entera, no solo con su test.
 
 ---
 
@@ -189,7 +189,7 @@ Tareas:
 | F2 | `server.cjs` dividido en módulos | L | Alto | F0, F1 |
 | F3 | `App.tsx` y `fileSystem.ts` manejables | M/L | Medio | F1 |
 | F4 | Persistencia con validación y migración; menos `any` | M | Bajo | F0 |
-| F5 | Ventanas usables con teclado, `aria` correcto | S | Bajo | — |
+| F5 | Ventanas usables con teclado, `aria` correcto | S | Bajo | — (queda el caso con `axe`) |
 | F6 | Caché del mapa visible y descarga por zona | M | Medio | — |
 | F7 | Release con checklist y firma comprobada | S | Bajo | — |
 

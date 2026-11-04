@@ -27,6 +27,11 @@ interface ModalShellProps {
   resizable?: boolean;
   resizeLabel?: string;
   /**
+   * Name for the title bar as a keyboard handle: the arrow keys carry the panel
+   * with it, which is the only way to move a window without a pointer.
+   */
+  moveLabel?: string;
+  /**
    * Lets the title bar carry the panel around, which is the other half of
    * behaving like a window. Buttons in the bar keep working as buttons.
    */
@@ -49,6 +54,17 @@ const MIN_PANEL_WIDTH = 320;
 const MIN_PANEL_HEIGHT = 220;
 /** The overlay's own inset, kept clear so the panel never touches an edge. */
 const SCREEN_GUTTER = 32;
+/** How far one arrow press moves or sizes the panel. */
+const KEY_STEP = 16;
+/** Shift on the corner is the fine step, for lining a window up exactly. */
+const KEY_FINE_STEP = 4;
+/** Each arrow's vector: the same one moves the panel and grows it, so one map serves both. */
+const ARROW_STEPS: Record<string, { x: number; y: number }> = {
+  ArrowLeft: { x: -1, y: 0 },
+  ArrowRight: { x: 1, y: 0 },
+  ArrowUp: { x: 0, y: -1 },
+  ArrowDown: { x: 0, y: 1 },
+};
 
 /**
  * Consolidated modal shell component that provides consistent:
@@ -72,6 +88,7 @@ function ModalShell({
   restoreLabel = 'Restaurar',
   resizable = true,
   resizeLabel = 'Redimensionar ventana',
+  moveLabel = 'Mover ventana',
   movable = true,
   fill = false,
   onFillChange,
@@ -85,6 +102,12 @@ function ModalShell({
    * from. `null` means the dialog's own size, still centred by the overlay.
    */
   const [size, setSize] = useState<{ width: number; height: number; left: number; top: number } | null>(null);
+  /**
+   * The size the last key press produced, read out to a screen reader. Without
+   * it the window changes under the keyboard in silence and the user cannot
+   * tell how big it ended up.
+   */
+  const [announcement, setAnnouncement] = useState('');
   const dragging = useRef<{
     pointerId: number;
     x: number;
@@ -246,6 +269,91 @@ function ModalShell({
 
   // `max-w-none` is what lets a dragged panel pass the dialog width it was
   // designed for; the inline size is clamped to the viewport above.
+  /**
+   * The panel's geometry right now: what a drag left behind, or the box the
+   * overlay centred it in. The keyboard starts from the same place the pointer
+   * does, so both gestures agree about where the window is.
+   */
+  const geometryNow = () => {
+    const panel = modalRef.current;
+    if (!panel) return null;
+    const rect = panel.getBoundingClientRect();
+    return size ?? { width: rect.width, height: rect.height, left: rect.left, top: rect.top };
+  };
+
+  /** The same caps the corner drag applies, so a key press cannot leave the screen either. */
+  const clampSize = (width: number, height: number, left: number, top: number) => ({
+    width: Math.min(
+      Math.max(MIN_PANEL_WIDTH, window.innerWidth - SCREEN_GUTTER - left),
+      Math.max(MIN_PANEL_WIDTH, width),
+    ),
+    height: Math.min(
+      Math.max(MIN_PANEL_HEIGHT, window.innerHeight - SCREEN_GUTTER - top),
+      Math.max(MIN_PANEL_HEIGHT, height),
+    ),
+  });
+
+  const applyGeometry = (next: { width: number; height: number; left: number; top: number }) => {
+    setSize(next);
+    setAnnouncement(`${Math.round(next.width)} × ${Math.round(next.height)}`);
+  };
+
+  /** Arrow keys on the title bar carry the panel; with Shift they size it. */
+  const handleMoveKeys = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    // A key press that belongs to a control in the bar is that control's.
+    if ((event.target as HTMLElement).closest('button, input, select, textarea, a')) return;
+    const direction: { x: number; y: number } | undefined = ARROW_STEPS[event.key];
+    if (!direction) return;
+    const geometry = geometryNow();
+    if (!geometry) return;
+    event.preventDefault();
+
+    if (event.shiftKey) {
+      const { width, height } = clampSize(
+        geometry.width + direction.x * KEY_STEP,
+        geometry.height + direction.y * KEY_STEP,
+        geometry.left,
+        geometry.top,
+      );
+      applyGeometry({
+        width,
+        height,
+        left: Math.max(0, Math.min(geometry.left, window.innerWidth - width)),
+        top: Math.max(0, Math.min(geometry.top, window.innerHeight - height)),
+      });
+      return;
+    }
+
+    applyGeometry({
+      width: geometry.width,
+      height: geometry.height,
+      left: Math.max(0, Math.min(window.innerWidth - geometry.width, geometry.left + direction.x * KEY_STEP)),
+      top: Math.max(0, Math.min(window.innerHeight - geometry.height, geometry.top + direction.y * KEY_STEP)),
+    });
+  };
+
+  /** Arrow keys on the corner size the panel; Shift is the fine step. */
+  const handleResizeKeys = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const direction: { x: number; y: number } | undefined = ARROW_STEPS[event.key];
+    if (!direction) return;
+    const geometry = geometryNow();
+    if (!geometry) return;
+    event.preventDefault();
+    const step = event.shiftKey ? KEY_FINE_STEP : KEY_STEP;
+    const { width, height } = clampSize(
+      geometry.width + direction.x * step,
+      geometry.height + direction.y * step,
+      geometry.left,
+      geometry.top,
+    );
+    applyGeometry({
+      width,
+      height,
+      left: Math.max(0, Math.min(geometry.left, window.innerWidth - width)),
+      top: Math.max(0, Math.min(geometry.top, window.innerHeight - height)),
+    });
+  };
+
   const panelSizeClass = maximized ? 'h-full w-full max-w-none' : size ? 'max-w-none' : 'max-h-full w-full max-w-3xl';
 
   const bodyClass = fill
@@ -273,15 +381,23 @@ function ModalShell({
             : null),
         }}
       >
-        {/* Header */}
+        {/* Header. It is also the keyboard's handle: the arrows carry the window,
+            Shift+arrows size it. Without a focusable bar, moving a window was
+            pointer-only, which left the whole layout out of reach of a keyboard. */}
         <div
           onPointerDown={startMove}
           onPointerMove={moveMove}
           onPointerUp={endMove}
           onPointerCancel={endMove}
           onLostPointerCapture={endMove}
+          tabIndex={movable && !maximized ? 0 : undefined}
+          role={movable && !maximized ? 'group' : undefined}
+          aria-label={movable && !maximized ? moveLabel : undefined}
+          onKeyDown={movable && !maximized ? handleMoveKeys : undefined}
           className={`flex shrink-0 select-none items-center justify-between px-[var(--space-4)] py-[var(--space-3)] border-b ${
-            movable && !maximized ? 'cursor-grab touch-none active:cursor-grabbing' : ''
+            movable && !maximized
+              ? 'cursor-grab touch-none active:cursor-grabbing focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px]'
+              : ''
           }`}
           style={{
             backgroundColor: theme.modalHeaderBg,
@@ -334,18 +450,32 @@ function ModalShell({
           {children}
         </div>
 
-        {/* A window is resizeable by its corner; a maximised one already fills the screen. */}
+        {/* A screen reader hears the size the keys just produced; otherwise the
+            window changes in silence. */}
+        <div role="status" aria-live="polite" className="sr-only">
+          {announcement}
+        </div>
+
+        {/* A window is resizeable by its corner; a maximised one already fills the
+            screen. The corner is a tab stop with the arrows doing the same job
+            the pointer does, and it reports the width it changes. */}
         {resizable && !maximized && (
           <div
             role="separator"
             aria-label={resizeLabel}
             title={resizeLabel}
+            tabIndex={0}
+            aria-orientation="horizontal"
+            aria-valuenow={size ? Math.round(size.width) : undefined}
+            aria-valuemin={MIN_PANEL_WIDTH}
+            aria-valuemax={Math.max(MIN_PANEL_WIDTH, Math.round(window.innerWidth - SCREEN_GUTTER))}
+            onKeyDown={handleResizeKeys}
             onPointerDown={startResize}
             onPointerMove={moveResize}
             onPointerUp={endResize}
             onPointerCancel={endResize}
             onLostPointerCapture={endResize}
-            className="absolute bottom-0 right-0 z-10 flex h-5 w-5 cursor-nwse-resize touch-none items-end justify-end p-[2px] hover:bg-white/10"
+            className="absolute bottom-0 right-0 z-10 flex h-5 w-5 cursor-nwse-resize touch-none items-end justify-end p-[2px] hover:bg-white/10 focus-visible:outline focus-visible:outline-2"
             style={{ color: theme.modalBorder }}
           >
             <svg width="12" height="12" viewBox="0 0 10 10" aria-hidden="true" focusable="false">

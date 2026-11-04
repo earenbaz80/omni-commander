@@ -163,6 +163,7 @@ export const it = {
   minimize: 'Riduci a icona',
   maximizeRestore: 'Massimizza / Ripristina',
   resizeWindow: 'Ridimensiona la finestra',
+  moveWindow: 'Sposta la finestra',
   bookmarks: 'Segnalibri / Preferiti...',
   recycleBin: 'Cestino...',
   taskQueue: 'Coda attività...',

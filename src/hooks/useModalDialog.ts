@@ -10,6 +10,23 @@ export const MODAL_FOCUSABLE_SELECTOR = [
 ].join(', ');
 
 /**
+ * The narrower set: the elements that do something when they are focused.
+ *
+ * A window's title bar is a tab stop because the arrow keys move the panel with
+ * it, and it sits first in document order. Starting focus there would make the
+ * user tab before they could act on the dialog at all, so the first focus target
+ * prefers a control. Tab still walks through every stop; only where focus starts
+ * changes.
+ */
+const MODAL_CONTROL_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+].join(', ');
+
+/**
  * Where focus has been outside dialogs, newest last.
  *
  * Reading `document.activeElement` when a window mounts is not an answer to
@@ -131,8 +148,9 @@ export function useModalDialog<T extends HTMLElement>(
     // Where focus was before any window was in the way; resolved again on the
     // way out, which is when a window replacing another has already restored.
 
+    const firstControl = panel.querySelector<HTMLElement>(MODAL_CONTROL_SELECTOR);
     const firstFocusable = panel.querySelector<HTMLElement>(MODAL_FOCUSABLE_SELECTOR);
-    (firstFocusable ?? panel).focus();
+    (firstControl ?? firstFocusable ?? panel).focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Tab') return;
