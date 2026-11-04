@@ -124,7 +124,9 @@ Tareas:
 
 **Segunda tanda (este commit):** los ajustes (`nc_settings_v1`, el valor con el que arranca la app), el historial de búsqueda y los marcadores. Los ajustes conservan su normalización (`normalizeProtectedFolders`, `migrateThemeId`) y ahora se leen como versión 2; un objeto guardado sin envoltorio sigue siendo válido y se usa tal cual, que es lo que impide que la actualización resetee todo una vez. Tests: la clave de ajustes en sus cuatro formas (nada guardado, objeto antiguo, envoltorio, valor corrupto), además del que ya cubría las contraseñas en claro.
 
-**Lo que queda de la fase:** el árbol de ficheros (`nc_filesystem_v1`, unidades y papelera) y los `any`. El árbol va aparte a propósito: `loadFromStorage` siembra unidades iniciales cuando el valor no se puede leer, y decidir si eso debe cambiar es una decisión de producto, no un detalle de la migración.
+**Tercera tanda (este commit):** el árbol de ficheros —unidades, listado y papelera— a `filesystemStorage.ts`, con un validador por lista y la entrada dañada filtrada en vez de tirar el catálogo entero. La duda de la tanda anterior se resolvió leyendo el código: `initialDrives` e `initialFiles` son listas vacías, así que «sembrar las iniciales» y «no hay nada» resultaban ser lo mismo y no había decisión de producto que tomar. Tests: catálogo ausente, guardado antiguo sin envoltorio, envoltorio, entrada dañada entre buenas, clave corrupta que no arrastra a las demás y escritura fallida.
+
+**Lo que queda de la fase:** los `any` y el aviso de `no-explicit-any`, que es la otra mitad de la F4 y no se tocó.
 
 **Riesgo:** bajo, pero toca ajustes del usuario: cada migración necesita su test de valor corrupto y de valor antiguo, que es lo que esta tanda añade.
 

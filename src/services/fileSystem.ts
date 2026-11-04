@@ -34,6 +34,7 @@ import {
 import { log } from '../utils/logger';
 import { tGlobal } from '../i18n/translations';
 import { fetchWithRetry, sessionTokenHeader } from '../utils/fetchWithRetry';
+import { readCatalogue, writeCatalogue } from './filesystemStorage';
 
 // The archive errors live with the format dispatch that raises them; they stay
 // re-exported here because this module is the engine's public surface.
@@ -58,10 +59,6 @@ function treeSizeFailureForStatus(status: number): TreeSizeFailure {
   if (status >= 500) return 'unreachable';
   return 'refused';
 }
-
-const STORAGE_KEY = 'nc_filesystem_v1';
-const DRIVES_STORAGE_KEY = 'nc_drives_v1';
-const RECYCLE_BIN_STORAGE_KEY = 'nc_recycle_bin_v1';
 
 /** Progress snapshot of a real filesystem job owned by the local server. */
 interface RealFsJob {
@@ -205,41 +202,13 @@ class FileSystemEngine {
   }
 
   private loadFromStorage() {
-    if (typeof window === 'undefined') {
-      this.drives = [...initialDrives];
-      this.files = [...initialFiles];
-      this.recycleBin = [];
-      return;
-    }
-
-    try {
-      const savedDrives = localStorage.getItem(DRIVES_STORAGE_KEY);
-      const savedFiles = localStorage.getItem(STORAGE_KEY);
-      const savedTrash = localStorage.getItem(RECYCLE_BIN_STORAGE_KEY);
-
-      if (savedDrives) {
-        this.drives = JSON.parse(savedDrives);
-      } else {
-        // Real drives only: do not seed virtual drives
-        this.drives = [];
-      }
-
-      if (savedFiles) {
-        this.files = JSON.parse(savedFiles);
-      } else {
-        this.files = [];
-      }
-
-      if (savedTrash) {
-        this.recycleBin = JSON.parse(savedTrash);
-      } else {
-        this.recycleBin = [];
-      }
-    } catch {
-      this.drives = [...initialDrives];
-      this.files = [...initialFiles];
-      this.recycleBin = [];
-    }
+    // Real drives only: a first run has nothing saved, and virtual drives are
+    // added elsewhere on purpose. A value that cannot be read means the same
+    // thing here as no value at all, which is what the reader already decides.
+    const catalogue = readCatalogue();
+    this.drives = catalogue.drives;
+    this.files = catalogue.files;
+    this.recycleBin = catalogue.recycleBin;
   }
 
   /**
@@ -270,15 +239,16 @@ class FileSystemEngine {
 
   private persistToStorageNow() {
     if (typeof window === 'undefined') return;
-    try {
-      localStorage.setItem(DRIVES_STORAGE_KEY, JSON.stringify(this.drives));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.filesForStorage()));
-      localStorage.setItem(RECYCLE_BIN_STORAGE_KEY, JSON.stringify(this.recycleBin));
-    } catch (e) {
+    const saved = writeCatalogue({
+      drives: this.drives,
+      files: this.filesForStorage(),
+      recycleBin: this.recycleBin,
+    });
+    if (!saved) {
       // A quota-exceeded write used to fail silently, so the user lost drives,
       // files and trash with no trace. Log it and keep the app running on the
       // in-memory state instead of pretending the save succeeded.
-      log.error('[fileSystem] persist to localStorage failed; continuing in memory', e);
+      log.error('[fileSystem] persist to localStorage failed; continuing in memory');
     }
   }
 
