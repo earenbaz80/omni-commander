@@ -85,8 +85,10 @@ const RUN_STATUS_REASONS: Record<number, RunFailure> = {
  * not carry (a refused UAC prompt is a 403 that is not a permissions problem),
  * so the body wins when it knows more.
  */
-const reasonFor = (status: number, body: any, fallback: RunFailure): RunFailure =>
-  body?.error === 'elevation-denied' ? 'elevation-denied' : (RUN_STATUS_REASONS[status] ?? fallback);
+const reasonFor = (status: number, body: unknown, fallback: RunFailure): RunFailure =>
+  (body as { error?: unknown } | null)?.error === 'elevation-denied'
+    ? 'elevation-denied'
+    : (RUN_STATUS_REASONS[status] ?? fallback);
 
 /** Result of a confirmed launch. */
 export type RunLaunch = { kind: 'launched'; argv: string[] } | { kind: 'error'; reason: RunFailure; program?: string };
@@ -101,7 +103,10 @@ async function postRun(body: { command: string; confirmed?: boolean; elevated?: 
       // A retried launch would start the program twice.
       retries: 0,
     });
-    return { status: response.status, body: (await response.json().catch(() => ({}))) as any };
+    return {
+      status: response.status,
+      body: (await response.json().catch(() => ({}))) as Record<string, unknown>,
+    };
   } catch {
     return null;
   }
@@ -116,7 +121,8 @@ export async function runCommand(command: string, elevated = false): Promise<Run
   const answer = await postRun(elevated ? { command, confirmed: true, elevated: true } : { command, confirmed: true });
   if (!answer) return { kind: 'error', reason: 'unreachable' };
   if (answer.status === 200) {
-    return { kind: 'launched', argv: Array.isArray(answer.body?.argv) ? answer.body.argv.map(String) : [] };
+    const argv = answer.body?.argv;
+    return { kind: 'launched', argv: Array.isArray(argv) ? argv.map(String) : [] };
   }
   return {
     kind: 'error',
@@ -140,7 +146,7 @@ export async function openRunTarget(target: string): Promise<RunResult> {
     return { kind: 'error', reason: 'unreachable' };
   }
 
-  const body = (await response.json().catch(() => ({}))) as any;
+  const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
   if (!response.ok) return { kind: 'error', reason: STATUS_REASONS[response.status] ?? 'launch-failed' };
   if (body?.kind === 'folder' && typeof body.path === 'string') return { kind: 'folder', path: body.path };
   if (body?.kind === 'opened') {

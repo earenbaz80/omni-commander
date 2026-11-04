@@ -60,6 +60,33 @@ function treeSizeFailureForStatus(status: number): TreeSizeFailure {
   return 'refused';
 }
 
+/** One entry of a `/api/list` answer, as the server writes it. */
+interface ServerListItem {
+  name?: string;
+  ext?: string;
+  fullName?: string;
+  isDirectory?: boolean;
+  size?: number;
+  modifiedAt?: string;
+  createdAt?: string;
+  attributes?: FileItem['attributes'];
+  content?: string;
+}
+
+/** One line of the folder-size stream the server writes while it scans. */
+interface ScanMessage {
+  type?: 'progress' | 'folder' | 'done' | 'error';
+  entries?: number;
+  files?: number;
+  dirs?: number;
+  bytes?: number;
+  currentPath?: string;
+  elapsedMs?: number;
+  folder?: DiskUsageItem;
+  tree?: DiskUsageScan;
+  error?: string;
+}
+
 /** Progress snapshot of a real filesystem job owned by the local server. */
 interface RealFsJob {
   id: string;
@@ -307,9 +334,9 @@ class FileSystemEngine {
 
       const normPath = this.normalizePath(path);
       const untouched = this.files.filter((f) => !(f.driveId === driveId && this.normalizePath(f.path) === normPath));
-      const mapped: FileItem[] = serverItems.map((item: any, index: number) => ({
+      const mapped: FileItem[] = serverItems.map((item: ServerListItem, index: number) => ({
         id: `sys_${driveId}_${index}_${Date.now()}`,
-        name: item.name,
+        name: item.name ?? '',
         ext: item.ext || '',
         fullName: item.fullName || undefined,
         path: normPath,
@@ -2094,7 +2121,7 @@ class FileSystemEngine {
           buffer = buffer.slice(newline + 1);
           if (!line) continue;
 
-          let message: any;
+          let message: ScanMessage;
           try {
             message = JSON.parse(line);
           } catch {
@@ -2110,10 +2137,10 @@ class FileSystemEngine {
             counters.elapsedMs = message.elapsedMs ?? counters.elapsedMs;
             emit();
           } else if (message.type === 'folder' && message.folder) {
-            folders = [...folders, message.folder as DiskUsageItem].sort((a, b) => b.sizeBytes - a.sizeBytes);
+            folders = [...folders, message.folder].sort((a, b) => b.sizeBytes - a.sizeBytes);
             emit();
           } else if (message.type === 'done') {
-            tree = message.tree as DiskUsageScan;
+            tree = message.tree ?? null;
           } else if (message.type === 'error') {
             failure = String(message.error || 'scan failed');
           }

@@ -605,7 +605,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
         <button
           onClick={() => {
             soundManager.playKeyTick();
-            onOpenModal('cmd_winget_library' as any);
+            onOpenModal('cmd_winget_library');
           }}
           title={t.cmdLibrary}
           className="px-[var(--space-2)] py-[var(--space-1)] bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 border border-amber-400/40 rounded flex items-center gap-[var(--space-1)] cursor-pointer font-bold transition-colors text-[11px]"

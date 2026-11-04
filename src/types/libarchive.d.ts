@@ -4,6 +4,7 @@ export { ArchiveCompression, ArchiveFormat } from './formats.js';
 export type ArchiveOptions = {
   workerUrl?: string | URL;
   getWorker?: (...args: unknown[]) => unknown;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- vendored declaration of the upstream library
   createClient?: (worker: any) => any;
 };
 export type ArchiveEntryFile = {

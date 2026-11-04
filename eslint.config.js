@@ -12,11 +12,17 @@ export default tseslint.config(
   },
   {
     rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-explicit-any': 'warn',
       // Rest-destructuring is how this codebase omits form-only keys before
       // persisting; those siblings are intentionally unused.
       '@typescript-eslint/no-unused-vars': ['warn', { ignoreRestSiblings: true }],
     },
+  },
+  {
+    // Test doubles stand in for shapes a test does not need to describe in full
+    // (a fetch stub, a mocked engine), so `any` there is deliberate and local.
+    files: ['**/*.test.{ts,tsx}', 'src/test/**/*.{ts,tsx}'],
+    rules: { '@typescript-eslint/no-explicit-any': 'off' },
   },
   storybook.configs['flat/recommended'],
 );

@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { FileItem, LanguageCode } from '../types';
+import { CommandHistoryItem, FileItem, LanguageCode } from '../types';
 import { fsEngine } from '../services/fileSystem';
 import { getTranslations } from '../i18n/translations';
 
@@ -12,7 +12,7 @@ interface CommandExecutionDeps {
   isAdminMode: boolean;
   handleGoParent: (side: 'left' | 'right') => void;
   handleNavigate: (side: 'left' | 'right', path: string) => void;
-  setCommandHistory: React.Dispatch<React.SetStateAction<any[]>>;
+  setCommandHistory: React.Dispatch<React.SetStateAction<CommandHistoryItem[]>>;
 }
 
 /** Three levels of ASCII tree, then the indentation stops growing. */

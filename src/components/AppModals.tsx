@@ -1,5 +1,6 @@
 ﻿import React from 'react';
 import { ThemeConfig } from '../services/themeManager';
+import type { ModalData } from '../types';
 import {
   ActiveModal,
   Drive,
@@ -99,8 +100,8 @@ interface AppModalsProps {
   setActiveModal: React.Dispatch<React.SetStateAction<ActiveModal>>;
   activeModal: ActiveModal;
   cleanupTarget: CleanupTargetId;
-  modalData: any;
-  setModalData: React.Dispatch<React.SetStateAction<any>>;
+  modalData: ModalData | null;
+  setModalData: React.Dispatch<React.SetStateAction<ModalData | null>>;
   currentActiveTab: PanelTab;
   currentInactiveTab: PanelTab;
   activePanel: 'left' | 'right';

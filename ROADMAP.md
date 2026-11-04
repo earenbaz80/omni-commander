@@ -128,7 +128,7 @@ Tareas:
 
 **Cierre del almacenamiento:** el plan de transferencia que sobrevive al reinicio elevado (`omnicommander.pendingElevatedTransfer`) también pasa por el lector, y con él no queda ningún `localStorage` crudo fuera de `storage.ts` y `filesystemStorage.ts`; lo que sigue leyendo del navegador lo hace detrás de una tienda inyectable (`calendarStore`, `runLauncher`), que ya era la forma correcta.
 
-**Lo que queda de la fase:** los `any` y el aviso de `no-explicit-any`, que es la otra mitad de la F4 y no se tocó.
+**Cierre de la F4:** los `any` explícitos salieron de `src` y `@typescript-eslint/no-explicit-any` vuelve a estar en `warn` con `--max-warnings 0`, así que uno nuevo rompe el lint en vez de acumularse. El puente de Electron es ahora una interfaz (`electronBridge.ts`) en lugar de `(window as any)` en cada llamada; los `catch` dejan de suponer que lo lanzado es un `Error`; los modales comparten `ModalData`; y las respuestas del servidor tienen su forma escrita (`ServerListItem`, `ScanMessage`, `Record<string, unknown>`). Los dobles de test conservan el `any` por configuración: describir un stub entero no le aporta nada a quien lo lee. Con esto la F4 queda cerrada.
 
 **Riesgo:** bajo, pero toca ajustes del usuario: cada migración necesita su test de valor corrupto y de valor antiguo, que es lo que esta tanda añade.
 
