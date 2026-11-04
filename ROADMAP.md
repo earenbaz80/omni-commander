@@ -81,7 +81,7 @@ Tallas: **S** ≈ una sesión · **M** ≈ dos o tres · **L** ≈ cuatro o más
 
 Tandas, cada una un commit:
 
-0. **Medir el servidor:** el arnés pasa `NODE_V8_COVERAGE` al hijo y un paso une esos informes con el de `src`. Sin esta red, refactorizar el servidor es mover código a ciegas.
+0. **Medir el servidor — hecho.** `npm run test:server:coverage` corre las 20 suites con `NODE_V8_COVERAGE` y suma los volcados de cada hijo: **`server.cjs` está en 65 % de líneas (3 075/4 728) y 75,2 % de funciones (235/317)**; `server/pathSafety.cjs`, 97,1 %, y `server/systemLoad.cjs`, 93,5 %. Hubo que resolver dos cosas para que el número existiera: un hijo matado no escribe su volcado —en Windows `kill()` no ejecuta nada dentro del proceso—, así que el servidor expone un cierre ordenado `/api/__coverage-shutdown` **solo** cuando la medición define `SERVER_COVERAGE_SHUTDOWN`, y el arnés lo llama antes de matar; y V8 anida los bloques que no corrieron dentro de la función que sí, así que el primer cálculo daba 100 % — ahora decide el rango más pequeño que llega a cada línea. Es cobertura de líneas por bloques, no de ramas: sirve para comparar antes y después de partir el fichero, que es para lo que está.
 1. **Rutas de sistema** (`/api/fs/*`, unidad, drives) → `server/routes/fs.cjs`. Ya hay precedente en `server/pathSafety.cjs` y `server/systemLoad.cjs`.
 2. **Rutas de mapa** (teselas, búsqueda, caché offline) → `server/routes/maps.cjs`. Es la más reciente y la más autocontenida; sirve de ensayo.
 3. **Motor de trabajos** (cola, pausa, reanudación, SSE) → `server/jobs.cjs`.
@@ -220,6 +220,7 @@ Tareas:
 | Rojos que no son fallos | 2 en una jornada | 0 en diez ejecuciones |
 | `server.cjs` | 4 710 líneas | < 800 |
 | `App.tsx` | 1 792 líneas | < 700 |
+| Cobertura de líneas de `server.cjs` | 65 % (medida en la tanda 0 de la F2) | no bajar al partir el fichero |
 | `any`/`as any` | 75 | < 30 |
 | `localStorage` sueltos en componentes | 62 | 0 (todo por `storage.ts`) |
 

@@ -64,6 +64,7 @@
     "typecheck:strict": "tsc --noEmit -p tsconfig.strict.json",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:server:coverage": "node scripts/server-coverage.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "node scripts/install-git-hooks.cjs",
