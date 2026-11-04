@@ -24,6 +24,35 @@ beforeAll(() => {
 const open = () => render(<MapsModal theme={mockTheme} lang="es" onClose={() => {}} />);
 
 describe('MapsModal layers and offline use', () => {
+  it('says how much the offline cache holds and empties it on request', async () => {
+    const calls: string[] = [];
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push(`${init?.method ?? 'GET'} ${String(url)}`);
+      if (String(url).includes('/api/maps/cache')) {
+        return {
+          ok: true,
+          json: async () => (init?.method === 'DELETE' ? { removed: 120, bytes: 0 } : { tiles: 120, bytes: 3355443 }),
+        };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    open();
+
+    // The dialog opens on what the disk actually holds, not on a guess: the same
+    // folder that makes the map work offline is the one being reported.
+    expect(await screen.findByText(/120/)).toBeTruthy();
+    expect(document.body.textContent).toContain('3.2 MB');
+
+    fireEvent.click(screen.getByTitle('Vaciar la caché'));
+
+    await waitFor(() => expect(document.body.textContent).toContain('Caché vaciada'));
+    const clear = calls.find((entry) => entry.startsWith('DELETE'));
+    expect(clear).toContain('/api/maps/cache');
+    expect(document.body.textContent).toContain('Sin teselas guardadas');
+    vi.unstubAllGlobals();
+  });
+
   it('offers the five OSM renders that need no account', () => {
     open();
     for (const label of ['OSM estándar', 'Humanitario', 'Cicloturismo', 'Topográfico', 'Transporte público']) {
@@ -45,7 +74,14 @@ describe('MapsModal layers and offline use', () => {
     fireEvent.click(screen.getByTitle('Guardar zona'));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    // The dialog now also asks how much the cache holds when it opens, so the
+    // save is the request that carries tiles rather than simply the first one.
+    const calls = fetchMock.mock.calls as unknown as Array<[string, RequestInit]>;
+    const save = calls.find(
+      ([target, init]) => String(target).includes('/api/maps/offline') && init?.method === 'POST',
+    );
+    expect(save).toBeTruthy();
+    const [url, init] = save as [string, RequestInit];
     expect(String(url)).toContain('/api/maps/offline');
     expect(init.method).toBe('POST');
     const body = JSON.parse(String(init.body)) as { layer: string; tiles: Array<Record<string, number>> };

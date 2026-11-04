@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Crosshair, Download, Layers, MapPin, Search, WifiOff } from 'lucide-react';
+import { Crop, Crosshair, Download, Layers, MapPin, Search, Trash2, WifiOff } from 'lucide-react';
 import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
@@ -13,6 +13,8 @@ import {
   projectToScreen,
   tileLayoutFor,
   tilesCoveringView,
+  tilesCoveringRect,
+  unprojectFromScreen,
   zoomAround,
   zoomForPinch,
   type MapLayer,
@@ -58,6 +60,8 @@ interface MapLayerInfo {
   attribution: (t: Translate) => string;
   /** The tile server has no images past this level. */
   maxZoom: number;
+  /** Where the layer's attribution sends the reader: the OSM family asks for it. */
+  licenseUrl: string;
 }
 
 /**
@@ -65,16 +69,41 @@ interface MapLayerInfo {
  * account or an API key, which is the whole reason the map needs no setup.
  */
 const MAP_LAYERS: MapLayerInfo[] = [
-  { id: 'osm', label: (t) => t.mapsLayerStandard, attribution: (t) => t.mapsAttribution, maxZoom: MAX_ZOOM },
+  {
+    id: 'osm',
+    label: (t) => t.mapsLayerStandard,
+    attribution: (t) => t.mapsAttribution,
+    maxZoom: MAX_ZOOM,
+    licenseUrl: 'https://www.openstreetmap.org/copyright',
+  },
   {
     id: 'humanitarian',
     label: (t) => t.mapsLayerHumanitarian,
     attribution: (t) => t.mapsAttrHumanitarian,
     maxZoom: MAX_ZOOM,
+    licenseUrl: 'https://www.hotosm.org/',
   },
-  { id: 'cycle', label: (t) => t.mapsLayerCycle, attribution: (t) => t.mapsAttrCycle, maxZoom: MAX_ZOOM },
-  { id: 'topo', label: (t) => t.mapsLayerTopographic, attribution: (t) => t.mapsAttrTopo, maxZoom: 17 },
-  { id: 'transport', label: (t) => t.mapsLayerTransport, attribution: (t) => t.mapsAttrTransport, maxZoom: 18 },
+  {
+    id: 'cycle',
+    label: (t) => t.mapsLayerCycle,
+    attribution: (t) => t.mapsAttrCycle,
+    maxZoom: MAX_ZOOM,
+    licenseUrl: 'https://www.cyclosm.org/',
+  },
+  {
+    id: 'topo',
+    label: (t) => t.mapsLayerTopographic,
+    attribution: (t) => t.mapsAttrTopo,
+    maxZoom: 17,
+    licenseUrl: 'https://opentopomap.org/about',
+  },
+  {
+    id: 'transport',
+    label: (t) => t.mapsLayerTransport,
+    attribution: (t) => t.mapsAttrTransport,
+    maxZoom: 18,
+    licenseUrl: 'https://memomaps.de/',
+  },
 ];
 
 /** Levels a "save this area" click keeps: what is on screen and two steps closer. */
@@ -86,6 +115,16 @@ const OFFLINE_BATCH = 40;
 const TILE_PADDING = 1;
 /** How long the images may stay behind a zoom change before the next level is fetched. */
 const TILE_SETTLE_MS = 180;
+
+/** Ceiling for one dragged rectangle: a careless selection must not crawl a continent. */
+const RECT_MAX_TILES = 900;
+
+/** Bytes as a person reads them, because the cache is about disk space. */
+function formatCacheSize(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${bytes} B`;
+}
 
 function midpoint(a: Point, b: Point): Point {
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
@@ -149,12 +188,59 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
   const [tileFailures, setTileFailures] = useState(0);
   const [saving, setSaving] = useState<{ done: number; total: number } | null>(null);
   const [saveNote, setSaveNote] = useState<{ text: string; ok: boolean } | null>(null);
+  /** What the disk cache holds, or null while it has not been read yet. */
+  const [cache, setCache] = useState<{ tiles: number; bytes: number } | null>(null);
+  const [cacheNote, setCacheNote] = useState<string | null>(null);
+  const [clearing, setClearing] = useState(false);
+  /** True while a drag draws a rectangle to save instead of panning. */
+  const [selecting, setSelecting] = useState(false);
+  const [selection, setSelection] = useState<{ from: Point; to: Point } | null>(null);
+  const selectionStart = useRef<Point | null>(null);
 
   const zoomCap = useMemo(() => MAP_LAYERS.find((entry) => entry.id === layer)?.maxZoom ?? MAX_ZOOM, [layer]);
   const zoomCapRef = useRef(zoomCap);
   useEffect(() => {
     zoomCapRef.current = zoomCap;
   }, [zoomCap]);
+
+  /**
+   * The cache is on disk, so the dialog asks the server for it rather than
+   * guessing from what it has downloaded in this session.
+   */
+  const refreshCache = useCallback(async () => {
+    if (typeof fetch !== 'function') return;
+    try {
+      const response = await fetch(withToken(`${API_BASE}/api/maps/cache`));
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = (await response.json()) as { tiles?: number; bytes?: number };
+      setCache({ tiles: Number(payload.tiles) || 0, bytes: Number(payload.bytes) || 0 });
+    } catch {
+      setCache(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshCache();
+  }, [refreshCache]);
+
+  const clearCache = useCallback(async () => {
+    soundManager.playKeyTick();
+    setClearing(true);
+    setCacheNote(null);
+    try {
+      const response = await fetch(withToken(`${API_BASE}/api/maps/cache`), {
+        method: 'DELETE',
+        headers: sessionHeader(),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      setCache({ tiles: 0, bytes: 0 });
+      setCacheNote(t.mapsCacheCleared);
+    } catch {
+      setCacheNote(t.mapsCacheClearFailed);
+    } finally {
+      setClearing(false);
+    }
+  }, [t.mapsCacheClearFailed, t.mapsCacheCleared]);
 
   /** Fingers currently down, by pointer id, in the order they arrived. */
   const pointers = useRef(new Map<number, Point>());
@@ -265,6 +351,68 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
     return { x: point.x - rect.left, y: point.y - rect.top };
   }, []);
 
+  /**
+   * Sends a set of tiles to the server in batches and reports how it went. Both
+   * the visible area and a dragged rectangle end here, so the progress bar and
+   * the batch ceiling are the same for the two.
+   */
+  const storeTiles = useCallback(
+    async (tiles: Array<{ z: number; x: number; y: number }>, truncated = false) => {
+      if (tiles.length === 0) return;
+      setSaving({ done: 0, total: tiles.length });
+      setSaveNote(null);
+      let failed = 0;
+      for (let index = 0; index < tiles.length; index += OFFLINE_BATCH) {
+        const batch = tiles.slice(index, index + OFFLINE_BATCH);
+        try {
+          const response = await fetch(withToken(`${API_BASE}/api/maps/offline`), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...sessionHeader() },
+            body: JSON.stringify({ layer, tiles: batch }),
+          });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const payload = (await response.json()) as { failed?: number };
+          failed += Number(payload.failed) || 0;
+        } catch {
+          failed += batch.length;
+        }
+        setSaving({ done: Math.min(tiles.length, index + batch.length), total: tiles.length });
+      }
+      setSaving(null);
+      const text = failed > 0 ? t.mapsOfflineSaveFailed : truncated ? t.mapsOfflineTooMany : t.mapsOfflineSaved;
+      setSaveNote({ text, ok: failed === 0 });
+      void refreshCache();
+    },
+    [layer, refreshCache, t.mapsOfflineSaveFailed, t.mapsOfflineSaved, t.mapsOfflineTooMany],
+  );
+
+  /**
+   * Turns a rectangle dragged on screen into the tiles it covers, at the levels
+   * the visible-area download keeps. The coordinates come back from the same
+   * projection the tiles are drawn with, so the saved patch is the patch the
+   * user framed, not a rectangle around the centre.
+   */
+  const saveRect = useCallback(
+    async (from: Point, to: Point) => {
+      const current = latestView.current;
+      const left = Math.min(from.x, to.x);
+      const top = Math.min(from.y, to.y);
+      const right = Math.max(from.x, to.x);
+      const bottom = Math.max(from.y, to.y);
+      const northWest = unprojectFromScreen({ x: left, y: top }, current, size.width, size.height);
+      const southEast = unprojectFromScreen({ x: right, y: bottom }, current, size.width, size.height);
+      const bounds = { north: northWest.lat, west: northWest.lon, south: southEast.lat, east: southEast.lon };
+      const base = Math.min(zoomCapRef.current, Math.max(MIN_ZOOM, Math.round(current.zoom)));
+      const levels = Array.from({ length: OFFLINE_LEVELS }, (_, step) => base + step).filter(
+        (level) => level <= zoomCapRef.current,
+      );
+      const wanted = levels.flatMap((level) => tilesCoveringRect(bounds, level, 0));
+      setSelecting(false);
+      await storeTiles(wanted.slice(0, RECT_MAX_TILES), wanted.length > RECT_MAX_TILES);
+    },
+    [size.height, size.width, storeTiles],
+  );
+
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const element = containerRef.current;
     if (!element) return;
@@ -278,6 +426,14 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
       /* no active pointer to capture on this platform */
     }
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    // A selection drag is not a pan: the map must not move under the rectangle
+    // the user is framing.
+    if (selecting) {
+      const local = toLocal({ x: event.clientX, y: event.clientY });
+      selectionStart.current = local;
+      setSelection({ from: local, to: local });
+      return;
+    }
     const fingers = [...pointers.current.values()];
     const from = latestView.current;
     if (fingers.length === 1) {
@@ -296,6 +452,12 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
     const fingers = pointers.current;
     if (!fingers.has(event.pointerId)) return;
     fingers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    const anchor = selectionStart.current;
+    if (anchor) {
+      const local = toLocal({ x: event.clientX, y: event.clientY });
+      setSelection({ from: anchor, to: local });
+      return;
+    }
     const active = gesture.current;
     if (!active) return;
     const points = [...fingers.values()];
@@ -325,6 +487,18 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
 
   const handlePointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
     pointers.current.delete(event.pointerId);
+    const anchor = selectionStart.current;
+    if (anchor) {
+      selectionStart.current = null;
+      const local = toLocal({ x: event.clientX, y: event.clientY });
+      setSelection(null);
+      // A click is not a rectangle: a drag of a few pixels would ask for a
+      // single tile the user did not mean to mark.
+      if (Math.abs(local.x - anchor.x) >= 8 && Math.abs(local.y - anchor.y) >= 8) {
+        void saveRect(anchor, local);
+      }
+      return;
+    }
     const element = containerRef.current;
     if (element?.hasPointerCapture?.(event.pointerId)) element.releasePointerCapture(event.pointerId);
     const remaining = [...pointers.current.values()];
@@ -409,29 +583,8 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
       (level) => level <= zoomCapRef.current,
     );
     const tiles = levels.flatMap((level) => tilesCoveringView(latestView.current, size.width, size.height, level, 1));
-    if (tiles.length === 0) return;
-    setSaving({ done: 0, total: tiles.length });
-    setSaveNote(null);
-    let failed = 0;
-    for (let index = 0; index < tiles.length; index += OFFLINE_BATCH) {
-      const batch = tiles.slice(index, index + OFFLINE_BATCH);
-      try {
-        const response = await fetch(withToken(`${API_BASE}/api/maps/offline`), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...sessionHeader() },
-          body: JSON.stringify({ layer, tiles: batch }),
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const payload = (await response.json()) as { failed?: number };
-        failed += Number(payload.failed) || 0;
-      } catch {
-        failed += batch.length;
-      }
-      setSaving({ done: Math.min(tiles.length, index + batch.length), total: tiles.length });
-    }
-    setSaving(null);
-    setSaveNote({ text: failed > 0 ? t.mapsOfflineSaveFailed : t.mapsOfflineSaved, ok: failed === 0 });
-  }, [layer, size.width, size.height, t.mapsOfflineSaveFailed, t.mapsOfflineSaved]);
+    await storeTiles(tiles);
+  }, [size.width, size.height, storeTiles]);
 
   const runSearch = useCallback(async () => {
     const term = query.trim();
@@ -539,6 +692,22 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
 
   const activeLayer = MAP_LAYERS.find((entry) => entry.id === layer) ?? MAP_LAYERS[0];
 
+  /** Electron blocks navigation out of the window, so the licence page goes to the shell. */
+  const openLicense = (event: React.MouseEvent<HTMLAnchorElement>, url: string) => {
+    const open = typeof window === 'undefined' ? undefined : window.electronAPI?.openExternal;
+    if (typeof open !== 'function') return;
+    event.preventDefault();
+    void open(url).catch(() => {});
+  };
+
+  const toggleSelecting = () => {
+    soundManager.playKeyTick();
+    selectionStart.current = null;
+    setSelection(null);
+    setSaveNote(null);
+    setSelecting((current) => !current);
+  };
+
   return (
     <ModalShell
       title={t.toolMaps}
@@ -611,8 +780,47 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
               </span>
             )}
           </button>
-          <span className="ml-auto text-[10px] opacity-50">{activeLayer.attribution(t)}</span>
+          <a
+            href={activeLayer.licenseUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            title={t.mapsLicense}
+            onClick={(event) => openLicense(event, activeLayer.licenseUrl)}
+            className="ml-auto text-[10px] underline decoration-dotted opacity-50 transition-opacity hover:opacity-80"
+          >
+            {activeLayer.attribution(t)}
+          </a>
         </div>
+
+        <div className="flex flex-wrap items-center gap-[var(--space-1)] text-[11px]">
+          <span className="opacity-70">
+            {cache && cache.tiles > 0
+              ? `${t.mapsCache}: ${cache.tiles} · ${formatCacheSize(cache.bytes)}`
+              : t.mapsCacheEmpty}
+          </span>
+          <button
+            onClick={() => void clearCache()}
+            disabled={clearing || !cache || cache.tiles === 0}
+            title={t.mapsCacheClear}
+            className="flex cursor-pointer items-center gap-[var(--space-1)] rounded border border-white/15 bg-white/5 px-[var(--space-2)] py-[2px] text-[11px] font-bold text-white/80 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> {t.mapsCacheClear}
+          </button>
+          <button
+            onClick={toggleSelecting}
+            aria-pressed={selecting}
+            title={t.mapsSelectArea}
+            className={`flex cursor-pointer items-center gap-[var(--space-1)] rounded border px-[var(--space-2)] py-[2px] text-[11px] font-bold transition-colors ${
+              selecting
+                ? 'border-amber-300 bg-amber-400 text-black'
+                : 'border-white/15 bg-white/5 text-white hover:bg-white/15'
+            }`}
+          >
+            <Crop className="h-3.5 w-3.5" /> {selecting ? t.mapsSelectAreaOn : t.mapsSelectArea}
+          </button>
+        </div>
+        {selecting && <p className="text-[11px] text-amber-300">{t.mapsSelectAreaHint}</p>}
+        {cacheNote && <p className="text-[11px] text-emerald-300">{cacheNote}</p>}
         {saveNote && (
           <p className={`text-[11px] ${saveNote.ok ? 'text-emerald-300' : 'text-amber-300'}`}>{saveNote.text}</p>
         )}
@@ -640,9 +848,9 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
           data-map-surface="true"
           // A window dragged small has to take the room from the map instead of
           // pushing it past the panel's edge, so the floor drops in that mode.
-          className={`relative cursor-grab touch-none select-none overflow-hidden rounded border border-white/15 bg-slate-900 active:cursor-grabbing ${
-            fills ? 'min-h-24 flex-1' : 'h-[46vh] min-h-56'
-          }`}
+          className={`relative touch-none select-none overflow-hidden rounded border border-white/15 bg-slate-900 ${
+            selecting ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'
+          } ${fills ? 'min-h-24 flex-1' : 'h-[46vh] min-h-56'}`}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerEnd}
@@ -690,6 +898,18 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
               />
             ))}
           </div>
+
+          {selection && (
+            <div
+              className="pointer-events-none absolute border-2 border-dashed border-amber-300 bg-amber-300/20"
+              style={{
+                left: `${Math.min(selection.from.x, selection.to.x)}px`,
+                top: `${Math.min(selection.from.y, selection.to.y)}px`,
+                width: `${Math.abs(selection.to.x - selection.from.x)}px`,
+                height: `${Math.abs(selection.to.y - selection.from.y)}px`,
+              }}
+            />
+          )}
 
           {markerPosition && (
             <span
