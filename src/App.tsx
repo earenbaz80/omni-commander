@@ -17,7 +17,6 @@ import { CleanupTargetId, fsEngine, type OpenableArchiveFormat } from './service
 import { themes, ThemeConfig } from './services/themeManager';
 import { soundManager } from './services/soundEffects';
 import { createPasswordRecord } from './services/appLock';
-import { fetchSystemStats } from './services/systemStats';
 import { getTranslations, setCurrentLang } from './i18n/translations';
 
 // Components
@@ -33,6 +32,8 @@ import { useModalStack } from './hooks/useModalStack';
 import { useSettings } from './hooks/useSettings';
 import { useSplitter } from './hooks/useSplitter';
 import { useDrives } from './hooks/useDrives';
+import { useElevation } from './hooks/useElevation';
+import { useAppLock } from './hooks/useAppLock';
 import { usePanels } from './hooks/usePanels';
 import { useCommandExecution } from './hooks/useCommandExecution';
 
@@ -92,35 +93,8 @@ export default function App() {
   const [hoveredItem, setHoveredItem] = useState<FileItem | null>(null);
   const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
 
-  // Real elevation of this process, measured by the server. The drawer used to
-  // toggle a boolean that changed nothing about the process; now it reports what
-  // the operating system says, and the button asks for a real restart with
-  // administrator rights instead of pretending one already happened.
-  const [isElevated, setIsElevated] = useState(false);
-
-  // Read once: elevation cannot change while this process runs, except by
-  // relaunching, and a relaunch replaces the process.
-  useEffect(() => {
-    let cancelled = false;
-    void fetchSystemStats().then((stats) => {
-      if (!cancelled && stats) setIsElevated(stats.elevated === true);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  /** Ask Windows for an elevated restart; there is no way to gain rights in-process. */
-  const requestElevation = useCallback(async () => {
-    const bridge = window.electronAPI;
-    if (typeof bridge?.relaunchAsAdmin !== 'function') return;
-    try {
-      await bridge.relaunchAsAdmin();
-    } catch {
-      // The main process records the outcome in its own log; this window is on
-      // its way out either way.
-    }
-  }, []);
+  // Real elevation and the one way to change it (an elevated relaunch).
+  const { isElevated, requestElevation } = useElevation();
 
   // Quick Search state (Type-to-jump)
   const [quickSearchQuery, setQuickSearchQuery] = useState<string>('');
@@ -128,10 +102,16 @@ export default function App() {
   const leftTreePaneRef = useRef<HTMLDivElement | null>(null);
   const leftTreeTabRef = useRef<HTMLButtonElement | null>(null);
 
-  // App Lock state. The lock only activates when a password hash exists:
-  // engaging it without one would either unlock with the removed public default
-  // or trap the user behind a lock no credential can open.
-  const [isAppLocked, setIsAppLocked] = useState<boolean>(() => settings.appLockEnabled && !!settings.appPasswordHash);
+  // The lock only activates when a password hash exists, so `lock` refuses
+  // without one; enabling it in Settings re-locks the session at once.
+  const {
+    isAppLocked,
+    lock: lockApp,
+    unlock: unlockApp,
+  } = useAppLock({
+    enabled: settings.appLockEnabled,
+    passwordHash: settings.appPasswordHash,
+  });
 
   // Password Unlock Flow state. What travels is the stored record, never the
   // password: the modal derives a hash from what the user types and compares it.
@@ -140,25 +120,6 @@ export default function App() {
     path: string;
     record: FolderPasswordRecord;
   } | null>(null);
-
-  // Single activation funnel for the lock: without a stored password there is
-  // nothing to verify against, so the request is refused instead of engaging a
-  // lock that can never be opened.
-  const lockApp = useCallback(() => {
-    setIsAppLocked(!!settings.appPasswordHash);
-  }, [settings.appPasswordHash]);
-
-  // Enabling the lock in Settings takes effect at once: the transition to
-  // enabled re-locks the session, so the user does not have to relaunch to get
-  // the lock they just asked for. `lockApp` still refuses without a stored hash.
-  const lockWasEnabledRef = useRef(settings.appLockEnabled);
-  useEffect(() => {
-    const wasEnabled = lockWasEnabledRef.current;
-    lockWasEnabledRef.current = settings.appLockEnabled;
-    if (settings.appLockEnabled && !wasEnabled) {
-      lockApp();
-    }
-  }, [settings.appLockEnabled, lockApp]);
 
   // Active Modals & Operations.
   //
@@ -1131,7 +1092,7 @@ export default function App() {
             expectedUser={settings.appUsername || 'admin'}
             expectedPassHash={settings.appPasswordHash}
             expectedPassSalt={settings.appPasswordSalt}
-            onUnlockSuccess={() => setIsAppLocked(false)}
+            onUnlockSuccess={unlockApp}
           />
         </div>
       )}
