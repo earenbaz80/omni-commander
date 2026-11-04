@@ -9,7 +9,9 @@ import { createJobEngine } from './server/jobEngine.cjs';
  * decides when a job is over.
  */
 
-function engine() {
+// The module is plain JavaScript, so what the engine returns is untyped here:
+// these tests describe its shape instead of restating it.
+function engine(): any {
   const invalidateListings = vi.fn();
   const job = createJobEngine({ invalidateListings, jobTickMs: 1 });
   return { ...job, invalidateListings };

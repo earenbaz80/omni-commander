@@ -90,6 +90,10 @@ Tandas, cada una un commit:
 4. **Panel HTML de transferencias** (`server.cjs:1682` en adelante) → fuera del servidor o a `server/dashboard.cjs`, con su escape revisado.
 5. El `server.cjs` que queda es arranque, middlewares y registro de rutas.
 
+**Cierre de la F2 (esta tanda).** Lo que quedaba salió en seis módulos más: `server/jobEngine.cjs` (la cola, las instantáneas y la pausa, como fábrica), `server/dashboard.cjs` (el panel de `/__jobs`, ya sin estado ajeno), `server/fileOps.cjs` (limpieza, copia y movimiento con sus conflictos, Send-To y el lanzador de trabajos: 824 líneas), `server/routes/maps.cjs` (teselas, caché offline, búsqueda y localización), `server/openWith.cjs` (el registro de programas y el arranque de uno) y `server/catalog.cjs`, `server/processes.cjs` y `server/tree.cjs` (unidades y listado con su caché, procesos y adaptadores, árbol y TreeSize). **`server.cjs` pasa de 3 150 a 534 líneas**: origen y token, arreglo de puertos, middlewares, arranque y el registro de rutas. Cada módulo nuevo tiene test propio — 20 del motor y el panel, 5 de contrato de los demás — y ningún contrato HTTP cambió: la suite pasó de 109 ficheros y 822 tests a 114 y 847, todos verdes.
+
+El traslado se hizo con la misma receta que en las tandas anteriores —copiar el bloque tal cual, dedentarlo, envolverlo en su fábrica y sustituirlo por su llamada—, y una comprobación nueva hizo el resto: eslint con `no-undef` sobre cada módulo recién copiado enumera lo que le falta, así que las dependencias salieron de ahí y no de leer 800 líneas a ojo. Dos cosas hubo que ordenar a mano: el catálogo se construye después de las operaciones de fichero porque su resolución de carpetas vive allí, y `/api/tree` cayó en el módulo de procesos por dónde estaba su comentario; ahora está con TreeSize, donde corresponde.
+
 **Hecho cuando:** `server.cjs` baja de 800 líneas, ningún contrato HTTP cambia, y cada módulo nuevo tiene al menos un test propio.
 
 **Riesgo:** alto si se hace de golpe (16 rutas comparten estado de trabajos y token). Por eso tandas pequeñas, con la suite y los e2e entre una y otra.
