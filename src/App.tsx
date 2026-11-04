@@ -42,8 +42,7 @@ const AppLockModal = React.lazy(() =>
 );
 import { CommandLineBar } from './components/CommandLineBar';
 import { FunctionKeyBar } from './components/FunctionKeyBar';
-import { ContextMenu } from './components/ContextMenu';
-import { consoleCommandFor } from './services/appOpeners';
+import { FileContextMenu, type FileContextMenuState } from './components/FileContextMenu';
 import { HoverPreviewTooltip } from './components/HoverPreviewTooltip';
 import { CollapsibleInfoDrawer } from './components/CollapsibleInfoDrawer';
 
@@ -149,13 +148,7 @@ export default function App() {
   const [cleanupTarget, setCleanupTarget] = useState<CleanupTargetId>('user-temp');
 
   // Context menu state
-  const [contextMenuState, setContextMenuState] = useState<{
-    visible: boolean;
-    x: number;
-    y: number;
-    targetItem: FileItem | null;
-    panelSide: 'left' | 'right';
-  }>({
+  const [contextMenuState, setContextMenuState] = useState<FileContextMenuState>({
     visible: false,
     x: 0,
     y: 0,
@@ -1402,201 +1395,26 @@ export default function App() {
       )}
 
       {/* 7. Context Menu */}
-      {contextMenuState.visible && (
-        <ContextMenu
-          theme={currentTheme}
-          lang={lang}
-          x={contextMenuState.x}
-          y={contextMenuState.y}
-          targetItem={contextMenuState.targetItem}
-          onClose={() => setContextMenuState((s) => ({ ...s, visible: false }))}
-          onView={() => {
-            if (contextMenuState.targetItem) {
-              setSelectedFileForModal(contextMenuState.targetItem);
-              setActiveModal('viewer');
-            }
-          }}
-          onEdit={() => {
-            if (contextMenuState.targetItem) {
-              setSelectedFileForModal(contextMenuState.targetItem);
-              setActiveModal('editor');
-            }
-          }}
-          onCopy={handleTriggerCopy}
-          onMove={handleTriggerMove}
-          onDelete={handleTriggerDelete}
-          onRename={() => {
-            if (contextMenuState.targetItem) {
-              setSelectedFileForModal(contextMenuState.targetItem);
-              setActiveModal('rename');
-            }
-          }}
-          onMkDir={() => setActiveModal('mkdir')}
-          onNewFile={() => {
-            setModalData({ isNewFile: true });
-            setActiveModal('new_file');
-          }}
-          onZip={() => setActiveModal('zipArchive')}
-          onChecksum={() => {
-            if (contextMenuState.targetItem) {
-              setSelectedFileForModal(contextMenuState.targetItem);
-              setActiveModal('checksum');
-            }
-          }}
-          onProperties={() => {
-            if (contextMenuState.targetItem) {
-              setSelectedFileForModal(contextMenuState.targetItem);
-              setActiveModal('properties');
-            }
-          }}
-          onDownload={() => {
-            const item = contextMenuState.targetItem;
-            if (item) {
-              const blob = new Blob([item.content || ''], { type: 'text/plain' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = `${item.name}.${item.ext || 'txt'}`;
-              a.click();
-              URL.revokeObjectURL(url);
-            }
-          }}
-          onUpload={() => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.onchange = async (e) => {
-              const file = (e.target as HTMLInputElement).files?.[0];
-              if (file) {
-                await fsEngine.importBrowserFile(file, currentActiveTab.driveId, currentActiveTab.currentPath);
-                soundManager.playSuccess();
-              }
-            };
-            input.click();
-          }}
-          onRefresh={() => setFsTick((t) => t + 1)}
-          onProtectFolder={() => {
-            const target = contextMenuState.targetItem;
-            if (target && target.isDirectory) {
-              setModalData({ targetFolderPath: `${target.path}\\${target.name}` });
-            } else {
-              setModalData({ targetFolderPath: currentActiveTab.currentPath });
-            }
-            setActiveModal('protect_folder');
-          }}
-          onSplitFile={() => {
-            if (contextMenuState.targetItem) {
-              setSelectedFileForModal(contextMenuState.targetItem);
-              setActiveModal('file_splitter');
-            }
-          }}
-          onArchiveInfo={() => {
-            if (contextMenuState.targetItem) {
-              setSelectedFileForModal(contextMenuState.targetItem);
-              setActiveModal('archive_info');
-            }
-          }}
-          canOpenWith={
-            !!contextMenuState.targetItem &&
-            !contextMenuState.targetItem.isDirectory &&
-            fsEngine.isRealFile(contextMenuState.targetItem)
-          }
-          loadOpenWithPrograms={() => {
-            const item = contextMenuState.targetItem;
-            return item ? fsEngine.openWithPrograms(item) : Promise.resolve([]);
-          }}
-          onOpenWithProgram={(program) => {
-            const item = contextMenuState.targetItem;
-            if (!item) return;
-            void (async () => {
-              try {
-                if (await fsEngine.openWithProgram(item, program.id)) return;
-                alert(fsEngine.lastServerError || `No se pudo abrir el archivo con ${program.name}`);
-              } catch {
-                alert(`No se pudo contactar con el servidor para abrir el archivo con ${program.name}`);
-              }
-            })();
-          }}
-          onOpenWith={() => {
-            const item = contextMenuState.targetItem;
-            if (!item) return;
-            // The dialog belongs to the shell and can still be refused (a path
-            // the server will not hand to a program, an unregistered type), so
-            // the answer is surfaced instead of dropped: silence is what made
-            // this look like a dead menu item.
-            void (async () => {
-              try {
-                if (await fsEngine.openWith(item)) return;
-                alert(fsEngine.lastServerError || 'No se pudo abrir el diálogo «Abrir con»');
-              } catch {
-                // A request that never got an answer rejects instead of
-                // returning false, and an unhandled rejection is just as
-                // silent as the dead menu item this used to look like.
-                alert('No se pudo contactar con el servidor para abrir el diálogo «Abrir con»');
-              }
-            })();
-          }}
-          canSendTo={
-            !!contextMenuState.targetItem &&
-            fsEngine.isSystemDrive(contextMenuState.targetItem.driveId) &&
-            !contextMenuState.targetItem.archiveRoot
-          }
-          onOpenInApp={(target) => {
-            const item = contextMenuState.targetItem;
-            if (!item) return;
-            if (target === 'terminal') {
-              // The console prints the file in place; no window is launched.
-              setConsoleOpenNonce((nonce) => nonce + 1);
-              void handleExecuteCommand(consoleCommandFor(item));
-              return;
-            }
-            setSelectedFileForModal(item);
-            setModalData(target === 'media' ? { viewerTab: 'preview' } : null);
-            setActiveModal(target === 'image' ? 'image_studio' : target === 'media' ? 'viewer' : 'editor');
-          }}
-          onSendTo={(destination) => {
-            const item = contextMenuState.targetItem;
-            if (!item) return;
-            void (async () => {
-              const created = await fsEngine.sendTo(destination, item);
-              if (created) {
-                soundManager.playSuccess();
-                return;
-              }
-              alert(fsEngine.lastServerError || 'No se pudo enviar el elemento');
-            })();
-          }}
-          onSendToFolder={() => {
-            const item = contextMenuState.targetItem;
-            if (!item) return;
-            // The other pane is the destination picker, whichever pane is active.
-            const other = contextMenuState.panelSide === 'left' ? rightTab : leftTab;
-            setSelectedFileForModal(item);
-            setModalData({ sendToDriveId: other.driveId, sendToPath: other.currentPath });
-            setActiveModal('choose_folder');
-          }}
-          // A folder is pinned by its absolute path, which is what the tree
-          // lists; a file has no entry there to pin.
-          isFavorite={
-            !!contextMenuState.targetItem?.isDirectory &&
-            (settings.favoriteFolders ?? []).includes(
-              `${contextMenuState.targetItem.path}\\${contextMenuState.targetItem.name}`,
-            )
-          }
-          onToggleFavorite={() => {
-            const item = contextMenuState.targetItem;
-            if (!item?.isDirectory) return;
-            const target = `${item.path}\\${item.name}`;
-            setSettings((s) => {
-              const current = s.favoriteFolders ?? [];
-              const next = current.includes(target)
-                ? current.filter((entry) => entry !== target)
-                : [...current, target];
-              return { ...s, favoriteFolders: next };
-            });
-            soundManager.playSuccess();
-          }}
-        />
-      )}
+      <FileContextMenu
+        theme={currentTheme}
+        lang={lang}
+        state={contextMenuState}
+        settings={settings}
+        currentActiveTab={currentActiveTab}
+        leftTab={leftTab}
+        rightTab={rightTab}
+        onClose={() => setContextMenuState((s) => ({ ...s, visible: false }))}
+        setSelectedFileForModal={setSelectedFileForModal}
+        setActiveModal={setActiveModal}
+        setModalData={setModalData}
+        setSettings={setSettings}
+        onCopy={handleTriggerCopy}
+        onMove={handleTriggerMove}
+        onDelete={handleTriggerDelete}
+        onRefresh={() => setFsTick((tick) => tick + 1)}
+        onShowConsole={() => setConsoleOpenNonce((nonce) => nonce + 1)}
+        onExecuteCommand={handleExecuteCommand}
+      />
 
       <AppModals
         currentTheme={currentTheme}
