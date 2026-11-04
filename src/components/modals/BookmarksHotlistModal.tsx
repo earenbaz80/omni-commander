@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Plus, Trash2, ArrowRight, Folder } from 'lucide-react';
 import { BookmarkItem, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { soundManager } from '../../services/soundEffects';
+import { usePersistedState } from '../../hooks/usePersistedState';
+import type { StoredSpec } from '../../services/storage';
 
 import { getTranslations } from '../../i18n/translations';
 import ModalShell from '../ModalShell';
@@ -18,7 +20,20 @@ interface BookmarksHotlistModalProps {
 
 const STORAGE_KEY = 'nc_hotlist_bookmarks_v1';
 
-const defaultBookmarks: BookmarkItem[] = [];
+const isBookmark = (value: unknown): value is BookmarkItem => {
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Record<string, unknown>;
+  return typeof record.id === 'string' && typeof record.title === 'string' && typeof record.path === 'string';
+};
+
+const BOOKMARKS_SPEC: StoredSpec<BookmarkItem[]> = {
+  fallback: [],
+  validate: (value): value is BookmarkItem[] => Array.isArray(value) && value.every(isBookmark),
+  version: 1,
+  // One damaged entry used to throw away every bookmark, because the reader
+  // returned whatever the parse gave back and nothing else.
+  migrate: (value) => (Array.isArray(value) ? value.filter(isBookmark) : null),
+};
 
 export const BookmarksHotlistModal: React.FC<BookmarksHotlistModalProps> = ({
   theme,
@@ -29,27 +44,11 @@ export const BookmarksHotlistModal: React.FC<BookmarksHotlistModalProps> = ({
   onClose,
 }) => {
   const t = getTranslations(lang);
-  const [bookmarks, setBookmarks] = useState<BookmarkItem[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch {
-      /* ignore */
-    }
-    return defaultBookmarks;
-  });
+  const [bookmarks, setBookmarks] = usePersistedState<BookmarkItem[]>(STORAGE_KEY, BOOKMARKS_SPEC);
 
   const [newTitle, setNewTitle] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(bookmarks));
-    } catch {
-      /* ignore */
-    }
-  }, [bookmarks]);
 
   const handleAddCurrent = (e: React.FormEvent) => {
     e.preventDefault();

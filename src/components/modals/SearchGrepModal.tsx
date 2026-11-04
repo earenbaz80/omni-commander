@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { readStored, writeStored, type StoredSpec } from '../../services/storage';
 import { Search, FileText, History, RotateCcw, Trash2 } from 'lucide-react';
 import { FileItem, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
@@ -45,25 +46,32 @@ interface SearchHistoryItem {
 
 const STORAGE_KEY = 'nc_search_history_v1';
 
+const isSearchHistoryItem = (value: unknown): value is SearchHistoryItem => {
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.id === 'string' &&
+    typeof record.timestamp === 'string' &&
+    typeof record.filePattern === 'string' &&
+    typeof record.grepText === 'string'
+  );
+};
+
+const SEARCH_HISTORY_SPEC: StoredSpec<SearchHistoryItem[]> = {
+  fallback: [],
+  validate: (value): value is SearchHistoryItem[] => Array.isArray(value) && value.every(isSearchHistoryItem),
+  version: 1,
+  // A list is worth rescuing line by line: one damaged entry used to make the
+  // whole history disappear.
+  migrate: (value) => (Array.isArray(value) ? value.filter(isSearchHistoryItem) : null),
+};
+
 const loadSearchHistory = (): SearchHistoryItem[] => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed.slice(0, 5);
-    }
-  } catch {
-    /* ignore */
-  }
-  return [];
+  return readStored(STORAGE_KEY, SEARCH_HISTORY_SPEC).slice(0, 5);
 };
 
 const saveSearchHistory = (history: SearchHistoryItem[]) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(0, 5)));
-  } catch {
-    /* ignore */
-  }
+  writeStored(STORAGE_KEY, history.slice(0, 5), SEARCH_HISTORY_SPEC.version ?? 1);
 };
 
 export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({

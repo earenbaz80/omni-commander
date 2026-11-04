@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { FolderPasswordRecord, UserSettings } from '../types';
 import { migrateThemeId } from '../services/themeManager';
+import { readStored, writeStored, type StoredSpec } from '../services/storage';
 
 /**
  * Reads the saved folder protections into the shape the app verifies against.
@@ -26,6 +27,29 @@ export function normalizeProtectedFolders(saved: unknown): Record<string, Folder
   }
   return records;
 }
+
+const SETTINGS_KEY = 'nc_settings_v1';
+
+type SavedSettings = Partial<UserSettings>;
+
+const isSavedSettings = (value: unknown): value is SavedSettings =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/**
+ * The object this app boots from.
+ *
+ * Older builds wrote the same key without the envelope, and that object is still
+ * valid today: it is read as version 0 and used as it stands. What changed
+ * between versions lives inside the object -- a renamed theme, folder passwords
+ * saved as plain strings -- and both are normalised below on every read, so the
+ * migration never has to know which build wrote it.
+ */
+const SETTINGS_SPEC: StoredSpec<SavedSettings> = {
+  fallback: {},
+  validate: isSavedSettings,
+  version: 2,
+  migrate: (value) => (isSavedSettings(value) ? value : null),
+};
 
 /**
  * Global system settings: loads from localStorage on first render and persists
@@ -72,33 +96,21 @@ export function useSettings() {
       useRecycleBin: true,
     };
 
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('nc_settings_v1');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          return {
-            ...defaultSettings,
-            ...parsed,
-            // Saved by an older build that named the theme differently.
-            theme: migrateThemeId(parsed?.theme),
-            protectedFolders: normalizeProtectedFolders(parsed?.protectedFolders),
-          };
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-    return defaultSettings;
+    // The reader drops what cannot be used and migrates what it can, so this is
+    // the only place that turns a saved object into live settings.
+    const saved = readStored(SETTINGS_KEY, SETTINGS_SPEC);
+    return {
+      ...defaultSettings,
+      ...saved,
+      // Saved by an older build that named the theme differently.
+      theme: migrateThemeId(saved.theme),
+      protectedFolders: normalizeProtectedFolders(saved.protectedFolders),
+    };
   });
 
   // Save settings on update
   useEffect(() => {
-    try {
-      localStorage.setItem('nc_settings_v1', JSON.stringify(settings));
-    } catch {
-      /* ignore */
-    }
+    writeStored(SETTINGS_KEY, settings, SETTINGS_SPEC.version ?? 1);
   }, [settings]);
 
   return { settings, setSettings };
