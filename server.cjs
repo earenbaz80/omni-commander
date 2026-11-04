@@ -17,6 +17,23 @@ const { isAbsoluteLocalPath, assertSafePath } = require('./server/pathSafety.cjs
 const { readSystemStats, readElevation } = require('./server/systemLoad.cjs');
 const app = express();
 
+/**
+ * Measurement hook, not part of the API.
+ *
+ * Node writes its V8 coverage dump (NODE_V8_COVERAGE) on a graceful exit only,
+ * and on Windows a killed child never gets to run anything, so the suites that
+ * measure the server need a way to ask it to stop. The route exists only while
+ * the measurement sets SERVER_COVERAGE_SHUTDOWN, so a shipped build has no such
+ * door, and it is registered before the origin guard because the caller is a
+ * test process, not a page.
+ */
+if (process.env.SERVER_COVERAGE_SHUTDOWN === '1') {
+  app.post('/api/__coverage-shutdown', (_req, res) => {
+    res.json({ ok: true, pid: process.pid });
+    setImmediate(() => process.exit(0));
+  });
+}
+
 // The renderer is either same-origin (dev: localhost:3000) or loaded from
 // file:// in the packaged app, which the browser reports as the literal string
 // "null". Any other origin is a third-party page trying to drive the local

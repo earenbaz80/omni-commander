@@ -27,3 +27,6 @@ test-results/
 
 # Imported chat transcripts: local reference material, never part of the app
 .cloud-attachments/
+
+server-coverage/
+server-coverage-raw/

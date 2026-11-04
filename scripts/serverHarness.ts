@@ -145,6 +145,15 @@ export async function startServer(options: StartServerOptions = {}): Promise<Tes
       if (stopped) return;
       stopped = true;
       if (child.exitCode !== null || child.signalCode !== null) return;
+      // A killed process writes no V8 coverage dump, and Windows has no signal to
+      // deliver, so a measuring run asks the server to exit through its own hook
+      // before falling back to the kill below.
+      if (process.env.SERVER_COVERAGE_SHUTDOWN === '1') {
+        const exitedGracefully = new Promise<void>((resolve) => child.once('exit', () => resolve()));
+        await fetch(`http://127.0.0.1:${bound}/api/__coverage-shutdown`, { method: 'POST' }).catch(() => undefined);
+        await Promise.race([exitedGracefully, new Promise((resolve) => setTimeout(resolve, 3000))]);
+        if (child.exitCode !== null || child.signalCode !== null) return;
+      }
       const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()));
       child.kill();
       await Promise.race([exited, new Promise((resolve) => setTimeout(resolve, DEFAULT_STOP_TIMEOUT_MS))]);
