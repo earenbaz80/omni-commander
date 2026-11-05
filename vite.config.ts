@@ -247,14 +247,21 @@ export default defineConfig(({ command, mode }) => {
       coverage: {
         provider: 'v8',
         include: ['src/**/*.{ts,tsx}'],
-        exclude: ['**/*.test.{ts,tsx}', '**/*.stories.{ts,tsx}', 'src/test/**'],
+        // A declaration file holds no runtime code, but the v8 provider still
+        // tries to parse it when it maps the files nothing imported, and the
+        // vendored one is TypeScript the raw parser rejects: the report printed a
+        // PARSE_ERROR for it on every run.
+        exclude: ['**/*.test.{ts,tsx}', '**/*.stories.{ts,tsx}', '**/*.d.ts', 'src/test/**'],
         reporter: ['text-summary', 'html', 'json-summary'],
         reportsDirectory: './coverage',
+        // Floors sit on the measured line, not on an aspiration: they are what
+        // the suite reaches today (49,49 % / 42,9 % / 42,3 % / 51,72 %), so a
+        // drop below it fails the run and a rise is what the next move is for.
         thresholds: {
-          statements: 46,
-          branches: 40,
-          functions: 37,
-          lines: 48,
+          statements: 49,
+          branches: 42,
+          functions: 42,
+          lines: 51,
         },
       },
     },
