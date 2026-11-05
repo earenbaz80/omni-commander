@@ -1239,6 +1239,7 @@ export const ja = {
   mapsOfflineSaving: '保存中…',
   mapsOfflineSaved: '範囲をオフライン用に保存しました',
   mapsOfflineSaveFailed: '一部のタイルを保存できませんでした',
+  mapsOfflineCancelled: 'ダウンロードを中止しました',
   mapsCache: '保存済みタイル',
   mapsCacheEmpty: '保存済みのタイルはありません',
   mapsCacheClear: 'キャッシュを消去',

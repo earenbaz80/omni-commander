@@ -203,6 +203,8 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
   const [tileFailures, setTileFailures] = useState(0);
   const [saving, setSaving] = useState<{ done: number; total: number; failed: number } | null>(null);
   const [saveNote, setSaveNote] = useState<{ text: string; ok: boolean } | null>(null);
+  /** The run the cancel button stops. One at a time: the same buttons disable. */
+  const saveAbort = useRef<AbortController | null>(null);
   /** What the disk cache holds, or null while it has not been read yet. */
   const [cache, setCache] = useState<{ tiles: number; bytes: number } | null>(null);
   const [cacheNote, setCacheNote] = useState<string | null>(null);
@@ -381,35 +383,52 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
       if (tiles.length === 0) return;
       setSaving({ done: 0, total: tiles.length, failed: 0 });
       setSaveNote(null);
+      const controller = new AbortController();
+      saveAbort.current = controller;
       let failed = 0;
+      let done = 0;
       for (let index = 0; index < tiles.length; index += batchSize) {
+        if (controller.signal.aborted) break;
         const batch = tiles.slice(index, index + batchSize);
         try {
           const response = await fetch(withToken(`${API_BASE}/api/maps/offline`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...sessionHeader() },
             body: JSON.stringify({ layer, tiles: batch }),
+            signal: controller.signal,
           });
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
           const payload = (await response.json()) as { failed?: number };
           failed += Number(payload.failed) || 0;
         } catch {
+          // An abort is not a failed batch: those tiles were never asked for.
+          if (controller.signal.aborted) break;
           failed += batch.length;
         }
-        setSaving({ done: Math.min(tiles.length, index + batch.length), total: tiles.length, failed });
+        done = Math.min(tiles.length, index + batch.length);
+        setSaving({ done, total: tiles.length, failed });
       }
+      if (saveAbort.current === controller) saveAbort.current = null;
       setSaving(null);
-      const text =
-        failed > 0
+      const cancelled = controller.signal.aborted;
+      const text = cancelled
+        ? `${t.mapsOfflineCancelled} · ${done}/${tiles.length}`
+        : failed > 0
           ? `${t.mapsOfflineSaveFailed} · ${failed}/${tiles.length}`
           : truncated
             ? t.mapsOfflineTooMany
             : t.mapsOfflineSaved;
-      setSaveNote({ text, ok: failed === 0 });
+      setSaveNote({ text, ok: !cancelled && failed === 0 });
       void refreshCache();
     },
-    [layer, refreshCache, t.mapsOfflineSaveFailed, t.mapsOfflineSaved, t.mapsOfflineTooMany],
+    [layer, refreshCache, t.mapsOfflineCancelled, t.mapsOfflineSaveFailed, t.mapsOfflineSaved, t.mapsOfflineTooMany],
   );
+
+  /** Stops the run the bar describes; the batch in flight is dropped with it. */
+  const cancelSave = useCallback(() => {
+    soundManager.playKeyTick();
+    saveAbort.current?.abort();
+  }, []);
 
   /**
    * Turns a rectangle dragged on screen into the tiles it covers, at the levels
@@ -909,15 +928,26 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
           </button>
         </div>
         {/* A download that only speaks when it ends looks like one that never
-            started: half a minute can pass inside a single batch of 400 tiles.
-            The bar is the promise, and the count of failures is part of it. */}
+            started: a batch takes seconds and gives no sign of life in between.
+            The bar is the promise, the count of failures is part of it, and the
+            button next to them is the way out. */}
         {saving && (
           <div className="flex flex-col gap-[2px] text-[11px]">
             <div className="flex items-center justify-between gap-[var(--space-2)]">
               <span className="opacity-80">
                 {t.mapsOfflineSaving} {saving.done.toLocaleString(lang)}/{saving.total.toLocaleString(lang)}
               </span>
-              <span className="opacity-60">{Math.round((saving.done / saving.total) * 100)} %</span>
+              <span className="flex items-center gap-[var(--space-1)]">
+                <span className="opacity-60">{Math.round((saving.done / saving.total) * 100)} %</span>
+                <button
+                  onClick={cancelSave}
+                  title={t.btnCancel}
+                  aria-label={t.btnCancel}
+                  className="cursor-pointer rounded border border-white/20 bg-white/5 px-[var(--space-1)] text-[10px] font-bold text-white/80 hover:bg-white/15"
+                >
+                  {t.btnCancel}
+                </button>
+              </span>
             </div>
             <div
               role="progressbar"

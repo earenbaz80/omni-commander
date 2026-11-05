@@ -192,4 +192,36 @@ describe('MapsModal layers and offline use', () => {
     expect(document.body.textContent).toMatch(/No se pudieron guardar todas las teselas · \d+\/\d+/);
     vi.unstubAllGlobals();
   });
+
+  it('stops the download when asked and says how much of it was saved', async () => {
+    const gates: Array<() => void> = [];
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).includes('/api/maps/cache')) return { ok: true, json: async () => ({ tiles: 0, bytes: 0 }) };
+      if (String(url).includes('/api/maps/offline')) {
+        await new Promise<void>((resolve) => gates.push(resolve));
+        // The real fetch rejects once its signal aborts, and the dialog has to
+        // tell that apart from a batch the server refused.
+        if (init?.signal?.aborted) throw new DOMException('aborted', 'AbortError');
+        return { ok: true, json: async () => ({ stored: 1, failed: 0 }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    open();
+
+    fireEvent.click(screen.getByTitle('Guardar zona'));
+    expect(await screen.findByRole('progressbar')).toBeTruthy();
+
+    fireEvent.click(screen.getByTitle('Cancelar'));
+    gates.splice(0).forEach((resolve) => resolve());
+
+    await waitFor(() => expect(screen.queryByRole('progressbar')).toBeNull());
+    expect(document.body.textContent).toMatch(/Descarga cancelada · \d+\/\d+/);
+
+    // Cancelling stops the queue, not just the drawing of the bar.
+    const calls = fetchMock.mock.calls as unknown as Array<[string, RequestInit]>;
+    const posts = calls.filter(([, init]) => init?.method === 'POST');
+    expect(posts.length).toBe(1);
+    vi.unstubAllGlobals();
+  });
 });

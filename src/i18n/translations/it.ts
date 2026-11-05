@@ -1240,6 +1240,7 @@ export const it = {
   mapsOfflineSaving: 'Salvataggio…',
   mapsOfflineSaved: 'Area salvata per l’uso offline',
   mapsOfflineSaveFailed: 'Non è stato possibile salvare tutte le tessere',
+  mapsOfflineCancelled: 'Download annullato',
   mapsCache: 'Tile salvate',
   mapsCacheEmpty: 'Nessuna tile salvata',
   mapsCacheClear: 'Svuota la cache',

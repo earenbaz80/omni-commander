@@ -1243,6 +1243,7 @@ export const de = {
   mapsOfflineSaving: 'Wird gespeichert…',
   mapsOfflineSaved: 'Bereich für die Offline-Nutzung gespeichert',
   mapsOfflineSaveFailed: 'Nicht alle Kacheln konnten gespeichert werden',
+  mapsOfflineCancelled: 'Download abgebrochen',
   mapsCache: 'Gespeicherte Kacheln',
   mapsCacheEmpty: 'Keine gespeicherten Kacheln',
   mapsCacheClear: 'Cache leeren',

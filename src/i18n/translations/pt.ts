@@ -1237,6 +1237,7 @@ export const pt = {
   mapsOfflineSaving: 'A guardar…',
   mapsOfflineSaved: 'Área guardada para usar sem ligação',
   mapsOfflineSaveFailed: 'Não foi possível guardar todos os mosaicos',
+  mapsOfflineCancelled: 'Descarga cancelada',
   mapsCache: 'Mosaicos guardados',
   mapsCacheEmpty: 'Sem mosaicos guardados',
   mapsCacheClear: 'Limpar a cache',
