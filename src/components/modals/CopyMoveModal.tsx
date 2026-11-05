@@ -107,6 +107,13 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
   // Tabbed monitor state (SuperCopier shape): list / errors / options, plus fold.
   const [tab, setTab] = useState<Tab>('list');
   const [folded] = useState(false);
+  /**
+   * True once the window has a height of its own (dragged or maximised). The
+   * body then hands that height to the view instead of scrolling it, which is
+   * what makes resizing the frame change what is inside it: before, only the
+   * frame grew and the rows stayed the size they were drawn at.
+   */
+  const [fills, setFills] = useState(false);
   const [log, setLog] = useState<LogEntry[]>([]);
   const dismissed = useRef<Set<string>>(new Set());
 
@@ -706,9 +713,11 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
       theme={theme}
       onClose={onClose}
       closeButtonLabel={t.btnCancel}
+      fill
+      onFillChange={setFills}
     >
       <div
-        className="font-mono select-none"
+        className={`font-mono select-none ${fills ? 'flex min-h-0 flex-1 flex-col' : ''}`}
         onKeyDownCapture={(event) => {
           if (event.key !== 'Enter' || event.shiftKey || taskId) return;
           if ((event.target as HTMLElement).tagName === 'TEXTAREA') return;

@@ -7,6 +7,7 @@ import { soundManager } from '../services/soundEffects';
 import { ThemeConfig } from '../services/themeManager';
 import { RetroProgressBar } from './RetroProgressBar';
 import { fsEngine } from '../services/fileSystem';
+import { useElevation } from '../hooks/useElevation';
 
 interface TaskQueueBarProps {
   onOpenTasksModal: () => void;
@@ -16,6 +17,10 @@ interface TaskQueueBarProps {
 
 export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, lang, theme }) => {
   const t = getTranslations(lang);
+  // Whether this process really holds an elevated token. Offering the only way
+  // to gain one from inside a process that already has it is how the card kept
+  // asking for admin while the status line said admin was granted.
+  const { isElevated } = useElevation();
   const [tasks, setTasks] = useState<BackgroundTask[]>(() => taskQueue.getTasks());
   const [isMinimized, setIsMinimized] = useState(false);
 
@@ -51,9 +56,13 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
   // cancelled transfers stay in the background-tasks modal. A failed transfer is
   // the one thing that must NOT be hidden: it means the file on disk may be
   // incomplete.
-  const activeTasks = tasks.filter(
-    (t) => t.status === 'running' || t.status === 'queued' || t.status === 'paused' || t.status === 'failed',
-  );
+  // A failure stays on screen — an incomplete file on disk is not something to
+  // hide — but it must not outrank work that is still moving. Newest-first put
+  // a dead copy at the top, so the card showed an old file asking for admin
+  // while the real transfer wrote behind it.
+  const activeTasks = tasks
+    .filter((t) => t.status === 'running' || t.status === 'queued' || t.status === 'paused' || t.status === 'failed')
+    .sort((a, b) => Number(a.status === 'failed') - Number(b.status === 'failed'));
   const hasLiveWork = activeTasks.length > 0;
   // The control is never fully removed once a transfer has existed: hiding the
   // transfer panel with no way back leaves the user unable to tell whether a copy
@@ -89,10 +98,11 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
     );
   }
 
-  // A refused write is the only signal that the token was too weak, but the
-  // button stays in the window regardless so it is already there the moment it
-  // is needed, instead of appearing after the user gave up looking for it.
-  const needsAdmin = /denied|permission|EPERM|EACCES/i.test(topTask?.error || '');
+  // A refused write is the only signal that the token was too weak. The button
+  // stays in the window while the process is not elevated, so it is already
+  // there the moment it is needed, but an elevated process has nothing left to
+  // ask for: the relaunch would only restart it and lose the transfer.
+  const needsAdmin = !isElevated && /denied|permission|EPERM|EACCES/i.test(topTask?.error || '');
 
   return (
     <div className="fixed bottom-7 right-4 z-40 animate-fadeIn select-none font-mono text-sm">
@@ -193,7 +203,7 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
           {/* A protected destination can only be written with an elevated
               token. Explorer asks for it silently; this app has to relaunch
               itself, so keep that door in the window at all times. */}
-          {needsAdmin && window.electronAPI?.relaunchAsAdmin && (
+          {!isElevated && window.electronAPI?.relaunchAsAdmin && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
