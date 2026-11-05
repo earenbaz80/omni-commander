@@ -448,6 +448,7 @@ function createFileOps(deps = {}) {
     await fs.promises.mkdir(path.win32.dirname(dest), { recursive: true });
     job.currentFile = dest;
     const entry = noteFile(job, dest, stat.size);
+    jobLog('file-start', job.id, `size=${stat.size}`, dest);
     const partPath = partNameFor(dest);
     const reader = fs.createReadStream(src, { highWaterMark: 1024 * 1024 });
     const writer = fs.createWriteStream(partPath);
@@ -468,7 +469,15 @@ function createFileOps(deps = {}) {
       for await (const chunk of reader) {
         await waitWhilePaused(job);
         bytesThisFile += chunk.length;
-        if (!writer.write(chunk)) await once(writer, 'drain');
+        if (!writer.write(chunk)) {
+          const waitedFrom = Date.now();
+          await once(writer, 'drain');
+          // A destination that stops accepting bytes hangs the copy with no
+          // trace at all -- the bar simply stops. Record the wait so the next
+          // report says which file stopped it and for how long.
+          const waited = Date.now() - waitedFrom;
+          if (waited > 2000) jobLog('write-wait', job.id, `ms=${waited}`, `bytes=${bytesThisFile}`, dest);
+        }
         job.copiedBytes += chunk.length;
         entry.copied = bytesThisFile;
         if (job.throttleBps > 0) {
@@ -505,6 +514,7 @@ function createFileOps(deps = {}) {
     }
     entry.copied = stat.size;
     entry.status = 'done';
+    jobLog('file-done', job.id, `bytes=${stat.size}`, dest);
     // Timestamps and the write bit are part of the file, not decoration: an
     // incremental backup compares by date, and losing it would make every copied
     // file look newer than the original. chmod is how Windows expresses read-only.
@@ -778,6 +788,23 @@ function createFileOps(deps = {}) {
     fs.promises.appendFile(file, line + '\n').catch(() => {});
   }
 
+  /**
+   * Asks the destination to take one byte before the copy starts. A protected
+   * folder only reveals itself when the first write fails, which for a tree of
+   * thousands of files is a long way in; here it answers immediately and the
+   * reason (EPERM, ENOENT, EACCES) lands in the log with the target path.
+   */
+  async function probeTarget(dir) {
+    const probe = path.win32.join(dir, `.omni-probe-${process.pid.toString(36)}${Date.now().toString(36)}`);
+    try {
+      await fs.promises.writeFile(probe, 'ok');
+      await fs.promises.rm(probe, { force: true });
+      return `dir=${dir} writable=yes`;
+    } catch (err) {
+      return `dir=${dir} writable=no code=${(err && err.code) || 'ERR'} ${(err && err.message) || ''}`;
+    }
+  }
+
   function startJob(job, runner) {
     runner
       .then(() => finishJob(job))
@@ -844,23 +871,38 @@ function createFileOps(deps = {}) {
       }
     }
 
-    for (const src of sources) {
-      await waitWhilePaused(job);
-      const dest = await resolveDestination(src, targetDir, job);
-      if (!dest) {
-        jobLog('skipped', job.id, src);
-        job.itemsSkipped += 1;
-        continue;
+    // What the destination answers when asked to take a byte, before any of it
+    // is walked. A protected folder then explains itself here instead of after a
+    // partial copy that looks like a freeze.
+    jobLog('target-probe', job.id, await probeTarget(targetDir));
+
+    // A copy that stops moving writes no line at all, which is why "the bar
+    // froze at 3 %" could only be guessed at. The heartbeat says where it was
+    // and how far it had got, every few seconds, for as long as it runs.
+    const beat = setInterval(() => {
+      jobLog('alive', job.id, `bytes=${job.copiedBytes}`, `items=${job.itemsDone}`, `file=${job.currentFile || '-'}`);
+    }, 5000);
+    try {
+      for (const src of sources) {
+        await waitWhilePaused(job);
+        const dest = await resolveDestination(src, targetDir, job);
+        if (!dest) {
+          jobLog('skipped', job.id, src);
+          job.itemsSkipped += 1;
+          continue;
+        }
+        try {
+          if (job.op === 'move') await moveTree(src, dest, job, true);
+          else await copyTree(src, dest, job, true);
+          jobLog('entry-done', job.id, src);
+        } catch (err) {
+          if (err.message === '__cancelled__') throw err;
+          jobLog('entry-failed', job.id, src, err.message);
+          job.errors.push({ path: src, message: err.message });
+        }
       }
-      try {
-        if (job.op === 'move') await moveTree(src, dest, job, true);
-        else await copyTree(src, dest, job, true);
-        jobLog('entry-done', job.id, src);
-      } catch (err) {
-        if (err.message === '__cancelled__') throw err;
-        jobLog('entry-failed', job.id, src, err.message);
-        job.errors.push({ path: src, message: err.message });
-      }
+    } finally {
+      clearInterval(beat);
     }
   }
 

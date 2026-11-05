@@ -26,6 +26,20 @@ function registerTransferRoutes(app, deps) {
     runCleanup,
   } = deps;
 
+  const nodePath = require('node:path');
+
+  /**
+   * One line for the transfer route itself, in the same diary the copy engine
+   * writes. An accepted request and the job it becomes then read as one story,
+   * and a refused one leaves more than the JSON rejection log behind: without
+   * this, a copy that never reached the loop was indistinguishable from one
+   * that was never asked for.
+   */
+  function noteJob(...parts) {
+    const file = nodePath.join(process.env.TEMP || process.env.TMP || '.', 'omnicommander-job.log');
+    fs.promises.appendFile(file, `${new Date().toISOString()} ${parts.join(' ')}\n`).catch(() => {});
+  }
+
   const transfer = (op) => async (req, res) => {
     try {
       const body = req.body || {};
@@ -60,10 +74,16 @@ function registerTransferRoutes(app, deps) {
       // meant a large folder blocked the response until the walk finished, and
       // any client timeout turned a working transfer into "could not start".
       // The job measures itself once it is running; polling picks the total up.
+      // Written down where the job log can see it: a request that arrives and
+      // then never reaches the copy loop used to look exactly like a request
+      // that never arrived, which is the difference between a client bug and a
+      // server one.
+      noteJob(op, `sources=${sources.length}`, `target=${targetDir}`, 'accepted');
       startJob(job, runTransferJob(job, sources, targetDir));
       res.json({ jobId: job.id, totalBytes: 0, itemsTotal: 0 });
     } catch (err) {
       logRejected(`/api/fs/${op}`, req.body, err);
+      noteJob(op, `target=${String((req.body || {}).targetDir)}`, 'refused', err.message);
       res.status(400).json({ error: err.message });
     }
   };
