@@ -271,7 +271,7 @@ Medido el 5-nov-2026, con la F3 y la F5 ya cerradas:
 
 | Métrica | Hoy | Objetivo |
 | --- | --- | --- |
-| Cobertura de líneas del ámbito medido | 59,06 % (56,29 % sentencias · 50,57 % ramas · 46,46 % funciones), con el umbral en lo medido (56/50/46/59) | 60 %, subiendo el umbral al subir el número |
+| Cobertura de líneas del ámbito medido | 60,81 % (57,83 % sentencias · 51,55 % ramas · 46,66 % funciones), con el umbral en lo medido (57/51/46/60) | 60 % — **alcanzado** |
 | Duración de la suite | 115 s con cobertura · 73,4 s sin cobertura | < 120 s también con 2 workers en el CI |
 | Rojos que no son fallos | 2 en una jornada | 0 en diez ejecuciones |
 | `server.cjs` | 563 líneas | < 800 |
@@ -284,6 +284,8 @@ Medido el 5-nov-2026, con la F3 y la F5 ya cerradas:
 Dos cosas salieron de volver a medir. La primera: el informe de cobertura imprimía un `PARSE_ERROR` en cada ejecución, y era el proveedor v8 intentando leer la declaración de `libarchive.js` —TypeScript vendido en un `.d.ts`, con `any` en la firma del worker— para mapear los ficheros que nadie importa. Un `.d.ts` no tiene código en ejecución, así que ahora queda excluido y el error desapareció. La segunda: con el número delante no tiene sentido que el umbral siga en la línea base de la primera medición; sube a lo que la suite alcanza hoy (49 % sentencias, 42 % ramas, 42 % funciones, 51 % líneas), de modo que un descenso falle la ejecución en vez de pasar desapercibido.
 
 Después de eso, tres diálogos que no tenían un solo test —sincronizar carpetas, buscar/grep y el estudio de imagen— entran en la cuenta y mueven la línea a 55,99 %, con el umbral subido otra vez detrás. Los tres cubren lo que se puede afirmar sin navegador: la clasificación del diff y qué copia una ejecución, los filtros y el recuento de ficheros ilegibles, y las rutas de carga y guardado con el lienzo y la imagen doblados. Después entra `FileList.tsx`, que era el mayor hueco: doce casos sobre las filas (tamaño, tipo y atributos), la selección, el orden por columna y el soltar —incluido negarse a mover una carpeta dentro de sí misma—, con el virtualizador doblado porque jsdom no tiene layout y no pinta una sola fila. La línea sube a 57,07 % y el umbral la sigue. Después, `CommandLineBar`, que estaba al 13,76 %: quince casos sobre las sugerencias (historial, comandos internos y ficheros), el texto fantasma, la navegación del historial, la tabulación, el cajón de log y el modo elevado. La línea queda en 59,06 %, a menos de un punto del objetivo, y el umbral se mueve otra vez detrás de ella.
+
+El último tramo lo pone la guarda del teclado. `useKeyboardShortcuts` tenía tests de las dos rutas que rompieron en producción —la trama de tamaños tragándose las teclas y el ciclo de unidades sin unidades—, pero no del resto del mapa: las F, las combinaciones con Ctrl, la navegación de filas y la búsqueda al teclear. Un fichero nuevo de dieciséis casos las recorre, y la línea pasa de 59,06 % a 60,81 %. **El objetivo de esta sección queda cumplido**, con el umbral detrás una vez más (57 sentencias, 51 ramas, 46 funciones, 60 líneas).
 
 ---
 

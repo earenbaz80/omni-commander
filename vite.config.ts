@@ -255,13 +255,14 @@ export default defineConfig(({ command, mode }) => {
         reporter: ['text-summary', 'html', 'json-summary'],
         reportsDirectory: './coverage',
         // Floors sit on the measured line, not on an aspiration: they are what
-        // the suite reaches today (56,29 % / 50,57 % / 46,46 % / 59,06 %), so a
-        // drop below it fails the run and a rise is what the next move is for.
+        // the suite reaches today (57,83 % / 51,55 % / 46,66 % / 60,81 %), and
+        // the roadmap's 60 % line is behind us: the floors now stand where the
+        // suite is, so a drop below it fails the run.
         thresholds: {
-          statements: 56,
-          branches: 50,
+          statements: 57,
+          branches: 51,
           functions: 46,
-          lines: 59,
+          lines: 60,
         },
       },
     },
