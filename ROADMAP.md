@@ -233,6 +233,10 @@ Tareas:
 
 **Hecho (este commit).** El README explica ahora la situación real de la firma —qué falta, por qué un certificado autofirmado no lo arregla y qué habría que tocar el día que exista— y trae una checklist de release de siete pasos que incluye lo que el workflow ya garantiza (etiqueta igual a `version`, artefactos renombrados, `latest.yml` comprobado) y lo que no: instalar en una máquina limpia y mirar qué ve el updater. Los `.txt` de la raíz y las builds viejas de `release/` se quedan donde están por ahora: son artefactos de instalación y borrarlos sin permiso no es parte de documentar una checklist.
 
+**Cortada la 1.0.32 (5-nov-2026).** Con 52 commits sin publicar desde la 1.0.31, la checklist se cumplió entera y esta vez con las comprobaciones hechas, no supuestas: `master` estaba en verde en el CI antes de tocar la versión (`9956693`, ejecución 138), `package.json` y la etiqueta `v1.0.32` coinciden, la etiqueta no existía ni en local ni en el remoto, y tras el push salió una release publicada al primer intento —no en borrador, no prerelease— con los dos `.exe`, sus dos `.zip`, el `.blockmap` y `latest.yml`. El quinto punto se comprobó descargando el instalador desde la release: 115 799 523 bytes, el mismo tamaño que declara, y su `sha512` en base64 idéntico al del fichero. La ejecución del tag tardó 56 s en los tests con cobertura y 43 s sin ella, con dos workers, así que el objetivo de duración del CI también entra.
+
+Queda el sexto punto: instalar en una máquina limpia y ver qué hace SmartScreen. La respuesta está escrita de antemano en el README —el build no firma nada, así que avisará y habrá que pasar por *Más información → Ejecutar de todas formas*—, pero verlo sigue pendiente y con ello el cierre formal de la fase.
+
 **Hecho cuando:** un release sale con checklist cumplida y el instalador no dispara SmartScreen en una máquina limpia (o se documenta por qué sí).
 
 **Riesgo:** bajo.
@@ -272,7 +276,7 @@ Medido el 5-nov-2026, con la F3 y la F5 ya cerradas:
 | Métrica | Hoy | Objetivo |
 | --- | --- | --- |
 | Cobertura de líneas del ámbito medido | 60,81 % (57,83 % sentencias · 51,55 % ramas · 46,66 % funciones), con el umbral en lo medido (57/51/46/60) | 60 % — **alcanzado** |
-| Duración de la suite | 115 s con cobertura · 73,4 s sin cobertura | < 120 s también con 2 workers en el CI |
+| Duración de la suite | 56 s con cobertura y 43 s sin ella en el runner con 2 workers · 65,5 s sin cobertura en local con 2 workers | < 120 s también con 2 workers en el CI — **alcanzado** |
 | Rojos que no son fallos | 2 en una jornada | 0 en diez ejecuciones |
 | `server.cjs` | 563 líneas | < 800 |
 | `App.tsx` | 670 líneas | < 700 |
