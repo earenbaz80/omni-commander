@@ -125,8 +125,14 @@ const RECT_MAX_TILES = 900;
 const WORLD_LEVELS = [4, 5, 6];
 /** The disk cache prunes to 20 000 tiles, and level 7 alone would be 21 845. */
 const WORLD_MAX_LEVEL = 6;
-/** Thousands of tiles at once: fewer, larger requests, still polite. */
-const WORLD_BATCH = 400;
+/**
+ * Thousands of tiles at once. The batch is also the progress grain: the dialog
+ * only learns how far it got when a request returns, and the server fetches two
+ * tiles at a time, so four hundred would leave the bar still for about a minute.
+ * One hundred asks for far fewer requests than the tiles it carries, which is
+ * what the batch size was protecting in the first place.
+ */
+const WORLD_BATCH = 100;
 
 /** Bytes as a person reads them, because the cache is about disk space. */
 function formatCacheSize(bytes: number): string {
@@ -195,7 +201,7 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
   const [online, setOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine !== false);
   /** Images that failed to arrive, which offline is every one of them. */
   const [tileFailures, setTileFailures] = useState(0);
-  const [saving, setSaving] = useState<{ done: number; total: number } | null>(null);
+  const [saving, setSaving] = useState<{ done: number; total: number; failed: number } | null>(null);
   const [saveNote, setSaveNote] = useState<{ text: string; ok: boolean } | null>(null);
   /** What the disk cache holds, or null while it has not been read yet. */
   const [cache, setCache] = useState<{ tiles: number; bytes: number } | null>(null);
@@ -373,7 +379,7 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
   const storeTiles = useCallback(
     async (tiles: Array<{ z: number; x: number; y: number }>, truncated = false, batchSize = OFFLINE_BATCH) => {
       if (tiles.length === 0) return;
-      setSaving({ done: 0, total: tiles.length });
+      setSaving({ done: 0, total: tiles.length, failed: 0 });
       setSaveNote(null);
       let failed = 0;
       for (let index = 0; index < tiles.length; index += batchSize) {
@@ -390,10 +396,15 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
         } catch {
           failed += batch.length;
         }
-        setSaving({ done: Math.min(tiles.length, index + batch.length), total: tiles.length });
+        setSaving({ done: Math.min(tiles.length, index + batch.length), total: tiles.length, failed });
       }
       setSaving(null);
-      const text = failed > 0 ? t.mapsOfflineSaveFailed : truncated ? t.mapsOfflineTooMany : t.mapsOfflineSaved;
+      const text =
+        failed > 0
+          ? `${t.mapsOfflineSaveFailed} · ${failed}/${tiles.length}`
+          : truncated
+            ? t.mapsOfflineTooMany
+            : t.mapsOfflineSaved;
       setSaveNote({ text, ok: failed === 0 });
       void refreshCache();
     },
@@ -820,11 +831,6 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
           >
             <Download className="h-3.5 w-3.5" />
             {saving ? t.mapsOfflineSaving : t.mapsOfflineSave}
-            {saving && (
-              <span className="opacity-70">
-                {saving.done}/{saving.total}
-              </span>
-            )}
           </button>
           <a
             href={activeLayer.licenseUrl}
@@ -902,6 +908,37 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
             <Globe className="h-3.5 w-3.5" /> {worldPrompt ? t.mapsWorldConfirm : t.mapsWorld}
           </button>
         </div>
+        {/* A download that only speaks when it ends looks like one that never
+            started: half a minute can pass inside a single batch of 400 tiles.
+            The bar is the promise, and the count of failures is part of it. */}
+        {saving && (
+          <div className="flex flex-col gap-[2px] text-[11px]">
+            <div className="flex items-center justify-between gap-[var(--space-2)]">
+              <span className="opacity-80">
+                {t.mapsOfflineSaving} {saving.done.toLocaleString(lang)}/{saving.total.toLocaleString(lang)}
+              </span>
+              <span className="opacity-60">{Math.round((saving.done / saving.total) * 100)} %</span>
+            </div>
+            <div
+              role="progressbar"
+              aria-label={t.mapsOfflineSaving}
+              aria-valuemin={0}
+              aria-valuemax={saving.total}
+              aria-valuenow={saving.done}
+              className="h-1.5 w-full overflow-hidden rounded bg-white/10"
+            >
+              <div
+                className="h-full rounded bg-emerald-400 transition-[width] duration-300"
+                style={{ width: `${(saving.done / saving.total) * 100}%` }}
+              />
+            </div>
+            {saving.failed > 0 && (
+              <span className="text-amber-300">
+                {t.mapsOfflineSaveFailed} · {saving.failed}
+              </span>
+            )}
+          </div>
+        )}
         {worldPrompt && <p className="text-[11px] text-amber-300">{t.mapsWorldWarning}</p>}
         {selecting && <p className="text-[11px] text-amber-300">{t.mapsSelectAreaHint}</p>}
         {tileError && (

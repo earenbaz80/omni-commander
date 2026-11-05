@@ -128,4 +128,68 @@ describe('MapsModal layers and offline use', () => {
     expect(await screen.findByText(/Sin conexión/)).toBeTruthy();
     Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => true });
   });
+
+  it('shows how far the download has got while it runs, not only when it ends', async () => {
+    const gates: Array<() => void> = [];
+    let released = false;
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes('/api/maps/cache')) return { ok: true, json: async () => ({ tiles: 0, bytes: 0 }) };
+      if (String(url).includes('/api/maps/offline')) {
+        // A batch is held open so the test can look at the dialog mid-download,
+        // which is exactly the stretch that used to look like nothing happening.
+        await new Promise<void>((resolve) => {
+          if (released) resolve();
+          else gates.push(resolve);
+        });
+        return { ok: true, json: async () => ({ stored: 1, failed: 0 }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    open();
+
+    fireEvent.click(screen.getByTitle('Guardar zona'));
+
+    const bar = await screen.findByRole('progressbar');
+    const total = Number(bar.getAttribute('aria-valuemax'));
+    expect(total).toBeGreaterThan(0);
+    // Nothing has come back yet, and the bar says so instead of looking done.
+    expect(bar.getAttribute('aria-valuenow')).toBe('0');
+    expect(document.body.textContent).toMatch(/0\/\d/);
+
+    released = true;
+    gates.splice(0).forEach((resolve) => resolve());
+
+    await waitFor(() => expect(screen.queryByRole('progressbar')).toBeNull());
+    expect(document.body.textContent).toContain('Zona guardada para consultarla sin conexión');
+
+    // The total the bar promised is the work that was actually sent.
+    const calls = fetchMock.mock.calls as unknown as Array<[string, RequestInit]>;
+    const sent = calls
+      .filter(([, init]) => init?.method === 'POST')
+      .reduce((sum, [, init]) => sum + (JSON.parse(String(init.body)) as { tiles: unknown[] }).tiles.length, 0);
+    expect(sent).toBe(total);
+    vi.unstubAllGlobals();
+  });
+
+  it('counts the tiles that failed instead of claiming the whole zone is saved', async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).includes('/api/maps/cache')) return { ok: true, json: async () => ({ tiles: 0, bytes: 0 }) };
+      if (String(url).includes('/api/maps/offline')) {
+        const tiles = (JSON.parse(String(init?.body)) as { tiles: unknown[] }).tiles;
+        return { ok: true, json: async () => ({ stored: 0, failed: tiles.length }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    open();
+
+    fireEvent.click(screen.getByTitle('Guardar zona'));
+
+    await waitFor(() => expect(document.body.textContent).toContain('No se pudieron guardar todas las teselas'));
+    // The number is the difference between "something went wrong" and "this
+    // many of the tiles you asked for are not there".
+    expect(document.body.textContent).toMatch(/No se pudieron guardar todas las teselas · \d+\/\d+/);
+    vi.unstubAllGlobals();
+  });
 });
