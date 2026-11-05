@@ -1271,6 +1271,7 @@ export const es = {
   mapsOfflineSaving: 'Guardando…',
   mapsOfflineSaved: 'Zona guardada para consultarla sin conexión',
   mapsOfflineSaveFailed: 'No se pudieron guardar todas las teselas',
+  mapsOfflineCancelled: 'Descarga cancelada',
   mapsCache: 'Teselas guardadas',
   mapsCacheEmpty: 'Sin teselas guardadas',
   mapsCacheClear: 'Vaciar la caché',

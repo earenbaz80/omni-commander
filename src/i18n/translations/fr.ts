@@ -1247,6 +1247,7 @@ export const fr = {
   mapsOfflineSaving: 'Enregistrement…',
   mapsOfflineSaved: 'Zone enregistrée pour le hors ligne',
   mapsOfflineSaveFailed: 'Certaines tuiles n’ont pas pu être enregistrées',
+  mapsOfflineCancelled: 'Téléchargement annulé',
   mapsCache: 'Tuiles enregistrées',
   mapsCacheEmpty: 'Aucune tuile enregistrée',
   mapsCacheClear: 'Vider le cache',

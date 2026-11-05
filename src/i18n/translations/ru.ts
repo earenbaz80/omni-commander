@@ -1239,6 +1239,7 @@ export const ru = {
   mapsOfflineSaving: 'Сохранение…',
   mapsOfflineSaved: 'Область сохранена для работы без сети',
   mapsOfflineSaveFailed: 'Не все тайлы удалось сохранить',
+  mapsOfflineCancelled: 'Загрузка отменена',
   mapsCache: 'Сохранённые тайлы',
   mapsCacheEmpty: 'Сохранённых тайлов нет',
   mapsCacheClear: 'Очистить кеш',

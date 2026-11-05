@@ -1264,6 +1264,7 @@ export const en = {
   mapsOfflineSaving: 'Saving…',
   mapsOfflineSaved: 'Area saved for offline use',
   mapsOfflineSaveFailed: 'Not every tile could be saved',
+  mapsOfflineCancelled: 'Download cancelled',
   mapsCache: 'Saved tiles',
   mapsCacheEmpty: 'No saved tiles',
   mapsCacheClear: 'Clear the cache',
