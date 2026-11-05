@@ -2,7 +2,10 @@ import { base64ToBytes } from './zipArchive';
 import type { OpenableArchiveFormat } from './archiveBackend';
 import { API_BASE } from './apiBase';
 import { createArchiveOps, type ArchiveOps } from './fileArchiveOps';
-import { createCatalogOps, type CatalogueState } from './fileCatalog';
+import { createCatalogOps } from './fileCatalog';
+import type { EngineState } from './fileEngineState';
+import { createStorageOps } from './fileStorageOps';
+import { createListingOps } from './fileListing';
 import { createCopyMoveOps } from './fileCopyMove';
 import { createFolderQueries } from './fileFolderQueries';
 import { createTreeSizeOps } from './fileTreeSize';
@@ -26,7 +29,6 @@ import {
 import { log } from '../utils/logger';
 import { tGlobal } from '../i18n/translations';
 import { fetchWithRetry } from '../utils/fetchWithRetry';
-import { readCatalogue, writeCatalogue } from './filesystemStorage';
 
 // The archive errors live with the format dispatch that raises them; they stay
 // re-exported here because this module is the engine's public surface.
@@ -41,19 +43,6 @@ export type { CleanupRun, CleanupScan, CleanupTarget, CleanupTargetId, SendToDes
 export { cleanupTargets } from './fileFolderQueries';
 
 import { calculateFileHashes as calculateFileHashesImpl } from './fileSystemCrypto';
-
-/** One entry of a `/api/list` answer, as the server writes it. */
-interface ServerListItem {
-  name?: string;
-  ext?: string;
-  fullName?: string;
-  isDirectory?: boolean;
-  size?: number;
-  modifiedAt?: string;
-  createdAt?: string;
-  attributes?: FileItem['attributes'];
-  content?: string;
-}
 
 /**
  * Bound on the in-memory listing cache. Every directory ever listed used to
@@ -73,21 +62,22 @@ export const initialDrives: Drive[] = [];
 // Initial Virtual Files & Folders
 export const initialFiles: FileItem[] = [];
 class FileSystemEngine {
-  private drives: Drive[] = [];
-  private state: CatalogueState = { files: [], recycleBin: [] };
-  private listeners: Array<() => void> = [];
-
-  private storageSaveTimer: ReturnType<typeof setTimeout> | null = null;
-
-  // Index of files by `${driveId}|${normalizedPath}` for O(1) getFiles lookups.
-  private filesVersion = 0;
-  private filesIndexVersion = -1;
-  private filesIndex = new Map<string, FileItem[]>();
-
-  // Least-recently-used order of directory buckets (`driveId|normalizedPath`).
-  // A Map preserves insertion order, so re-inserting a key on access moves it to
-  // the most-recent end; the front is then the eviction candidate.
-  private bucketOrder = new Map<string, true>();
+  /**
+   * Everything the engine keeps in memory: drives, catalogue, trash, subscribers
+   * and the listing cache. One holder, because the extracted operations reassign
+   * whole lists and bump counters that other layers read.
+   */
+  private state: EngineState = {
+    drives: [],
+    files: [],
+    recycleBin: [],
+    listeners: [],
+    storageSaveTimer: null,
+    filesVersion: 0,
+    filesIndexVersion: -1,
+    filesIndex: new Map(),
+    bucketOrder: new Map(),
+  };
 
   constructor() {
     this.loadFromStorage();
@@ -96,349 +86,69 @@ class FileSystemEngine {
     }
   }
 
+  /** Persistence and subscribers, built on first use. */
+  private storageOps: ReturnType<typeof createStorageOps> | null = null;
+
+  private get storage(): ReturnType<typeof createStorageOps> {
+    this.storageOps ??= createStorageOps({ state: this.state });
+    return this.storageOps;
+  }
+
   private loadFromStorage() {
-    // Real drives only: a first run has nothing saved, and virtual drives are
-    // added elsewhere on purpose. A value that cannot be read means the same
-    // thing here as no value at all, which is what the reader already decides.
-    const catalogue = readCatalogue();
-    this.drives = catalogue.drives;
-    this.state.files = catalogue.files;
-    this.state.recycleBin = catalogue.recycleBin;
-  }
-
-  /**
-   * Serializes only the fields the UI actually needs. `content` (inline text or
-   * base64 payloads) is the heavy, non-visible field that used to blow the
-   * localStorage quota; a directory listing reloads it from the server, and
-   * virtual files rehydrate lazily. Kept explicit so a future field is a
-   * deliberate decision rather than an accidental quota regression.
-   */
-  private filesForStorage(): Array<Omit<FileItem, 'content'>> {
-    return this.state.files.map((f) => ({
-      id: f.id,
-      name: f.name,
-      ext: f.ext,
-      fullName: f.fullName,
-      path: f.path,
-      driveId: f.driveId,
-      isDirectory: f.isDirectory,
-      size: f.size,
-      modifiedAt: f.modifiedAt,
-      createdAt: f.createdAt,
-      attributes: f.attributes,
-      mimeType: f.mimeType,
-      icon: f.icon,
-      isLocked: f.isLocked,
-    }));
-  }
-
-  private persistToStorageNow() {
-    if (typeof window === 'undefined') return;
-    const saved = writeCatalogue({
-      drives: this.drives,
-      files: this.filesForStorage(),
-      recycleBin: this.state.recycleBin,
-    });
-    if (!saved) {
-      // A quota-exceeded write used to fail silently, so the user lost drives,
-      // files and trash with no trace. Log it and keep the app running on the
-      // in-memory state instead of pretending the save succeeded.
-      log.error('[fileSystem] persist to localStorage failed; continuing in memory');
-    }
+    this.storage.loadFromStorage();
   }
 
   public flushStorage() {
-    if (this.storageSaveTimer) {
-      clearTimeout(this.storageSaveTimer);
-      this.storageSaveTimer = null;
-      this.persistToStorageNow();
-    }
+    this.storage.flushStorage();
   }
 
   public saveToStorage() {
-    // Notify React immediately; debounce the expensive localStorage writes.
-    this.filesVersion++;
-    this.notify();
-    if (typeof window === 'undefined') return;
-    if (this.storageSaveTimer) {
-      clearTimeout(this.storageSaveTimer);
-    }
-    this.storageSaveTimer = setTimeout(() => {
-      this.persistToStorageNow();
-      this.storageSaveTimer = null;
-    }, 250);
+    this.storage.saveToStorage();
   }
 
   public subscribe(listener: () => void) {
-    this.listeners.push(listener);
-    return () => {
-      this.listeners = this.listeners.filter((l) => l !== listener);
-    };
+    return this.storage.subscribe(listener);
   }
 
-  private notify() {
-    this.listeners.forEach((l) => l());
+  /** Drives, listings and the real-drive path bridge, built on first use. */
+  private listingInstance: ReturnType<typeof createListingOps> | null = null;
+
+  private get listing(): ReturnType<typeof createListingOps> {
+    this.listingInstance ??= createListingOps({
+      state: this.state,
+      cachePolicy: listingCachePolicy,
+      getArchiveSource: (driveId, path) => this.getArchiveSource(driveId, path),
+      saveToStorage: () => this.saveToStorage(),
+      findMountedItem: (id) => this.archiveOps.findMountedItem(id),
+      findArchive: (driveId, path) => this.archiveOps.findArchive(driveId, path),
+    });
+    return this.listingInstance;
   }
 
-  public getDrives(): Drive[] {
-    return [...this.drives];
-  }
-
-  /**
-   * Reads one directory from disk into the catalogue. Resolves `true` when the
-   * server listed it, `false` when it refused or could not be reached: callers
-   * that offer the folder as a destination need to tell "empty" from "gone".
-   */
-  public async loadSystemDriveDirectory(driveId: string, path: string): Promise<boolean> {
-    if (this.getArchiveSource(driveId, path)) return false;
-    try {
-      const response = await fetchWithRetry(
-        `${API_BASE}/api/list?driveId=${encodeURIComponent(driveId)}&path=${encodeURIComponent(path)}`,
-        { timeoutMs: 10000, retries: 2 },
-      );
-      if (!response.ok) return false;
-      const serverItems = await response.json();
-      if (!Array.isArray(serverItems)) return false;
-
-      const normPath = this.normalizePath(path);
-      const untouched = this.state.files.filter(
-        (f) => !(f.driveId === driveId && this.normalizePath(f.path) === normPath),
-      );
-      const mapped: FileItem[] = serverItems.map((item: ServerListItem, index: number) => ({
-        id: `sys_${driveId}_${index}_${Date.now()}`,
-        name: item.name ?? '',
-        ext: item.ext || '',
-        fullName: item.fullName || undefined,
-        path: normPath,
-        driveId,
-        isDirectory: !!item.isDirectory,
-        size: Number(item.size) || 0,
-        modifiedAt: item.modifiedAt || '',
-        createdAt: item.createdAt || '',
-        attributes: item.attributes || {
-          readOnly: false,
-          hidden: String(item.name || '').startsWith('.'),
-          system: false,
-          archive: !item.isDirectory,
-        },
-        content: item.content || '',
-      }));
-
-      this.state.files = [...untouched, ...mapped];
-      this.touchBucket(driveId, normPath);
-      this.saveToStorage();
-      return true;
-    } catch (e) {
-      log.warn('Could not list system directory', path, e);
-      return false;
-    }
-  }
-
-  public getSearchIndex(searchAllDrives: boolean = false, currentDriveId: string = ''): FileItem[] {
-    // Centralized indexed access instead of reaching private internals.
-    const files = [...this.state.files];
-    if (searchAllDrives) return files;
-    return files.filter((file) => file.driveId === currentDriveId);
-  }
-
-  public setDrives(next: Drive[]) {
-    this.drives = Array.isArray(next) ? next : [];
-    this.saveToStorage();
-  }
-
-  /**
-   * Stable field signature used to detect real drive-list changes across
-   * polls: an unchanged machine must cost one fetch and nothing else.
-   */
-  private driveSignature(drive: Drive): string {
-    return [
-      drive.id,
-      drive.letter,
-      drive.name,
-      drive.type,
-      drive.driveKind || '',
-      drive.fileSystem || '',
-      drive.serialNumber || '',
-      drive.description || '',
-      String(drive.totalBytes),
-      String(drive.freeBytes),
-      drive.isMounted ? 1 : 0,
-      drive.readOnly ? 1 : 0,
-    ].join('|');
-  }
-
-  /**
-   * Refresh the real drive list from the local server. The app polls this so a
-   * USB device plugged in after startup shows up without a restart. Subscribers
-   * and storage are only touched when the list actually changed.
-   * Resolves `true` when the server answered, `false` when it did not.
-   *
-   * `signal` lets the caller abandon the poll when it unmounts. The read is then
-   * cancelled instead of retrying, and the failure is not logged: a diagnostic
-   * for a window that no longer exists is what used to escape after unmount and
-   * race the test worker's teardown.
-   */
-  public async loadRealDrivesFromApi(options: { signal?: AbortSignal } = {}): Promise<boolean> {
-    try {
-      const response = await fetchWithRetry(`${API_BASE}/api/drives`, {
-        timeoutMs: 10000,
-        retries: 2,
-        signal: options.signal,
-      });
-      if (!response.ok) return false;
-      const data = await response.json();
-      if (!Array.isArray(data)) return false;
-      const next = data as Drive[];
-      const changed =
-        next.length !== this.drives.length ||
-        next.some((d, i) => this.driveSignature(d) !== this.driveSignature(this.drives[i]));
-      if (changed) {
-        this.setDrives(next);
-      }
-      return true;
-    } catch (e) {
-      if (!options.signal?.aborted) log.warn('Could not load real drives from API', e);
-      return false;
-    }
-  }
-
-  public getDrive(driveId: string): Drive | undefined {
-    return this.drives.find((d) => d.id === driveId);
-  }
-
-  public getDriveByLetter(letter: string): Drive | undefined {
-    const formatted = letter.endsWith(':') ? letter : `${letter}:`;
-    return this.drives.find((d) => d.letter.toUpperCase() === formatted.toUpperCase());
-  }
-
-  public getFiles(driveId: string, currentPath: string): FileItem[] {
-    const mount = this.archiveOps.findArchive(driveId, currentPath);
-    if (mount) return mount.items.filter((item) => this.normalizePath(item.path) === this.normalizePath(currentPath));
-    if (this.filesIndexVersion !== this.filesVersion) {
-      this.filesIndex.clear();
-      for (const f of this.state.files) {
-        const key = `${f.driveId}|${this.normalizePath(f.path)}`;
-        const bucket = this.filesIndex.get(key);
-        if (bucket) bucket.push(f);
-        else this.filesIndex.set(key, [f]);
-      }
-      this.filesIndexVersion = this.filesVersion;
-    }
-    const key = `${driveId}|${this.normalizePath(currentPath)}`;
-    // Reading a bucket marks it as recently used, so the LRU evicts what the
-    // user has actually stopped looking at.
-    if (this.bucketOrder.has(key)) {
-      this.bucketOrder.delete(key);
-      this.bucketOrder.set(key, true);
-    }
-    return this.filesIndex.get(key) || [];
-  }
-
-  /** Trash and other virtual entries live only in memory, so the LRU never drops them. */
-  private bucketEvictable(key: string): boolean {
-    return key.startsWith('real_');
-  }
-
-  /**
-   * Records a directory bucket as recently used and evicts the least-recently-used
-   * real-drive buckets past the cap. Virtual/trash buckets are exempt: they have no
-   * server-side listing to reload from.
-   */
-  private touchBucket(driveId: string, path: string) {
-    const key = `${driveId}|${this.normalizePath(path)}`;
-    this.bucketOrder.delete(key);
-    this.bucketOrder.set(key, true);
-
-    const evictable = [...this.bucketOrder.keys()].filter((k) => this.bucketEvictable(k));
-    if (evictable.length <= listingCachePolicy.maxCachedDirectories) return;
-
-    const overBy = evictable.length - listingCachePolicy.maxCachedDirectories;
-    const doomed = new Set(evictable.slice(0, overBy));
-    if (doomed.size === 0) return;
-
-    this.bucketOrder = new Map([...this.bucketOrder].filter(([k]) => !doomed.has(k)));
-    this.state.files = this.state.files.filter((f) => !doomed.has(`${f.driveId}|${this.normalizePath(f.path)}`));
-  }
-
-  public getFileById(id: string): FileItem | undefined {
-    return this.state.files.find((f) => f.id === id) || this.archiveOps.findMountedItem(id);
-  }
-
-  public normalizePath(path: string): string {
-    if (!path) return '';
-    let p = path.replace(/\//g, '\\').trim();
-    // Normalize drive root to always have a trailing backslash: "C:" -> "C:\"
-    if (/^[A-Z]:$/i.test(p)) p += '\\';
-    // remove trailing slash unless it's just "C:\"
-    if (p.endsWith('\\') && p.length > 3) {
-      p = p.slice(0, -1);
-    }
-    return p;
-  }
-
-  public getParentPath(path: string): string {
-    const norm = this.normalizePath(path);
-    // Drive root (e.g. "C:\") — cannot navigate above it.
-    if (/^[A-Z]:\\$/i.test(norm)) return '';
-    const lastSlash = norm.lastIndexOf('\\');
-    if (lastSlash <= 2) {
-      // Direct child of drive root (e.g. "C:\folder" -> "C:\")
-      return norm.substring(0, 3);
-    }
-    return norm.substring(0, lastSlash);
-  }
-
-  // -----------------------------------------------------------------------
-  // Real-drive bridge
-  // -----------------------------------------------------------------------
-  // A browser renderer cannot write to arbitrary paths (the File System Access
-  // API needs a user-granted handle per root), so any mutation on a "real_*"
-  // drive is executed by the local server, which has full filesystem access.
-  // After the server confirms, the affected directory is re-listed from disk
-  // so the UI reflects the real state instead of an optimistic guess.
-
-  isSystemDrive(driveId: string): boolean {
-    return !!driveId && driveId.startsWith('real_');
-  }
-
-  // Display splits `name`/`ext`; the on-disk name is what actually has to be
-  // addressed, and for directories it is always the untouched original.
-  private realEntryName(file: FileItem): string {
-    if (file.fullName) return file.fullName;
-    if (file.isDirectory) return file.name;
-    return file.ext ? `${file.name}.${file.ext}` : file.name;
-  }
-
-  /**
-   * Drive letter a real-drive id stands for: `real_C` -> `C:`. Panels hold their
-   * location relative to the drive ("Users\\name"), but the server accepts only
-   * drive-letter absolute paths, so the letter has to be put back before a call.
-   */
-  private driveLetterOf(driveId: string): string {
-    const match = /^real_([A-Za-z])$/.exec(driveId);
-    return match ? `${match[1].toUpperCase()}:` : '';
-  }
-
-  /** Absolute on-disk form of a real-drive path, which the panels keep relative. */
-  private absoluteForDrive(driveId: string, targetPath: string): string {
-    const normalized = this.normalizePath(targetPath);
-    if (/^[A-Za-z]:/.test(normalized)) return normalized;
-    const letter = this.driveLetterOf(driveId);
-    if (!letter) return normalized;
-    return this.normalizePath(normalized ? `${letter}\\${normalized}` : letter);
-  }
-
-  private realAbsolutePath(file: FileItem): string {
-    const parent = this.absoluteForDrive(file.driveId, file.path);
-    const trimmed = parent.endsWith('\\') ? parent.slice(0, -1) : parent;
-    return `${trimmed}\\${this.realEntryName(file)}`;
-  }
-
-  private childAbsolutePath(parentPath: string, childName: string): string {
-    const parent = this.normalizePath(parentPath);
-    const trimmed = parent.endsWith('\\') ? parent.slice(0, -1) : parent;
-    return `${trimmed}\\${childName}`;
-  }
+  public getDrives = (): Drive[] => this.listing.getDrives();
+  public loadSystemDriveDirectory = (driveId: string, path: string): Promise<boolean> =>
+    this.listing.loadSystemDriveDirectory(driveId, path);
+  public getSearchIndex = (searchAllDrives: boolean = false, currentDriveId: string = ''): FileItem[] =>
+    this.listing.getSearchIndex(searchAllDrives, currentDriveId);
+  public setDrives = (next: Drive[]): void => this.listing.setDrives(next);
+  public loadRealDrivesFromApi = (options: { signal?: AbortSignal } = {}): Promise<boolean> =>
+    this.listing.loadRealDrivesFromApi(options);
+  public getDrive = (driveId: string): Drive | undefined => this.listing.getDrive(driveId);
+  public getDriveByLetter = (letter: string): Drive | undefined => this.listing.getDriveByLetter(letter);
+  public getFiles = (driveId: string, currentPath: string): FileItem[] => this.listing.getFiles(driveId, currentPath);
+  public getFileById = (id: string): FileItem | undefined => this.listing.getFileById(id);
+  public normalizePath = (path: string): string => this.listing.normalizePath(path);
+  public getParentPath = (path: string): string => this.listing.getParentPath(path);
+  public isSystemDrive = (driveId: string): boolean => this.listing.isSystemDrive(driveId);
+  private realAbsolutePath = (file: FileItem): string => this.listing.realAbsolutePath(file);
+  public childAbsolutePath = (parentPath: string, childName: string): string =>
+    this.listing.childAbsolutePath(parentPath, childName);
+  public absoluteForDrive = (driveId: string, targetPath: string): string =>
+    this.listing.absoluteForDrive(driveId, targetPath);
+  private realEntryName = (file: FileItem): string => this.listing.realEntryName(file);
+  public driveSignature = (drive: Drive): string => this.listing.driveSignature(drive);
+  public bucketEvictable = (key: string): boolean => this.listing.bucketEvictable(key);
+  public touchBucket = (driveId: string, path: string): void => this.listing.touchBucket(driveId, path);
 
   /**
    * Last real reason a server call failed. `callServerFs` deliberately returns
@@ -1243,7 +953,7 @@ class FileSystemEngine {
   }
 
   public resetToDefaults() {
-    this.drives = [...initialDrives];
+    this.state.drives = [...initialDrives];
     this.state.files = [...initialFiles];
     this.saveToStorage();
   }
