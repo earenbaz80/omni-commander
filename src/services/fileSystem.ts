@@ -3,6 +3,7 @@ import type { OpenableArchiveFormat } from './archiveBackend';
 import { API_BASE } from './apiBase';
 import { createArchiveOps, type ArchiveOps } from './fileArchiveOps';
 import { createCatalogOps, type CatalogueState } from './fileCatalog';
+import { createCopyMoveOps } from './fileCopyMove';
 import { createTransferOps, type RealFsJob, type TransferOps } from './fileTransfer';
 import type { OpenWithProgram } from './openWith';
 import {
@@ -952,6 +953,53 @@ class FileSystemEngine {
     this.catalogOps.deletePermanentlyFromRecycleBin(recycleBinItemId);
   }
 
+  /**
+   * Copy and move inside the catalogue, built on first use.
+   *
+   * The public methods keep their shape; the bodies moved to `fileCopyMove` with
+   * the rule they encode — collect the children before writing, because a folder
+   * copied into itself used to duplicate whatever it had just pushed.
+   */
+  private copyMoveOpsInstance: ReturnType<typeof createCopyMoveOps> | null = null;
+
+  private get copyMoveOps(): ReturnType<typeof createCopyMoveOps> {
+    this.copyMoveOpsInstance ??= createCopyMoveOps({
+      state: this.state,
+      normalizePath: (path) => this.normalizePath(path),
+      isSystemDrive: (driveId) => this.isSystemDrive(driveId),
+      getArchiveSource: (driveId, path) => this.getArchiveSource(driveId, path),
+      getFileById: (id) => this.getFileById(id),
+      extractArchive: (archiveFile, targetDriveId, targetPath, selectedEntry) =>
+        this.extractArchive(archiveFile, targetDriveId, targetPath, selectedEntry),
+      realCopyOrMove: (
+        file,
+        op,
+        targetDriveId,
+        targetPath,
+        overwrite,
+        onProgress,
+        signal,
+        options,
+        onConflict,
+        onFiles,
+      ) =>
+        this.realCopyOrMove(
+          file,
+          op,
+          targetDriveId,
+          targetPath,
+          overwrite,
+          onProgress,
+          signal,
+          options,
+          onConflict,
+          onFiles,
+        ),
+      saveToStorage: () => this.saveToStorage(),
+    });
+    return this.copyMoveOpsInstance;
+  }
+
   public async copyItem(
     fileId: string,
     targetDriveId: string,
@@ -963,128 +1011,17 @@ class FileSystemEngine {
     onConflict?: (conflict: PendingConflict) => void,
     onFiles?: (files: FileProgressEntry[]) => void,
   ): Promise<FileItem | undefined> {
-    if (this.getArchiveSource(targetDriveId, targetPath)) throw new Error(tGlobal('zipReadOnly'));
-    const file = this.getFileById(fileId);
-    if (file?.archiveRoot) {
-      const source = this.getArchiveSource(file.driveId, file.path)!;
-      await this.extractArchive(source, targetDriveId, targetPath, file.archiveEntry);
-      return file;
-    }
-    if (!file) {
-      log.warn('Copy skipped: no catalogue entry for', fileId);
-      return undefined;
-    }
-
-    // Real drives are written by the local server, never simulated in memory.
-    if (this.isSystemDrive(file.driveId) || this.isSystemDrive(targetDriveId)) {
-      return this.realCopyOrMove(
-        file,
-        'copy',
-        targetDriveId,
-        targetPath,
-        overwrite,
-        onProgress,
-        signal,
-        options,
-        onConflict,
-        onFiles,
-      );
-    }
-
-    const normTarget = this.normalizePath(targetPath);
-    const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
-
-    if (file.isDirectory) {
-      const oldDirPath = `${this.normalizePath(file.path)}\\${file.name}`;
-      const newDirPath = `${normTarget}\\${file.name}`;
-
-      // Collect children BEFORE pushing new items (fixes race condition)
-      const children = this.state.files.filter(
-        (f) => f.driveId === file.driveId && (f.path === oldDirPath || f.path.startsWith(`${oldDirPath}\\`)),
-      );
-
-      // Create target directory
-      const newDir: FileItem = {
-        ...file,
-        id: `dir_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        driveId: targetDriveId,
-        path: normTarget,
-        createdAt: now,
-        modifiedAt: now,
-      };
-      this.state.files.push(newDir);
-
-      let transferred = 0;
-      const total = children.filter((c) => !c.isDirectory).reduce((s, c) => s + (c.size || 0), 0);
-
-      // Copy all children
-      for (const child of children) {
-        const relativeChildPath = child.path.substring(oldDirPath.length);
-        const childTargetPath = `${newDirPath}${relativeChildPath}`;
-        const newChild: FileItem = {
-          ...child,
-          id: `copy_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-          driveId: targetDriveId,
-          path: childTargetPath,
-          createdAt: now,
-          modifiedAt: now,
-        };
-        this.state.files.push(newChild);
-        transferred += child.size || 0;
-        if (onProgress) onProgress(transferred, total);
-      }
-
-      this.saveToStorage();
-      return newDir;
-    } else {
-      // Check existing in target
-      const existing = this.state.files.find(
-        (f) =>
-          f.driveId === targetDriveId &&
-          this.normalizePath(f.path) === normTarget &&
-          f.name === file.name &&
-          f.ext === file.ext,
-      );
-      if (existing) {
-        if (overwrite) {
-          existing.content = file.content;
-          existing.size = file.size;
-          existing.modifiedAt = now;
-          this.saveToStorage();
-          if (onProgress) onProgress(file.size || 0, file.size || 0);
-          return existing;
-        } else {
-          // make unique name
-          const newName = `${file.name}_Copy`;
-          const newFile: FileItem = {
-            ...file,
-            id: `copy_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-            driveId: targetDriveId,
-            path: normTarget,
-            name: newName,
-            createdAt: now,
-            modifiedAt: now,
-          };
-          this.state.files.push(newFile);
-          this.saveToStorage();
-          if (onProgress) onProgress(file.size || 0, file.size || 0);
-          return newFile;
-        }
-      } else {
-        const newFile: FileItem = {
-          ...file,
-          id: `copy_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-          driveId: targetDriveId,
-          path: normTarget,
-          createdAt: now,
-          modifiedAt: now,
-        };
-        this.state.files.push(newFile);
-        this.saveToStorage();
-        if (onProgress) onProgress(file.size || 0, file.size || 0);
-        return newFile;
-      }
-    }
+    return this.copyMoveOps.copyItem(
+      fileId,
+      targetDriveId,
+      targetPath,
+      overwrite,
+      onProgress,
+      signal,
+      options,
+      onConflict,
+      onFiles,
+    );
   }
 
   public async moveItem(
@@ -1097,62 +1034,16 @@ class FileSystemEngine {
     onConflict?: (conflict: PendingConflict) => void,
     onFiles?: (files: FileProgressEntry[]) => void,
   ): Promise<boolean> {
-    if (this.getFileById(fileId)?.archiveRoot || this.getArchiveSource(targetDriveId, targetPath))
-      throw new Error(tGlobal('zipReadOnly'));
-    const file = this.state.files.find((f) => f.id === fileId);
-    if (!file) {
-      log.warn('Move skipped: no catalogue entry for', fileId);
-      return false;
-    }
-
-    // Real drives are written by the local server, never simulated in memory.
-    if (this.isSystemDrive(file.driveId) || this.isSystemDrive(targetDriveId)) {
-      await this.realCopyOrMove(
-        file,
-        'move',
-        targetDriveId,
-        targetPath,
-        true,
-        onProgress,
-        signal,
-        options,
-        onConflict,
-        onFiles,
-      );
-      return true;
-    }
-
-    const normTarget = this.normalizePath(targetPath);
-    const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
-
-    if (file.isDirectory) {
-      const oldDirPath = `${this.normalizePath(file.path)}\\${file.name}`;
-      const newDirPath = `${normTarget}\\${file.name}`;
-
-      // Collect children BEFORE modifying (fixes race condition)
-      const children = this.state.files.filter(
-        (f) => f.driveId === file.driveId && (f.path === oldDirPath || f.path.startsWith(`${oldDirPath}\\`)),
-      );
-
-      // Update children
-      for (const f of children) {
-        const relativeChildPath = f.path.substring(oldDirPath.length);
-        f.path = `${newDirPath}${relativeChildPath}`;
-        f.driveId = targetDriveId;
-      }
-
-      file.path = normTarget;
-      file.driveId = targetDriveId;
-      file.modifiedAt = now;
-    } else {
-      file.path = normTarget;
-      file.driveId = targetDriveId;
-      file.modifiedAt = now;
-    }
-
-    this.saveToStorage();
-    if (onProgress) onProgress(1, 1);
-    return true;
+    return this.copyMoveOps.moveItem(
+      fileId,
+      targetDriveId,
+      targetPath,
+      onProgress,
+      signal,
+      options,
+      onConflict,
+      onFiles,
+    );
   }
 
   // Cryptographic Hash Calculator (MD5 approximation + real Web Crypto SHA-1 & SHA-256)
