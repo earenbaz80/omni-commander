@@ -277,7 +277,7 @@ Medido el 5-nov-2026, con la F3 y la F5 ya cerradas:
 | --- | --- | --- |
 | Cobertura de líneas del ámbito medido | 60,81 % (57,83 % sentencias · 51,55 % ramas · 46,66 % funciones), con el umbral en lo medido (57/51/46/60) | 60 % — **alcanzado** |
 | Duración de la suite | 56 s con cobertura y 43 s sin ella en el runner con 2 workers · 65,5 s sin cobertura en local con 2 workers | < 120 s también con 2 workers en el CI — **alcanzado** |
-| Rojos que no son fallos | 2 en una jornada | 0 en diez ejecuciones |
+| Rojos que no son fallos | 0 en las 19 últimas ejecuciones de `master` (de la 140 a la 121) | 0 en diez ejecuciones — **alcanzado** |
 | `server.cjs` | 563 líneas | < 800 |
 | `App.tsx` | 670 líneas | < 700 |
 | `fileSystem.ts` | 962 líneas | < 1 000 |
@@ -290,6 +290,8 @@ Dos cosas salieron de volver a medir. La primera: el informe de cobertura imprim
 Después de eso, tres diálogos que no tenían un solo test —sincronizar carpetas, buscar/grep y el estudio de imagen— entran en la cuenta y mueven la línea a 55,99 %, con el umbral subido otra vez detrás. Los tres cubren lo que se puede afirmar sin navegador: la clasificación del diff y qué copia una ejecución, los filtros y el recuento de ficheros ilegibles, y las rutas de carga y guardado con el lienzo y la imagen doblados. Después entra `FileList.tsx`, que era el mayor hueco: doce casos sobre las filas (tamaño, tipo y atributos), la selección, el orden por columna y el soltar —incluido negarse a mover una carpeta dentro de sí misma—, con el virtualizador doblado porque jsdom no tiene layout y no pinta una sola fila. La línea sube a 57,07 % y el umbral la sigue. Después, `CommandLineBar`, que estaba al 13,76 %: quince casos sobre las sugerencias (historial, comandos internos y ficheros), el texto fantasma, la navegación del historial, la tabulación, el cajón de log y el modo elevado. La línea queda en 59,06 %, a menos de un punto del objetivo, y el umbral se mueve otra vez detrás de ella.
 
 El último tramo lo pone la guarda del teclado. `useKeyboardShortcuts` tenía tests de las dos rutas que rompieron en producción —la trama de tamaños tragándose las teclas y el ciclo de unidades sin unidades—, pero no del resto del mapa: las F, las combinaciones con Ctrl, la navegación de filas y la búsqueda al teclear. Un fichero nuevo de dieciséis casos las recorre, y la línea pasa de 59,06 % a 60,81 %. **El objetivo de esta sección queda cumplido**, con el umbral detrás una vez más (57 sentencias, 51 ramas, 46 funciones, 60 líneas).
+
+La última fila se mide de otra manera porque no existe un registro aparte: lo que se cuenta son las conclusiones que la API del repositorio da para las ejecuciones de `master`. Hoy son diecinueve seguidas en verde, de la 140 a la 121 —la 139 es la del tag `v1.0.32`, que corre por su cuenta—, ya sin los dos rojos que no eran fallos. Conviene leerlo como lo que es: una racha, no una garantía. Nadie la vigila sola, y el número baja el día que alguien vuelve a preguntar y encuentra un rojo en medio.
 
 ---
 
