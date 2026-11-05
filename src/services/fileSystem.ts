@@ -4,6 +4,7 @@ import { API_BASE } from './apiBase';
 import { createArchiveOps, type ArchiveOps } from './fileArchiveOps';
 import { createCatalogOps, type CatalogueState } from './fileCatalog';
 import { createCopyMoveOps } from './fileCopyMove';
+import { createFolderQueries } from './fileFolderQueries';
 import { createTreeSizeOps } from './fileTreeSize';
 import { createTransferOps, type RealFsJob, type TransferOps } from './fileTransfer';
 import type { OpenWithProgram } from './openWith';
@@ -33,6 +34,12 @@ export { ArchivePasswordError, UnsupportedArchiveError } from './archiveBackend'
 // The transfer policy lives with the poller now; tests still import it from here.
 export { lostJobRetryPolicy } from './fileTransfer';
 export type { ArchiveBackend, OpenableArchiveFormat } from './archiveBackend';
+// The cleanup surface belongs to the folder-query module now; it stays
+// re-exported here because this module is the engine's public surface.
+import type { CleanupRun, CleanupScan, CleanupTarget, CleanupTargetId, SendToDestination } from './fileFolderQueries';
+export type { CleanupRun, CleanupScan, CleanupTarget, CleanupTargetId, SendToDestination };
+export { cleanupTargets } from './fileFolderQueries';
+
 import { calculateFileHashes as calculateFileHashesImpl } from './fileSystemCrypto';
 
 /** One entry of a `/api/list` answer, as the server writes it. */
@@ -46,63 +53,6 @@ interface ServerListItem {
   createdAt?: string;
   attributes?: FileItem['attributes'];
   content?: string;
-}
-
-/**
- * Folders the toolbar's cleanup menu offers. Only the user's temp folder can be
- * emptied without an elevated token; the server refuses the other two and the
- * menu shows them disabled with the reason.
- */
-export type CleanupTargetId = 'user-temp' | 'windows-temp' | 'prefetch';
-
-/**
- * Folders the "Enviar a" menu drops a shortcut into. The renderer names one of
- * these and the server resolves the folder, so a request never carries a path
- * the user did not pick.
- */
-export type SendToDestination = 'desktop' | 'documents' | 'downloads';
-
-export const cleanupTargets: Array<{ id: CleanupTargetId; requiresAdmin: boolean }> = [
-  { id: 'user-temp', requiresAdmin: false },
-  { id: 'windows-temp', requiresAdmin: true },
-  { id: 'prefetch', requiresAdmin: true },
-];
-
-/** A cleanup folder as the server resolves it; the renderer never names a path. */
-export interface CleanupTarget {
-  id: CleanupTargetId;
-  path: string;
-  requiresAdmin: boolean;
-  exists: boolean;
-}
-
-/** What a cleanup would remove. Measured without removing anything. */
-export interface CleanupScan {
-  target: CleanupTargetId;
-  path: string;
-  minAgeDays: number;
-  files: number;
-  dirs: number;
-  bytes: number;
-  /** Entries left alone: reparse points and anything unreadable. */
-  skipped: number;
-  /** True when the folder was too large to measure in full. */
-  truncated: boolean;
-  largest: Array<{ name: string; size: number; modifiedMs: number }>;
-}
-
-/** What a cleanup did. `failedCount` counts what another program held on to. */
-export interface CleanupRun {
-  target: CleanupTargetId;
-  path: string;
-  minAgeDays: number;
-  freedBytes: number;
-  deletedFiles: number;
-  deletedDirs: number;
-  failed: Array<{ path: string; message: string }>;
-  failedCount: number;
-  skipped: number;
-  truncated: boolean;
 }
 
 /**
@@ -506,13 +456,53 @@ class FileSystemEngine {
    * it refused to judge out of `missing`: a caller must never prune a favourite
    * over a failed request or a permissions error.
    */
+  /** Send-To, existence checks and temp cleanup, built on first use. */
+  private folderQueriesInstance: ReturnType<typeof createFolderQueries> | null = null;
+
+  private get folderQueries(): ReturnType<typeof createFolderQueries> {
+    this.folderQueriesInstance ??= createFolderQueries({
+      absoluteForDrive: (driveId, targetPath) => this.absoluteForDrive(driveId, targetPath),
+      realAbsolutePath: (file) => this.realAbsolutePath(file),
+      callServerFs: (route, body) => this.callServerFs(route, body),
+      lastCallError: () => this.lastCallError,
+    });
+    return this.folderQueriesInstance;
+  }
+
+  /**
+   * Which of these absolute folders still exist. Resolves null when the server
+   * could not answer at all, and leaves the paths it refused to judge out of
+   * `missing`: a caller must never prune a favourite over a failed request.
+   */
   public async missingFolders(paths: string[]): Promise<string[] | null> {
-    if (paths.length === 0) return [];
-    const answer = await this.callServerFs<{ existing?: string[]; unchecked?: string[] }>('exists', { paths });
-    if (!answer || !Array.isArray(answer.existing)) return null;
-    const existing = new Set(answer.existing.map((entry) => entry.toLowerCase()));
-    const unchecked = new Set((answer.unchecked ?? []).map((entry) => entry.toLowerCase()));
-    return paths.filter((entry) => !existing.has(entry.toLowerCase()) && !unchecked.has(entry.toLowerCase()));
+    return this.folderQueries.missingFolders(paths);
+  }
+
+  get lastServerError(): string {
+    return this.folderQueries.lastServerError();
+  }
+
+  async sendTo(destination: SendToDestination, item: FileItem): Promise<string | null> {
+    return this.folderQueries.sendTo(destination, item);
+  }
+
+  /** Same, into a folder the user picked in the dialog (a copy). */
+  async sendToFolder(driveId: string, folderPath: string, item: FileItem): Promise<string | null> {
+    return this.folderQueries.sendToFolder(driveId, folderPath, item);
+  }
+
+  /** The folders the cleanup menu may offer, with the paths the server owns. */
+  async listCleanupTargets(): Promise<CleanupTarget[] | null> {
+    return this.folderQueries.listCleanupTargets();
+  }
+
+  /** Measures what emptying one cleanup folder would free, changing nothing. */
+  async scanCleanup(target: CleanupTargetId, minAgeDays: number): Promise<CleanupScan | null> {
+    return this.folderQueries.scanCleanup(target, minAgeDays);
+  }
+
+  async runCleanup(target: CleanupTargetId, minAgeDays: number): Promise<CleanupRun | null> {
+    return this.folderQueries.runCleanup(target, minAgeDays);
   }
 
   private async callServerFs<T>(route: string, body: unknown): Promise<T | null> {
@@ -546,51 +536,6 @@ class FileSystemEngine {
    * `callServerFs` returns null instead of throwing, so a caller that must show
    * a reason ("needs administrator rights") reads it here.
    */
-  get lastServerError(): string {
-    return this.lastCallError;
-  }
-
-  /**
-   * Sends an item to one of the user's folders: the desktop gets a shortcut,
-   * every other destination a copy (the rule lives on the server). Returns the
-   * final path, or null with `lastServerError` set.
-   */
-  async sendTo(destination: SendToDestination, item: FileItem): Promise<string | null> {
-    const result = await this.callServerFs<{ path?: string }>('sendto', {
-      path: this.realAbsolutePath(item),
-      destination,
-    });
-    return result?.path ?? null;
-  }
-
-  /** Same, into a folder the user picked in the dialog (a copy). */
-  async sendToFolder(driveId: string, folderPath: string, item: FileItem): Promise<string | null> {
-    const result = await this.callServerFs<{ path?: string }>('sendto', {
-      path: this.realAbsolutePath(item),
-      destinationDir: this.absoluteForDrive(driveId, folderPath),
-    });
-    return result?.path ?? null;
-  }
-
-  /** The folders the cleanup menu may offer, with the paths the server owns. */
-  async listCleanupTargets(): Promise<CleanupTarget[] | null> {
-    const result = await this.callServerFs<{ targets: CleanupTarget[] }>('cleanup/targets', {});
-    return result?.targets ?? null;
-  }
-
-  /** Measures what emptying one cleanup folder would free, changing nothing. */
-  async scanCleanup(target: CleanupTargetId, minAgeDays: number): Promise<CleanupScan | null> {
-    return this.callServerFs<CleanupScan>('cleanup/scan', { target, minAgeDays });
-  }
-
-  /**
-   * Empties one cleanup folder, best effort: entries another program holds on to
-   * are reported instead of failing the whole run. The server decides which
-   * files those are; the renderer only chooses the folder and the age filter.
-   */
-  async runCleanup(target: CleanupTargetId, minAgeDays: number): Promise<CleanupRun | null> {
-    return this.callServerFs<CleanupRun>('cleanup/run', { target, minAgeDays });
-  }
 
   // -------------------------------------------------------------------------
   // Server-side transfers
