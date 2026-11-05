@@ -271,8 +271,8 @@ Medido el 5-nov-2026, con la F3 y la F5 ya cerradas:
 
 | Métrica | Hoy | Objetivo |
 | --- | --- | --- |
-| Cobertura de líneas del ámbito medido | 51,75 % (49,51 % sentencias · 42,9 % ramas · 42,38 % funciones), con el umbral ya subido a lo medido (49/42/42/51) | 60 %, subiendo el umbral al subir el número |
-| Duración de la suite | 149,59 s con cobertura · 79,2 s sin cobertura y 2 workers | < 120 s también con 2 workers en el CI |
+| Cobertura de líneas del ámbito medido | 55,99 % (53,49 % sentencias · 46,54 % ramas · 45,06 % funciones), con el umbral en lo medido (53/46/45/55) | 60 %, subiendo el umbral al subir el número |
+| Duración de la suite | 115 s con cobertura · 73,4 s sin cobertura | < 120 s también con 2 workers en el CI |
 | Rojos que no son fallos | 2 en una jornada | 0 en diez ejecuciones |
 | `server.cjs` | 563 líneas | < 800 |
 | `App.tsx` | 670 líneas | < 700 |
@@ -282,6 +282,8 @@ Medido el 5-nov-2026, con la F3 y la F5 ya cerradas:
 | `localStorage` en componentes | 0 en crudo; las 3 lecturas que quedan viven dentro de tiendas inyectables (`calendarStore`, `runLauncher`) | 0 (todo por `storage.ts`) |
 
 Dos cosas salieron de volver a medir. La primera: el informe de cobertura imprimía un `PARSE_ERROR` en cada ejecución, y era el proveedor v8 intentando leer la declaración de `libarchive.js` —TypeScript vendido en un `.d.ts`, con `any` en la firma del worker— para mapear los ficheros que nadie importa. Un `.d.ts` no tiene código en ejecución, así que ahora queda excluido y el error desapareció. La segunda: con el número delante no tiene sentido que el umbral siga en la línea base de la primera medición; sube a lo que la suite alcanza hoy (49 % sentencias, 42 % ramas, 42 % funciones, 51 % líneas), de modo que un descenso falle la ejecución en vez de pasar desapercibido.
+
+Después de eso, tres diálogos que no tenían un solo test —sincronizar carpetas, buscar/grep y el estudio de imagen— entran en la cuenta y mueven la línea a 55,99 %, con el umbral subido otra vez detrás. Los tres cubren lo que se puede afirmar sin navegador: la clasificación del diff y qué copia una ejecución, los filtros y el recuento de ficheros ilegibles, y las rutas de carga y guardado con el lienzo y la imagen doblados.
 
 ---
 
