@@ -81,6 +81,7 @@
     "node-unrar-js": "^2.0.2"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@chromatic-com/storybook": "^5.6.0",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.64.1",
