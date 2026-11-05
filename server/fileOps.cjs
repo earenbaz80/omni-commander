@@ -28,6 +28,7 @@ function createFileOps(deps = {}) {
     finishJob,
     jobTickMs = 120,
     conflictAnswerMs = 5 * 60 * 1000,
+    writeStallMs = 60000,
     powershellTimeoutMs = 60000,
     wmiTimeoutMs = 300000,
   } = deps;
@@ -36,6 +37,10 @@ function createFileOps(deps = {}) {
   // The moved code keeps the constant names it had in the server.
   const JOB_TICK_MS = jobTickMs;
   const CONFLICT_ANSWER_MS = conflictAnswerMs;
+  // How long the destination may refuse to accept a single chunk before the
+  // copy gives up on that file. Long enough for a slow but live share to catch
+  // up, short enough that a dead one is not an all-night hang.
+  const WRITE_STALL_MS = writeStallMs;
   const POWERSHELL_TIMEOUT_MS = powershellTimeoutMs;
   const WMI_TIMEOUT_MS = wmiTimeoutMs;
 
@@ -471,10 +476,38 @@ function createFileOps(deps = {}) {
         bytesThisFile += chunk.length;
         if (!writer.write(chunk)) {
           const waitedFrom = Date.now();
-          await once(writer, 'drain');
-          // A destination that stops accepting bytes hangs the copy with no
-          // trace at all -- the bar simply stops. Record the wait so the next
-          // report says which file stopped it and for how long.
+          // A destination that stops accepting bytes used to hang this loop with
+          // no trace at all: the bar simply stopped and the job never ended.
+          // Waiting for the drain without a limit is an endless wait, so an
+          // unplugged drive, a dead share or a filter driver holding the handle
+          // becomes a named failure instead of a progress bar frozen at 3%.
+          let stallTimer;
+          const stalled = new Promise((_, reject) => {
+            stallTimer = setTimeout(() => {
+              reject(
+                new Error(
+                  `The destination stopped accepting data for ${Math.round(WRITE_STALL_MS / 1000)}s at ${dest}`,
+                ),
+              );
+            }, WRITE_STALL_MS);
+          });
+          const drainWait = once(writer, 'drain');
+          // Whoever loses the race can still settle afterwards -- a drain that
+          // arrives after the stall, an error after the drain -- and a settled
+          // race does not handle its losers. Mark both as handled so a late
+          // rejection cannot take the server down.
+          stalled.catch(() => {});
+          drainWait.catch(() => {});
+          try {
+            await Promise.race([drainWait, stalled]);
+          } catch (err) {
+            jobLog('write-stall', job.id, `ms=${Date.now() - waitedFrom}`, `bytes=${bytesThisFile}`, dest);
+            throw err;
+          } finally {
+            clearTimeout(stallTimer);
+          }
+          // Record a slow destination too: it explains a bar that crawls long
+          // before it stops.
           const waited = Date.now() - waitedFrom;
           if (waited > 2000) jobLog('write-wait', job.id, `ms=${waited}`, `bytes=${bytesThisFile}`, dest);
         }
