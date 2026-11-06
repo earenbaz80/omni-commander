@@ -40,4 +40,20 @@ describe('isAllowedExternalTarget', () => {
     expect(isAllowedExternalTarget(null)).toBe(false);
     expect(isAllowedExternalTarget(42)).toBe(false);
   });
+
+  it('acepta las páginas de atribución que muestran las capas del mapa', () => {
+    expect(isAllowedExternalTarget('https://www.openstreetmap.org/copyright')).toBe(true);
+    expect(isAllowedExternalTarget('https://www.hotosm.org/')).toBe(true);
+    expect(isAllowedExternalTarget('https://www.cyclosm.org/')).toBe(true);
+    expect(isAllowedExternalTarget('https://opentopomap.org/about')).toBe(true);
+    expect(isAllowedExternalTarget('https://memomaps.de/')).toBe(true);
+  });
+
+  it('no abre un host parecido solo porque su nombre contenga el de la licencia', () => {
+    expect(isAllowedExternalTarget('https://www.openstreetmap.org.evil.com/copyright')).toBe(false);
+    expect(isAllowedExternalTarget('https://memomaps.de.evil.com/')).toBe(false);
+    expect(isAllowedExternalTarget('https://openstreetmap.org/copyright')).toBe(false);
+    expect(isAllowedExternalTarget('http://www.openstreetmap.org/copyright')).toBe(false);
+    expect(isAllowedExternalTarget('https://www.openstreetmap.org/')).toBe(false);
+  });
 });

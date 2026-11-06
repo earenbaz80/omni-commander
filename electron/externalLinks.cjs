@@ -18,7 +18,31 @@
 const TOKEN_PAGE = 'https://github.com/settings/personal-access-tokens';
 const TOKEN_PAGE_PATH = '/settings/personal-access-tokens';
 
-/** True only for that page and the pages under it, over https on github.com. */
+/**
+ * The attribution pages the offline map shows. OpenStreetMap's licence asks for
+ * them to be reachable, and each layer carries its own `licenseUrl`, so the map
+ * cannot work while the filter only knows the token page. Listed host by host
+ * rather than "any https": the filter is still the boundary, and a new layer
+ * that points somewhere else has to be added here on purpose.
+ */
+const LICENSE_PAGES = [
+  { origin: 'https://www.openstreetmap.org', path: '/copyright' },
+  { origin: 'https://www.hotosm.org', path: '/' },
+  { origin: 'https://www.cyclosm.org', path: '/' },
+  { origin: 'https://opentopomap.org', path: '/about' },
+  { origin: 'https://memomaps.de', path: '/' },
+];
+
+/** True for one of those pages: same origin and the path it names or under it. */
+function isLicensePage(parsed) {
+  return LICENSE_PAGES.some((page) => {
+    if (`${parsed.protocol}//${parsed.host}` !== page.origin) return false;
+    if (page.path === '/') return true;
+    return parsed.pathname === page.path || parsed.pathname.startsWith(`${page.path}/`);
+  });
+}
+
+/** True only for the token page and the attribution pages, always over https. */
 function isAllowedExternalTarget(target) {
   if (typeof target !== 'string') return false;
 
@@ -29,9 +53,11 @@ function isAllowedExternalTarget(target) {
     return false;
   }
 
-  if (parsed.protocol !== 'https:' || parsed.hostname !== 'github.com') return false;
+  if (parsed.protocol !== 'https:') return false;
   if (parsed.username || parsed.password) return false;
+  if (isLicensePage(parsed)) return true;
+  if (parsed.hostname !== 'github.com') return false;
   return parsed.pathname === TOKEN_PAGE_PATH || parsed.pathname.startsWith(`${TOKEN_PAGE_PATH}/`);
 }
 
-module.exports = { TOKEN_PAGE, TOKEN_PAGE_PATH, isAllowedExternalTarget };
+module.exports = { TOKEN_PAGE, TOKEN_PAGE_PATH, LICENSE_PAGES, isLicensePage, isAllowedExternalTarget };
