@@ -51,8 +51,22 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   reporter: 'list',
+  // A single refusal in a 51-case interface suite used to turn the release red and
+  // take the packaging job down with it. One retry in CI keeps a broken spec red --
+  // both attempts fail, so nothing is hidden -- while a transient one costs a retry
+  // instead of a release. Locally there are no retries on purpose: a flake is
+  // something to see, not to paper over.
+  retries: process.env.CI ? 1 : 0,
   use: {
-    baseURL: `http://localhost:${uiPort}`,
+    // Everything here addresses the app as 127.0.0.1, never as `localhost`.
+    //
+    // `localhost` resolves to ::1 first both here and on the Windows runners, and
+    // then Chromium and the dev server can disagree about the family the server is
+    // on: a connection rides ::1, the next falls back to 127.0.0.1, and nothing
+    // answers there. That is how the 1.0.35 tag failed -- one goto got
+    // ERR_CONNECTION_REFUSED at a URL whose server was answering a second before
+    // and a second after -- so the address is pinned once, for server and browser.
+    baseURL: `http://127.0.0.1:${uiPort}`,
     trace: 'retain-on-failure',
   },
   projects: [
@@ -66,8 +80,8 @@ export default defineConfig({
       // Same command as `npm run dev`, on a port nothing else is on. `--strictPort`
       // turns a stolen port into a loud failure instead of a second dev server on
       // a port the specs are not looking at.
-      command: `node node_modules/vite/bin/vite.js --port=${uiPort} --strictPort`,
-      url: `http://localhost:${uiPort}`,
+      command: `node node_modules/vite/bin/vite.js --port=${uiPort} --strictPort --host=127.0.0.1`,
+      url: `http://127.0.0.1:${uiPort}`,
       timeout: 180000,
       reuseExistingServer: Boolean(pinnedUiPort),
       // Vite proxies /api to this port, so the app under test talks to the API
