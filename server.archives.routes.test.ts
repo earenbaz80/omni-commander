@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { Server } from 'node:http';
+import JSZip from 'jszip';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { registerArchiveRoutes } from './server/archiveReader.cjs';
 
@@ -23,17 +24,33 @@ const deps = {
     if (!SAFE.test(candidate)) throw new Error(`Unsafe path: ${candidate}`);
     return candidate;
   },
+  // The same rule the real guard applies, without its symlink walk: only paths
+  // inside the declared folder may be written.
+  assertArchiveDestination: async (rootValue: unknown, target: unknown) => {
+    const relative = path.win32.relative(String(rootValue ?? ''), String(target ?? ''));
+    if (!relative || relative === '..' || relative.startsWith('..\\') || path.win32.isAbsolute(relative))
+      throw new Error('Invalid destination');
+  },
 };
 
 let server: Server;
 let origin = '';
 let root = '';
 let plainFile = '';
+let zipFile = '';
+/** 2 MB of a repeating byte: big enough to need several chunks through a socket. */
+const bigBytes = Uint8Array.from({ length: 2 * 1024 * 1024 }, (_, index) => index % 251);
 
 beforeAll(async () => {
   root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'omni-archives-'));
   plainFile = path.join(root, 'no-es-un-archivo.txt');
   await fs.promises.writeFile(plainFile, 'esto no es un archivo comprimido');
+
+  zipFile = path.join(root, 'muestra.zip');
+  const zip = new JSZip();
+  zip.file('grande.bin', bigBytes);
+  zip.file('nota.txt', 'hola');
+  await fs.promises.writeFile(zipFile, await zip.generateAsync({ type: 'nodebuffer' }));
 
   const app = express();
   app.use(express.json());
@@ -82,5 +99,60 @@ describe('rutas de archivos comprimidos', () => {
     const response = await post('/api/archives/inspect', { path: 'relativa.rar' });
     expect(response.status).toBe(400);
     expect((await response.json()).code).toBe('not-found');
+  });
+});
+
+describe('extraer una entrada a disco', () => {
+  const output = () => path.join(root, 'extraido');
+
+  it('escribe la entrada exacta y no deja restos temporales', async () => {
+    const destination = path.join(output(), 'carpeta', 'grande.bin');
+    const response = await post('/api/archives/extract', {
+      path: zipFile,
+      entry: 'grande.bin',
+      target: destination,
+      root: output(),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ ok: true, bytes: bigBytes.length });
+    expect((await fs.promises.readFile(destination)).equals(Buffer.from(bigBytes))).toBe(true);
+    expect((await fs.promises.readdir(path.dirname(destination))).filter((name) => name.endsWith('.part'))).toEqual([]);
+  });
+
+  it('se niega a pisar un archivo que ya existe', async () => {
+    const destination = path.join(output(), 'repetido.bin');
+    await fs.promises.mkdir(path.dirname(destination), { recursive: true });
+    await fs.promises.writeFile(destination, 'lo que ya habia');
+    const response = await post('/api/archives/extract', {
+      path: zipFile,
+      entry: 'grande.bin',
+      target: destination,
+      root: output(),
+    });
+    expect(response.status).toBe(409);
+    expect((await response.json()).code).toBe('exists');
+    expect(await fs.promises.readFile(destination, 'utf8')).toBe('lo que ya habia');
+  });
+
+  it('no escribe fuera de la carpeta declarada', async () => {
+    const response = await post('/api/archives/extract', {
+      path: zipFile,
+      entry: 'grande.bin',
+      target: path.join(os.tmpdir(), 'omni-fuera.bin'),
+      root: output(),
+    });
+    expect(response.status).toBe(400);
+    await expect(fs.promises.stat(path.join(os.tmpdir(), 'omni-fuera.bin'))).rejects.toThrow();
+  });
+
+  it('dice que la entrada no está cuando el nombre no existe', async () => {
+    const response = await post('/api/archives/extract', {
+      path: zipFile,
+      entry: 'no-existe.bin',
+      target: path.join(output(), 'no-existe.bin'),
+      root: output(),
+    });
+    expect(response.status).toBe(404);
+    expect((await response.json()).code).toBe('entry-not-found');
   });
 });

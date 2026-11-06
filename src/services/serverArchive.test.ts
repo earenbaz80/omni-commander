@@ -1,7 +1,12 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ArchivePasswordError } from './archiveBackend';
-import { ArchiveServerUnavailableError, loadServerArchiveBackend } from './serverArchive';
+import {
+  ArchiveDestinationExistsError,
+  ArchiveServerUnavailableError,
+  extractServerEntry,
+  loadServerArchiveBackend,
+} from './serverArchive';
 
 /**
  * The bridge is the only place the renderer talks to libarchive, and it can only
@@ -107,6 +112,60 @@ describe('loadServerArchiveBackend', () => {
     expect(error.message).toContain('512 MB');
     // No placeholder may survive to the screen.
     expect(error.message).not.toMatch(/\{(name|size)\}/);
+  });
+
+  it('asks the server to write a large member and reports the bytes it wrote', async () => {
+    const calls: { url: string; body: any }[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init: RequestInit) => {
+        calls.push({ url: String(url), body: JSON.parse(String(init.body)) });
+        return json({ ok: true, bytes: 2048 });
+      }),
+    );
+
+    const written = await extractServerEntry({
+      archivePath: TARGET,
+      fileName: 'copia.rar',
+      format: 'RAR',
+      entryName: 'sub/grande.bin',
+      destination: 'C:\\salida\\sub\\grande.bin',
+      root: 'C:\\salida',
+    });
+
+    expect(written).toBe(2048);
+    expect(calls).toEqual([
+      {
+        url: expect.stringContaining('/api/archives/extract'),
+        body: {
+          path: TARGET,
+          entry: 'sub/grande.bin',
+          target: 'C:\\salida\\sub\\grande.bin',
+          root: 'C:\\salida',
+          password: undefined,
+        },
+      },
+    ]);
+  });
+
+  it('keeps an existing destination a refusal, not a corrupt archive', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json({ code: 'exists', error: 'A file with that name already exists' }, 409)),
+    );
+
+    const error = await extractServerEntry({
+      archivePath: TARGET,
+      fileName: 'copia.rar',
+      format: 'RAR',
+      entryName: 'sub/grande.bin',
+      destination: 'C:\\salida\\sub\\grande.bin',
+      root: 'C:\\salida',
+    }).catch((thrown) => thrown);
+
+    expect(error).toBeInstanceOf(ArchiveDestinationExistsError);
+    expect((error as Error).message).toContain('grande.bin');
+    expect((error as Error).message).not.toContain('{name}');
   });
 
   it('reports a read failure with the file name, claiming no format it did not parse', async () => {

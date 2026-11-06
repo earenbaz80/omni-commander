@@ -274,19 +274,98 @@ describe('server-read archives (RAR, 7-Zip, compressed TARs)', () => {
     expect(error.message).not.toMatch(/zip/i);
   });
 
-  // The reader has no streaming API, so the archive is held in memory several
-  // times over. Past the ceiling the server refuses instead of asking for
-  // gigabytes and taking the app down; the renderer turns that into its own
-  // message rather than calling the file corrupt.
-  it('refuses an archive over the memory ceiling, and allows one exactly at it', async () => {
+  // The WASM readers copy the archive into memory several times over, which is
+  // why they carried a ceiling. The streaming reader does not, so the ceiling
+  // must no longer decide whether an archive opens at all: this is the 2 GB case
+  // the app used to refuse, with the ceiling set to a single byte.
+  it('opens an archive past the in-memory ceiling by streaming it', async () => {
+    const streaming = await startServer({ env: { OMNI_SESSION_TOKEN: '', OMNI_ARCHIVE_MAX_BYTES: '1' } });
+    try {
+      const post = (route: string, body: unknown) =>
+        nativeFetch(streaming.url(route), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+      const opened = await post('/api/archives/inspect', { path: path.join(root, 'sample.rar') });
+      expect(opened.status).toBe(200);
+      const { entries } = (await opened.json()) as { entries: { name: string }[] };
+      expect(entries.map((entry) => entry.name)).toEqual(expect.arrayContaining(['a.txt', 'sub', 'sub/b.txt']));
+
+      const inner = await post('/api/archives/entry', { path: path.join(root, 'sample.rar'), entry: 'sub/b.txt' });
+      expect(inner.status).toBe(200);
+      expect(await inner.text()).toBe('anidado en la carpeta\n');
+    } finally {
+      await streaming.stop();
+    }
+  });
+
+  // Streaming serves every family when it is there, ZIP included: a 2 GB ZIP is
+  // the case the renderer's whole-file reader cannot take.
+  it('streams a ZIP as well, with its Unicode names', async () => {
+    const post = (route: string, body: unknown) =>
+      nativeFetch(server.url(route), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    const opened = await post('/api/archives/inspect', { path: path.join(root, 'sample.zip') });
+    expect(opened.status).toBe(200);
+    const { entries } = (await opened.json()) as { entries: { name: string }[] };
+    expect(entries.map((entry) => entry.name)).toEqual(
+      expect.arrayContaining(['nested', 'nested/deep/raw.bin', 'nested/á日本語.txt', 'empty']),
+    );
+    const inner = await post('/api/archives/entry', {
+      path: path.join(root, 'sample.zip'),
+      entry: 'nested/á日本語.txt',
+    });
+    // The suite's own text, not the `text` this describe shadows with the RAR
+    // fixture's contents.
+    expect(await inner.text()).toBe('Español 日本語 Русский\r\n');
+  });
+
+  // Streaming an entry means writing into a socket the renderer can close at any
+  // moment. Losing the server to that would take every other request with it,
+  // so a cancelled read is a non-event and the next request still answers.
+  it('survives a client that hangs up in the middle of an entry', async () => {
+    const post = (route: string, body: unknown) =>
+      nativeFetch(server.url(route), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    const controller = new AbortController();
+    const response = await nativeFetch(server.url('/api/archives/entry'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: path.join(root, 'sample.zip'), entry: 'nested/deep/raw.bin' }),
+      signal: controller.signal,
+    });
+    const reader = response.body!.getReader();
+    await reader.read();
+    controller.abort();
+
+    const after = await post('/api/archives/inspect', { path: path.join(root, 'sample.zip') });
+    expect(after.status).toBe(200);
+    const again = await post('/api/archives/entry', {
+      path: path.join(root, 'sample.zip'),
+      entry: 'nested/á日本語.txt',
+    });
+    expect(await again.text()).toBe('Español 日本語 Русский\r\n');
+  });
+
+  // ... and the ceiling is still real where it applies: without a streaming
+  // reader the server is back to the engines that need the whole file.
+  it('still refuses past the ceiling when no streaming reader is available', async () => {
     const fixture = await fs.readFile(path.join(fixturesDir, 'sample.rar'));
     const ceiling = fixture.length;
     const oversized = path.join(root, 'enorme.rar');
-    // One byte over, and still refused before the signature is ever looked at.
+    // One byte over.
     await fs.writeFile(oversized, Buffer.concat([fixture, Buffer.from([0])]));
 
     const limited = await startServer({
-      env: { OMNI_SESSION_TOKEN: '', OMNI_ARCHIVE_MAX_BYTES: String(ceiling) },
+      env: { OMNI_SESSION_TOKEN: '', OMNI_ARCHIVE_MAX_BYTES: String(ceiling), OMNI_BSDTAR: '' },
     });
     try {
       const post = (route: string, body: unknown) =>
@@ -352,6 +431,25 @@ describe('server-read archives (RAR, 7-Zip, compressed TARs)', () => {
     expect(inner.status).toBe(200);
     expect(await inner.text()).toBe('anidado en la carpeta\n');
   });
+
+  // Extracting a member used to fetch it into the renderer and post it back, so a
+  // huge member needed its own size twice. Above the renderer's own threshold the
+  // server now writes the file itself, and only the size that landed comes back.
+  it('extracts a member past the renderer threshold without buffering it here', async () => {
+    const size = 65 * 1024 * 1024;
+    const zip = new JSZip();
+    zip.file('enorme.bin', new Uint8Array(size));
+    await fs.writeFile(path.join(root, 'enorme.zip'), await zip.generateAsync({ type: 'nodebuffer' }));
+    await fsEngine.loadSystemDriveDirectory(driveId, root);
+    const item = fsEngine.getFiles(driveId, root).find((f) => f.fullName === 'enorme.zip')!;
+
+    const destination = path.join(root, 'enorme-extraido');
+    expect(await fsEngine.extractArchive(item, driveId, destination)).toBe(1);
+    const written = await fs.stat(path.join(destination, 'enorme.bin'));
+    expect(written.size).toBe(size);
+    // Written through a sibling temporary file: nothing half-done keeps a name.
+    expect((await fs.readdir(destination)).filter((name) => name.endsWith('.part'))).toEqual([]);
+  }, 60000);
 
   it('refuses one held in the virtual catalogue, naming the format and the drive', async () => {
     const bytes = await fs.readFile(path.join(fixturesDir, 'sample.rar'));
