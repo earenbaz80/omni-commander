@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchSystemStats } from '../services/systemStats';
+import type { ElevationResult } from '../types/electronBridge';
 
 /**
  * Whether this process really runs elevated, and the one way to change that.
@@ -16,8 +17,11 @@ import { fetchSystemStats } from '../services/systemStats';
 export interface Elevation {
   /** True when the operating system reports this process as elevated. */
   isElevated: boolean;
-  /** Asks Windows for an elevated restart; a no-op outside Electron. */
-  requestElevation: () => Promise<void>;
+  /**
+   * Asks Windows for an elevated restart. A refusal is an answer, not a throw:
+   * the caller needs it to explain why this window is still here.
+   */
+  requestElevation: () => Promise<ElevationResult | undefined>;
 }
 
 export function useElevation(): Elevation {
@@ -34,14 +38,17 @@ export function useElevation(): Elevation {
   }, []);
 
   /** Ask Windows for an elevated restart; there is no way to gain rights in-process. */
-  const requestElevation = useCallback(async () => {
+  const requestElevation = useCallback(async (): Promise<ElevationResult | undefined> => {
     const bridge = window.electronAPI;
-    if (typeof bridge?.relaunchAsAdmin !== 'function') return;
+    if (typeof bridge?.relaunchAsAdmin !== 'function') return { ok: false, reason: 'unsupported' };
     try {
-      await bridge.relaunchAsAdmin();
-    } catch {
-      // The main process records the outcome in its own log; this window is on
-      // its way out either way.
+      return await bridge.relaunchAsAdmin();
+    } catch (error) {
+      return {
+        ok: false,
+        reason: 'spawn-failed',
+        detail: error instanceof Error ? error.message : String(error),
+      };
     }
   }, []);
 

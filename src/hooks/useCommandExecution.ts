@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { CommandHistoryItem, FileItem, LanguageCode } from '../types';
 import { fsEngine } from '../services/fileSystem';
 import { getTranslations } from '../i18n/translations';
+import { describeElevationFailure } from '../services/elevation';
 
 interface CommandExecutionDeps {
   lang: LanguageCode;
@@ -61,10 +62,18 @@ export function useCommandExecution(deps: CommandExecutionDeps) {
         }
         try {
           const result = await bridge.relaunchAsAdmin();
-          output = result?.ok === false ? `${t.cmdElevationUnavailable} (${result.reason})` : t.cmdElevatedMsg;
-          status = result?.ok === false ? 'error' : 'info';
+          if (result?.ok) {
+            output = t.cmdElevatedMsg;
+            status = 'info';
+          } else {
+            output = describeElevationFailure(result ?? { ok: false, reason: 'unsupported' }, t);
+            status = 'error';
+          }
         } catch (error) {
-          output = error instanceof Error ? error.message : t.cmdElevationUnavailable;
+          output = describeElevationFailure(
+            { ok: false, reason: 'spawn-failed', detail: error instanceof Error ? error.message : String(error) },
+            t,
+          );
           status = 'error';
         }
       };

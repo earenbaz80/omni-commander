@@ -3,7 +3,9 @@ import { FileItem, CommandHistoryItem, FolderPasswordRecord, LanguageCode } from
 import { CleanupTargetId, fsEngine } from './services/fileSystem';
 import { themes, ThemeConfig } from './services/themeManager';
 import { createPasswordRecord } from './services/appLock';
-import { setCurrentLang } from './i18n/translations';
+import { getTranslations, setCurrentLang } from './i18n/translations';
+import { describeElevationFailure } from './services/elevation';
+import type { ElevationResult } from './types/electronBridge';
 
 // Components
 import { AppModalLayer } from './components/AppModalLayer';
@@ -51,6 +53,7 @@ export default function App() {
     selectedBg: selectedSelectorPalette.selected,
   };
   const lang: LanguageCode = settings.language;
+  const t = getTranslations(lang);
 
   // Keep the module-level language store in sync for non-React consumers
   // (fsEngine, appLock, usePanels, ErrorBoundary, DriveBar). Set during render so
@@ -73,7 +76,16 @@ export default function App() {
   const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
 
   // Real elevation and the one way to change it (an elevated relaunch).
-  const { isElevated, requestElevation } = useElevation();
+  const { isElevated, requestElevation: requestElevatedRestart } = useElevation();
+  // A refused UAC leaves this window running, so the reason cannot stay inside
+  // the IPC answer: the info drawer and the shell only ask, they have nowhere
+  // to print it. One notice here covers both.
+  const [elevationFailure, setElevationFailure] = useState<ElevationResult | null>(null);
+  const requestElevation = useCallback(async () => {
+    setElevationFailure(null);
+    const result = await requestElevatedRestart();
+    if (result && !result.ok) setElevationFailure(result);
+  }, [requestElevatedRestart]);
 
   // Quick Search state (Type-to-jump)
   const [quickSearchQuery, setQuickSearchQuery] = useState<string>('');
@@ -457,6 +469,23 @@ export default function App() {
         color: currentTheme.itemText,
       }}
     >
+      {elevationFailure && (
+        <div
+          role="alert"
+          className="fixed top-2 left-1/2 -translate-x-1/2 z-[90] max-w-[min(92vw,620px)] flex items-start gap-[var(--space-2)] px-[var(--space-3)] py-[var(--space-2)] rounded border border-amber-400 bg-amber-950/95 text-amber-200 shadow-xl text-xs font-mono"
+        >
+          <span className="flex-1">{describeElevationFailure(elevationFailure, t)}</span>
+          <button
+            type="button"
+            onClick={() => setElevationFailure(null)}
+            aria-label={t.btnClose}
+            title={t.btnClose}
+            className="shrink-0 font-bold text-amber-300 hover:text-white cursor-pointer"
+          >
+            ×
+          </button>
+        </div>
+      )}
       <WindowChrome
         theme={currentTheme}
         lang={lang}

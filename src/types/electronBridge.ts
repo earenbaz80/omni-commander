@@ -26,6 +26,8 @@ export interface ElectronBridge {
 export interface ElevationResult {
   ok: boolean;
   reason?: string;
+  /** Raw exit code or OS message behind a refusal, shown with the reason. */
+  detail?: string;
 }
 
 declare global {

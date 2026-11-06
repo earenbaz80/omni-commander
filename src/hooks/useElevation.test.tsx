@@ -32,22 +32,38 @@ describe('useElevation', () => {
     expect(result.current.isElevated).toBe(false);
   });
 
-  it('asks the main process for an elevated restart', async () => {
+  it('returns the refusal so the caller can explain it', async () => {
     fetchSystemStats.mockResolvedValue(null);
-    bridge.relaunchAsAdmin.mockResolvedValue(undefined);
+    bridge.relaunchAsAdmin.mockResolvedValue({ ok: false, reason: 'cancelled' });
     globalWithBridge.electronAPI = bridge;
 
     const { result } = renderHook(() => useElevation());
+    let answer;
     await act(async () => {
-      await result.current.requestElevation();
+      answer = await result.current.requestElevation();
     });
 
     expect(bridge.relaunchAsAdmin).toHaveBeenCalledTimes(1);
+    expect(answer).toEqual({ ok: false, reason: 'cancelled' });
   });
 
-  it('does nothing in a browser build, where there is no bridge', async () => {
+  it('returns a failure when the bridge itself rejects', async () => {
+    fetchSystemStats.mockResolvedValue(null);
+    bridge.relaunchAsAdmin.mockRejectedValue(new Error('ipc closed'));
+    globalWithBridge.electronAPI = bridge;
+
+    const { result } = renderHook(() => useElevation());
+    let answer;
+    await act(async () => {
+      answer = await result.current.requestElevation();
+    });
+
+    expect(answer).toEqual({ ok: false, reason: 'spawn-failed', detail: 'ipc closed' });
+  });
+
+  it('says elevation is unsupported in a browser build, where there is no bridge', async () => {
     fetchSystemStats.mockResolvedValue(null);
     const { result } = renderHook(() => useElevation());
-    await expect(result.current.requestElevation()).resolves.toBeUndefined();
+    await expect(result.current.requestElevation()).resolves.toEqual({ ok: false, reason: 'unsupported' });
   });
 });
