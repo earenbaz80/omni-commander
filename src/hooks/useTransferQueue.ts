@@ -333,11 +333,24 @@ export function useTransferQueue({
   // is why the copy used to disappear right after the restart.
   const handleElevateTransfer = async (op: 'copy' | 'move', targetPath: string, options: TransferOptions) => {
     if (!targetPath.trim()) return { ok: false as const, reason: 'empty destination' };
+    const relaunch = window.electronAPI?.relaunchAsAdmin;
+    // Without a bridge there is no restart, so there is nothing to replay.
+    if (typeof relaunch !== 'function') return { ok: false as const, reason: 'unsupported' };
     const plan = buildTransferPlan(op, transferItems, targetPath.trim(), options);
     // A full quota must not block the elevation itself; parking reports it and
     // the elevation goes ahead.
     if (plan) parkTransferPlan(plan);
-    return window.electronAPI?.relaunchAsAdmin?.();
+    try {
+      const result = await relaunch();
+      // Only a confirmed restart has a successor that will replay the plan. A
+      // cancelled UAC leaves this process running, so keeping the plan here
+      // would let a later launch run the copy unelevated and unasked.
+      if (plan && result?.ok !== true) takeParkedTransferPlan();
+      return result;
+    } catch (error) {
+      if (plan) takeParkedTransferPlan();
+      return { ok: false as const, reason: error instanceof Error ? error.message : 'relaunch failed' };
+    }
   };
 
   useEffect(() => {

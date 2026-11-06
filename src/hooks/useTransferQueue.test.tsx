@@ -1,16 +1,18 @@
 import { renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useTransferQueue } from './useTransferQueue';
 import type { FileItem, PanelTab, TransferPlan } from '../types';
 
-const { addTask, parked } = vi.hoisted(() => ({
+const { addTask, parked, parkPlan, takePlan } = vi.hoisted(() => ({
   addTask: vi.fn(() => 'task-1'),
   parked: { current: null as TransferPlan | null },
+  parkPlan: vi.fn(),
+  takePlan: vi.fn(() => parked.current),
 }));
 
 vi.mock('../services/pendingTransfer', () => ({
-  parkTransferPlan: vi.fn(),
-  takeParkedTransferPlan: () => parked.current,
+  parkTransferPlan: parkPlan,
+  takeParkedTransferPlan: takePlan,
 }));
 
 vi.mock('../services/fileSystem', () => ({
@@ -53,9 +55,18 @@ const deps = () => ({
   setFsTick: vi.fn(),
 });
 
+type ElevationBridge = { relaunchAsAdmin: () => Promise<{ ok: boolean; reason?: string }> };
+type WindowWithBridge = Window & { electronAPI?: ElevationBridge };
+
 beforeEach(() => {
   addTask.mockClear();
+  parkPlan.mockClear();
+  takePlan.mockClear();
   parked.current = null;
+});
+
+afterEach(() => {
+  delete (window as WindowWithBridge).electronAPI;
 });
 
 describe('useTransferQueue', () => {
@@ -131,5 +142,74 @@ describe('useTransferQueue', () => {
     // Forcing with nothing held must not enqueue an empty batch either.
     result.current.handleForceTransfer();
     expect(addTask).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Elevation restarts the process, so the plan is parked before the restart and
+   * replayed by the fresh instance. But a cancelled UAC leaves this process
+   * alive: the plan must not outlive that refusal, or the next launch runs the
+   * copy unelevated and without asking again.
+   */
+  const realItem = {
+    id: 'f1',
+    name: 'informe.txt',
+    driveId: 'real_C',
+    path: 'C:\\datos\\informe.txt',
+    isDirectory: false,
+    size: 3,
+  } as FileItem;
+  const transferOptions = { collision: 'ask' as const, throttleBps: 0 };
+  const elevatingDeps = () => ({ ...deps(), transferItems: [realItem] });
+  const installBridge = (answer: { ok: boolean; reason?: string } | Error) => {
+    const relaunchAsAdmin = vi.fn(() => (answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer)));
+    (window as WindowWithBridge).electronAPI = { relaunchAsAdmin };
+    return relaunchAsAdmin;
+  };
+
+  it('keeps the parked plan only when the elevated restart is confirmed', async () => {
+    const relaunch = installBridge({ ok: true });
+    const { result } = renderHook(() => useTransferQueue(elevatingDeps()));
+    takePlan.mockClear();
+
+    const answer = await result.current.handleElevateTransfer('copy', 'D:\\respaldo', transferOptions);
+
+    expect(relaunch).toHaveBeenCalledTimes(1);
+    expect(parkPlan).toHaveBeenCalledTimes(1);
+    expect(takePlan).not.toHaveBeenCalled();
+    expect(answer).toEqual({ ok: true });
+  });
+
+  it('drops the parked plan when the UAC was cancelled', async () => {
+    installBridge({ ok: false, reason: 'error' });
+    const { result } = renderHook(() => useTransferQueue(elevatingDeps()));
+    takePlan.mockClear();
+
+    const answer = await result.current.handleElevateTransfer('copy', 'D:\\respaldo', transferOptions);
+
+    expect(answer).toEqual({ ok: false, reason: 'error' });
+    expect(parkPlan).toHaveBeenCalledTimes(1);
+    expect(takePlan).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops the parked plan when the bridge itself throws', async () => {
+    installBridge(new Error('ipc closed'));
+    const { result } = renderHook(() => useTransferQueue(elevatingDeps()));
+    takePlan.mockClear();
+
+    const answer = await result.current.handleElevateTransfer('copy', 'D:\\respaldo', transferOptions);
+
+    expect(answer).toEqual({ ok: false, reason: 'ipc closed' });
+    expect(takePlan).toHaveBeenCalledTimes(1);
+  });
+
+  it('parks nothing and says so when there is no bridge to restart through', async () => {
+    const { result } = renderHook(() => useTransferQueue(elevatingDeps()));
+    takePlan.mockClear();
+
+    const answer = await result.current.handleElevateTransfer('copy', 'D:\\respaldo', transferOptions);
+
+    expect(answer).toEqual({ ok: false, reason: 'unsupported' });
+    expect(parkPlan).not.toHaveBeenCalled();
+    expect(takePlan).not.toHaveBeenCalled();
   });
 });
