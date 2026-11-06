@@ -1,7 +1,7 @@
 import { base64ToBytes } from './zipArchive';
 import type { OpenableArchiveFormat } from './archiveBackend';
 import { API_BASE } from './apiBase';
-import { createArchiveOps, type ArchiveOps } from './fileArchiveOps';
+import { createArchiveOps, type ArchiveOps, type ExtractHooks } from './fileArchiveOps';
 import { createCatalogOps } from './fileCatalog';
 import type { EngineState } from './fileEngineState';
 import { createStorageOps } from './fileStorageOps';
@@ -820,19 +820,9 @@ class FileSystemEngine {
     targetDriveId: string,
     targetPath: string,
     selectedEntry?: string,
-    onProgress?: (bytesWritten: number, totalBytes: number) => void,
-    signal?: AbortSignal,
-    onEntry?: (entryPath: string) => void,
+    hooks?: ExtractHooks,
   ): Promise<number> {
-    return this.archiveOps.extractArchive(
-      archiveFile,
-      targetDriveId,
-      targetPath,
-      selectedEntry,
-      onProgress,
-      signal,
-      onEntry,
-    );
+    return this.archiveOps.extractArchive(archiveFile, targetDriveId, targetPath, selectedEntry, hooks);
   }
 
   // Import external real file from browser input

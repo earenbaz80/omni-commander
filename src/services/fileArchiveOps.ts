@@ -67,6 +67,23 @@ export interface ArchiveOpsDeps {
   loadSystemDriveDirectory(driveId: string, path: string): Promise<boolean>;
 }
 
+/**
+ * What the caller wants to know about an extraction, and what can stop it.
+ *
+ * One object instead of a row of optional positional parameters: every caller
+ * that only extracts never has to name any of them.
+ */
+export interface ExtractHooks {
+  /** Bytes that reached the disk, and how many the selection holds in all. */
+  onProgress?: (bytesWritten: number, totalBytes: number) => void;
+  /** The member being written right now, as its path inside the destination. */
+  onEntry?: (entryPath: string) => void;
+  /** The id the server knows this run by, so it can be held and released. */
+  onJob?: (jobId: string) => void;
+  /** Aborting stops the run and leaves nothing under the real names. */
+  signal?: AbortSignal;
+}
+
 export interface ArchiveOps {
   findArchive(driveId: string, path: string): ArchiveMount | undefined;
   getArchiveSource(driveId: string, path: string): FileItem | undefined;
@@ -86,12 +103,7 @@ export interface ArchiveOps {
     targetDriveId: string,
     targetPath: string,
     selectedEntry?: string,
-    /** Bytes that reached the disk, and how many the selection holds in all. */
-    onProgress?: (bytesWritten: number, totalBytes: number) => void,
-    /** Aborting stops the run and leaves nothing under the real names. */
-    signal?: AbortSignal,
-    /** The member being written right now, as its path inside the destination. */
-    onEntry?: (entryPath: string) => void,
+    hooks?: ExtractHooks,
   ): Promise<number>;
 }
 
@@ -337,6 +349,7 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
     relative: string,
     onBytes: (bytesSoFar: number) => void,
     signal?: AbortSignal,
+    job?: string,
   ): Promise<number | null> {
     const folder = deps.normalizePath(targetPath);
     try {
@@ -348,6 +361,7 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
           entryName: entry.name,
           destination: deps.absoluteForDrive(targetDriveId, deps.childAbsolutePath(folder, relative)),
           root: deps.absoluteForDrive(targetDriveId, folder),
+          job,
         },
         onBytes,
         signal,
@@ -367,9 +381,7 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
     targetDriveId: string,
     targetPath: string,
     selectedEntry?: string,
-    onProgress?: (bytesWritten: number, totalBytes: number) => void,
-    signal?: AbortSignal,
-    onEntry?: (entryPath: string) => void,
+    hooks?: ExtractHooks,
   ): Promise<number> {
     if (getArchiveSource(targetDriveId, targetPath)) throw new Error(tGlobal('zipReadOnly'));
     const backend = mountedArchiveBackend(archiveFile) ?? (await openArchiveBackend(archiveFile));
@@ -383,11 +395,16 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
     const totalBytes = entries.reduce((sum, entry) => sum + (entry.dir ? 0 : entry.size), 0);
     let writtenBytes = 0;
     let extractedCount = 0;
+    // Named here so the server can hold and release this very run. The id is
+    // what the task sends back to pause and resume, so it has to exist before
+    // the first member starts.
+    const job = `x-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    hooks?.onJob?.(job);
     try {
       for (const entry of entries) {
         // Checked between members too: a cancel must stop the rest of the
         // archive, not only the member that happened to be streaming.
-        signal?.throwIfAborted();
+        hooks?.signal?.throwIfAborted();
         const relative = archiveEntryPath(stripPrefix ? entry.name.slice(stripPrefix.length + 1) : entry.name);
         const parts = relative.split('\\');
         const directories = entry.dir ? parts : parts.slice(0, -1);
@@ -407,7 +424,7 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
         if (!entry.dir) {
           // Named before the first byte, so the task can say what it is writing
           // instead of only how far it has got.
-          onEntry?.(relative);
+          hooks?.onEntry?.(relative);
           const streamable =
             deps.isSystemDrive(targetDriveId) &&
             deps.isSystemDrive(archiveFile.driveId) &&
@@ -422,8 +439,9 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
                 targetDriveId,
                 targetPath,
                 relative,
-                (bytesSoFar) => onProgress?.(writtenBytes + bytesSoFar, totalBytes),
-                signal,
+                (bytesSoFar) => hooks?.onProgress?.(writtenBytes + bytesSoFar, totalBytes),
+                hooks?.signal,
+                job,
               )
             : null;
           if (streamed === null) {
@@ -433,7 +451,7 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
           } else {
             writtenBytes += streamed;
           }
-          onProgress?.(writtenBytes, totalBytes);
+          hooks?.onProgress?.(writtenBytes, totalBytes);
           extractedCount++;
         }
       }

@@ -6,6 +6,7 @@ import {
   ArchiveServerUnavailableError,
   extractServerEntry,
   loadServerArchiveBackend,
+  setServerExtractionPaused,
 } from './serverArchive';
 
 /**
@@ -155,6 +156,7 @@ describe('loadServerArchiveBackend', () => {
           target: 'C:\\salida\\sub\\grande.bin',
           root: 'C:\\salida',
           password: undefined,
+          job: undefined,
         },
       },
     ]);
@@ -222,6 +224,25 @@ describe('loadServerArchiveBackend', () => {
 
     expect(error.name).toBe('AbortError');
     expect(error).not.toBeInstanceOf(ArchiveServerUnavailableError);
+  });
+
+  it('asks the server to hold and release a run it already started', async () => {
+    const calls: { route: string; body: any }[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init: RequestInit) => {
+        calls.push({ route: String(url).split('/api/archives/')[1], body: JSON.parse(String(init.body)) });
+        return json({ ok: true, paused: true });
+      }),
+    );
+
+    await setServerExtractionPaused('job-1', true);
+    await setServerExtractionPaused('job-1', false);
+
+    expect(calls).toEqual([
+      { route: 'extract/pause', body: { job: 'job-1' } },
+      { route: 'extract/resume', body: { job: 'job-1' } },
+    ]);
   });
 
   it('keeps an existing destination a refusal, not a corrupt archive', async () => {

@@ -4,6 +4,8 @@ import { fsEngine, type OpenableArchiveFormat } from '../services/fileSystem';
 import { taskQueue } from '../services/taskQueueManager';
 import { soundManager } from '../services/soundEffects';
 import { createPasswordRecord } from '../services/appLock';
+import { setServerExtractionPaused } from '../services/serverArchive';
+import { log } from '../utils/logger';
 import { getTranslations } from '../i18n/translations';
 
 export interface FileOperationsDeps {
@@ -213,24 +215,33 @@ export function useFileOperations({
       // sat at 0% for its whole run, which for a member of gigabytes looked like
       // the app had hung.
       async (onProgress, signal) => {
-        // The queue cannot interrupt an await, so a small watcher turns
-        // "cancelled" into an abort. Dropping the request is what makes the
-        // server notice the closed socket, kill its writer and delete the
-        // temporary file instead of finishing a file nobody asked for.
+        // The queue cannot interrupt an await, so a small watcher turns the two
+        // flags it owns into something the server understands: cancel aborts the
+        // request, pause and resume are asked for over their own route, which is
+        // what keeps the same stream alive instead of restarting the member.
         const controller = new AbortController();
+        let job = '';
+        let pausedSent = false;
         const watcher = setInterval(() => {
-          if (signal.cancelled) controller.abort();
+          if (signal.cancelled) {
+            controller.abort();
+            return;
+          }
+          if (!job || signal.paused === pausedSent) return;
+          pausedSent = signal.paused;
+          void setServerExtractionPaused(job, pausedSent).catch((error) =>
+            log.warn('Could not change the pace of the extraction', error),
+          );
         }, 200);
         try {
-          await fsEngine.extractArchive(
-            source,
-            destination.driveId,
-            destination.currentPath,
-            undefined,
+          await fsEngine.extractArchive(source, destination.driveId, destination.currentPath, undefined, {
             onProgress,
-            controller.signal,
-            (entryPath) => taskQueue.updateTaskMeta(taskId, { currentFile: entryPath }),
-          );
+            onEntry: (entryPath) => taskQueue.updateTaskMeta(taskId, { currentFile: entryPath }),
+            onJob: (id) => {
+              job = id;
+            },
+            signal: controller.signal,
+          });
         } finally {
           clearInterval(watcher);
         }

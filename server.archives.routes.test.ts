@@ -39,6 +39,10 @@ let origin = '';
 let root = '';
 let plainFile = '';
 let zipFile = '';
+/** 192 MB of zeros: it compresses to almost nothing and takes long enough to
+ *  pause in the middle of the write. */
+const bigSize = 192 * 1024 * 1024;
+let bigZipFile = '';
 /** 2 MB of a repeating byte: big enough to need several chunks through a socket. */
 const bigBytes = Uint8Array.from({ length: 2 * 1024 * 1024 }, (_, index) => index % 251);
 
@@ -52,6 +56,11 @@ beforeAll(async () => {
   zip.file('grande.bin', bigBytes);
   zip.file('nota.txt', 'hola');
   await fs.promises.writeFile(zipFile, await zip.generateAsync({ type: 'nodebuffer' }));
+
+  bigZipFile = path.join(root, 'enorme.zip');
+  const bigZip = new JSZip();
+  bigZip.file('enorme.bin', new Uint8Array(bigSize));
+  await fs.promises.writeFile(bigZipFile, await bigZip.generateAsync({ type: 'nodebuffer' }));
 
   const app = express();
   app.use(express.json());
@@ -162,6 +171,55 @@ describe('extraer una entrada a disco', () => {
     });
     expect(response.status).toBe(404);
     expect((await response.json()).code).toBe('entry-not-found');
+  });
+
+  it('detiene la escritura al pausar y la continúa al reanudar', async () => {
+    const folder = path.join(root, 'pausado');
+    await fs.promises.mkdir(folder, { recursive: true });
+    const destination = path.join(folder, 'enorme.bin');
+    const job = 'job-pausa';
+    const controller = new AbortController();
+    const response = await fetch(`${origin}/api/archives/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: bigZipFile, entry: 'enorme.bin', target: destination, root: folder, job }),
+      signal: controller.signal,
+    });
+    expect(response.status).toBe(200);
+    const reader = response.body!.getReader();
+    // The first line means the write is already under way.
+    await reader.read();
+    expect((await post('/api/archives/extract/pause', { job })).status).toBe(200);
+
+    const partSize = async () => {
+      const part = (await fs.promises.readdir(folder)).find((name) => name.endsWith('.part'));
+      return part ? (await fs.promises.stat(path.join(folder, part))).size : -1;
+    };
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    const paused = await partSize();
+    // The write has to be visible as a temporary file: a run that already
+    // finished would make the pause look like it worked when it never applied.
+    expect(paused).toBeGreaterThan(0);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(await partSize()).toBe(paused);
+
+    expect((await post('/api/archives/extract/resume', { job })).status).toBe(200);
+    const decoder = new TextDecoder();
+    let text = '';
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      text += decoder.decode(value, { stream: true });
+    }
+    const last = JSON.parse(text.trim().split('\n').at(-1)!) as { type: string; bytes?: number };
+    expect(last).toMatchObject({ type: 'done', bytes: bigSize });
+    expect((await fs.promises.stat(destination)).size).toBe(bigSize);
+    expect((await fs.promises.readdir(folder)).filter((name) => name.endsWith('.part'))).toEqual([]);
+  }, 60000);
+
+  it('dice que no hay tal extracción cuando el id no existe', async () => {
+    expect((await post('/api/archives/extract/pause', { job: 'fantasma' })).status).toBe(404);
+    expect((await post('/api/archives/extract/resume', { job: 'fantasma' })).status).toBe(404);
   });
 
   it('no publica nada cuando la extracción se cancela', async () => {

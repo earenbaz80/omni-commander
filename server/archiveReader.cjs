@@ -24,6 +24,40 @@ function registerArchiveRoutes(app, deps) {
   // a destination outside the root it was given when it is missing.
   const { assertSafePath, assertArchiveDestination } = deps;
 
+  /**
+   * A pause switch a writer waits on. While it is shut the stream holds one
+   * chunk and everything behind it backs up, so nothing is read ahead and
+   * releasing it continues the very same extraction instead of starting the
+   * member again from its first byte.
+   */
+  function createGate() {
+    let paused = false;
+    const waiters = [];
+    const listeners = new Set();
+    const set = (value) => {
+      paused = value;
+      for (const listener of listeners) listener(value);
+      if (!value) for (const resolve of waiters.splice(0)) resolve();
+    };
+    return {
+      pause: () => set(true),
+      resume: () => set(false),
+      get paused() {
+        return paused;
+      },
+      wait() {
+        return paused ? new Promise((resolve) => waiters.push(resolve)) : Promise.resolve();
+      },
+      subscribe(listener) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    };
+  }
+
+  /** Extractions in flight, by the id the renderer chose for its own run. */
+  const extractionJobs = new Map();
+
   // -------------------------------------------------------------------------
   // Archives that only libarchive can read (RAR, 7-Zip, TAR.BZ2, TAR.LZMA)
   //
@@ -591,7 +625,7 @@ function registerArchiveRoutes(app, deps) {
    * Writes one entry from bsdtar's stdout into a file of its own, through a
    * sibling temporary path: a failed read leaves nothing under the real name.
    */
-  async function extractBsdtarEntry(binary, target, name, destination, onBytes, signal) {
+  async function extractBsdtarEntry(binary, target, name, destination, onBytes, signal, gate) {
     if (signal && signal.aborted) throw cancelledError();
     const temporary = zipStream.temporaryPathFor(destination);
     const out = fs.createWriteStream(temporary, { flags: 'wx' });
@@ -602,6 +636,11 @@ function registerArchiveRoutes(app, deps) {
     // nobody is going to look at.
     const onAbort = () => child.kill();
     if (signal) signal.addEventListener('abort', onAbort, { once: true });
+    // bsdtar has no pause of its own. Not draining its stdout is what makes it
+    // block on the pipe, so the file stops growing where the user paused it.
+    const unsubscribe = gate
+      ? gate.subscribe((paused) => (paused ? child.stdout.pause() : child.stdout.resume()))
+      : null;
     child.stdout.on('data', (chunk) => {
       bytes += chunk.length;
       if (onBytes) onBytes(chunk.length);
@@ -632,6 +671,7 @@ function registerArchiveRoutes(app, deps) {
       throw signal && signal.aborted ? cancelledError() : error;
     } finally {
       if (signal) signal.removeEventListener('abort', onAbort);
+      if (unsubscribe) unsubscribe();
     }
   }
 
@@ -645,13 +685,17 @@ function registerArchiveRoutes(app, deps) {
   }
 
   /** Publishes bytes that had to be read whole: engines that decrypt cannot stream. */
-  async function writeWholeEntry(destination, bytes, onBytes, signal) {
+  async function writeWholeEntry(destination, bytes, onBytes, signal, gate) {
     const temporary = zipStream.temporaryPathFor(destination);
     try {
       // Checked before and after the write: these bytes were already read whole,
       // so this is the only thing keeping a cancelled run from publishing them.
       if (signal && signal.aborted) throw cancelledError();
+      if (gate) await gate.wait();
       await fs.promises.writeFile(temporary, bytes, { flag: 'wx' });
+      // A pause that lands while these bytes are being written keeps the file
+      // off its real name until the run is released again.
+      if (gate) await gate.wait();
       if (signal && signal.aborted) throw cancelledError();
       await fs.promises.rename(temporary, destination);
       if (onBytes) onBytes(bytes.length);
@@ -667,13 +711,13 @@ function registerArchiveRoutes(app, deps) {
    * do it without holding the entry: ZIP by its own stream, a large archive by
    * bsdtar, and the decrypting engines by reading the entry (they cannot stream).
    */
-  async function writeEntryToFile(target, head, stat, name, destination, password, onBytes, signal) {
+  async function writeEntryToFile(target, head, stat, name, destination, password, onBytes, signal, gate) {
     await assertDestinationFree(destination);
-    if (isZipHead(head)) return zipStream.extractZipEntryTo(target, name, destination, onBytes, signal);
+    if (isZipHead(head)) return zipStream.extractZipEntryTo(target, name, destination, onBytes, signal, gate);
     const binary = stat.size > ARCHIVE_MAX_BYTES ? bsdtarBinary() : null;
     if (binary) {
       try {
-        return await extractBsdtarEntry(binary, target, name, destination, onBytes, signal);
+        return await extractBsdtarEntry(binary, target, name, destination, onBytes, signal, gate);
       } catch (error) {
         // A cancelled run must not fall through to a second reader.
         if (signal && signal.aborted) throw cancelledError();
@@ -686,7 +730,7 @@ function registerArchiveRoutes(app, deps) {
         if (refused) throw Object.assign(new Error(error.message), { archiveCode: 'read-failed' });
       }
     }
-    return writeWholeEntry(destination, await readEntryBytes(target, head, name, password), onBytes, signal);
+    return writeWholeEntry(destination, await readEntryBytes(target, head, name, password), onBytes, signal, gate);
   }
 
   /** Folders the paths imply, so a listing is a tree whatever listed it. */
@@ -861,11 +905,22 @@ function registerArchiveRoutes(app, deps) {
       // of the body: from then on the answer is a progress stream, and a status
       // cannot be changed once one line of it has gone out.
       await assertDestinationFree(destination);
+      // The renderer names its own run, so it can hold and release the write
+      // while this request stays open.
+      const jobId = typeof body.job === 'string' && body.job ? body.job : '';
+      const gate = jobId ? createGate() : null;
+      if (jobId) extractionJobs.set(jobId, gate);
       // Cancelling in the UI closes this request. Without noticing that, the
       // server would finish writing a file nobody wants and leave it on disk.
       const controller = new AbortController();
       res.on('close', () => {
-        if (!res.writableEnded) controller.abort();
+        if (!res.writableEnded) {
+          controller.abort();
+          // A paused writer is waiting on the gate, not on the socket: releasing
+          // it is what lets the abort reach the stream and the cleanup run.
+          if (gate) gate.resume();
+        }
+        if (jobId) extractionJobs.delete(jobId);
       });
       let opened = false;
       const open = () => {
@@ -889,7 +944,17 @@ function registerArchiveRoutes(app, deps) {
       };
       let bytes;
       try {
-        bytes = await writeEntryToFile(target, head, stat, name, destination, body.password, report, controller.signal);
+        bytes = await writeEntryToFile(
+          target,
+          head,
+          stat,
+          name,
+          destination,
+          body.password,
+          report,
+          controller.signal,
+          gate,
+        );
       } catch (error) {
         // A cancelled extraction is not a failure: the temporary file is already
         // gone and the socket that asked for it is closed.
@@ -920,6 +985,25 @@ function registerArchiveRoutes(app, deps) {
       res.status(status).json(payload);
     }
   });
+
+  /**
+   * Holds or releases an extraction the renderer already started.
+   *
+   * The write lives in the request above, so pausing cannot arrive through it:
+   * the id the caller chose is the handle for both directions, and an unknown id
+   * is a run that finished, failed or belonged to another window.
+   */
+  function setExtractionPaused(req, res, paused) {
+    const jobId = typeof (req.body || {}).job === 'string' ? req.body.job : '';
+    const job = jobId ? extractionJobs.get(jobId) : undefined;
+    if (!job) return res.status(404).json({ code: 'not-found', error: 'No such extraction' });
+    if (paused) job.pause();
+    else job.resume();
+    res.json({ ok: true, paused: job.paused });
+  }
+
+  app.post('/api/archives/extract/pause', (req, res) => setExtractionPaused(req, res, true));
+  app.post('/api/archives/extract/resume', (req, res) => setExtractionPaused(req, res, false));
 }
 
 module.exports = { registerArchiveRoutes };
