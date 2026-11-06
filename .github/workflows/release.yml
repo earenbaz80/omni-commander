@@ -11,6 +11,14 @@ on:
 permissions:
   contents: read
 
+# One run per branch or tag. A pull request that receives a new push cancels its
+# previous run, which is the case that used to queue minutes of work nobody would
+# read; a tag build is never cancelled, because it uploads a release half way
+# through and there is no safe point to stop at.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # The matrix has to install a concrete version, and repeating the floor by hand
   # is exactly how it drifts from the declaration it is supposed to test.
@@ -23,7 +31,7 @@ jobs:
       floor: ${{ steps.read.outputs.floor }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # `node` ships with the hosted runner and this only reads a string, so the
       # job needs neither setup-node nor the dependency tree. The shell is named
@@ -49,10 +57,10 @@ jobs:
         node-version: ['${{ needs.engines.outputs.floor }}', '22']
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
@@ -67,6 +75,20 @@ jobs:
       # a 51s median), so they are not here to make it look faster.
       - name: Install dependencies
         run: npm ci --engine-strict
+
+      # Production dependencies must be clean: everything here ships inside the
+      # installer, so an advisory in them is a real one. The full audit runs too,
+      # but only reports: the four lows it finds today live in the build tooling
+      # (deepmerge under workbox) and the only fix npm offers is a downgrade of
+      # vite-plugin-pwa that would break the PWA. Keeping them visible without
+      # failing the push is the point; promoting it to a gate needs an upstream
+      # fix first.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev
+
+      - name: Audit all dependencies
+        continue-on-error: true
+        run: npm audit
 
       # A local `npm run electron:build` could not finish while `npm run dev` was
       # up: the dev server watched release/, the folder electron-builder renames
@@ -118,7 +140,7 @@ jobs:
       # even when the run failed, which is exactly when somebody wants to look.
       - name: Keep the coverage report
         if: always() && matrix.node-version == '22'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage
           path: coverage/
@@ -134,10 +156,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22'
           cache: 'npm'
@@ -157,7 +179,7 @@ jobs:
       # doing, and only exists for the run that failed.
       - name: Keep the trace of a failed run
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-traces
           path: test-results/
@@ -172,10 +194,10 @@ jobs:
       contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           # '22' means the latest 22.x, which must keep satisfying engines.node
           # in package.json (the floor comes from jsdom, not from our own code).
@@ -315,7 +337,7 @@ jobs:
         run: Remove-Item release/builder-debug.yml -ErrorAction SilentlyContinue
 
       - name: Publish release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           name: ${{ steps.version.outputs.version }}
           draft: false
