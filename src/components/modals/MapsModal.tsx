@@ -70,7 +70,7 @@ interface MapLayerInfo {
  * Free, keyless OSM renders, in the order the buttons appear. No layer needs an
  * account or an API key, which is the whole reason the map needs no setup.
  */
-const MAP_LAYERS: MapLayerInfo[] = [
+export const MAP_LAYERS: MapLayerInfo[] = [
   {
     id: 'osm',
     label: (t) => t.mapsLayerStandard,
