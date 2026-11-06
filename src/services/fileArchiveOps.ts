@@ -88,6 +88,10 @@ export interface ArchiveOps {
     selectedEntry?: string,
     /** Bytes that reached the disk, and how many the selection holds in all. */
     onProgress?: (bytesWritten: number, totalBytes: number) => void,
+    /** Aborting stops the run and leaves nothing under the real names. */
+    signal?: AbortSignal,
+    /** The member being written right now, as its path inside the destination. */
+    onEntry?: (entryPath: string) => void,
   ): Promise<number>;
 }
 
@@ -332,6 +336,7 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
     targetPath: string,
     relative: string,
     onBytes: (bytesSoFar: number) => void,
+    signal?: AbortSignal,
   ): Promise<number | null> {
     const folder = deps.normalizePath(targetPath);
     try {
@@ -345,10 +350,13 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
           root: deps.absoluteForDrive(targetDriveId, folder),
         },
         onBytes,
+        signal,
       );
     } catch (error) {
-      // An existing destination is a refusal, not a reason to retry in memory.
+      // An existing destination is a refusal, and a cancelled run is not
+      // something to retry in memory: both end the extraction here.
       if (error instanceof ArchiveDestinationExistsError) throw error;
+      if (signal?.aborted) throw error;
       log.warn('Streamed extraction failed; falling back to a buffered read', error);
       return null;
     }
@@ -360,6 +368,8 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
     targetPath: string,
     selectedEntry?: string,
     onProgress?: (bytesWritten: number, totalBytes: number) => void,
+    signal?: AbortSignal,
+    onEntry?: (entryPath: string) => void,
   ): Promise<number> {
     if (getArchiveSource(targetDriveId, targetPath)) throw new Error(tGlobal('zipReadOnly'));
     const backend = mountedArchiveBackend(archiveFile) ?? (await openArchiveBackend(archiveFile));
@@ -375,6 +385,9 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
     let extractedCount = 0;
     try {
       for (const entry of entries) {
+        // Checked between members too: a cancel must stop the rest of the
+        // archive, not only the member that happened to be streaming.
+        signal?.throwIfAborted();
         const relative = archiveEntryPath(stripPrefix ? entry.name.slice(stripPrefix.length + 1) : entry.name);
         const parts = relative.split('\\');
         const directories = entry.dir ? parts : parts.slice(0, -1);
@@ -392,6 +405,9 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
           parent = deps.childAbsolutePath(parent, dir);
         }
         if (!entry.dir) {
+          // Named before the first byte, so the task can say what it is writing
+          // instead of only how far it has got.
+          onEntry?.(relative);
           const streamable =
             deps.isSystemDrive(targetDriveId) &&
             deps.isSystemDrive(archiveFile.driveId) &&
@@ -400,8 +416,14 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
           // A member the server writes reports as it streams, so a single huge
           // entry moves the bar instead of sitting at zero until it finishes.
           const streamed = streamable
-            ? await streamEntryToDisk(archiveFile, entry, targetDriveId, targetPath, relative, (bytesSoFar) =>
-                onProgress?.(writtenBytes + bytesSoFar, totalBytes),
+            ? await streamEntryToDisk(
+                archiveFile,
+                entry,
+                targetDriveId,
+                targetPath,
+                relative,
+                (bytesSoFar) => onProgress?.(writtenBytes + bytesSoFar, totalBytes),
+                signal,
               )
             : null;
           if (streamed === null) {

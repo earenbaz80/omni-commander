@@ -582,16 +582,26 @@ function registerArchiveRoutes(app, deps) {
     });
   }
 
+  /** The refusal a cancelled extraction ends with, so the route can stay quiet. */
+  function cancelledError() {
+    return Object.assign(new Error('Extraction cancelled'), { name: 'AbortError', archiveCode: 'cancelled' });
+  }
+
   /**
    * Writes one entry from bsdtar's stdout into a file of its own, through a
    * sibling temporary path: a failed read leaves nothing under the real name.
    */
-  async function extractBsdtarEntry(binary, target, name, destination, onBytes) {
+  async function extractBsdtarEntry(binary, target, name, destination, onBytes, signal) {
+    if (signal && signal.aborted) throw cancelledError();
     const temporary = zipStream.temporaryPathFor(destination);
     const out = fs.createWriteStream(temporary, { flags: 'wx' });
     const child = spawn(binary, ['-xO', '-f', target, '--', name], { windowsHide: true });
     let stderr = '';
     let bytes = 0;
+    // Cancelling must stop the extractor, not let it keep writing a file that
+    // nobody is going to look at.
+    const onAbort = () => child.kill();
+    if (signal) signal.addEventListener('abort', onAbort, { once: true });
     child.stdout.on('data', (chunk) => {
       bytes += chunk.length;
       if (onBytes) onBytes(chunk.length);
@@ -608,6 +618,7 @@ function registerArchiveRoutes(app, deps) {
         child.stdout.pipe(out);
       });
       const code = await exited;
+      if (signal && signal.aborted) throw cancelledError();
       if (code !== 0) {
         const message = stderr.trim() || `bsdtar exited with ${code}`;
         throw Object.assign(new Error(message), { entryMissing: /not found in archive/i.test(message) });
@@ -618,7 +629,9 @@ function registerArchiveRoutes(app, deps) {
       child.kill();
       out.destroy();
       await fs.promises.rm(temporary, { force: true }).catch(() => {});
-      throw error;
+      throw signal && signal.aborted ? cancelledError() : error;
+    } finally {
+      if (signal) signal.removeEventListener('abort', onAbort);
     }
   }
 
@@ -632,10 +645,14 @@ function registerArchiveRoutes(app, deps) {
   }
 
   /** Publishes bytes that had to be read whole: engines that decrypt cannot stream. */
-  async function writeWholeEntry(destination, bytes, onBytes) {
+  async function writeWholeEntry(destination, bytes, onBytes, signal) {
     const temporary = zipStream.temporaryPathFor(destination);
     try {
+      // Checked before and after the write: these bytes were already read whole,
+      // so this is the only thing keeping a cancelled run from publishing them.
+      if (signal && signal.aborted) throw cancelledError();
       await fs.promises.writeFile(temporary, bytes, { flag: 'wx' });
+      if (signal && signal.aborted) throw cancelledError();
       await fs.promises.rename(temporary, destination);
       if (onBytes) onBytes(bytes.length);
       return bytes.length;
@@ -650,14 +667,16 @@ function registerArchiveRoutes(app, deps) {
    * do it without holding the entry: ZIP by its own stream, a large archive by
    * bsdtar, and the decrypting engines by reading the entry (they cannot stream).
    */
-  async function writeEntryToFile(target, head, stat, name, destination, password, onBytes) {
+  async function writeEntryToFile(target, head, stat, name, destination, password, onBytes, signal) {
     await assertDestinationFree(destination);
-    if (isZipHead(head)) return zipStream.extractZipEntryTo(target, name, destination, onBytes);
+    if (isZipHead(head)) return zipStream.extractZipEntryTo(target, name, destination, onBytes, signal);
     const binary = stat.size > ARCHIVE_MAX_BYTES ? bsdtarBinary() : null;
     if (binary) {
       try {
-        return await extractBsdtarEntry(binary, target, name, destination, onBytes);
+        return await extractBsdtarEntry(binary, target, name, destination, onBytes, signal);
       } catch (error) {
+        // A cancelled run must not fall through to a second reader.
+        if (signal && signal.aborted) throw cancelledError();
         if (error.entryMissing) {
           throw Object.assign(new Error(`Entry not found: ${name}`), { archiveCode: 'entry-not-found' });
         }
@@ -667,7 +686,7 @@ function registerArchiveRoutes(app, deps) {
         if (refused) throw Object.assign(new Error(error.message), { archiveCode: 'read-failed' });
       }
     }
-    return writeWholeEntry(destination, await readEntryBytes(target, head, name, password), onBytes);
+    return writeWholeEntry(destination, await readEntryBytes(target, head, name, password), onBytes, signal);
   }
 
   /** Folders the paths imply, so a listing is a tree whatever listed it. */
@@ -842,6 +861,12 @@ function registerArchiveRoutes(app, deps) {
       // of the body: from then on the answer is a progress stream, and a status
       // cannot be changed once one line of it has gone out.
       await assertDestinationFree(destination);
+      // Cancelling in the UI closes this request. Without noticing that, the
+      // server would finish writing a file nobody wants and leave it on disk.
+      const controller = new AbortController();
+      res.on('close', () => {
+        if (!res.writableEnded) controller.abort();
+      });
       let opened = false;
       const open = () => {
         if (opened) return;
@@ -855,6 +880,7 @@ function registerArchiveRoutes(app, deps) {
       let lastReport = 0;
       const report = (chunk) => {
         written += chunk.length;
+        if (controller.signal.aborted) return;
         const now = Date.now();
         if (now - lastReport < 100) return;
         lastReport = now;
@@ -863,8 +889,14 @@ function registerArchiveRoutes(app, deps) {
       };
       let bytes;
       try {
-        bytes = await writeEntryToFile(target, head, stat, name, destination, body.password, report);
+        bytes = await writeEntryToFile(target, head, stat, name, destination, body.password, report, controller.signal);
       } catch (error) {
+        // A cancelled extraction is not a failure: the temporary file is already
+        // gone and the socket that asked for it is closed.
+        if (controller.signal.aborted) {
+          res.destroy();
+          return;
+        }
         const payload = archiveErrorPayload(error);
         console.warn('Archive entry extraction failed:', name, payload.error);
         if (opened) {

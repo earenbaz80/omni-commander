@@ -204,6 +204,14 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
             </div>
           )}
 
+          {/* An extraction reports no per-file rows: it names the member it is
+              writing, so the card is not left with a bare percentage. */}
+          {!currentFileEntry && topTask.currentFile && (
+            <div className="text-[11px] opacity-70 font-mono truncate" title={topTask.currentFile}>
+              {topTask.currentFile}
+            </div>
+          )}
+
           {/* A protected destination can only be written with an elevated
               token. Explorer asks for it silently; this app has to relaunch
               itself, so keep that door in the window at all times. */}

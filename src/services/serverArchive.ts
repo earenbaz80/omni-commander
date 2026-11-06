@@ -62,7 +62,7 @@ export class ArchiveServerUnavailableError extends Error {
   }
 }
 
-async function callServer(route: string, body: unknown, timeoutMs = 120000): Promise<Response> {
+async function callServer(route: string, body: unknown, timeoutMs = 120000, signal?: AbortSignal): Promise<Response> {
   return fetchWithRetry(`${API_BASE}/api/archives/${route}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -71,6 +71,7 @@ async function callServer(route: string, body: unknown, timeoutMs = 120000): Pro
     // and a refused connection is reported as such rather than as damage.
     retries: 0,
     timeoutMs,
+    signal,
   });
 }
 
@@ -182,6 +183,7 @@ export interface ServerEntryTarget {
 export async function extractServerEntry(
   target: ServerEntryTarget,
   onProgress?: (bytesSoFar: number) => void,
+  signal?: AbortSignal,
 ): Promise<number> {
   let response: Response;
   try {
@@ -197,8 +199,12 @@ export async function extractServerEntry(
       // Writing gigabytes takes as long as the disk takes: a total timeout here
       // would abandon a transfer that is still making progress.
       0,
+      signal,
     );
   } catch (error) {
+    // A cancelled extraction is not an unreachable server: the caller has to
+    // see the cancellation, not a message about the server being down.
+    if (signal?.aborted) throw error;
     log.warn('Archive server unreachable while extracting', error);
     throw new ArchiveServerUnavailableError(target.format);
   }

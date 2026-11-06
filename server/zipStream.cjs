@@ -189,7 +189,7 @@ function counted(onBytes) {
 }
 
 /** Writes one entry into a writable, inflated as it goes; nothing is buffered. */
-async function pipeZipEntry(target, entryName, writable, onBytes) {
+async function pipeZipEntry(target, entryName, writable, onBytes, signal) {
   const handle = await fs.promises.open(target, 'r');
   try {
     const entries = await listZip(target);
@@ -228,7 +228,9 @@ async function pipeZipEntry(target, entryName, writable, onBytes) {
     // `pipeline` owns the cleanup: a renderer that hangs up -- a cancelled
     // preview, a closed tab -- or a disk that fills up destroys the read side
     // and settles this promise, instead of leaving an unhandled error behind.
-    await pipeline(steps);
+    // An aborted signal (a cancelled extraction) tears the whole chain down and
+    // settles this promise with an AbortError.
+    await pipeline(steps, { signal });
   } finally {
     await handle.close();
   }
@@ -244,11 +246,11 @@ async function streamZipEntry(target, entryName, res) {
  * process nothing but the chunk in flight. The entry appears under its final
  * name only once it is complete.
  */
-async function extractZipEntryTo(target, entryName, destination, onBytes) {
+async function extractZipEntryTo(target, entryName, destination, onBytes, signal) {
   const temporary = temporaryPathFor(destination);
   const out = fs.createWriteStream(temporary, { flags: 'wx' });
   try {
-    await pipeZipEntry(target, entryName, out, onBytes);
+    await pipeZipEntry(target, entryName, out, onBytes, signal);
     await fs.promises.rename(temporary, destination);
     return (await fs.promises.stat(destination)).size;
   } catch (error) {

@@ -190,6 +190,40 @@ describe('loadServerArchiveBackend', () => {
     expect(seen).toEqual([512]);
   });
 
+  it('reports a cancelled extraction as cancelled, not as an unreachable server', async () => {
+    const controller = new AbortController();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url: string, init: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            (init.signal as AbortSignal).addEventListener('abort', () => {
+              const error = new Error('The request was cancelled');
+              error.name = 'AbortError';
+              reject(error);
+            });
+            setTimeout(() => controller.abort(), 5);
+          }),
+      ),
+    );
+
+    const error = (await extractServerEntry(
+      {
+        archivePath: TARGET,
+        fileName: 'copia.rar',
+        format: 'RAR',
+        entryName: 'sub/grande.bin',
+        destination: 'C:\\salida\\sub\\grande.bin',
+        root: 'C:\\salida',
+      },
+      undefined,
+      controller.signal,
+    ).catch((thrown) => thrown)) as Error;
+
+    expect(error.name).toBe('AbortError');
+    expect(error).not.toBeInstanceOf(ArchiveServerUnavailableError);
+  });
+
   it('keeps an existing destination a refusal, not a corrupt archive', async () => {
     vi.stubGlobal(
       'fetch',
