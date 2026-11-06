@@ -457,7 +457,7 @@ function registerFsRoutes() {
     uniqueName,
   });
 
-  registerArchiveRoutes(app, { assertSafePath });
+  registerArchiveRoutes(app, { assertSafePath, assertArchiveDestination });
   // The Run box ("Ejecutar") and the resolution rules behind it live in their
   // own module: it is the only part of the server that starts a process, and it
   // needs pathSafety plus the debug log, both declared there.

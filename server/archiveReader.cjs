@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
+const { execFile, execFileSync, spawn } = require('node:child_process');
 const { Worker } = require('node:worker_threads');
+const zipStream = require('./zipStream.cjs');
 const { pathToFileURL } = require('node:url');
 
 /**
@@ -17,7 +19,10 @@ const { pathToFileURL } = require('node:url');
  * server for is the path check.
  */
 function registerArchiveRoutes(app, deps) {
-  const { assertSafePath } = deps;
+  // `assertArchiveDestination` is optional so the module can be mounted on its
+  // own in tests; production always passes it, and the write route below rejects
+  // a destination outside the root it was given when it is missing.
+  const { assertSafePath, assertArchiveDestination } = deps;
 
   // -------------------------------------------------------------------------
   // Archives that only libarchive can read (RAR, 7-Zip, TAR.BZ2, TAR.LZMA)
@@ -364,20 +369,318 @@ function registerArchiveRoutes(app, deps) {
     const stat = await fs.promises.stat(target).catch(() => null);
     if (!stat) return { status: 404, payload: { code: 'not-found', error: 'Archive not found' } };
     if (!stat.isFile()) return { status: 400, payload: { code: 'not-a-file', error: 'Not a file' } };
-    // Refused before the signature check and before the engine loads: this is a
-    // memory ceiling, not a judgement about the format.
-    if (stat.size > ARCHIVE_MAX_BYTES)
-      return {
-        status: 413,
-        payload: {
-          code: 'too-large',
-          sizeBytes: stat.size,
-          limitBytes: ARCHIVE_MAX_BYTES,
-          error: `Archive is ${stat.size} bytes, over the ${ARCHIVE_MAX_BYTES}-byte in-memory reader limit`,
-        },
-      };
-    return { target };
+    return { target, stat };
   }
+
+  /**
+   * Refusal for an archive the in-memory readers would have to load whole.
+   *
+   * This is deliberately not checked when the request arrives any more: the
+   * streaming reader below opens an archive of any size with a fixed amount of
+   * memory, so the ceiling only guards the fallback the WASM engines still
+   * need. Checking it up front is what refused archives that could be read.
+   */
+  function tooLargePayload(stat) {
+    if (stat.size <= ARCHIVE_MAX_BYTES) return null;
+    return {
+      code: 'too-large',
+      sizeBytes: stat.size,
+      limitBytes: ARCHIVE_MAX_BYTES,
+      error: `Archive is ${stat.size} bytes, over the ${ARCHIVE_MAX_BYTES}-byte in-memory reader limit`,
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // Streaming reader: libarchive's command line
+  //
+  // Both WASM engines above need the archive as one contiguous buffer (plus a
+  // copy in the worker and another in the WASM heap), which is why they carry a
+  // ceiling: a 2 GB archive asked for ~10 GB and took the app down, so it was
+  // refused instead. Windows ships bsdtar (libarchive 3.8) at
+  // %SystemRoot%\System32\tar.exe, and its `-t`/`-xO` modes walk headers and
+  // write one entry to stdout without holding the archive: any size, memory
+  // proportional to one chunk. What this build cannot do is decrypt -- it
+  // answers "Encryption is not supported" -- so encrypted archives fall back to
+  // unrar below, ceiling included.
+  // -------------------------------------------------------------------------
+
+  let bsdtarResolved;
+  function bsdtarBinary() {
+    if (bsdtarResolved !== undefined) return bsdtarResolved;
+    const override = process.env.OMNI_BSDTAR;
+    // Empty means "pretend this machine has no bsdtar": the suite uses it to
+    // keep the in-memory ceiling and its refusal honest.
+    if (override === '') {
+      bsdtarResolved = null;
+      return null;
+    }
+    const candidates = override
+      ? [override]
+      : [...(process.env.SystemRoot ? [path.join(process.env.SystemRoot, 'System32', 'tar.exe')] : []), 'tar'];
+    for (const candidate of candidates) {
+      try {
+        const version = execFileSync(candidate, ['--version'], { encoding: 'utf8', timeout: 5000, windowsHide: true });
+        if (/bsdtar/i.test(version)) {
+          bsdtarResolved = candidate;
+          return candidate;
+        }
+      } catch {
+        // Not this candidate: try the next one.
+      }
+    }
+    bsdtarResolved = null;
+    return null;
+  }
+
+  /** Runs bsdtar to completion and hands back its stdout as text. */
+  function runBsdtar(binary, args) {
+    return new Promise((resolve, reject) => {
+      execFile(
+        binary,
+        args,
+        { timeout: 120000, windowsHide: true, maxBuffer: 256 * 1024 * 1024, encoding: 'utf8' },
+        (error, stdout, stderr) => {
+          if (error) {
+            reject(
+              Object.assign(new Error(String(stderr || error.message).trim()), { bsdtarStderr: String(stderr || '') }),
+            );
+            return;
+          }
+          resolve(stdout);
+        },
+      );
+    });
+  }
+
+  /**
+   * Names, sizes and folders of an archive, read by bsdtar without holding the
+   * archive in memory.
+   *
+   * Names come from `-t`, which prints them exactly (spaces and Unicode
+   * included), and sizes from `-tv`, paired by position because both listings
+   * walk the archive in the same order. The date column is not parsed: bsdtar
+   * prints it in the machine's own locale ("Okt", "JM-dn"), which is not a
+   * format to depend on, so every entry carries the archive's timestamp
+   * instead of inventing one per entry.
+   */
+  async function bsdtarListing(binary, target, stat) {
+    const [namesOut, verboseOut] = await Promise.all([
+      runBsdtar(binary, ['-t', '-f', target]),
+      runBsdtar(binary, ['-tv', '-f', target]),
+    ]);
+    const names = namesOut.split(/\r?\n/).filter((line) => line.length > 0);
+    const sizes = verboseOut.split(/\r?\n/).map((line) => {
+      // mode, links, owner, group, size -- the first five columns of `-tv`.
+      const match = line.match(/^\S+\s+\d+\s+\S+\s+\S+\s+(\d+)\s/);
+      return match ? Number(match[1]) : undefined;
+    });
+    const date = Number.isFinite(stat.mtimeMs) ? Math.round(stat.mtimeMs) : Date.now();
+    const listed = new Map();
+    names.forEach((raw, index) => {
+      const name = raw.replace(/\\/g, '/').replace(/^\/+/, '');
+      const dir = name.endsWith('/');
+      const clean = dir ? name.replace(/\/+$/, '') : name;
+      if (!clean) return;
+      listed.set(clean, { name: clean, dir, size: dir ? 0 : (sizes[index] ?? 0), date });
+      for (const parent of parentDirectories(clean)) {
+        if (!listed.has(parent)) listed.set(parent, { name: parent, dir: true, size: 0, date });
+      }
+    });
+    return [...listed.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /**
+   * Listing through bsdtar, or `null` when this machine cannot stream or the
+   * archive needs the engines that can decrypt. The caller then falls back with
+   * the ceiling applied.
+   */
+  async function listWithBsdtar(target, stat) {
+    const binary = bsdtarBinary();
+    if (!binary) return null;
+    try {
+      return await bsdtarListing(binary, target, stat);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Bytes of one entry from the engines that can decrypt, or that only answer
+   * whole entries. Both routes share this: a socket and a file want the same
+   * bytes, and only what happens to them afterwards differs.
+   */
+  async function readEntryBytes(target, head, name, password) {
+    if (isRarHead(head)) return readRarEntry(target, name, password);
+    return withLibarchiveArchive(target, password, async (reader) => {
+      // The library throws an opaque TypeError for a path it never listed, so
+      // the entry is checked against the listing first. That listing is cached
+      // by the reader after the first call, which the browse already paid for.
+      const listed = await reader.getFilesArray();
+      const known = listed.some(
+        (item) => item.file && `${item.path || ''}${item.file.name}`.replace(/^\/+/, '') === name,
+      );
+      if (!known) throw new Error(`Entry not found: ${name}`);
+      const file = await reader.extractSingleFile(name);
+      return new Uint8Array(await file.arrayBuffer());
+    });
+  }
+
+  /**
+   * Writes one entry straight from bsdtar's stdout to the response.
+   *
+   * Resolves with what happened so the route can still answer with a status
+   * code: nothing has been sent while `bytes` is 0, which is the case when the
+   * archive is encrypted or the entry is not there. Once a byte has gone out the
+   * status is already decided, so a later failure destroys the response instead
+   * of pretending it succeeded.
+   */
+  function streamBsdtarEntry(binary, target, name, res) {
+    return new Promise((resolve) => {
+      const child = spawn(binary, ['-xO', '-f', target, '--', name], { windowsHide: true });
+      let stderr = '';
+      let bytes = 0;
+      let settled = false;
+      const settle = (result) => {
+        if (settled) return;
+        settled = true;
+        resolve(result);
+      };
+      child.stdout.on('data', (chunk) => {
+        bytes += chunk.length;
+        res.write(chunk);
+      });
+      child.stderr.on('data', (chunk) => {
+        if (stderr.length < 8192) stderr += chunk.toString();
+      });
+      child.on('error', (error) => settle({ ok: false, bytes: 0, aborted: false, error: error.message }));
+      child.on('close', (code) => {
+        if (code === 0) {
+          res.end();
+          settle({ ok: true, bytes });
+          return;
+        }
+        const message = stderr.trim() || `bsdtar exited with ${code}`;
+        if (bytes === 0) {
+          settle({
+            ok: false,
+            bytes,
+            aborted: false,
+            entryMissing: /not found in archive/i.test(message),
+            error: message,
+          });
+          return;
+        }
+        res.destroy();
+        settle({ ok: false, bytes, aborted: true, error: message });
+      });
+      // The renderer hanging up mid-entry must stop the extractor, not leave it
+      // writing into a socket nobody reads.
+      res.on('close', () => {
+        if (!res.writableEnded) child.kill();
+      });
+      res.on('error', () => child.kill());
+    });
+  }
+
+  /**
+   * Writes one entry from bsdtar's stdout into a file of its own, through a
+   * sibling temporary path: a failed read leaves nothing under the real name.
+   */
+  async function extractBsdtarEntry(binary, target, name, destination) {
+    const temporary = zipStream.temporaryPathFor(destination);
+    const out = fs.createWriteStream(temporary, { flags: 'wx' });
+    const child = spawn(binary, ['-xO', '-f', target, '--', name], { windowsHide: true });
+    let stderr = '';
+    let bytes = 0;
+    child.stdout.on('data', (chunk) => {
+      bytes += chunk.length;
+    });
+    child.stderr.on('data', (chunk) => {
+      if (stderr.length < 8192) stderr += chunk.toString();
+    });
+    const exited = new Promise((resolve) => child.on('close', resolve));
+    try {
+      await new Promise((resolve, reject) => {
+        out.on('error', reject);
+        child.on('error', reject);
+        out.on('finish', resolve);
+        child.stdout.pipe(out);
+      });
+      const code = await exited;
+      if (code !== 0) {
+        const message = stderr.trim() || `bsdtar exited with ${code}`;
+        throw Object.assign(new Error(message), { entryMissing: /not found in archive/i.test(message) });
+      }
+      await fs.promises.rename(temporary, destination);
+      return bytes;
+    } catch (error) {
+      child.kill();
+      out.destroy();
+      await fs.promises.rm(temporary, { force: true }).catch(() => {});
+      throw error;
+    }
+  }
+
+  /** A file the extraction would overwrite is refused before a byte is written. */
+  async function assertDestinationFree(destination) {
+    const existing = await fs.promises.lstat(destination).catch(() => null);
+    if (!existing) return;
+    const error = new Error(`A file with that name already exists: ${path.win32.basename(destination)}`);
+    error.archiveCode = 'exists';
+    throw error;
+  }
+
+  /** Publishes bytes that had to be read whole: engines that decrypt cannot stream. */
+  async function writeWholeEntry(destination, bytes) {
+    const temporary = zipStream.temporaryPathFor(destination);
+    try {
+      await fs.promises.writeFile(temporary, bytes, { flag: 'wx' });
+      await fs.promises.rename(temporary, destination);
+      return bytes.length;
+    } catch (error) {
+      await fs.promises.rm(temporary, { force: true }).catch(() => {});
+      throw error;
+    }
+  }
+
+  /**
+   * Writes one member straight to its destination, choosing the reader that can
+   * do it without holding the entry: ZIP by its own stream, a large archive by
+   * bsdtar, and the decrypting engines by reading the entry (they cannot stream).
+   */
+  async function writeEntryToFile(target, head, stat, name, destination, password) {
+    await assertDestinationFree(destination);
+    if (isZipHead(head)) return zipStream.extractZipEntryTo(target, name, destination);
+    const binary = stat.size > ARCHIVE_MAX_BYTES ? bsdtarBinary() : null;
+    if (binary) {
+      try {
+        return await extractBsdtarEntry(binary, target, name, destination);
+      } catch (error) {
+        if (error.entryMissing) {
+          throw Object.assign(new Error(`Entry not found: ${name}`), { archiveCode: 'entry-not-found' });
+        }
+        // bsdtar cannot decrypt. Below the ceiling the engines can, so they get
+        // the entry; past it there is no reader left and the failure stands.
+        const refused = tooLargePayload(stat);
+        if (refused) throw Object.assign(new Error(error.message), { archiveCode: 'read-failed' });
+      }
+    }
+    return writeWholeEntry(destination, await readEntryBytes(target, head, name, password));
+  }
+
+  /** Folders the paths imply, so a listing is a tree whatever listed it. */
+  function withParents(list) {
+    const listed = new Map(list.map((entry) => [entry.name, entry]));
+    for (const entry of list) {
+      for (const parent of parentDirectories(entry.name)) {
+        if (!listed.has(parent)) listed.set(parent, { name: parent, dir: true, size: 0, date: entry.date });
+      }
+    }
+    return [...listed.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /** ZIP has a reader of its own that needs no ceiling: see `zipStream.cjs`. */
+  const isZipHead = (head) => head[0] === 0x50 && head[1] === 0x4b && head[2] === 0x03 && head[3] === 0x04;
 
   /** `dir` entries are synthesised: libarchive.js only exposes file entries. */
   function parentDirectories(name) {
@@ -394,16 +697,29 @@ function registerArchiveRoutes(app, deps) {
   app.post('/api/archives/inspect', async (req, res) => {
     const body = req.body || {};
     let target;
+    let stat;
     try {
       const resolved = await resolveArchiveTarget(body.path);
       if (resolved.payload) return res.status(resolved.status).json(resolved.payload);
       target = resolved.target;
+      stat = resolved.stat;
     } catch (error) {
       return res.status(400).json({ code: 'not-found', error: error.message });
     }
     try {
       const head = await readArchiveHead(target);
       assertArchiveSignature(head);
+      // ZIP is listed from its central directory, which is exact about names,
+      // sizes and dates and needs the tail of the file only.
+      if (isZipHead(head)) return res.json({ entries: withParents(await zipStream.listZip(target)) });
+      // Past the ceiling the WASM engines cannot help, so the archive goes to
+      // bsdtar, which walks the headers without holding the file. Below it they
+      // stay: their listings keep the true entry dates and the password flow.
+      const streamed = stat.size > ARCHIVE_MAX_BYTES ? await listWithBsdtar(target, stat) : null;
+      if (streamed) return res.json({ entries: streamed });
+      // Only the fallback is bounded, so only the fallback refuses.
+      const refused = tooLargePayload(stat);
+      if (refused) return res.status(413).json(refused);
       if (isRarHead(head)) return res.json({ entries: await inspectRar(target, body.password) });
       const entries = await withLibarchiveArchive(target, body.password, async (reader) => {
         const files = await reader.getFilesArray();
@@ -438,37 +754,95 @@ function registerArchiveRoutes(app, deps) {
     const name = typeof body.entry === 'string' ? body.entry : '';
     if (!name) return res.status(400).json({ code: 'not-found', error: 'entry is required' });
     let target;
+    let stat;
     try {
       const resolved = await resolveArchiveTarget(body.path);
       if (resolved.payload) return res.status(resolved.status).json(resolved.payload);
       target = resolved.target;
+      stat = resolved.stat;
     } catch (error) {
       return res.status(400).json({ code: 'not-found', error: error.message });
     }
     try {
       const head = await readArchiveHead(target);
       assertArchiveSignature(head);
-      if (isRarHead(head)) {
-        const rarBytes = await readRarEntry(target, name, body.password);
-        return res.type('application/octet-stream').send(Buffer.from(rarBytes));
+      // The entry is streamed to the socket, so a multi-gigabyte member of a
+      // multi-gigabyte archive never sits in this process's heap.
+      if (isZipHead(head)) {
+        await zipStream.streamZipEntry(target, name, res);
+        return;
       }
-      const bytes = await withLibarchiveArchive(target, body.password, async (reader) => {
-        // The library throws an opaque TypeError for a path it never listed, so
-        // the entry is checked against the listing first. That listing is cached
-        // by the reader after the first call, which the browse already paid for.
-        const listed = await reader.getFilesArray();
-        const known = listed.some(
-          (item) => item.file && `${item.path || ''}${item.file.name}`.replace(/^\/+/, '') === name,
-        );
-        if (!known) throw new Error(`Entry not found: ${name}`);
-        const file = await reader.extractSingleFile(name);
-        return new Uint8Array(await file.arrayBuffer());
-      });
-      res.type('application/octet-stream').send(Buffer.from(bytes));
+      const binary = stat.size > ARCHIVE_MAX_BYTES ? bsdtarBinary() : null;
+      if (binary) {
+        const streamed = await streamBsdtarEntry(binary, target, name, res);
+        if (streamed.ok) return;
+        if (streamed.aborted) return;
+        if (streamed.entryMissing)
+          return res.status(400).json({ code: 'entry-not-found', error: `Entry not found: ${name}` });
+      }
+      const refused = tooLargePayload(stat);
+      if (refused) return res.status(413).json(refused);
+      res.type('application/octet-stream').send(Buffer.from(await readEntryBytes(target, head, name, body.password)));
     } catch (error) {
       const payload = archiveErrorPayload(error);
       console.warn('Archive entry read failed:', name, payload.error);
+      // Once bytes are on the wire the status is already sent, so all that is
+      // left is to drop the connection: the renderer then sees a failed read
+      // instead of a short entry pretending to be complete.
+      if (res.headersSent) {
+        res.destroy();
+        return;
+      }
       res.status(400).json(payload);
+    }
+  });
+
+  /**
+   * Extracts one entry straight to a path on disk.
+   *
+   * Reading the entry into the renderer and posting it back cost the file twice
+   * in memory, once on each process, which is why a multi-gigabyte member could
+   * not be extracted even after the archive itself opened. Here the server reads
+   * the entry and writes it, so the only copy in flight is one chunk. The write
+   * goes to a sibling temporary file and is renamed when complete, so a failure
+   * never leaves a short file under the real name, and an existing file is
+   * refused before anything is touched.
+   */
+  app.post('/api/archives/extract', async (req, res) => {
+    const body = req.body || {};
+    const name = typeof body.entry === 'string' ? body.entry : '';
+    if (!name) return res.status(400).json({ code: 'not-found', error: 'entry is required' });
+    let target;
+    let stat;
+    let destination;
+    try {
+      const resolved = await resolveArchiveTarget(body.path);
+      if (resolved.payload) return res.status(resolved.status).json(resolved.payload);
+      target = resolved.target;
+      stat = resolved.stat;
+      destination = assertSafePath(body.target);
+      // Same rule as `/api/fs/write-bytes`: the destination has to be inside the
+      // folder the caller declared, and no junction may stand in the way.
+      if (assertArchiveDestination) await assertArchiveDestination(body.root, destination);
+      await fs.promises.mkdir(path.win32.dirname(destination), { recursive: true });
+    } catch (error) {
+      return res.status(400).json({ code: 'not-found', error: error.message });
+    }
+    try {
+      const head = await readArchiveHead(target);
+      assertArchiveSignature(head);
+      // The streaming readers are the unbounded ones; the engines below hold the
+      // archive whole, so they keep the ceiling they always had.
+      if (!isZipHead(head) && stat.size > ARCHIVE_MAX_BYTES && !bsdtarBinary()) {
+        return res.status(413).json(tooLargePayload(stat));
+      }
+      const written = await writeEntryToFile(target, head, stat, name, destination, body.password);
+      res.json({ ok: true, path: destination, bytes: written });
+    } catch (error) {
+      const payload = archiveErrorPayload(error);
+      console.warn('Archive entry extraction failed:', name, payload.error);
+      const status = payload.code === 'entry-not-found' ? 404 : payload.code === 'exists' ? 409 : 400;
+      res.status(status).json(payload);
     }
   });
 }

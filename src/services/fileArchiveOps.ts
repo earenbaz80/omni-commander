@@ -9,13 +9,23 @@ import {
   loadArchiveBackend,
   withFormatExtension,
   type ArchiveBackend,
+  type ArchiveEntry,
   type OpenableArchiveFormat,
 } from './archiveBackend';
 import { API_BASE } from './apiBase';
 import type { FileItem } from '../types';
 import { tGlobal } from '../i18n/translations';
 import { fetchWithRetry } from '../utils/fetchWithRetry';
-import { loadServerArchiveBackend } from './serverArchive';
+import { ArchiveDestinationExistsError, extractServerEntry, loadServerArchiveBackend } from './serverArchive';
+import { log } from '../utils/logger';
+
+/**
+ * Above this, the archive goes to the server even in a format the renderer can
+ * parse: JSZip and the TAR reader want the whole file as one buffer, while the
+ * server's streaming reader opens any size with a fixed amount of memory. Below
+ * it the renderer keeps the job, and with it the per-entry CRC check.
+ */
+const RENDERER_ARCHIVE_MAX_BYTES = 64 * 1024 * 1024;
 
 /**
  * The archive subsystem: mounting one into the catalogue, writing one and
@@ -175,7 +185,9 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
     // An entry mounted from another archive is not a file on disk: the server
     // has no path to open for it.
     const onDisk = deps.isSystemDrive(source.driveId) && !source.archiveRoot;
-    if (onDisk && isServerReadable(declared)) {
+    // A format only the server reads, or one too large for the renderer's
+    // in-memory parsers: both are the server's, and it streams either of them.
+    if (onDisk && (isServerReadable(declared) || source.size > RENDERER_ARCHIVE_MAX_BYTES)) {
       return loadServerArchiveBackend(deps.realAbsolutePath(source), fileName, declared, password);
     }
     try {
@@ -300,6 +312,43 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
     return result;
   }
 
+  /**
+   * Extracts one large member on the server, which writes it straight to disk.
+   *
+   * Reading it here and posting it back would put the whole entry in this
+   * process's memory and then again in the server's, which is why a member of
+   * several gigabytes could not be extracted even once the archive opened. Only
+   * a member above the renderer's own threshold takes this path, and only when
+   * both the archive and the destination are real paths on disk. Returns false
+   * when the server could not do it, so the caller keeps its old path instead of
+   * failing an extraction that used to work.
+   */
+  async function streamEntryToDisk(
+    archiveFile: FileItem,
+    entry: ArchiveEntry,
+    targetDriveId: string,
+    targetPath: string,
+    relative: string,
+  ): Promise<boolean> {
+    const folder = deps.normalizePath(targetPath);
+    try {
+      await extractServerEntry({
+        archivePath: deps.realAbsolutePath(archiveFile),
+        fileName: deps.realEntryName(archiveFile),
+        format: formatFromExtension(deps.realEntryName(archiveFile)),
+        entryName: entry.name,
+        destination: deps.absoluteForDrive(targetDriveId, deps.childAbsolutePath(folder, relative)),
+        root: deps.absoluteForDrive(targetDriveId, folder),
+      });
+      return true;
+    } catch (error) {
+      // An existing destination is a refusal, not a reason to retry in memory.
+      if (error instanceof ArchiveDestinationExistsError) throw error;
+      log.warn('Streamed extraction failed; falling back to a buffered read', error);
+      return false;
+    }
+  }
+
   async function extractArchive(
     archiveFile: FileItem,
     targetDriveId: string,
@@ -333,7 +382,14 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
           parent = deps.childAbsolutePath(parent, dir);
         }
         if (!entry.dir) {
-          await writeBytes(targetDriveId, targetPath, relative, await entry.read());
+          const streamable =
+            deps.isSystemDrive(targetDriveId) &&
+            deps.isSystemDrive(archiveFile.driveId) &&
+            !archiveFile.archiveRoot &&
+            entry.size > RENDERER_ARCHIVE_MAX_BYTES;
+          const streamed =
+            streamable && (await streamEntryToDisk(archiveFile, entry, targetDriveId, targetPath, relative));
+          if (!streamed) await writeBytes(targetDriveId, targetPath, relative, await entry.read());
           extractedCount++;
         }
       }

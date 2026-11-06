@@ -23,7 +23,7 @@ import {
   formatLabel,
   type ArchiveBackend,
   type ArchiveEntry,
-  type ServerArchiveFormat,
+  type ArchiveFormatName,
 } from './archiveBackend';
 
 /** One entry as the server describes it; `date` is epoch milliseconds. */
@@ -43,9 +43,20 @@ interface FailurePayload {
   limitBytes?: number;
 }
 
+/**
+ * Raised when the entry cannot be written because something is already there.
+ * It is not a read failure, so the caller must not retry it as one.
+ */
+export class ArchiveDestinationExistsError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ArchiveDestinationExistsError';
+  }
+}
+
 /** Raised when the local server is not answering, so these formats cannot be read. */
 export class ArchiveServerUnavailableError extends Error {
-  constructor(format: ServerArchiveFormat) {
+  constructor(format: ArchiveFormatName) {
     super(tGlobal('zipServerRequired').replace('{format}', formatLabel(format)));
     this.name = 'ArchiveServerUnavailableError';
   }
@@ -76,8 +87,7 @@ function describeLimit(limitBytes: number): string {
  * archive" message the ZIP path uses. A too-large archive is not damaged, so
  * reporting it as corrupt would send the user looking for a problem in the file.
  */
-async function remoteFailure(response: Response, fileName: string): Promise<Error> {
-  const payload = (await response.json().catch(() => null)) as FailurePayload | null;
+function failureFromPayload(payload: FailurePayload | null, fileName: string): Error {
   if (payload?.code === 'password-required') {
     return new ArchivePasswordError(
       fileName,
@@ -94,6 +104,10 @@ async function remoteFailure(response: Response, fileName: string): Promise<Erro
   return new Error(tGlobal('zipErrCorrupt').replace('{name}', fileName));
 }
 
+async function remoteFailure(response: Response, fileName: string): Promise<Error> {
+  return failureFromPayload((await response.json().catch(() => null)) as FailurePayload | null, fileName);
+}
+
 /**
  * Lists a server-readable archive and returns a backend whose `read()` fetches
  * one entry at a time. `targetPath` is the archive's absolute path on disk.
@@ -101,7 +115,7 @@ async function remoteFailure(response: Response, fileName: string): Promise<Erro
 export async function loadServerArchiveBackend(
   targetPath: string,
   fileName: string,
-  format: ServerArchiveFormat,
+  format: ArchiveFormatName,
   password?: string,
 ): Promise<ArchiveBackend> {
   let response: Response;
@@ -139,4 +153,51 @@ export async function loadServerArchiveBackend(
     entries,
     readEntry: read,
   };
+}
+
+/** Everything the extraction route needs: which archive, which entry, where. */
+export interface ServerEntryTarget {
+  /** Absolute path of the archive on disk. */
+  archivePath: string;
+  /** The archive's name, for the messages the user reads. */
+  fileName: string;
+  format: ArchiveFormatName;
+  /** Name of the entry inside the archive, slash separated. */
+  entryName: string;
+  /** Absolute path of the file to write. */
+  destination: string;
+  /** The folder being extracted into; the server refuses anything outside it. */
+  root: string;
+  password?: string;
+}
+
+/**
+ * Extracts one entry straight to disk, on the server.
+ *
+ * Fetching the bytes here and posting them back would need the whole entry in
+ * this process's memory and then again in the server's, so a member of several
+ * gigabytes could not be extracted at all. The server reads the archive it
+already has and writes the file, and this returns how many bytes landed.
+ */
+export async function extractServerEntry(target: ServerEntryTarget): Promise<number> {
+  let response: Response;
+  try {
+    response = await callServer('extract', {
+      path: target.archivePath,
+      entry: target.entryName,
+      target: target.destination,
+      root: target.root,
+      password: target.password,
+    });
+  } catch (error) {
+    log.warn('Archive server unreachable while extracting', error);
+    throw new ArchiveServerUnavailableError(target.format);
+  }
+  const payload = (await response.json().catch(() => null)) as (FailurePayload & { bytes?: number }) | null;
+  if (payload?.code === 'exists') {
+    const leaf = target.destination.split(/[\\/]/).pop() || target.entryName;
+    throw new ArchiveDestinationExistsError(tGlobal('zipErrExists').replace('{name}', leaf));
+  }
+  if (!response.ok) throw failureFromPayload(payload, target.fileName);
+  return typeof payload?.bytes === 'number' ? payload.bytes : 0;
 }
