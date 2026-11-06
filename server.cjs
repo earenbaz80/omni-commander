@@ -104,7 +104,10 @@ const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
  * job paths, drive inventory and the programs the run box can launch. A page on
  * another origin is already refused, and this makes a client that got past the
  * origin rule — a non-browser one, or the proxy — prove it holds the app's
- * token before it can map the disk.
+ * token before it can map the disk. The machine reads below belong here for the
+ * same reason: a process table, the addresses of the network cards and the live
+ * load describe the computer the same way the drive inventory does, and none of
+ * them needs the token to answer anything else.
  */
 const SENSITIVE_GET_ROUTES = new Set([
   '/api/drives',
@@ -122,6 +125,12 @@ const SENSITIVE_GET_ROUTES = new Set([
   // Names of the programs installed for an extension: what the Open-with
   // submenu lists before the user has clicked anything.
   '/api/open-with/programs',
+  // What the machine is doing: the processes it runs, the addresses its cards
+  // hold and how loaded it is. They take no path argument, so they were left
+  // out at first, but the disclosure is the same — an inventory of this box.
+  '/api/processes',
+  '/api/net/adapters',
+  '/api/system/stats',
 ]);
 
 /** Mutations, and the GETs that describe the disk, need the per-launch token. */

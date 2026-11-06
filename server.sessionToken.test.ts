@@ -7,6 +7,10 @@ import { startServer, type TestServer } from '@/scripts/serverHarness';
  * as `/api/list`, so it belongs in the set of reads that must prove they hold the
  * per-launch token. It had been left out by oversight, which meant a client that
  * got past the origin rule could map the disk through the tree without the secret.
+ *
+ * The machine reads answer the same question about this computer — which
+ * processes run, which addresses its cards hold, how loaded it is — so they are
+ * held to the same proof rather than left open as "just status".
  */
 let server: TestServer;
 const TOKEN = 'sensitive-route-token';
@@ -34,5 +38,24 @@ describe('lecturas que describen el disco', () => {
   it('las unidades siguen exigiéndolo', async () => {
     expect(await statusOf('/api/drives')).toBe(403);
     expect(await statusOf('/api/drives', { headers: { 'x-omni-token': TOKEN } })).toBe(200);
+  });
+});
+
+describe('lecturas que describen la máquina', () => {
+  const token = { headers: { 'x-omni-token': TOKEN } };
+
+  it('la tabla de procesos exige el token', async () => {
+    expect(await statusOf('/api/processes')).toBe(403);
+    expect(await statusOf('/api/processes', token)).toBe(200);
+  });
+
+  it('las direcciones de red exigen el token', async () => {
+    expect(await statusOf('/api/net/adapters')).toBe(403);
+    expect(await statusOf('/api/net/adapters', token)).toBe(200);
+  });
+
+  it('la carga del sistema exige el token', async () => {
+    expect(await statusOf('/api/system/stats')).toBe(403);
+    expect(await statusOf('/api/system/stats', token)).toBe(200);
   });
 });
