@@ -50,6 +50,13 @@ export interface TransferQueue {
   ) => Promise<ElevationResult | undefined>;
   handleConfirmCopy: (targetPath: string, options: TransferOptions) => Promise<string | undefined>;
   handleConfirmMove: (targetPath: string, options: TransferOptions) => Promise<string | undefined>;
+  /** Pastes a clipboard snapshot into a folder of the panel the user is on. */
+  handlePasteTransfer: (
+    op: 'copy' | 'move',
+    targetDriveId: string,
+    targetPath: string,
+    items: FileItem[],
+  ) => Promise<string | undefined>;
 }
 
 /**
@@ -114,6 +121,8 @@ export function useTransferQueue({
     items: FileItem[] | null,
     targetPath: string,
     options: TransferOptions,
+    targetDriveId: string = currentInactiveTab.driveId,
+    sourceDriveId: string = currentActiveTab.driveId,
   ): TransferPlan | undefined => {
     // Guardrail: Handle null/undefined items gracefully
     const normalizedItems = items ?? [];
@@ -121,8 +130,8 @@ export function useTransferQueue({
     if (normalizedItems.length === 0 || !normalizedItems.every((item) => fsEngine.isRealFile(item))) return undefined;
     return {
       op,
-      sourceDriveId: currentActiveTab.driveId,
-      targetDriveId: currentInactiveTab.driveId,
+      sourceDriveId,
+      targetDriveId,
       targetDir: targetPath,
       overwrite: options.collision === 'overwrite',
       collision: options.collision,
@@ -344,20 +353,26 @@ export function useTransferQueue({
     op: 'copy' | 'move',
     targetPath: string,
     options: TransferOptions,
+    // A clipboard paste names both halves itself: the items were copied in one
+    // panel and the destination is the folder of the panel the user is on now.
+    // The dialog flow instead always aims at the other panel, which is why the
+    // drive and the list have to be passed in rather than read from the tabs.
+    fromClipboard?: { items: FileItem[]; targetDriveId: string },
   ): Promise<string | undefined> => {
-    const items: FileItem[] = transferItems;
-    if (items.some((item) => item.archiveRoot) || fsEngine.getArchiveSource(currentInactiveTab.driveId, targetPath)) {
+    const items: FileItem[] = fromClipboard?.items ?? transferItems;
+    const targetDriveId = fromClipboard?.targetDriveId ?? currentInactiveTab.driveId;
+    const sourceDriveId = items[0]?.driveId ?? currentActiveTab.driveId;
+    if (items.some((item) => item.archiveRoot) || fsEngine.getArchiveSource(targetDriveId, targetPath)) {
       return taskQueue.addTask('extract', t.unzipExtract, t.appDest.replace('{path}', targetPath), 0, async () => {
-        if (op !== 'copy' || fsEngine.getArchiveSource(currentInactiveTab.driveId, targetPath))
-          throw new Error(t.zipReadOnly);
+        if (op !== 'copy' || fsEngine.getArchiveSource(targetDriveId, targetPath)) throw new Error(t.zipReadOnly);
         for (const item of items) {
           const source = fsEngine.getArchiveSource(item.driveId, item.path);
           if (!source) throw new Error(t.zipErrEmpty);
-          await fsEngine.extractArchive(source, currentInactiveTab.driveId, targetPath, item.archiveEntry);
+          await fsEngine.extractArchive(source, targetDriveId, targetPath, item.archiveEntry);
         }
       });
     }
-    const plan = buildTransferPlan(op, items, targetPath, options);
+    const plan = buildTransferPlan(op, items, targetPath, options, targetDriveId, sourceDriveId);
     if (plan) {
       // The copy window stays open and follows the transfer it started: closing
       // it here left the user with only a small card and no way back into the job.
@@ -375,7 +390,7 @@ export function useTransferQueue({
     // it used to swallow a transfer aimed at a real drive too: the task animated
     // and finished without writing a single byte. Report the block instead of
     // pretending the copy happened.
-    if (fsEngine.isSystemDrive(currentInactiveTab.driveId)) {
+    if (fsEngine.isSystemDrive(targetDriveId)) {
       const unknown = items.filter((item) => !fsEngine.isRealFile(item)).map((item) => item.name);
       const detail = unknown.length > 0 ? unknown.join(', ') : items.length + ' selected item(s)';
       return taskQueue.addTask(op, op === 'move' ? 'Move blocked' : 'Copy blocked', detail, 0, async () => {
@@ -427,7 +442,7 @@ export function useTransferQueue({
             if (op === 'move') {
               await fsEngine.moveItem(
                 item.id,
-                currentInactiveTab.driveId,
+                targetDriveId,
                 targetPath,
                 (t) => {
                   current = t;
@@ -442,7 +457,7 @@ export function useTransferQueue({
             } else {
               await fsEngine.copyItem(
                 item.id,
-                currentInactiveTab.driveId,
+                targetDriveId,
                 targetPath,
                 overwrite,
                 (t) => {
@@ -491,6 +506,19 @@ export function useTransferQueue({
     return runConfirmedTransfer('move', targetPath, options);
   };
 
+  // Ctrl+V reaches this directly instead of opening the copy window: the folder
+  // is the one already in front of the user, and a collision is asked about by
+  // the same prompt the dialogs use.
+  const handlePasteTransfer = (
+    op: 'copy' | 'move',
+    targetDriveId: string,
+    targetPath: string,
+    items: FileItem[],
+  ): Promise<string | undefined> => {
+    if (items.length === 0) return Promise.resolve(undefined);
+    return runConfirmedTransfer(op, targetPath, { collision: 'ask', throttleBps: 0 }, { items, targetDriveId });
+  };
+
   const dismissFreeSpacePrompt = () => setFreeSpacePrompt(null);
 
   return {
@@ -504,5 +532,6 @@ export function useTransferQueue({
     handleElevateTransfer,
     handleConfirmCopy,
     handleConfirmMove,
+    handlePasteTransfer,
   };
 }

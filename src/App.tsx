@@ -29,6 +29,7 @@ import { CollapsibleInfoDrawer } from './components/CollapsibleInfoDrawer';
 
 // Modals
 import { startTrayBridge } from './services/trayBridge';
+import { soundManager } from './services/soundEffects';
 
 export default function App() {
   // Global System Settings
@@ -324,6 +325,48 @@ export default function App() {
     [setSettings],
   );
 
+  // The selection as it was when Ctrl+C or Ctrl+X was pressed. A snapshot, not
+  // a live read: navigating away or re-selecting before Ctrl+V must not change
+  // what gets pasted.
+  const [fileClipboard, setFileClipboard] = useState<{ items: FileItem[]; op: 'copy' | 'move' } | null>(null);
+
+  const handleClipboardCopy = () => {
+    const items = getSelectedOrFocusedItems();
+    if (items.length === 0) return;
+    soundManager.playKeyTick();
+    setFileClipboard({ items, op: 'copy' });
+  };
+
+  const handleClipboardCut = () => {
+    const items = getSelectedOrFocusedItems();
+    if (items.length === 0) return;
+    soundManager.playKeyTick();
+    setFileClipboard({ items, op: 'move' });
+  };
+
+  // The transfer queue has to exist first: pasting is the same queued transfer
+  // the copy window starts, only with the folder of the active panel as target.
+  const transferQueue = useTransferQueue({
+    lang,
+    transferItems,
+    currentActiveTab,
+    currentInactiveTab,
+    setFsTick,
+  });
+
+  const handleClipboardPaste = () => {
+    if (!fileClipboard || fileClipboard.items.length === 0) return;
+    soundManager.playDiskAccess();
+    void transferQueue.handlePasteTransfer(
+      fileClipboard.op,
+      currentActiveTab.driveId,
+      currentActiveTab.currentPath,
+      fileClipboard.items,
+    );
+    // A cut is spent once it is pasted; a copy stays, as in Explorer.
+    if (fileClipboard.op === 'move') setFileClipboard(null);
+  };
+
   // Keyboard navigation engine
   useKeyboardShortcuts({
     activePanel,
@@ -351,6 +394,9 @@ export default function App() {
     handleTriggerCopy,
     handleTriggerMove,
     handleTriggerDelete,
+    handleClipboardCopy,
+    handleClipboardCut,
+    handleClipboardPaste,
     handleSelectDrive,
     handleNewTab,
     handleCloseTab,
@@ -366,14 +412,6 @@ export default function App() {
       if (!settings.showToolbar) setLauncherOnly(true);
       setRunLauncherOpenRequest((request) => request + 1);
     },
-  });
-
-  const transferQueue = useTransferQueue({
-    lang,
-    transferItems,
-    currentActiveTab,
-    currentInactiveTab,
-    setFsTick,
   });
 
   const fileOperations = useFileOperations({
