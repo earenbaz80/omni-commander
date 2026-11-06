@@ -25,6 +25,8 @@
 
 Las tres auditorías —[26-oct](docs/audits/AUDITORIA_2026-10-26.md), [29-oct](docs/audits/AUDITORIA_2026-10-29.md) y [6-nov](docs/audits/AUDITORIA_2026-11-06.md)— viven juntas en `docs/audits/` y miden commits distintos, así que sus cifras no se comparan con esta tabla; la del 29-oct hablaba del 54,01 % de cobertura y 44 `any`. Lo que sí sigue siendo cierto de aquellas: `release/` ocupa cientos de MB y la raíz acumula volcados `.txt` ignorados por git.
 
+**Aviso de dependencias, ya configurado.** El commit `9b6e681` añade [`.github/dependabot.yml`](.github/dependabot.yml), y con él una versión nueva o un advisory se ven sin esperar al siguiente push: es la brecha que la auditoría del 6-nov dejaba abierta. Revisa `package.json` y las acciones fijadas por SHA cada día laborable; los saltos de major llegan en un PR propio y el resto se agrupa por tipo de dependencia, para que las 28 desfasadas de la tabla no lleguen como 28 peticiones. El fichero no enciende las dos cosas que viven en Ajustes del repositorio: las alertas y los *security updates*, que son justo las que convierten un CVE publicado en un PR.
+
 ---
 
 ## 1. Cómo se ordena
