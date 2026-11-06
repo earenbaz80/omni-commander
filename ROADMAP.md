@@ -1,6 +1,6 @@
 # Hoja de ruta — OmniCommander Pro
 
-**Fecha:** 5-nov-2026 · **Base:** `3227efe` (la 1.0.33 publicada) · **Alcance:** los arreglos que salieron del análisis del código de la 1.0.30; las fases F0 a F7 están cerradas.
+**Fecha:** 6-nov-2026 · **Base:** `00186b9` (la 1.0.39 publicada) · **Alcance:** los arreglos que salieron del análisis del código de la 1.0.30; las fases F0 a F7 están cerradas.
 
 **Corrección de partida:** en el análisis se dijo que no había CI por push. Es falso. [`.github/workflows/release.yml`](.github/workflows/release.yml) se llama «CI and Release» y ya ejecuta, en cada push a `master` y en cada PR: formato, tipos, tipos estrictos, eslint, tests unitarios y los e2e; el empaquetado y la publicación solo ocurren con una etiqueta `v*`. Lo que falta en el CI no es el gate, es la **cobertura** y un **presupuesto de tiempo**. El resto del plan se apoya en ese gate, no lo repite.
 
