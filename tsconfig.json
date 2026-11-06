@@ -17,5 +17,7 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "include": ["./*.ts", "./*.tsx", "./*.cjs", "src", "electron", "server", "scripts", "e2e"],
+  "exclude": ["node_modules", "dist", "dev-dist", "release", "coverage", "server-coverage", "public", "odd"]
 }
