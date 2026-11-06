@@ -6,6 +6,8 @@ build/
 release/
 coverage/
 test-results/
+playwright-report/
+blob-report/
 storybook-static/
 .playwright/
 .freebuff/
