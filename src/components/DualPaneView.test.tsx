@@ -41,6 +41,8 @@ const binding = (overrides: Partial<PaneBinding> = {}): PaneBinding => ({
 const makeHandlers = (): PaneHandlers => ({
   navigate: vi.fn(),
   selectDrive: vi.fn(),
+  navigateTree: vi.fn(),
+  selectDriveTree: vi.fn(),
   selectTab: vi.fn(),
   newTab: vi.fn(),
   closeTab: vi.fn(),

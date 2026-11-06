@@ -38,6 +38,9 @@ export interface PaneBinding {
 export interface PaneHandlers {
   navigate: (side: 'left' | 'right', path: string) => void;
   selectDrive: (side: 'left' | 'right', driveId: string) => void;
+  /** Tree panes follow the active panel; they carry no side of their own. */
+  navigateTree: (path: string) => void;
+  selectDriveTree: (driveId: string) => void;
   selectTab: (side: 'left' | 'right', tabId: string) => void;
   newTab: (side: 'left' | 'right') => void;
   closeTab: (side: 'left' | 'right', tabId: string) => void;
@@ -127,6 +130,8 @@ export const DualPaneView: React.FC<DualPaneViewProps> = ({
       onDropItems={handlers.dropItems}
       onDropNativeFiles={handlers.dropNativeFiles}
       onNavigate={(path) => handlers.navigate(side, path)}
+      onTreeNavigate={handlers.navigateTree}
+      onTreeSelectDrive={handlers.selectDriveTree}
       onSelectDrive={(driveId) => handlers.selectDrive(side, driveId)}
       onSelectTab={(tabId) => handlers.selectTab(side, tabId)}
       onNewTab={() => handlers.newTab(side)}

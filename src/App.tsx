@@ -438,6 +438,11 @@ export default function App() {
       if (!target) return;
       if (leftTreePaneRef.current?.contains(target)) return;
       if (leftTreeTabRef.current?.contains(target)) return;
+      // The tree opens folders in whichever panel has the focus, so working in
+      // either pane must not dismiss it. Otherwise clicking into the right pane
+      // closes the tree before a folder can be chosen for it, which is exactly
+      // the situation the tree is meant to serve.
+      if (target instanceof Element && target.closest('[data-panel-side]')) return;
       setLeftPanel((p) => ({ ...p, isTreeVisible: false }));
     };
     document.addEventListener('mousedown', onPointerDown);
@@ -503,6 +508,10 @@ export default function App() {
         handlers={{
           navigate: handleNavigate,
           selectDrive: handleSelectDrive,
+          // The tree is a sidebar: whatever folder is chosen there opens in the
+          // panel that has the focus, not in the one the tree happens to sit in.
+          navigateTree: (path) => handleNavigate(activePanel, path),
+          selectDriveTree: (driveId) => void handleSelectDrive(activePanel, driveId),
           selectTab: handleSelectTab,
           newTab: handleNewTab,
           closeTab: handleCloseTab,

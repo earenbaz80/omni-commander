@@ -384,6 +384,7 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
 
   return (
     <div
+      data-tree-pane
       className="w-60 md:w-64 flex flex-col h-full border-r shrink-0 font-mono text-xs select-none bg-black/50 overflow-hidden transition-all shadow-inner"
       style={{
         borderColor: theme.borderPanel,

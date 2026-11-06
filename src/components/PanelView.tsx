@@ -47,6 +47,13 @@ interface PanelViewProps {
   /** Pinned folders the tree found deleted, so the app can forget them. */
   onMissingFavorites?: (paths: string[]) => void;
   onNavigate: (path: string) => void;
+  /**
+   * What the tree pane asks for. It is a sidebar rather than a control of the
+   * panel it sits in, so its choice belongs to the panel the user is working in.
+   * The path bar, by contrast, always edits its own panel.
+   */
+  onTreeNavigate?: (path: string) => void;
+  onTreeSelectDrive?: (driveId: string) => void;
   onSelectDrive: (driveId: string) => void;
   onSelectTab: (tabId: string) => void;
   onNewTab: () => void;
@@ -98,6 +105,8 @@ export const PanelView: React.FC<PanelViewProps> = ({
   onDropNativeFiles,
   onMissingFavorites,
   onNavigate,
+  onTreeNavigate,
+  onTreeSelectDrive,
   onSelectDrive,
   onSelectTab,
   onNewTab,
@@ -118,6 +127,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
 
   return (
     <div
+      data-panel-side={side}
       className={`flex flex-row min-h-0 border rounded shadow-md overflow-hidden transition-all ${
         isActive ? 'ring-2' : 'opacity-90'
       }`}
@@ -142,15 +152,18 @@ export const PanelView: React.FC<PanelViewProps> = ({
     >
       {/* Optional Directory Tree View */}
       {panel.isTreeVisible && (
-        <div ref={treePaneRef}>
+        // Using the tree must not move the active panel: the whole point is that
+        // it navigates the panel the user is already looking at, even when the
+        // tree is drawn inside the other one.
+        <div ref={treePaneRef} onClick={(event) => event.stopPropagation()}>
           <TreeNavigationPane
             lang={lang}
             theme={currentTheme}
             drives={drives}
             currentPath={tab.currentPath}
             currentDriveId={tab.driveId}
-            onNavigate={onNavigate}
-            onSelectDrive={onSelectDrive}
+            onNavigate={onTreeNavigate ?? onNavigate}
+            onSelectDrive={onTreeSelectDrive ?? onSelectDrive}
             onClose={() => setPanel((p) => ({ ...p, isTreeVisible: false }))}
             onDropItems={onDropItems}
             favoriteFolders={settings.favoriteFolders ?? []}
