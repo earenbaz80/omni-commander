@@ -4,6 +4,8 @@ import { BackgroundTask, CollisionPolicy, FileItem, LanguageCode, TransferOption
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
+import { describeElevationFailure } from '../../services/elevation';
+import type { ElevationResult } from '../../types/electronBridge';
 import { readAfterFinishChoice, writeAfterFinishChoice, type AfterFinish } from '../../services/afterFinish';
 import { taskQueue } from '../../services/taskQueueManager';
 import { addEntriesToPlan, planFileBytes } from '../../services/transferPlanEdits';
@@ -23,7 +25,7 @@ interface CopyMoveModalProps {
   targetDriveId?: string;
   onConfirm: (targetPath: string, options: TransferOptions) => string | undefined | Promise<string | undefined>;
   /** Elevate and replay this transfer in the new instance. */
-  onElevate?: (targetPath: string, options: TransferOptions) => Promise<{ ok: boolean; reason?: string } | undefined>;
+  onElevate?: (targetPath: string, options: TransferOptions) => Promise<ElevationResult | undefined>;
   /** Replay a batch of plans loaded from disk. */
   onLoadCopyList?: (plans: TransferPlan[]) => void;
   onClose: () => void;
@@ -1095,9 +1097,9 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                   const result = onElevate
                     ? await onElevate(destPath.trim(), submitOptions())
                     : await window.electronAPI?.relaunchAsAdmin?.();
-                  if (!result?.ok) {
-                    setAdminNote(`${t.runAsAdmin}: ${result?.reason || 'failed'}`);
-                  }
+                  // A confirmed restart replaces this window; a refused prompt
+                  // keeps it open and owes the user the real reason.
+                  setAdminNote(describeElevationFailure(result ?? { ok: false, reason: 'unsupported' }, t));
                 }}
                 className={`flex items-center justify-center gap-[var(--space-2)] w-full px-[var(--space-2)] py-[var(--space-1)] rounded border font-bold text-[12px] cursor-pointer ${
                   needsAdmin

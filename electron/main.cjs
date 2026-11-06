@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog, shell } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
-const { spawn } = require('node:child_process');
+const { launchElevated } = require('./elevation.cjs');
 const crypto = require('node:crypto');
 const { isAllowedNavigationUrl } = require('./navigationGuard.cjs');
 const { isAllowedExternalTarget } = require('./externalLinks.cjs');
@@ -620,32 +620,18 @@ ipcMain.handle('app:relaunch-admin', async () => {
     const elevatePath = path.join(process.resourcesPath || '', 'elevate.exe');
     if (!fs.existsSync(elevatePath)) {
       log(`elevate missing at ${elevatePath}`);
-      return { ok: false, reason: 'elevate missing' };
+      return { ok: false, reason: 'elevate-missing' };
     }
 
-    // The helper may exit right after shelling out, or stay alive alongside the
-    // app it started. Either way a non-zero exit means the launch was refused.
-    const result = await new Promise((resolve) => {
-      let settled = false;
-      const finish = (value) => {
-        if (settled) return;
-        settled = true;
-        resolve(value);
-      };
-      const child = spawn(elevatePath, [target], { stdio: 'ignore' });
-      child.on('error', (error) => {
-        log(`elevate spawn error ${error.message}`);
-        finish('error');
-      });
-      child.on('exit', (code) => {
-        log(`elevate exit ${code}`);
-        finish(code === 0 ? 'ok' : 'error');
-      });
-      setTimeout(() => finish('ok'), 4000);
-    });
+    // The helper waits for the UAC prompt to be answered and then reports the
+    // real outcome: zero means the elevated copy was started, anything else
+    // means it was not. A timer cannot stand in for that answer -- the old
+    // four-second "ok" quit this window while the prompt was still open, so
+    // cancelling looked like a successful restart and no reason was shown.
+    const result = await launchElevated({ elevatePath, target, log });
 
-    log(`outcome=${result}`);
-    if (result !== 'ok') return { ok: false, reason: result };
+    log(`outcome=${result.ok ? 'ok' : result.reason}`);
+    if (!result.ok) return result;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'launch failed';
     log(`launch error ${message}`);

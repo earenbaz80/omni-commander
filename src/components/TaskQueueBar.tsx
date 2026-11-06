@@ -8,6 +8,7 @@ import { ThemeConfig } from '../services/themeManager';
 import { RetroProgressBar } from './RetroProgressBar';
 import { fsEngine } from '../services/fileSystem';
 import { useElevation } from '../hooks/useElevation';
+import { describeElevationFailure } from '../services/elevation';
 
 interface TaskQueueBarProps {
   onOpenTasksModal: () => void;
@@ -20,9 +21,12 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
   // Whether this process really holds an elevated token. Offering the only way
   // to gain one from inside a process that already has it is how the card kept
   // asking for admin while the status line said admin was granted.
-  const { isElevated } = useElevation();
+  const { isElevated, requestElevation } = useElevation();
   const [tasks, setTasks] = useState<BackgroundTask[]>(() => taskQueue.getTasks());
   const [isMinimized, setIsMinimized] = useState(false);
+  // A refused UAC leaves this window open, so the reason has to be printed
+  // here instead of letting the button look like it did nothing.
+  const [adminNote, setAdminNote] = useState('');
 
   useEffect(() => {
     return taskQueue.subscribe(() => {
@@ -204,20 +208,29 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
               token. Explorer asks for it silently; this app has to relaunch
               itself, so keep that door in the window at all times. */}
           {!isElevated && window.electronAPI?.relaunchAsAdmin && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                soundManager.playKeyTick();
-                void window.electronAPI?.relaunchAsAdmin?.();
-              }}
-              className={`w-full px-[var(--space-1)].5 py-[var(--space-1)] border rounded cursor-pointer font-bold text-[12px] ${
-                needsAdmin
-                  ? 'border-amber-400 text-amber-300 bg-amber-950/50 hover:bg-amber-900/70'
-                  : 'border-amber-700/50 text-amber-500/80 hover:bg-amber-950/40'
-              }`}
-            >
-              {t.runAsAdmin}
-            </button>
+            <>
+              <button
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  soundManager.playKeyTick();
+                  setAdminNote('');
+                  const result = await requestElevation();
+                  if (result && !result.ok) setAdminNote(describeElevationFailure(result, t));
+                }}
+                className={`w-full px-[var(--space-1)].5 py-[var(--space-1)] border rounded cursor-pointer font-bold text-[12px] ${
+                  needsAdmin
+                    ? 'border-amber-400 text-amber-300 bg-amber-950/50 hover:bg-amber-900/70'
+                    : 'border-amber-700/50 text-amber-500/80 hover:bg-amber-950/40'
+                }`}
+              >
+                {t.runAsAdmin}
+              </button>
+              {adminNote && (
+                <div role="alert" className="text-[11px] leading-snug text-amber-300 break-words">
+                  {adminNote}
+                </div>
+              )}
+            </>
           )}
 
           <div className="flex items-center justify-between text-[12px] opacity-70">
