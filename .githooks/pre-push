@@ -9,6 +9,14 @@ set -eo pipefail
 
 cd "$(git rev-parse --show-toplevel)" || exit 0
 
+# Node is not always on the PATH Git gives a hook; the shared helper looks in the
+# usual install locations so `npm run lint` and the suite below run instead of
+# dying on "npm: command not found".
+if [ -f .githooks/node-path.sh ]; then
+  . .githooks/node-path.sh
+  ensure_node || true
+fi
+
 # Git writes one line per ref on stdin: local ref, local sha, remote ref, remote
 # sha. A branch deletion is all zero shas and has nothing of ours to verify.
 only_deletes=true

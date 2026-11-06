@@ -7,6 +7,14 @@ set -eo pipefail
 
 cd "$(git rev-parse --show-toplevel)" || exit 0
 
+# Node is not always on the PATH Git gives a hook; the shared helper looks in the
+# usual install locations so the formatting below runs instead of dying on
+# "node: command not found".
+if [ -f .githooks/node-path.sh ]; then
+  . .githooks/node-path.sh
+  ensure_node || true
+fi
+
 # A fresh clone can be committed to before `npm install`; skipping is kinder
 # than blocking the commit on a tool that is not there yet.
 if [ ! -f node_modules/prettier/bin/prettier.cjs ]; then
