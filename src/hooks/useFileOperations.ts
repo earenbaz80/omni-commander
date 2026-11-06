@@ -201,7 +201,10 @@ export function useFileOperations({
     const mounted = fsEngine.getArchiveSource(currentActiveTab.driveId, currentActiveTab.currentPath);
     const source = mounted || zipFile;
     const destination = mounted ? currentInactiveTab : currentActiveTab;
-    taskQueue.addTask(
+    // The queue names the task after this call returns, and the executor only
+    // starts once it has, so the closures below can refer to that id.
+    let taskId = '';
+    taskId = taskQueue.addTask(
       'extract',
       t.appUnpacking.replace('{name}', `${source.name}.${source.ext}`),
       t.appDest.replace('{path}', destination.currentPath),
@@ -209,8 +212,28 @@ export function useFileOperations({
       // The bar follows the bytes that reach the disk. Without this an extraction
       // sat at 0% for its whole run, which for a member of gigabytes looked like
       // the app had hung.
-      async (onProgress) => {
-        await fsEngine.extractArchive(source, destination.driveId, destination.currentPath, undefined, onProgress);
+      async (onProgress, signal) => {
+        // The queue cannot interrupt an await, so a small watcher turns
+        // "cancelled" into an abort. Dropping the request is what makes the
+        // server notice the closed socket, kill its writer and delete the
+        // temporary file instead of finishing a file nobody asked for.
+        const controller = new AbortController();
+        const watcher = setInterval(() => {
+          if (signal.cancelled) controller.abort();
+        }, 200);
+        try {
+          await fsEngine.extractArchive(
+            source,
+            destination.driveId,
+            destination.currentPath,
+            undefined,
+            onProgress,
+            controller.signal,
+            (entryPath) => taskQueue.updateTaskMeta(taskId, { currentFile: entryPath }),
+          );
+        } finally {
+          clearInterval(watcher);
+        }
       },
     );
     setActiveModal(null);

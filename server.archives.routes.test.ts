@@ -7,6 +7,7 @@ import type { Server } from 'node:http';
 import JSZip from 'jszip';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { registerArchiveRoutes } from './server/archiveReader.cjs';
+import { extractZipEntryTo } from './server/zipStream.cjs';
 
 /**
  * The archive routes moved out of `server.cjs`. Reading a real archive is covered
@@ -161,5 +162,17 @@ describe('extraer una entrada a disco', () => {
     });
     expect(response.status).toBe(404);
     expect((await response.json()).code).toBe('entry-not-found');
+  });
+
+  it('no publica nada cuando la extracción se cancela', async () => {
+    const folder = path.join(root, 'cancelado');
+    await fs.promises.mkdir(folder, { recursive: true });
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      extractZipEntryTo(zipFile, 'grande.bin', path.join(folder, 'grande.bin'), undefined, controller.signal),
+    ).rejects.toThrow();
+    // The temporary file is a sibling of the destination: neither may survive.
+    expect(await fs.promises.readdir(folder)).toEqual([]);
   });
 });

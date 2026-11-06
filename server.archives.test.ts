@@ -445,11 +445,20 @@ describe('server-read archives (RAR, 7-Zip, compressed TARs)', () => {
 
     const destination = path.join(root, 'enorme-extraido');
     const updates: number[] = [];
+    const members: string[] = [];
     expect(
-      await fsEngine.extractArchive(item, driveId, destination, undefined, (bytesWritten) =>
-        updates.push(bytesWritten),
+      await fsEngine.extractArchive(
+        item,
+        driveId,
+        destination,
+        undefined,
+        (bytesWritten) => updates.push(bytesWritten),
+        undefined,
+        (entryPath) => members.push(entryPath),
       ),
     ).toBe(1);
+    // The task can name what it is writing, not only how far it has got.
+    expect(members).toEqual(['enorme.bin']);
     const written = await fs.stat(path.join(destination, 'enorme.bin'));
     expect(written.size).toBe(size);
     // The bar moves while the server writes. Without the streamed updates a
