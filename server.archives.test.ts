@@ -447,15 +447,10 @@ describe('server-read archives (RAR, 7-Zip, compressed TARs)', () => {
     const updates: number[] = [];
     const members: string[] = [];
     expect(
-      await fsEngine.extractArchive(
-        item,
-        driveId,
-        destination,
-        undefined,
-        (bytesWritten) => updates.push(bytesWritten),
-        undefined,
-        (entryPath) => members.push(entryPath),
-      ),
+      await fsEngine.extractArchive(item, driveId, destination, undefined, {
+        onProgress: (bytesWritten) => updates.push(bytesWritten),
+        onEntry: (entryPath) => members.push(entryPath),
+      }),
     ).toBe(1);
     // The task can name what it is writing, not only how far it has got.
     expect(members).toEqual(['enorme.bin']);

@@ -178,6 +178,22 @@ function temporaryPathFor(destination) {
   return path.win32.join(folder, `.omni-${unique}.part`);
 }
 
+/**
+ * Holds the stream while the extraction is paused. The chunk in the callback is
+ * one chunk, and everything behind it backs up through the pipeline, so nothing
+ * is read ahead and resuming continues the same run.
+ */
+function pausable(gate) {
+  return new Transform({
+    transform(chunk, _encoding, done) {
+      gate.wait().then(
+        () => done(null, chunk),
+        (error) => done(error),
+      );
+    },
+  });
+}
+
 /** Counts what flows past it, so a caller can show progress per chunk. */
 function counted(onBytes) {
   return new Transform({
@@ -189,7 +205,7 @@ function counted(onBytes) {
 }
 
 /** Writes one entry into a writable, inflated as it goes; nothing is buffered. */
-async function pipeZipEntry(target, entryName, writable, onBytes, signal) {
+async function pipeZipEntry(target, entryName, writable, onBytes, signal, gate) {
   const handle = await fs.promises.open(target, 'r');
   try {
     const entries = await listZip(target);
@@ -223,6 +239,8 @@ async function pipeZipEntry(target, entryName, writable, onBytes, signal) {
     // point of this path is that no copy of the entry is kept.
     const steps = [source];
     if (entry.method === 8) steps.push(zlib.createInflateRaw());
+    // Held before the counter: while paused, progress must not creep forward.
+    if (gate) steps.push(pausable(gate));
     if (onBytes) steps.push(counted(onBytes));
     steps.push(writable);
     // `pipeline` owns the cleanup: a renderer that hangs up -- a cancelled
@@ -246,11 +264,11 @@ async function streamZipEntry(target, entryName, res) {
  * process nothing but the chunk in flight. The entry appears under its final
  * name only once it is complete.
  */
-async function extractZipEntryTo(target, entryName, destination, onBytes, signal) {
+async function extractZipEntryTo(target, entryName, destination, onBytes, signal, gate) {
   const temporary = temporaryPathFor(destination);
   const out = fs.createWriteStream(temporary, { flags: 'wx' });
   try {
-    await pipeZipEntry(target, entryName, out, onBytes, signal);
+    await pipeZipEntry(target, entryName, out, onBytes, signal, gate);
     await fs.promises.rename(temporary, destination);
     return (await fs.promises.stat(destination)).size;
   } catch (error) {

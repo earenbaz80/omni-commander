@@ -170,6 +170,8 @@ export interface ServerEntryTarget {
   /** The folder being extracted into; the server refuses anything outside it. */
   root: string;
   password?: string;
+  /** Id this run is known by on the server, so it can be paused and released. */
+  job?: string;
 }
 
 /**
@@ -195,6 +197,7 @@ export async function extractServerEntry(
         target: target.destination,
         root: target.root,
         password: target.password,
+        job: target.job,
       },
       // Writing gigabytes takes as long as the disk takes: a total timeout here
       // would abandon a transfer that is still making progress.
@@ -242,4 +245,24 @@ export async function extractServerEntry(
     }
   }
   return landed ?? 0;
+}
+
+/**
+ * Holds or releases the write of an extraction the server already started.
+ *
+ * Pausing is not a cancellation: the request stays open and the same stream
+ * continues on resume, so the member is not read again from its first byte.
+ */
+export async function setServerExtractionPaused(job: string, paused: boolean): Promise<void> {
+  let response: Response;
+  try {
+    response = await callServer(paused ? 'extract/pause' : 'extract/resume', { job }, 10000);
+  } catch (error) {
+    log.warn('Archive server unreachable while changing the pace', error);
+    throw new ArchiveServerUnavailableError('ZIP');
+  }
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as FailurePayload | null;
+    throw failureFromPayload(payload, job);
+  }
 }
