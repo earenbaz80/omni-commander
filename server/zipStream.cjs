@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const zlib = require('node:zlib');
+const { Transform } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
 
 /**
@@ -177,8 +178,18 @@ function temporaryPathFor(destination) {
   return path.win32.join(folder, `.omni-${unique}.part`);
 }
 
+/** Counts what flows past it, so a caller can show progress per chunk. */
+function counted(onBytes) {
+  return new Transform({
+    transform(chunk, _encoding, done) {
+      onBytes(chunk.length);
+      done(null, chunk);
+    },
+  });
+}
+
 /** Writes one entry into a writable, inflated as it goes; nothing is buffered. */
-async function pipeZipEntry(target, entryName, writable) {
+async function pipeZipEntry(target, entryName, writable, onBytes) {
   const handle = await fs.promises.open(target, 'r');
   try {
     const entries = await listZip(target);
@@ -208,11 +219,16 @@ async function pipeZipEntry(target, entryName, writable) {
     const start = entry.offset + 30 + header.readUInt16LE(26) + header.readUInt16LE(28);
     const end = start + entry.compressed;
     const source = fs.createReadStream(target, { start, end: Math.max(start, end - 1) });
+    // Progress is counted on the way past, not measured afterwards: the whole
+    // point of this path is that no copy of the entry is kept.
+    const steps = [source];
+    if (entry.method === 8) steps.push(zlib.createInflateRaw());
+    if (onBytes) steps.push(counted(onBytes));
+    steps.push(writable);
     // `pipeline` owns the cleanup: a renderer that hangs up -- a cancelled
     // preview, a closed tab -- or a disk that fills up destroys the read side
     // and settles this promise, instead of leaving an unhandled error behind.
-    if (entry.method === 8) await pipeline(source, zlib.createInflateRaw(), writable);
-    else await pipeline(source, writable);
+    await pipeline(steps);
   } finally {
     await handle.close();
   }
@@ -228,11 +244,11 @@ async function streamZipEntry(target, entryName, res) {
  * process nothing but the chunk in flight. The entry appears under its final
  * name only once it is complete.
  */
-async function extractZipEntryTo(target, entryName, destination) {
+async function extractZipEntryTo(target, entryName, destination, onBytes) {
   const temporary = temporaryPathFor(destination);
   const out = fs.createWriteStream(temporary, { flags: 'wx' });
   try {
-    await pipeZipEntry(target, entryName, out);
+    await pipeZipEntry(target, entryName, out, onBytes);
     await fs.promises.rename(temporary, destination);
     return (await fs.promises.stat(destination)).size;
   } catch (error) {

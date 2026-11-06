@@ -40,7 +40,9 @@ export async function fetchWithRetry(
     const controller = new AbortController();
     const onAbort = () => controller.abort();
     signal?.addEventListener('abort', onAbort);
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    // Zero means "no total timeout": used by a request whose duration is the
+    // work itself, such as a server writing a multi-gigabyte file to disk.
+    const timeoutId = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
 
     try {
       const response = await fetch(url, {
@@ -67,7 +69,7 @@ export async function fetchWithRetry(
         continue;
       }
     } finally {
-      clearTimeout(timeoutId);
+      if (timeoutId) clearTimeout(timeoutId);
       signal?.removeEventListener('abort', onAbort);
     }
   }

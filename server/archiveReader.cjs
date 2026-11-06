@@ -586,7 +586,7 @@ function registerArchiveRoutes(app, deps) {
    * Writes one entry from bsdtar's stdout into a file of its own, through a
    * sibling temporary path: a failed read leaves nothing under the real name.
    */
-  async function extractBsdtarEntry(binary, target, name, destination) {
+  async function extractBsdtarEntry(binary, target, name, destination, onBytes) {
     const temporary = zipStream.temporaryPathFor(destination);
     const out = fs.createWriteStream(temporary, { flags: 'wx' });
     const child = spawn(binary, ['-xO', '-f', target, '--', name], { windowsHide: true });
@@ -594,6 +594,7 @@ function registerArchiveRoutes(app, deps) {
     let bytes = 0;
     child.stdout.on('data', (chunk) => {
       bytes += chunk.length;
+      if (onBytes) onBytes(chunk.length);
     });
     child.stderr.on('data', (chunk) => {
       if (stderr.length < 8192) stderr += chunk.toString();
@@ -631,11 +632,12 @@ function registerArchiveRoutes(app, deps) {
   }
 
   /** Publishes bytes that had to be read whole: engines that decrypt cannot stream. */
-  async function writeWholeEntry(destination, bytes) {
+  async function writeWholeEntry(destination, bytes, onBytes) {
     const temporary = zipStream.temporaryPathFor(destination);
     try {
       await fs.promises.writeFile(temporary, bytes, { flag: 'wx' });
       await fs.promises.rename(temporary, destination);
+      if (onBytes) onBytes(bytes.length);
       return bytes.length;
     } catch (error) {
       await fs.promises.rm(temporary, { force: true }).catch(() => {});
@@ -648,13 +650,13 @@ function registerArchiveRoutes(app, deps) {
    * do it without holding the entry: ZIP by its own stream, a large archive by
    * bsdtar, and the decrypting engines by reading the entry (they cannot stream).
    */
-  async function writeEntryToFile(target, head, stat, name, destination, password) {
+  async function writeEntryToFile(target, head, stat, name, destination, password, onBytes) {
     await assertDestinationFree(destination);
-    if (isZipHead(head)) return zipStream.extractZipEntryTo(target, name, destination);
+    if (isZipHead(head)) return zipStream.extractZipEntryTo(target, name, destination, onBytes);
     const binary = stat.size > ARCHIVE_MAX_BYTES ? bsdtarBinary() : null;
     if (binary) {
       try {
-        return await extractBsdtarEntry(binary, target, name, destination);
+        return await extractBsdtarEntry(binary, target, name, destination, onBytes);
       } catch (error) {
         if (error.entryMissing) {
           throw Object.assign(new Error(`Entry not found: ${name}`), { archiveCode: 'entry-not-found' });
@@ -665,7 +667,7 @@ function registerArchiveRoutes(app, deps) {
         if (refused) throw Object.assign(new Error(error.message), { archiveCode: 'read-failed' });
       }
     }
-    return writeWholeEntry(destination, await readEntryBytes(target, head, name, password));
+    return writeWholeEntry(destination, await readEntryBytes(target, head, name, password), onBytes);
   }
 
   /** Folders the paths imply, so a listing is a tree whatever listed it. */
@@ -836,11 +838,52 @@ function registerArchiveRoutes(app, deps) {
       if (!isZipHead(head) && stat.size > ARCHIVE_MAX_BYTES && !bsdtarBinary()) {
         return res.status(413).json(tooLargePayload(stat));
       }
-      const written = await writeEntryToFile(target, head, stat, name, destination, body.password);
-      res.json({ ok: true, path: destination, bytes: written });
+      // Every refusal that answers with a status happens before the first byte
+      // of the body: from then on the answer is a progress stream, and a status
+      // cannot be changed once one line of it has gone out.
+      await assertDestinationFree(destination);
+      let opened = false;
+      const open = () => {
+        if (opened) return;
+        opened = true;
+        res.status(200).type('application/x-ndjson');
+      };
+      // One line of JSON per update, at most ten a second: the renderer moves its
+      // bar from these, so a member of several gigabytes stops looking hung
+      // while the server is still writing it.
+      let written = 0;
+      let lastReport = 0;
+      const report = (chunk) => {
+        written += chunk.length;
+        const now = Date.now();
+        if (now - lastReport < 100) return;
+        lastReport = now;
+        open();
+        res.write(`${JSON.stringify({ type: 'progress', bytes: written })}\n`);
+      };
+      let bytes;
+      try {
+        bytes = await writeEntryToFile(target, head, stat, name, destination, body.password, report);
+      } catch (error) {
+        const payload = archiveErrorPayload(error);
+        console.warn('Archive entry extraction failed:', name, payload.error);
+        if (opened) {
+          res.end(`${JSON.stringify({ type: 'error', ...payload })}\n`);
+          return;
+        }
+        const status = payload.code === 'entry-not-found' ? 404 : payload.code === 'exists' ? 409 : 400;
+        res.status(status).json(payload);
+        return;
+      }
+      open();
+      res.end(`${JSON.stringify({ type: 'done', ok: true, path: destination, bytes })}\n`);
     } catch (error) {
       const payload = archiveErrorPayload(error);
       console.warn('Archive entry extraction failed:', name, payload.error);
+      if (res.headersSent) {
+        res.destroy();
+        return;
+      }
       const status = payload.code === 'entry-not-found' ? 404 : payload.code === 'exists' ? 409 : 400;
       res.status(status).json(payload);
     }

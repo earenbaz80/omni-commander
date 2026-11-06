@@ -206,8 +206,11 @@ export function useFileOperations({
       t.appUnpacking.replace('{name}', `${source.name}.${source.ext}`),
       t.appDest.replace('{path}', destination.currentPath),
       source.size,
-      async () => {
-        await fsEngine.extractArchive(source, destination.driveId, destination.currentPath);
+      // The bar follows the bytes that reach the disk. Without this an extraction
+      // sat at 0% for its whole run, which for a member of gigabytes looked like
+      // the app had hung.
+      async (onProgress) => {
+        await fsEngine.extractArchive(source, destination.driveId, destination.currentPath, undefined, onProgress);
       },
     );
     setActiveModal(null);

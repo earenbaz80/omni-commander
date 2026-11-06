@@ -114,7 +114,14 @@ describe('extraer una entrada a disco', () => {
       root: output(),
     });
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ ok: true, bytes: bigBytes.length });
+    expect(response.headers.get('content-type')).toContain('application/x-ndjson');
+    // One line of JSON per update, the last of which says what landed.
+    const events = (await response.text())
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as { type: string; bytes?: number });
+    expect(events.at(-1)).toMatchObject({ type: 'done', ok: true, bytes: bigBytes.length });
+    expect(events.every((event) => event.type === 'progress' || event.type === 'done')).toBe(true);
     expect((await fs.promises.readFile(destination)).equals(Buffer.from(bigBytes))).toBe(true);
     expect((await fs.promises.readdir(path.dirname(destination))).filter((name) => name.endsWith('.part'))).toEqual([]);
   });
