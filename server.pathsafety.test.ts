@@ -1,6 +1,7 @@
 // @vitest-environment node
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { assertSafePath, isAbsoluteLocalPath } from './server/pathSafety.cjs';
+import { assertMutablePath, assertSafePath, isAbsoluteLocalPath, isDriveRoot } from './server/pathSafety.cjs';
 
 /**
  * Every route asks this before it reads or writes anything, so a hostile path
@@ -52,5 +53,35 @@ describe('assertSafePath', () => {
   it('se niega con el valor en el mensaje', () => {
     expect(() => assertSafePath(String.raw`\\servidor\share`)).toThrow(/Unsafe path/);
     expect(() => assertSafePath('relativa')).toThrow(/Unsafe path: relativa/);
+  });
+});
+
+const winPath = (value: string) => path.win32.normalize(value);
+
+describe('isDriveRoot', () => {
+  it('reconoce la raíz escrita de todas las formas que acepta el listado', () => {
+    expect(isDriveRoot('C:')).toBe(true);
+    expect(isDriveRoot(winPath('C:/'))).toBe(true);
+    expect(isDriveRoot('d:/')).toBe(true);
+    expect(isDriveRoot('  E:  ')).toBe(true);
+  });
+
+  it('no confunde una carpeta de la raíz con la raíz', () => {
+    expect(isDriveRoot(winPath('C:/Windows'))).toBe(false);
+    expect(isDriveRoot(winPath('C:/Windows/'))).toBe(false);
+    expect(isDriveRoot(winPath('C:/a'))).toBe(false);
+    expect(isDriveRoot('')).toBe(false);
+    expect(isDriveRoot(undefined)).toBe(false);
+  });
+});
+
+describe('assertMutablePath', () => {
+  it('rechaza la raíz de una unidad y lo dice en el mensaje', () => {
+    expect(() => assertMutablePath('C:')).toThrow(/drive root/);
+    expect(() => assertMutablePath(winPath('D:/'))).toThrow(/drive root/);
+  });
+
+  it('deja pasar una carpeta normal y la normaliza como assertSafePath', () => {
+    expect(assertMutablePath('C:/temp/x')).toBe(winPath('C:/temp/x'));
   });
 });

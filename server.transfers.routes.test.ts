@@ -83,6 +83,24 @@ describe('rutas de transferencia', () => {
     expect(response.status).toBe(400);
     expect((await response.json()).error).toBe('No targets provided');
   });
+
+  it('no borra la raíz de una unidad, ni siquiera sin papelera', async () => {
+    const response = await post('/api/fs/delete', { targets: ['C:\\'], useTrash: false });
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toMatch(/drive root/i);
+  });
+
+  it('sigue borrando una carpeta normal', async () => {
+    const response = await post('/api/fs/delete', { targets: ['C:\\temp\\viejo'] });
+    expect(response.status).toBe(200);
+    expect((await response.json()).jobId).toBe('job-1');
+  });
+
+  it('no mueve la raíz de una unidad', async () => {
+    const response = await post('/api/fs/move', { sources: ['D:/'], targetDir: 'C:\\destino' });
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toMatch(/drive root/i);
+  });
 });
 
 describe('rutas de limpieza', () => {

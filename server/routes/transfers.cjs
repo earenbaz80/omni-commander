@@ -6,6 +6,8 @@
  * scan. What moved is the HTTP surface: same paths, same methods, same answers,
  * which is why the suites that boot the real server did not have to change.
  */
+const { isDriveRoot } = require('../pathSafety.cjs');
+
 function registerTransferRoutes(app, deps) {
   const {
     fs,
@@ -44,6 +46,13 @@ function registerTransferRoutes(app, deps) {
     try {
       const body = req.body || {};
       const sources = (body.sources || []).map(assertSafePath);
+      // Moving a volume root would copy the whole drive and then delete its
+      // origin; the destination may still be a root, which is just a folder.
+      if (op === 'move') {
+        for (const src of sources) {
+          if (isDriveRoot(src)) throw new Error(`Refusing to move a drive root: ${src}`);
+        }
+      }
       const targetDir = assertSafePath(body.targetDir);
       if (!sources.length) throw new Error('No sources provided');
       const targetStat = await fs.promises.stat(targetDir).catch(() => null);
@@ -153,6 +162,9 @@ function registerTransferRoutes(app, deps) {
     try {
       const body = req.body || {};
       const targets = (body.targets || []).map(assertSafePath);
+      for (const target of targets) {
+        if (isDriveRoot(target)) throw new Error(`Refusing to delete a drive root: ${target}`);
+      }
       const useTrash = body.useTrash !== false;
       if (!targets.length) return res.status(400).json({ error: 'No targets provided' });
       const job = makeJob('delete', `Eliminar ${targets.length} elemento(s)`);
