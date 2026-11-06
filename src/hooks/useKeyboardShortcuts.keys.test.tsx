@@ -46,6 +46,9 @@ type Mocks = Record<
   | 'handleTriggerCopy'
   | 'handleTriggerMove'
   | 'handleTriggerDelete'
+  | 'handleClipboardCopy'
+  | 'handleClipboardCut'
+  | 'handleClipboardPaste'
   | 'handleNewTab'
   | 'handleCloseTab'
   | 'handleSelectAll'
@@ -71,6 +74,9 @@ function harness(deps: Partial<KeyboardShortcutDeps> = {}) {
     handleTriggerCopy: vi.fn(),
     handleTriggerMove: vi.fn(),
     handleTriggerDelete: vi.fn(),
+    handleClipboardCopy: vi.fn(),
+    handleClipboardCut: vi.fn(),
+    handleClipboardPaste: vi.fn(),
     handleNewTab: vi.fn(),
     handleCloseTab: vi.fn(),
     handleSelectAll: vi.fn(),
@@ -223,6 +229,24 @@ describe('useKeyboardShortcuts Ctrl combinations', () => {
     expect(right.mocks.setIsLeftFilterOpen).not.toHaveBeenCalled();
   });
 
+  it('copies, cuts and pastes the selection through the app clipboard', () => {
+    const { mocks } = harness();
+
+    press('c', { ctrl: true });
+    expect(mocks.handleClipboardCopy).toHaveBeenCalledTimes(1);
+
+    press('x', { ctrl: true });
+    expect(mocks.handleClipboardCut).toHaveBeenCalledTimes(1);
+
+    press('v', { ctrl: true });
+    expect(mocks.handleClipboardPaste).toHaveBeenCalledTimes(1);
+
+    // They belong to the clipboard, not to the transfer dialogs the F-keys open.
+    expect(mocks.handleTriggerCopy).not.toHaveBeenCalled();
+    expect(mocks.handleTriggerMove).not.toHaveBeenCalled();
+    expect(mocks.setActiveModal).not.toHaveBeenCalled();
+  });
+
   it('switches panels with tab', () => {
     const { mocks } = harness();
 
@@ -342,11 +366,16 @@ describe('useKeyboardShortcuts inside a field', () => {
     press('F5', { target: field });
     press('Delete', { target: field });
     press('a', { target: field });
+    press('c', { ctrl: true, target: field });
+    press('v', { ctrl: true, target: field });
 
     expect(mocks.handleTriggerCopy).not.toHaveBeenCalled();
     expect(mocks.handleTriggerDelete).not.toHaveBeenCalled();
     expect(mocks.handleSelectAll).not.toHaveBeenCalled();
     expect(mocks.setQuickSearchQuery).not.toHaveBeenCalled();
+    // The field keeps its own clipboard: no file is snapped up while typing.
+    expect(mocks.handleClipboardCopy).not.toHaveBeenCalled();
+    expect(mocks.handleClipboardPaste).not.toHaveBeenCalled();
 
     field.remove();
   });

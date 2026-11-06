@@ -36,7 +36,7 @@ function isFileListShortcut(e: KeyboardEvent): boolean {
     return true;
   }
   const command = e.ctrlKey || e.metaKey;
-  if (command) return ['a', 'f', 'h', 'm', 'q', 't', 'w'].includes(e.key.toLowerCase());
+  if (command) return ['a', 'c', 'f', 'h', 'm', 'q', 't', 'v', 'w', 'x'].includes(e.key.toLowerCase());
   // A printable character starts the type-to-jump search.
   return e.key.length === 1;
 }
@@ -66,6 +66,12 @@ export interface KeyboardShortcutDeps {
   handleTriggerCopy: () => void;
   handleTriggerMove: () => void;
   handleTriggerDelete: () => void;
+  /** Ctrl+C: snapshots the selection into the app's own clipboard. */
+  handleClipboardCopy: () => void;
+  /** Ctrl+X: the same snapshot, marked to be moved on paste. */
+  handleClipboardCut: () => void;
+  /** Ctrl+V: transfers the clipboard into the folder of the active panel. */
+  handleClipboardPaste: () => void;
   handleSelectDrive: (panelSide: 'left' | 'right', driveId: string) => Promise<void>;
   handleNewTab: (panelSide: 'left' | 'right') => void;
   handleCloseTab: (panelSide: 'left' | 'right', tabId: string) => void;
@@ -117,6 +123,9 @@ export function useKeyboardShortcuts(d: KeyboardShortcutDeps) {
         handleTriggerCopy,
         handleTriggerMove,
         handleTriggerDelete,
+        handleClipboardCopy,
+        handleClipboardCut,
+        handleClipboardPaste,
         handleSelectDrive,
         handleNewTab,
         handleCloseTab,
@@ -287,6 +296,27 @@ export function useKeyboardShortcuts(d: KeyboardShortcutDeps) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
         e.preventDefault();
         handleSelectAll();
+        return;
+      }
+
+      // Copy, cut and paste as Windows spells them. Only the file list gets
+      // here: a field or a modal returned early, so their own clipboard keeps
+      // working, and the size tree swallowed these keys above.
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+        e.preventDefault();
+        handleClipboardCopy();
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x') {
+        e.preventDefault();
+        handleClipboardCut();
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+        e.preventDefault();
+        handleClipboardPaste();
         return;
       }
 

@@ -127,6 +127,45 @@ async function startTransferAsking(page: Page, op: 'copy' | 'move') {
   return prompt;
 }
 
+/**
+ * The clipboard is how Windows copies and moves, and the app had no keys for it:
+ * Ctrl+C and Ctrl+V did nothing, so anyone trained on Explorer could not copy
+ * from it at all. These cases press the real keys through the real interface and
+ * read the folders back, which is the only way to tell a paste from a dialog that
+ * merely looks right.
+ */
+test('copies with Ctrl+C and Ctrl+V into the folder in front of the user', async ({ page }) => {
+  await fs.writeFile(path.join(rightDir, 'nuevo.txt'), NEWEST, 'utf8');
+  await openPanels(page);
+
+  // Selecting in the right panel makes it the active one.
+  await page.locator('[data-name="nuevo.txt"]').click();
+  await page.keyboard.press('Control+c');
+
+  // Move to the left panel and paste: the target is the folder being looked at,
+  // not the other panel, which is what F5 does.
+  await page.locator('[data-name="mover.txt"]').first().click();
+  await page.keyboard.press('Control+v');
+
+  await expect.poll(() => readIfPresent(path.join(leftDir, 'nuevo.txt'))).toBe(NEWEST);
+  // A copy leaves the original where it was.
+  await expect.poll(() => readIfPresent(path.join(rightDir, 'nuevo.txt'))).toBe(NEWEST);
+});
+
+test('cuts with Ctrl+X and the paste moves the file instead of copying it', async ({ page }) => {
+  await fs.writeFile(path.join(rightDir, 'recorte.txt'), MOVED, 'utf8');
+  await openPanels(page);
+
+  await page.locator('[data-name="recorte.txt"]').click();
+  await page.keyboard.press('Control+x');
+  await page.locator('[data-name="mover.txt"]').first().click();
+  await page.keyboard.press('Control+v');
+
+  await expect.poll(() => readIfPresent(path.join(leftDir, 'recorte.txt'))).toBe(MOVED);
+  // A cut removes the source; a copy would still be there.
+  await expect.poll(() => readIfPresent(path.join(rightDir, 'recorte.txt'))).toBeNull();
+});
+
 test('asks before replacing a file and then overwrites only that one', async ({ page }) => {
   await openPanels(page);
   await focusRow(page, 'nota.txt');
