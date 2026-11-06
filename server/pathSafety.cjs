@@ -21,6 +21,14 @@ function isAbsoluteLocalPath(value) {
   return /^[a-zA-Z]:([\\/]|$)/.test(text);
 }
 
+// A drive root is how the panels address a whole volume: they open it and list
+// it, so the read routes must keep accepting it. Nothing may delete or move it
+// as a unit, which is a different question from whether the path is local.
+function isDriveRoot(value) {
+  const text = String(value || '').trim();
+  return /^[a-zA-Z]:[\\/]*$/.test(text);
+}
+
 // Reject anything that is not an absolute local path so a malformed or hostile
 // request can never be resolved relative to the server's cwd.
 function assertSafePath(value) {
@@ -31,4 +39,11 @@ function assertSafePath(value) {
   return path.win32.normalize(rooted);
 }
 
-module.exports = { isAbsoluteLocalPath, assertSafePath };
+// For the routes that destroy: a volume root passes the locality check but is
+// not a folder anyone may remove or move out of the way.
+function assertMutablePath(value) {
+  if (isDriveRoot(value)) throw new Error(`Refusing to modify a drive root: ${value}`);
+  return assertSafePath(value);
+}
+
+module.exports = { isAbsoluteLocalPath, assertSafePath, isDriveRoot, assertMutablePath };

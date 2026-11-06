@@ -18,7 +18,7 @@ const { execFile } = require('child_process');
 const { promisify } = require('util');
 const { once } = require('events');
 
-const { assertSafePath } = require('./pathSafety.cjs');
+const { assertSafePath, isDriveRoot } = require('./pathSafety.cjs');
 
 function createFileOps(deps = {}) {
   const {
@@ -604,6 +604,9 @@ function createFileOps(deps = {}) {
   // Same-volume moves are an instant rename; across volumes rename fails with
   // EXDEV and we fall back to copy-then-delete.
   async function moveTree(src, dest, job, alreadyPlanned = false) {
+    // Belt and braces: the route refuses a drive root before a job exists, and
+    // the engine refuses it again so no other caller can start one.
+    if (isDriveRoot(src)) throw new Error(`Refusing to move a drive root: ${src}`);
     await waitWhilePaused(job);
     try {
       await fs.promises.rename(src, dest);
@@ -655,6 +658,9 @@ function createFileOps(deps = {}) {
   }
 
   async function deleteTarget(target, useTrash) {
+    // Same invariant as the route: a volume is not a folder, whether it goes to
+    // the Recycle Bin or to rm -rf.
+    if (isDriveRoot(target)) throw new Error(`Refusing to delete a drive root: ${target}`);
     if (useTrash && process.platform === 'win32') {
       await sendToRecycleBin([target]);
       return;
