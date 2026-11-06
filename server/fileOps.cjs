@@ -448,9 +448,26 @@ function createFileOps(deps = {}) {
     return path.win32.join(dir, `.${base}.omni-part-${suffix}`);
   }
 
+  /**
+   * Creates `dir` when it is missing and leaves it alone when it is there.
+   *
+   * Windows answers EPERM -- not EEXIST -- when `mkdir` is asked for a path that
+   * already is a directory root, so creating the destination unconditionally
+   * made a copy onto `E:\` fail in milliseconds without moving a byte. An
+   * existing folder needs no work at all, and a root always exists.
+   */
+  async function ensureDirectory(dir) {
+    try {
+      if ((await fs.promises.stat(dir)).isDirectory()) return;
+    } catch (err) {
+      if (err.code !== 'ENOENT') throw err;
+    }
+    await fs.promises.mkdir(dir, { recursive: true });
+  }
+
   async function copyOneFile(src, dest, job) {
     const stat = await fs.promises.stat(src);
-    await fs.promises.mkdir(path.win32.dirname(dest), { recursive: true });
+    await ensureDirectory(path.win32.dirname(dest));
     job.currentFile = dest;
     const entry = noteFile(job, dest, stat.size);
     jobLog('file-start', job.id, `size=${stat.size}`, dest);
@@ -569,7 +586,7 @@ function createFileOps(deps = {}) {
     await waitWhilePaused(job);
     const stat = await fs.promises.lstat(src);
     if (stat.isDirectory()) {
-      await fs.promises.mkdir(dest, { recursive: true });
+      await ensureDirectory(dest);
       for (const name of await fs.promises.readdir(src)) {
         await copyTree(path.win32.join(src, name), path.win32.join(dest, name), job);
       }
@@ -944,6 +961,7 @@ function createFileOps(deps = {}) {
     measureTree,
     assertArchiveDestination,
     pathExists,
+    ensureDirectory,
     uniqueName,
     assertFolder,
     sendToFolder,
