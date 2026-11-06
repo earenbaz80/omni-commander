@@ -1,10 +1,11 @@
-const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog, shell, session } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { launchElevated } = require('./elevation.cjs');
 const crypto = require('node:crypto');
 const { isAllowedNavigationUrl } = require('./navigationGuard.cjs');
 const { isAllowedExternalTarget } = require('./externalLinks.cjs');
+const { denyAllPermissions } = require('./permissions.cjs');
 const { normalizeChannel, readUpdateChannel } = require('./updateChannel.cjs');
 
 // Per-launch session token. It is the shared secret between this process, the
@@ -439,6 +440,9 @@ function createMainWindow() {
 
 app.whenReady().then(async () => {
   await whenApiPortReady();
+  // Before the window exists, so the renderer never gets a chance to ask: the
+  // app needs no device permission at all (see permissions.cjs).
+  denyAllPermissions(session.defaultSession);
   createMainWindow();
   createTray();
   // After the window exists, so a state pushed early still has somewhere to go.
