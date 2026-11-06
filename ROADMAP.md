@@ -1,6 +1,6 @@
 # Hoja de ruta — OmniCommander Pro
 
-**Fecha:** 6-nov-2026 · **Base:** `00186b9` (la 1.0.39 publicada) · **Alcance:** los arreglos que salieron del análisis del código de la 1.0.30; las fases F0 a F7 están cerradas.
+**Fecha:** 6-nov-2026 · **Base:** `e288c33` (master, quince commits por delante de la 1.0.39 publicada) · **Alcance:** los arreglos que salieron del análisis del código de la 1.0.30; las fases F0 a F7 están cerradas. La tabla de la sección 0 se volvió a medir en esta base; el resto del documento conserva las mediciones del commit en que se cerró cada fase, y lo dice donde las cita.
 
 **Corrección de partida:** en el análisis se dijo que no había CI por push. Es falso. [`.github/workflows/release.yml`](.github/workflows/release.yml) se llama «CI and Release» y ya ejecuta, en cada push a `master` y en cada PR: formato, tipos, tipos estrictos, eslint, tests unitarios y los e2e; el empaquetado y la publicación solo ocurren con una etiqueta `v*`. Lo que falta en el CI no es el gate, es la **cobertura** y un **presupuesto de tiempo**. El resto del plan se apoya en ese gate, no lo repite.
 
@@ -10,19 +10,20 @@
 
 | Dato | Valor | Cómo se midió |
 | --- | --- | --- |
-| Tests | 741 en 97 ficheros | `npx vitest run` |
-| Tests del servidor | 20 ficheros | `ls server.*.test.ts` |
-| Cobertura de `src/**` | 46,68 % sentencias · 40,85 % ramas · 37,97 % funciones · 48,78 % líneas | `npm run test:coverage` (sin tests ni stories) |
-| `server.cjs` en esa medida | **fuera, y no puede entrar así** | cada suite lo arranca como proceso hijo; V8 solo informa del suyo |
-| Duración | 134 s con cobertura y 4 workers | el entorno jsdom se crea 97 veces y se lleva el 39 % |
-| Dependencias de producción | 7 · 0 vulnerabilidades | `npm audit --omit=dev` |
+| Tests | 1 040 en 141 ficheros | `npx vitest run` |
+| Tests del servidor | 33 ficheros | `ls server.*.test.ts` |
+| Cobertura de `src/**` | 58,19 % sentencias · 52,09 % ramas · 46,83 % funciones · 61,19 % líneas | `vitest run --coverage` (sin tests ni stories) |
+| `server.cjs` en esa medida | **fuera**; se mide aparte con `npm run test:server:coverage` | cada suite lo arranca como proceso hijo; V8 solo informa del suyo |
+| Duración | 12,4 s con todos los workers · 37-39 s con `--maxWorkers=2` | `npx vitest run`, sin cobertura |
+| Dependencias de producción | 7 directas (1 111 en el árbol) · 0 vulnerabilidades | `npm audit --omit=dev` |
+| Dependencias desfasadas | 28, ocho con salto de major | `npm outdated` |
 | `tsc --noEmit` y `typecheck:strict` | limpios | `npm run lint`, `npm run typecheck:strict` |
 | eslint | 0 avisos con `--max-warnings 0` | `npm run lint:eslint` |
-| Bundle | 546 kB (152 kB gz) el trozo principal · 33 trozos perezosos · CSS 14 kB gz | `vite build` |
-| Mayores ficheros | `server.cjs` 4 710 · `fileSystem.ts` 2 210 · `App.tsx` 1 792 · `FileList.tsx` 1 229 | `wc -l` |
-| Marcadores | 1 TODO · 0 `eslint-disable` · 0 `@ts-ignore` · 75 `any`/`as any` · 62 usos de `localStorage` | `grep` sobre `src`, `electron`, `server.cjs` |
+| Bundle | 552 kB el trozo principal · 51 trozos · CSS 88 kB (sin comprimir) | `vite build` |
+| Mayores ficheros | `FileList.tsx` 1 229 · `archiveReader.cjs` 1 026 · `fileOps.cjs` 988 · `fileSystem.ts` 963 · `App.tsx` 746 · `server.cjs` 566 | `wc -l` |
+| Marcadores | 0 TODO · 1 `eslint-disable` (declaración vendorizada) · 1 `any` real en producción | `grep` sobre `src`, `electron`, `server` |
 
-La auditoría del 29-oct hablaba del 54,01 % de cobertura y 44 `any`; son medidas de otro commit y con otro ámbito, así que no se comparan con esta tabla. Lo que sí sigue siendo cierto de aquella: `release/` ocupa cientos de MB, la raíz acumula volcados `.txt` (ignorados por git, pero presentes), y `server.cjs` es el fichero que más crece.
+Las tres auditorías —[26-oct](docs/audits/AUDITORIA_2026-10-26.md), [29-oct](docs/audits/AUDITORIA_2026-10-29.md) y [6-nov](docs/audits/AUDITORIA_2026-11-06.md)— viven juntas en `docs/audits/` y miden commits distintos, así que sus cifras no se comparan con esta tabla; la del 29-oct hablaba del 54,01 % de cobertura y 44 `any`. Lo que sí sigue siendo cierto de aquellas: `release/` ocupa cientos de MB y la raíz acumula volcados `.txt` ignorados por git.
 
 ---
 
@@ -48,7 +49,7 @@ Tallas: **S** ≈ una sesión · **M** ≈ dos o tres · **L** ≈ cuatro o más
 **Hecho, en este commit:**
 
 - `npm run test:coverage` mide `src/**/*.{ts,tsx}` sin los ficheros de test ni las stories, que si no suben el número solos al crecer la suite.
-- Umbral en `vite.config.ts` igual a la línea base redondeada a la baja: 46 sentencias, 40 ramas, 37 funciones, 48 líneas. Sube solo cuando sube el número real.
+- Umbral en `vite.config.ts` igual a la línea base redondeada a la baja: arrancó en 46 sentencias, 40 ramas, 37 funciones y 48 líneas, y las fases siguientes lo subieron detrás de cada mejora hasta el 57/51/46/60 de hoy. Sube solo cuando sube el número real.
 - En el CI un solo leg mide en vez de repetir la suite: el leg de Node 22 corre `test:coverage` y sube `coverage/` como artefacto, también cuando falla. El tiempo del job no cambia.
 
 **Lo que esta fase no puede hacer:** `server.cjs` no entra en la medida, y no es un olvido. Cada suite lo arranca como proceso hijo (`scripts/serverHarness.ts`) y la cobertura de V8 solo describe el proceso en el que corre; incluirlo daría cero sobre 4 710 líneas y un número falso. Medirlo pide `NODE_V8_COVERAGE` en ese hijo y una pasada que una los informes: es la tanda 0 de la F2, donde además habrá algo que medir.
@@ -277,16 +278,17 @@ Tareas:
 
 ## 5. Cómo se sabe que va bien
 
-Medido el 5-nov-2026 sobre la 1.0.33 (`3227efe`), con todas las fases del plan cerradas:
+Medido hoy en `e288c33`, con todas las fases del plan cerradas:
 
 | Métrica | Hoy | Objetivo |
 | --- | --- | --- |
-| Cobertura de líneas del ámbito medido | 60,87 % (57,88 % sentencias · 51,61 % ramas · 46,68 % funciones) en 133 ficheros y 978 tests, con el umbral en lo medido (57/51/46/60) | 60 % — **alcanzado** |
-| Duración de la suite | 56 s con cobertura y 43 s sin ella en el runner con 2 workers · 65,5 s sin cobertura en local con 2 workers | < 120 s también con 2 workers en el CI — **alcanzado** |
+| Cobertura de líneas del ámbito medido | 61,19 % (58,19 % sentencias · 52,09 % ramas · 46,83 % funciones) en 141 ficheros y 1 040 tests, con el umbral una décima por debajo (57/51/46/60) | 60 % — **alcanzado** |
+| Duración de la suite | 37-39 s sin cobertura en local con 2 workers · 12,4 s con todos los workers | < 120 s también con 2 workers en el CI — **alcanzado** |
 | Rojos que no son fallos | 0 en las 19 últimas ejecuciones de `master` (de la 140 a la 121) | 0 en diez ejecuciones — **alcanzado** |
-| `server.cjs` | 563 líneas | < 800 |
-| `App.tsx` | 670 líneas | < 700 |
-| `fileSystem.ts` | 962 líneas | < 1 000 |
+| `server.cjs` | 566 líneas | < 800 |
+| `App.tsx` | 746 líneas | < 700 — **por encima** |
+| `fileSystem.ts` | 963 líneas | < 1 000 |
+| `server/archiveReader.cjs` | 1 026 líneas | el mayor del servidor; dividir antes de que crezca |
 | Cobertura de líneas de `server.cjs` | 65 % (medida en la tanda 0 de la F2) | no bajar al partir el fichero |
 | `any`/`as any` en código de producción | 1 (`libarchive.d.ts`, el worker de la librería); 32 contando dobles de test | < 30 |
 | `localStorage` en componentes | 0 en crudo; las 3 lecturas que quedan viven dentro de tiendas inyectables (`calendarStore`, `runLauncher`) | 0 (todo por `storage.ts`) |
