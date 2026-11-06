@@ -11,6 +11,9 @@ storybook-static/
 coverage/
 test-results/
 .playwright/
+# Playwright writes these when asked for a report; both are large generated HTML.
+playwright-report/
+blob-report/
 
 # OS files
 .DS_Store
@@ -27,6 +30,9 @@ test-results/
 
 # Imported chat transcripts: local reference material, never part of the app
 .cloud-attachments/
+
+# Editor/tool state for this checkout, not part of the app
+.freebuff/
 
 server-coverage/
 server-coverage-raw/
