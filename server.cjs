@@ -110,6 +110,9 @@ const SENSITIVE_GET_ROUTES = new Set([
   '/api/drives',
   '/api/user-folders',
   '/api/list',
+  // The tree route walks real folders to draw the panel; it exposes the same
+  // structure as a listing and had been left out of this set by oversight.
+  '/api/tree',
   '/api/treesize',
   '/api/fs/hash',
   '/api/fs/jobs',
