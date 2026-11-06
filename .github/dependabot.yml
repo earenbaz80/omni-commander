@@ -1,0 +1,55 @@
+# Dependabot runs on this schedule, not on a push: a release published on
+# Tuesday is seen on Wednesday, and an advisory is raised as soon as GitHub
+# publishes it. Security updates ignore the interval below entirely.
+#
+# Version updates keep Dependabot's built-in three-day cooldown, which is the
+# point of it: a version that gets yanked on its second day never becomes a pull
+# request here. Security updates are exempt from that cooldown too.
+version: 2
+
+updates:
+  # The seven runtime dependencies ship inside the installer, so an advisory in
+  # them is one a user actually carries; the other thirty-two are build tooling.
+  # One group for minor and patch, because they are reviewed by reading a diff
+  # of the lockfile and letting the gate run.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: chore(deps)
+      prefix-development: chore(deps-dev)
+    # First match wins, so majors are listed before the two groups that would
+    # otherwise swallow them. A bump that changes an API cannot be reviewed in
+    # the same pull request as fifteen patch bumps.
+    groups:
+      majors:
+        patterns:
+          - '*'
+        update-types:
+          - major
+      production:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      development:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+
+  # Every action is pinned by commit SHA with its version in a trailing
+  # comment; Dependabot moves the SHA and rewrites that comment together, so the
+  # pin keeps meaning what it says.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
+    commit-message:
+      prefix: ci(deps)
+    groups:
+      actions:
+        patterns:
+          - '*'
