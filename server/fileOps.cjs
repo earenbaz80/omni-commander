@@ -503,7 +503,7 @@ function createFileOps(deps = {}) {
             stallTimer = setTimeout(() => {
               reject(
                 new Error(
-                  `The destination stopped accepting data for ${Math.round(WRITE_STALL_MS / 1000)}s at ${dest}`,
+                  `The destination stopped accepting data for ${Math.round(WRITE_STALL_MS / 1000)}s at ${dest} after ${bytesThisFile} of ${stat.size} bytes from ${src}`,
                 ),
               );
             }, WRITE_STALL_MS);

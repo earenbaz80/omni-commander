@@ -21,7 +21,8 @@ import { afterEach, describe, expect, it } from 'vitest';
  *
  *   OMNI_WRITE_STALL_REAL=1 npx vitest run server/fileOps.stall.test.ts
  *
- * That run takes a minute and asserts the same message names 60s and the file.
+ * That run takes a minute and asserts the same message names 60s, the file, and
+ * how far the copy had got before the destination stopped taking bytes.
  */
 
 const require = createRequire(import.meta.url);
@@ -153,6 +154,11 @@ describe('a destination that stops accepting data', () => {
       expect(job.errors[0].path).toBe(source);
       expect(job.errors[0].message).toContain(`stopped accepting data for ${Math.round(stallMs / 1000)}s`);
       expect(job.errors[0].message).toContain(destination);
+      // The first 1 MiB chunk is the one the sink refused, so the message has to
+      // carry its size and the size of the whole file next to the source path.
+      expect(job.errors[0].message).toContain(
+        `after ${1024 * 1024} of ${2 * 1024 * 1024} bytes from ${path.join(source, 'grande.bin')}`,
+      );
     },
   );
 });
