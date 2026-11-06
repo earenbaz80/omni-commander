@@ -820,8 +820,9 @@ class FileSystemEngine {
     targetDriveId: string,
     targetPath: string,
     selectedEntry?: string,
+    onProgress?: (bytesWritten: number, totalBytes: number) => void,
   ): Promise<number> {
-    return this.archiveOps.extractArchive(archiveFile, targetDriveId, targetPath, selectedEntry);
+    return this.archiveOps.extractArchive(archiveFile, targetDriveId, targetPath, selectedEntry, onProgress);
   }
 
   // Import external real file from browser input

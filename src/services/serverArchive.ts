@@ -62,7 +62,7 @@ export class ArchiveServerUnavailableError extends Error {
   }
 }
 
-async function callServer(route: string, body: unknown): Promise<Response> {
+async function callServer(route: string, body: unknown, timeoutMs = 120000): Promise<Response> {
   return fetchWithRetry(`${API_BASE}/api/archives/${route}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -70,7 +70,7 @@ async function callServer(route: string, body: unknown): Promise<Response> {
     // No retries: a second attempt on a damaged archive only doubles the wait,
     // and a refused connection is reported as such rather than as damage.
     retries: 0,
-    timeoutMs: 120000,
+    timeoutMs,
   });
 }
 
@@ -177,27 +177,63 @@ export interface ServerEntryTarget {
  * Fetching the bytes here and posting them back would need the whole entry in
  * this process's memory and then again in the server's, so a member of several
  * gigabytes could not be extracted at all. The server reads the archive it
-already has and writes the file, and this returns how many bytes landed.
+ * already has and writes the file, reporting how far it has got as it goes.
  */
-export async function extractServerEntry(target: ServerEntryTarget): Promise<number> {
+export async function extractServerEntry(
+  target: ServerEntryTarget,
+  onProgress?: (bytesSoFar: number) => void,
+): Promise<number> {
   let response: Response;
   try {
-    response = await callServer('extract', {
-      path: target.archivePath,
-      entry: target.entryName,
-      target: target.destination,
-      root: target.root,
-      password: target.password,
-    });
+    response = await callServer(
+      'extract',
+      {
+        path: target.archivePath,
+        entry: target.entryName,
+        target: target.destination,
+        root: target.root,
+        password: target.password,
+      },
+      // Writing gigabytes takes as long as the disk takes: a total timeout here
+      // would abandon a transfer that is still making progress.
+      0,
+    );
   } catch (error) {
     log.warn('Archive server unreachable while extracting', error);
     throw new ArchiveServerUnavailableError(target.format);
   }
-  const payload = (await response.json().catch(() => null)) as (FailurePayload & { bytes?: number }) | null;
-  if (payload?.code === 'exists') {
-    const leaf = target.destination.split(/[\\/]/).pop() || target.entryName;
-    throw new ArchiveDestinationExistsError(tGlobal('zipErrExists').replace('{name}', leaf));
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as FailurePayload | null;
+    if (payload?.code === 'exists') {
+      const leaf = target.destination.split(/[\\/]/).pop() || target.entryName;
+      throw new ArchiveDestinationExistsError(tGlobal('zipErrExists').replace('{name}', leaf));
+    }
+    throw failureFromPayload(payload, target.fileName);
   }
-  if (!response.ok) throw failureFromPayload(payload, target.fileName);
-  return typeof payload?.bytes === 'number' ? payload.bytes : 0;
+  if (!response.body) throw failureFromPayload(null, target.fileName);
+
+  // Newline-delimited JSON: `progress` while the file is written, then `done`
+  // with the bytes that landed, or `error` once the status can no longer carry
+  // the failure. Reading it as it arrives is what feeds the progress bar.
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffered = '';
+  let landed: number | null = null;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffered += decoder.decode(value, { stream: true });
+    let newline = buffered.indexOf('\n');
+    while (newline >= 0) {
+      const line = buffered.slice(0, newline).trim();
+      buffered = buffered.slice(newline + 1);
+      newline = buffered.indexOf('\n');
+      if (!line) continue;
+      const event = JSON.parse(line) as FailurePayload & { type?: string; bytes?: number };
+      if (event.type === 'progress') onProgress?.(typeof event.bytes === 'number' ? event.bytes : 0);
+      else if (event.type === 'error') throw failureFromPayload(event, target.fileName);
+      else if (event.type === 'done' && typeof event.bytes === 'number') landed = event.bytes;
+    }
+  }
+  return landed ?? 0;
 }

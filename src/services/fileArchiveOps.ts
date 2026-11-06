@@ -86,6 +86,8 @@ export interface ArchiveOps {
     targetDriveId: string,
     targetPath: string,
     selectedEntry?: string,
+    /** Bytes that reached the disk, and how many the selection holds in all. */
+    onProgress?: (bytesWritten: number, totalBytes: number) => void,
   ): Promise<number>;
 }
 
@@ -319,9 +321,9 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
    * process's memory and then again in the server's, which is why a member of
    * several gigabytes could not be extracted even once the archive opened. Only
    * a member above the renderer's own threshold takes this path, and only when
-   * both the archive and the destination are real paths on disk. Returns false
-   * when the server could not do it, so the caller keeps its old path instead of
-   * failing an extraction that used to work.
+   * both the archive and the destination are real paths on disk. Returns the
+   * bytes the server wrote, or null when it could not do it, so the caller keeps
+   * its old path instead of failing an extraction that used to work.
    */
   async function streamEntryToDisk(
     archiveFile: FileItem,
@@ -329,23 +331,26 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
     targetDriveId: string,
     targetPath: string,
     relative: string,
-  ): Promise<boolean> {
+    onBytes: (bytesSoFar: number) => void,
+  ): Promise<number | null> {
     const folder = deps.normalizePath(targetPath);
     try {
-      await extractServerEntry({
-        archivePath: deps.realAbsolutePath(archiveFile),
-        fileName: deps.realEntryName(archiveFile),
-        format: formatFromExtension(deps.realEntryName(archiveFile)),
-        entryName: entry.name,
-        destination: deps.absoluteForDrive(targetDriveId, deps.childAbsolutePath(folder, relative)),
-        root: deps.absoluteForDrive(targetDriveId, folder),
-      });
-      return true;
+      return await extractServerEntry(
+        {
+          archivePath: deps.realAbsolutePath(archiveFile),
+          fileName: deps.realEntryName(archiveFile),
+          format: formatFromExtension(deps.realEntryName(archiveFile)),
+          entryName: entry.name,
+          destination: deps.absoluteForDrive(targetDriveId, deps.childAbsolutePath(folder, relative)),
+          root: deps.absoluteForDrive(targetDriveId, folder),
+        },
+        onBytes,
+      );
     } catch (error) {
       // An existing destination is a refusal, not a reason to retry in memory.
       if (error instanceof ArchiveDestinationExistsError) throw error;
       log.warn('Streamed extraction failed; falling back to a buffered read', error);
-      return false;
+      return null;
     }
   }
 
@@ -354,6 +359,7 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
     targetDriveId: string,
     targetPath: string,
     selectedEntry?: string,
+    onProgress?: (bytesWritten: number, totalBytes: number) => void,
   ): Promise<number> {
     if (getArchiveSource(targetDriveId, targetPath)) throw new Error(tGlobal('zipReadOnly'));
     const backend = mountedArchiveBackend(archiveFile) ?? (await openArchiveBackend(archiveFile));
@@ -362,6 +368,10 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
       (entry) => !wanted || entry.name === wanted || entry.name.startsWith(`${wanted}/`),
     );
     const stripPrefix = selectedEntry ? selectedEntry.replace(/\/$/, '').split('/').slice(0, -1).join('/') : '';
+    // The uncompressed total is the only honest denominator: the archive's own
+    // size says nothing about how much has to be written.
+    const totalBytes = entries.reduce((sum, entry) => sum + (entry.dir ? 0 : entry.size), 0);
+    let writtenBytes = 0;
     let extractedCount = 0;
     try {
       for (const entry of entries) {
@@ -387,9 +397,21 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
             deps.isSystemDrive(archiveFile.driveId) &&
             !archiveFile.archiveRoot &&
             entry.size > RENDERER_ARCHIVE_MAX_BYTES;
-          const streamed =
-            streamable && (await streamEntryToDisk(archiveFile, entry, targetDriveId, targetPath, relative));
-          if (!streamed) await writeBytes(targetDriveId, targetPath, relative, await entry.read());
+          // A member the server writes reports as it streams, so a single huge
+          // entry moves the bar instead of sitting at zero until it finishes.
+          const streamed = streamable
+            ? await streamEntryToDisk(archiveFile, entry, targetDriveId, targetPath, relative, (bytesSoFar) =>
+                onProgress?.(writtenBytes + bytesSoFar, totalBytes),
+              )
+            : null;
+          if (streamed === null) {
+            const bytes = await entry.read();
+            await writeBytes(targetDriveId, targetPath, relative, bytes);
+            writtenBytes += bytes.length;
+          } else {
+            writtenBytes += streamed;
+          }
+          onProgress?.(writtenBytes, totalBytes);
           extractedCount++;
         }
       }

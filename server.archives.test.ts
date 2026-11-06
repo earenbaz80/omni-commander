@@ -444,9 +444,19 @@ describe('server-read archives (RAR, 7-Zip, compressed TARs)', () => {
     const item = fsEngine.getFiles(driveId, root).find((f) => f.fullName === 'enorme.zip')!;
 
     const destination = path.join(root, 'enorme-extraido');
-    expect(await fsEngine.extractArchive(item, driveId, destination)).toBe(1);
+    const updates: number[] = [];
+    expect(
+      await fsEngine.extractArchive(item, driveId, destination, undefined, (bytesWritten) =>
+        updates.push(bytesWritten),
+      ),
+    ).toBe(1);
     const written = await fs.stat(path.join(destination, 'enorme.bin'));
     expect(written.size).toBe(size);
+    // The bar moves while the server writes. Without the streamed updates a
+    // member this size sat at zero until it was already complete on disk.
+    expect(updates.length).toBeGreaterThan(1);
+    expect(updates).toEqual([...updates].sort((a, b) => a - b));
+    expect(updates.at(-1)).toBe(size);
     // Written through a sibling temporary file: nothing half-done keeps a name.
     expect((await fs.readdir(destination)).filter((name) => name.endsWith('.part'))).toEqual([]);
   }, 60000);

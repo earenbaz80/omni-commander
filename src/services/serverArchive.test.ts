@@ -114,26 +114,38 @@ describe('loadServerArchiveBackend', () => {
     expect(error.message).not.toMatch(/\{(name|size)\}/);
   });
 
-  it('asks the server to write a large member and reports the bytes it wrote', async () => {
+  it('follows the server writing a large member and reports the bytes it wrote', async () => {
     const calls: { url: string; body: any }[] = [];
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string, init: RequestInit) => {
         calls.push({ url: String(url), body: JSON.parse(String(init.body)) });
-        return json({ ok: true, bytes: 2048 });
+        const lines = [
+          { type: 'progress', bytes: 1024 },
+          { type: 'progress', bytes: 2048 },
+          { type: 'done', ok: true, bytes: 2048 },
+        ]
+          .map((event) => JSON.stringify(event))
+          .join('\n');
+        return new Response(`${lines}\n`, { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } });
       }),
     );
 
-    const written = await extractServerEntry({
-      archivePath: TARGET,
-      fileName: 'copia.rar',
-      format: 'RAR',
-      entryName: 'sub/grande.bin',
-      destination: 'C:\\salida\\sub\\grande.bin',
-      root: 'C:\\salida',
-    });
+    const updates: number[] = [];
+    const written = await extractServerEntry(
+      {
+        archivePath: TARGET,
+        fileName: 'copia.rar',
+        format: 'RAR',
+        entryName: 'sub/grande.bin',
+        destination: 'C:\\salida\\sub\\grande.bin',
+        root: 'C:\\salida',
+      },
+      (bytes) => updates.push(bytes),
+    );
 
     expect(written).toBe(2048);
+    expect(updates).toEqual([1024, 2048]);
     expect(calls).toEqual([
       {
         url: expect.stringContaining('/api/archives/extract'),
@@ -146,6 +158,36 @@ describe('loadServerArchiveBackend', () => {
         },
       },
     ]);
+  });
+
+  it('turns a failure the server hit mid-write into the archive error', async () => {
+    const lines = [
+      JSON.stringify({ type: 'progress', bytes: 512 }),
+      JSON.stringify({ type: 'error', code: 'read-failed', error: 'Damaged local header' }),
+    ].join('\n');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () => new Response(`${lines}\n`, { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } }),
+      ),
+    );
+
+    const seen: number[] = [];
+    const error = (await extractServerEntry(
+      {
+        archivePath: TARGET,
+        fileName: 'copia.rar',
+        format: 'RAR',
+        entryName: 'sub/grande.bin',
+        destination: 'C:\\salida\\sub\\grande.bin',
+        root: 'C:\\salida',
+      },
+      (bytes) => seen.push(bytes),
+    ).catch((thrown) => thrown)) as Error;
+
+    expect(error).toBeInstanceOf(Error);
+    expect(error.message).toContain('copia.rar');
+    expect(seen).toEqual([512]);
   });
 
   it('keeps an existing destination a refusal, not a corrupt archive', async () => {
