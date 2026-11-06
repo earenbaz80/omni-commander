@@ -184,11 +184,15 @@ describe('loopback API origin and token enforcement (S1)', () => {
     expect(res.ok).toBe(true);
   });
 
-  it('leaves a GET that describes no disk open, so readiness needs no secret', async () => {
+  it('answers a readiness probe without the secret, even when the body is refused', async () => {
     const res = await fetch(server.url('/api/system/stats'), {
       headers: { origin: 'http://127.0.0.1:3000' },
     });
-    expect(res.status).not.toBe(403);
+    // The load reading describes this machine, so it asks for the token now.
+    expect(res.status).toBe(403);
+    // Readiness never needed the body: the bind handshake reads this header on
+    // the response, and every response carries it -- error responses included.
+    expect(res.headers.get('X-OmniCmd-Server')).toBe('1');
   });
 });
 
