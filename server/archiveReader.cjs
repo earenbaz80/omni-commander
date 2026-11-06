@@ -331,7 +331,8 @@ function registerArchiveRoutes(app, deps) {
   }
 
   /**
-   * First bytes of every archive family this route can be pointed at.
+   * First bytes of every archive family this route can be pointed at, except
+   * TAR: that one keeps its marker further in and is checked separately below.
    *
    * libarchive.js reports a file it cannot recognise as an archive with no
    * entries instead of as an error -- its warning goes to the worker's console,
@@ -349,10 +350,21 @@ function registerArchiveRoutes(app, deps) {
     [0x1f, 0x8b], // gzip
   ];
 
+  /**
+   * Where a TAR keeps the only bytes that identify it. Its first 257 bytes are
+   * the name and the numeric fields of the first header, so looking at the head
+   * of the file as if every family started with a magic left plain `.tar`
+   * rejected as "not an archive", even though the modal offers TAR.
+   */
+  const TAR_MAGIC_OFFSET = 257;
+  const TAR_MAGIC = 'ustar';
+  // One TAR block: far enough to reach the magic and still a single small read.
+  const ARCHIVE_HEAD_BYTES = 512;
+
   async function readArchiveHead(target) {
     const handle = await fs.promises.open(target, 'r');
     try {
-      const buffer = Buffer.alloc(8);
+      const buffer = Buffer.alloc(ARCHIVE_HEAD_BYTES);
       const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
       return buffer.subarray(0, bytesRead);
     } finally {
@@ -366,6 +378,11 @@ function registerArchiveRoutes(app, deps) {
     if (head.length === 0) return;
     if (ARCHIVE_SIGNATURES.some((signature) => signature.every((byte, index) => head[index] === byte))) return;
     if (head[0] === 0x5d) return; // LZMA alone: 0x5d is its properties byte
+    // POSIX writes "ustar\0" and GNU writes "ustar  ", so the letters are what
+    // is compared. A pre-POSIX TAR carries no magic at all and still needs the
+    // engine to have the final word on it, which is what the routes do next.
+    const magicEnd = TAR_MAGIC_OFFSET + TAR_MAGIC.length;
+    if (head.length >= magicEnd && head.toString('latin1', TAR_MAGIC_OFFSET, magicEnd) === TAR_MAGIC) return;
     throw new Error('The file does not start like any archive format');
   }
 
