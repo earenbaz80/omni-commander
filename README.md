@@ -153,6 +153,28 @@ Si hay que borrar una rama remota a mano —el caso del fork, o una que se qued�
 
 Esa compuerta no se mide en segundos. El mismo código tarda entre **78 y 189 s** en el paso `Unit tests` según el host donde caiga, con una mediana de 136 s en veinte patas, y dos patas del mismo commit han llegado a separarse 100 s. No es el proyecto: las dos versiones de Node dan la misma mediana (136 s), el build de imagen del runner no separa los rápidos de los lentos, y el paso de instalar dependencias —que va de red— no correlaciona con los tests (r = 0,10), mientras que los pasos de solo CPU sí lo hacen (r = 0,69 con el lint). Es el host, así que la duración de ese paso no sirve como termómetro de rendimiento.
 
+### Dependabot
+
+[`.github/dependabot.yml`](.github/dependabot.yml) revisa el repositorio cada día laborable y, cuando hay algo nuevo, abre un pull request en vez de esperar a que alguien haga push. Vigila dos cosas: las dependencias de `package.json` y las acciones del workflow, que van fijadas por SHA con su versión en el comentario.
+
+Los PRs llegan agrupados a propósito. Primero `majors`, y después `production` y `development` con sus saltos de minor y patch revueltos; las acciones tienen su grupo aparte. La razón de separar el major no es el orden: un PR de parches se revisa leyendo el diff del lockfile, y uno que cambia de major se revisa leyendo las notas de la librería, que es otro trabajo.
+
+**Minor y patch.** No piden ceremonia: el job `verify` ya corrió formato, tipos, tipos estrictos, eslint y la suite en el PR, y el `e2e` detrás. Basta con mirar que esté en verde, comprobar que el diff no toca nada fuera de `package.json` y `package-lock.json`, y fusionar. La suite son unos 40 s con dos workers, así que repetirla a mano añade poco.
+
+**Major.** La pregunta no es «¿compila?» sino «¿lo soportan las herramientas que lo leen?». Hay un caso medido en este repositorio: TypeScript 7.0.2 deja los dos chequeos de tipos en **cero errores**, y aun así no se puede adoptar, porque `typescript-eslint` 8 se niega a cargar —«does not support TS 7.0»—: TS 7.0 solo publica el binario `tsc`, sin API de compilador. El puente oficial existe (`typescript` apuntando a `@typescript/typescript6`, el compilador nativo en paralelo) y funciona, pero cambia una dependencia por dos alias y un binario más; mientras la API no llegue en 7.1 y la herramienta no la soporte, ese PR se cierra diciendo exactamente eso.
+
+La lista, en orden:
+
+1. Lee las notas de la versión, no el número: breaking changes, requisitos de Node, cambios de API.
+2. Mira los `peerDependencies` de quien la consume. Que compile solo no basta si el lint, el empaquetador o el plugin de turno declaran un rango que no incluye la versión nueva.
+3. Reproduce en local con el lockfile que trae el PR: `npm ci`, y después `npm run lint`, `npm run typecheck:strict`, `npm run lint:eslint` y `npm test -- --maxWorkers=2`.
+4. Si el paquete es de runtime —los siete de `dependencies` viajan dentro del instalador— mira también el tamaño del bundle; y si toca el shell de Electron, `npm run electron:build` y abrir la app, porque `libarchive.js` y `node-unrar-js` van fuera del asar y un salto de major ahí se nota al extraer, no al compilar.
+5. Si sale bien, el commit lo dice; si se aplaza, se cierra el PR con el motivo (o se añade un `ignore` con su comentario). Un PR de major abierto durante meses es ruido que tapa al siguiente.
+
+**Lo que no se hace.** Fusionar en rojo para vaciar la cola, ni `npm audit fix --force`: los cuatro avisos bajos de hoy viven en el tooling de build (deepmerge bajo workbox) y la única corrección que npm ofrece es bajar `vite-plugin-pwa` a una versión que rompe la PWA. Por eso el CI bloquea con `npm audit --omit=dev` —producción limpia, que es lo que se distribuye— e informa del resto sin bloquear.
+
+**Las alertas no las enciende el fichero.** `dependabot.yml` gobierna las actualizaciones de versión; las alertas y los *security updates* se activan en **Settings → Code security**. Esos PRs ignoran el horario y el cooldown de tres días que sí tienen los de versión, y llegan el día que se publica el advisory: se tratan como urgentes, con la misma comprobación pero sin esperar turno.
+
 ## Actualizaciones y releases
 
 La copia instalada no se actualiza sola a ciegas: `electron-updater` lee el `latest.yml` que electron-builder escribe dentro del paquete y comprueba si hay una versión más nueva en el repositorio. El updater solo existe en la instalación NSIS —un `npm run dev` o el portable, que se descomprime en un temporal en cada arranque, no tienen copia que reemplazar—, y nada se descarga hasta que se pulsa el botón: la comprobación es automática, la descarga es una decisión.
