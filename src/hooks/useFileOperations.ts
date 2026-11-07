@@ -1,10 +1,19 @@
-import { useCallback, type Dispatch, type SetStateAction } from 'react';
-import { FileItem, LanguageCode, PanelState, PanelTab, UserSettings } from '../types';
+import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import {
+  ConflictResolution,
+  FileItem,
+  LanguageCode,
+  PanelState,
+  PanelTab,
+  PendingConflict,
+  UserSettings,
+} from '../types';
 import { fsEngine, type OpenableArchiveFormat } from '../services/fileSystem';
 import { taskQueue } from '../services/taskQueueManager';
 import { soundManager } from '../services/soundEffects';
 import { createPasswordRecord } from '../services/appLock';
 import { setServerExtractionPaused } from '../services/serverArchive';
+import type { ExtractConflict, ExtractConflictAnswer } from '../services/fileArchiveOps';
 import { log } from '../utils/logger';
 import { getTranslations } from '../i18n/translations';
 
@@ -35,6 +44,10 @@ export interface FileOperations {
   handleApplyBatchRename: (renames: { id: string; newName: string }[]) => void;
   handleCompressZip: (archiveName: string, format: OpenableArchiveFormat) => Promise<void>;
   handleExtractZip: (zipFile: FileItem, destination?: { driveId: string; path: string }) => Promise<void>;
+  /** A name the running extraction has stopped on, waiting for an answer. */
+  extractConflict: PendingConflict | null;
+  handleResolveExtractConflict: (action: ConflictResolution, applyToAll: boolean) => void;
+  handleAbortExtractConflict: () => void;
   handleDropItems: (
     draggedItems: FileItem[],
     targetPath: string,
@@ -70,6 +83,29 @@ export function useFileOperations({
   getSelectedOrFocusedItems,
 }: FileOperationsDeps): FileOperations {
   const t = getTranslations(lang);
+
+  // The extraction runs inside a task, so its question is state this hook owns
+  // and the modal layer renders, exactly like the queue owns its own prompt.
+  const [extractConflict, setExtractConflict] = useState<PendingConflict | null>(null);
+  const extractAnswerRef = useRef<((answer: ExtractConflictAnswer) => void) | null>(null);
+  const extractAbortRef = useRef<AbortController | null>(null);
+
+  const handleResolveExtractConflict = (action: ConflictResolution, applyToAll: boolean) => {
+    const answer = extractAnswerRef.current;
+    extractAnswerRef.current = null;
+    setExtractConflict(null);
+    answer?.({ action, applyToAll });
+  };
+
+  // Walking away from the prompt cannot leave the extraction parked: the run is
+  // cancelled, which is what the queue's own prompt does with its job.
+  const handleAbortExtractConflict = () => {
+    const answer = extractAnswerRef.current;
+    extractAnswerRef.current = null;
+    setExtractConflict(null);
+    extractAbortRef.current?.abort();
+    answer?.({ action: 'cancel', applyToAll: false });
+  };
 
   const handleConfirmDelete = () => {
     const items: FileItem[] = transferItems;
@@ -225,6 +261,7 @@ export function useFileOperations({
         // request, pause and resume are asked for over their own route, which is
         // what keeps the same stream alive instead of restarting the member.
         const controller = new AbortController();
+        extractAbortRef.current = controller;
         let job = '';
         let pausedSent = false;
         const watcher = setInterval(() => {
@@ -238,6 +275,36 @@ export function useFileOperations({
             log.warn('Could not change the pace of the extraction', error),
           );
         }, 200);
+        // A member whose name is taken parks here until the prompt is answered.
+        // Cancelling the task aborts the controller, which settles the same way
+        // the prompt's own Cancel does instead of leaving the promise pending.
+        const askConflict = (conflict: ExtractConflict) =>
+          new Promise<ExtractConflictAnswer>((resolve) => {
+            const cancelled = () => {
+              extractAnswerRef.current = null;
+              setExtractConflict(null);
+              resolve({ action: 'cancel', applyToAll: false });
+            };
+            const settle = (answer: ExtractConflictAnswer) => {
+              controller.signal.removeEventListener('abort', cancelled);
+              extractAnswerRef.current = null;
+              resolve(answer);
+            };
+            controller.signal.addEventListener('abort', cancelled, { once: true });
+            extractAnswerRef.current = settle;
+            setExtractConflict({
+              jobId: taskId,
+              // The headline names the archive; the member inside it is what the
+              // two paths in the prompt differ by.
+              source: `${source.fullName} › ${conflict.entry}`,
+              destination: conflict.destination,
+              name: conflict.name,
+              sourceSize: conflict.sourceSize,
+              destinationSize: conflict.destinationSize,
+              sourceModified: conflict.sourceModified,
+              destinationModified: conflict.destinationModified,
+            });
+          });
         try {
           await fsEngine.extractArchive(source, target.driveId, target.path, undefined, {
             onProgress,
@@ -245,10 +312,14 @@ export function useFileOperations({
             onJob: (id) => {
               job = id;
             },
+            onConflict: askConflict,
             signal: controller.signal,
           });
         } finally {
           clearInterval(watcher);
+          if (extractAbortRef.current === controller) extractAbortRef.current = null;
+          // A run that ended for another reason must not leave its question up.
+          setExtractConflict((current) => (current && current.jobId === taskId ? null : current));
         }
       },
     );
@@ -345,6 +416,9 @@ export function useFileOperations({
     handleApplyBatchRename,
     handleCompressZip,
     handleExtractZip,
+    extractConflict,
+    handleResolveExtractConflict,
+    handleAbortExtractConflict,
     handleDropItems,
     handleDropNativeFiles,
     handleSetFolderPassword,

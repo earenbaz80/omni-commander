@@ -380,7 +380,7 @@ export const es = {
   zipFormat: 'Formato de Compresión:',
   detectArchiveFormat: 'Detectar formato de archivo...',
   archiveInfo: 'Información del archivo...',
-  archiveActions: 'Acciones de Archive',
+  archiveActions: 'Acciones de archivo',
   archiveInfoTitle: 'Información de Archivo',
   zipBaseName: 'Nombre Base:',
   zipLevel: 'Nivel Compresión:',

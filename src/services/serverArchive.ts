@@ -172,6 +172,8 @@ export interface ServerEntryTarget {
   password?: string;
   /** Id this run is known by on the server, so it can be paused and released. */
   job?: string;
+  /** The conflict prompt's answer: replace the file that is already there. */
+  overwrite?: boolean;
 }
 
 /**
@@ -198,6 +200,7 @@ export async function extractServerEntry(
         root: target.root,
         password: target.password,
         job: target.job,
+        overwrite: target.overwrite === true ? true : undefined,
       },
       // Writing gigabytes takes as long as the disk takes: a total timeout here
       // would abandon a transfer that is still making progress.

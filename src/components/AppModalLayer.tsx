@@ -91,6 +91,9 @@ type ModalLayerFiles = Pick<
   | 'handleApplyBatchRename'
   | 'handleCompressZip'
   | 'handleExtractZip'
+  | 'extractConflict'
+  | 'handleResolveExtractConflict'
+  | 'handleAbortExtractConflict'
   | 'handleSetFolderPassword'
 >;
 
@@ -190,6 +193,16 @@ export function AppModalLayer({ ui, panels, modal, transfers, files, commands, t
         handleExtractZip={files.handleExtractZip}
         handleSetFolderPassword={files.handleSetFolderPassword}
       />
+
+      {files.extractConflict && (
+        <ConflictPromptModal
+          conflict={files.extractConflict}
+          theme={ui.theme}
+          lang={ui.lang}
+          onAnswer={files.handleResolveExtractConflict}
+          onCancel={files.handleAbortExtractConflict}
+        />
+      )}
 
       {queue.conflictPrompt && (
         <ConflictPromptModal

@@ -1,16 +1,19 @@
-import { renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useFileOperations } from './useFileOperations';
-import type { FileItem, PanelTab, UserSettings } from '../types';
+import type { ConflictResolution, FileItem, PanelTab, UserSettings } from '../types';
+import type { ExtractConflict } from '../services/fileArchiveOps';
 
-const { addTask, updateTaskMeta, playSuccess, deleteItems, createPasswordRecord, setSettings } = vi.hoisted(() => ({
-  addTask: vi.fn(() => 'task-1'),
-  updateTaskMeta: vi.fn(),
-  playSuccess: vi.fn(),
-  deleteItems: vi.fn(async () => undefined),
-  createPasswordRecord: vi.fn(async () => ({ hash: 'derivado', salt: 'sal' })),
-  setSettings: vi.fn(),
-}));
+const { addTask, updateTaskMeta, playSuccess, deleteItems, createPasswordRecord, setSettings, extractArchive } =
+  vi.hoisted(() => ({
+    addTask: vi.fn(() => 'task-1'),
+    updateTaskMeta: vi.fn(),
+    playSuccess: vi.fn(),
+    deleteItems: vi.fn(async () => undefined),
+    createPasswordRecord: vi.fn(async () => ({ hash: 'derivado', salt: 'sal' })),
+    setSettings: vi.fn(),
+    extractArchive: vi.fn(),
+  }));
 
 vi.mock('../services/taskQueueManager', () => ({
   taskQueue: { addTask, updateTaskMeta, updateTaskFiles: vi.fn() },
@@ -28,6 +31,7 @@ vi.mock('../services/fileSystem', () => ({
     getArchiveSource: () => undefined,
     createArchive: vi.fn(),
     isRealFile: () => false,
+    extractArchive,
   },
 }));
 
@@ -61,10 +65,12 @@ const appliedUpdater = (previous: Partial<UserSettings>) => {
 };
 
 beforeEach(() => {
-  addTask.mockClear();
+  addTask.mockReset();
+  addTask.mockReturnValue('task-1');
   updateTaskMeta.mockClear();
   setSettings.mockClear();
   createPasswordRecord.mockClear();
+  extractArchive.mockReset();
 });
 
 describe('useFileOperations', () => {
@@ -114,5 +120,53 @@ describe('useFileOperations', () => {
     await result.current.handleCompressZip('respaldo', 'ZIP');
 
     expect(addTask).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The extraction asks through the task it is running: the prompt is state this
+   * hook keeps, and the answer is what settles the promise the engine is parked
+   * on. A missing answer would leave the task running forever.
+   */
+  it('parks the extraction on a taken name and answers it from the prompt', async () => {
+    let answered: ConflictResolution | undefined;
+    addTask.mockImplementation(((
+      _type: string,
+      _title: string,
+      _detail: unknown,
+      _total: number,
+      executor: (
+        progress: (transferred: number, total: number) => void,
+        signal: { paused: boolean; cancelled: boolean },
+      ) => Promise<void>,
+    ) => {
+      void executor(() => {}, { paused: false, cancelled: false });
+      return 'task-9';
+    }) as never);
+    extractArchive.mockImplementation((async (
+      _source: FileItem,
+      _drive: string,
+      _path: string,
+      _entry: string | undefined,
+      hooks: { onConflict?: (conflict: ExtractConflict) => Promise<{ action: ConflictResolution }> },
+    ) => {
+      const answer = await hooks.onConflict!({
+        entry: 'nota.txt',
+        destination: 'D:\\carpeta\\nota.txt',
+        name: 'nota.txt',
+      });
+      answered = answer.action;
+      return 1;
+    }) as never);
+    const { result } = render();
+
+    await act(async () => {
+      await result.current.handleExtractZip(item('demo.zip'));
+    });
+    await waitFor(() => expect(result.current.extractConflict?.name).toBe('nota.txt'));
+
+    act(() => result.current.handleResolveExtractConflict('overwrite', false));
+
+    await waitFor(() => expect(answered).toBe('overwrite'));
+    expect(result.current.extractConflict).toBeNull();
   });
 });

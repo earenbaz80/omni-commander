@@ -33,6 +33,14 @@ El servidor prefiere el 3001 (`PORT` lo cambia) y, si está ocupado, avanza hast
 
 `npm install` ejecuta `prepare`, que activa los hooks de Git (ver más abajo).
 
+## Extraer archivos comprimidos
+
+Extraer pregunta qué hacer cuando el destino ya tiene una entrada con ese nombre. El aviso es el mismo de copiar y mover: enseña las dos rutas, los dos tamaños y la fecha, y ofrece omitir, conservar ambos, sobrescribir, sobrescribir si es distinto o renombrar el archivo viejo. La respuesta vale para ese miembro y, si se marca la casilla de siempre, para los siguientes; una extracción nueva vuelve a preguntar. Mientras el aviso está abierto no se escribe nada: el fichero que ya estaba sigue entero, y cerrar el aviso cancela la extracción en lugar de dejarla parada.
+
+Sobrescribir tampoco escribe encima: el servidor redirige la escritura a un temporal que solo toma el nombre definitivo al terminar, y solo se salta su negativa cuando la petición se lo pide expresamente, que es lo que hace esta respuesta. Cuando la extracción la lanza algo que no puede preguntar —la copia de una entrada montada, una prueba—, el nombre ocupado se sigue rechazando con «El destino ya existe: nota.txt».
+
+La comprobación es por entrada y no hay marcha atrás: si el choque está en el tercer miembro, los dos primeros ya están en disco, y omitirlo o cancelar deja el resto sin escribir sin deshacer lo anterior.
+
 ## Variables de entorno
 
 Todas son opcionales. Para no repetirlas en cada orden, copia [.env.example](.env.example) a `.env`: lo cargan `npm run dev` (vía `loadEnv` de Vite) y `npm run server` (`node --env-file-if-exists`), y lo que ya esté exportado en la shell gana sobre el fichero. La app empaquetada con Electron no lo lee —arranca el servidor dentro de su propio proceso—, así que `.env` configura el flujo local, no la distribución.

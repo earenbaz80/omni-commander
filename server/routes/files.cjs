@@ -137,7 +137,21 @@ function registerFileRoutes(app, deps) {
         const target = assertSafePath(req.query.path);
         await assertArchiveDestination(req.query.root, target);
         await fs.promises.mkdir(path.win32.dirname(target), { recursive: true });
-        await fs.promises.writeFile(target, req.body, { flag: 'wx' });
+        if (req.query.overwrite === '1') {
+          // An answered conflict: the name is meant to be replaced, but the write
+          // still lands under a temporary name first, so a failure leaves the
+          // file that was there whole instead of half written.
+          const temporary = `${target}.${Date.now().toString(36)}.part`;
+          try {
+            await fs.promises.writeFile(temporary, req.body, { flag: 'wx' });
+            await fs.promises.rename(temporary, target);
+          } catch (err) {
+            await fs.promises.rm(temporary, { force: true }).catch(() => {});
+            throw err;
+          }
+        } else {
+          await fs.promises.writeFile(target, req.body, { flag: 'wx' });
+        }
         invalidateListings();
         res.json({ ok: true, path: target });
       } catch (err) {

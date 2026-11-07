@@ -13,7 +13,7 @@ import {
   type OpenableArchiveFormat,
 } from './archiveBackend';
 import { API_BASE } from './apiBase';
-import type { FileItem } from '../types';
+import type { ConflictResolution, FileItem } from '../types';
 import { tGlobal } from '../i18n/translations';
 import { fetchWithRetry } from '../utils/fetchWithRetry';
 import { ArchiveDestinationExistsError, extractServerEntry, loadServerArchiveBackend } from './serverArchive';
@@ -45,6 +45,27 @@ export interface ArchiveMount {
   root: string;
   backend: ArchiveBackend;
   items: FileItem[];
+}
+
+/** A destination an extraction found already taken, and the facts to judge it. */
+export interface ExtractConflict {
+  /** The member's path inside the archive, which is what the prompt lists. */
+  entry: string;
+  /** Absolute path the member would land on. */
+  destination: string;
+  /** Name of the file already sitting there. */
+  name: string;
+  sourceSize?: number;
+  sourceModified?: number;
+  destinationSize?: number;
+  destinationModified?: number;
+}
+
+/** What the person answered to one of those, and whether it covers the rest. */
+export interface ExtractConflictAnswer {
+  action: ConflictResolution;
+  /** The same answer for every later taken name in this run. */
+  applyToAll: boolean;
 }
 
 /** Every member of the engine this module uses, named one by one. */
@@ -80,6 +101,12 @@ export interface ExtractHooks {
   onEntry?: (entryPath: string) => void;
   /** The id the server knows this run by, so it can be held and released. */
   onJob?: (jobId: string) => void;
+  /**
+   * A name the destination already has. The answer decides that member, and with
+   * `applyToAll` decides the rest of the run too. Without it the write keeps
+   * refusing the name, which is what every caller but the window wants.
+   */
+  onConflict?: (conflict: ExtractConflict) => Promise<ExtractConflictAnswer>;
   /** Aborting stops the run and leaves nothing under the real names. */
   signal?: AbortSignal;
 }
@@ -89,7 +116,13 @@ export interface ArchiveOps {
   getArchiveSource(driveId: string, path: string): FileItem | undefined;
   /** An entry mounted from any archive, for `getFileById`. */
   findMountedItem(id: string): FileItem | undefined;
-  writeBytes(driveId: string, root: string, relative: string, bytes: Uint8Array): Promise<FileItem>;
+  writeBytes(
+    driveId: string,
+    root: string,
+    relative: string,
+    bytes: Uint8Array,
+    options?: { overwrite?: boolean },
+  ): Promise<FileItem>;
   openArchive(source: FileItem, password?: string): Promise<string>;
   createArchive(
     items: FileItem[],
@@ -140,15 +173,22 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
     )?.backend;
   }
 
-  async function writeBytes(driveId: string, root: string, relative: string, bytes: Uint8Array): Promise<FileItem> {
+  async function writeBytes(
+    driveId: string,
+    root: string,
+    relative: string,
+    bytes: Uint8Array,
+    options: { overwrite?: boolean } = {},
+  ): Promise<FileItem> {
     if (getArchiveSource(driveId, root)) throw new Error(tGlobal('zipReadOnly'));
     const safe = archiveEntryPath(relative);
     // Kept drive-relative for the catalogue entry, which indexes panels by that
     // form; only the request to the server needs the drive letter.
     const target = deps.childAbsolutePath(root, safe);
     if (deps.isSystemDrive(driveId)) {
+      const replace = options.overwrite ? '&overwrite=1' : '';
       const response = await fetchWithRetry(
-        `${API_BASE}/api/fs/write-bytes?path=${encodeURIComponent(deps.absoluteForDrive(driveId, target))}&root=${encodeURIComponent(deps.absoluteForDrive(driveId, root))}`,
+        `${API_BASE}/api/fs/write-bytes?path=${encodeURIComponent(deps.absoluteForDrive(driveId, target))}&root=${encodeURIComponent(deps.absoluteForDrive(driveId, root))}${replace}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/octet-stream' },
@@ -161,11 +201,19 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
     }
     const parent = deps.getParentPath(target);
     const fullName = safe.split('\\').pop()!;
-    if (
-      !deps.isSystemDrive(driveId) &&
-      deps.getFiles(driveId, parent).some((f) => deps.realEntryName(f).toLowerCase() === fullName.toLowerCase())
-    ) {
-      throw new Error(tGlobal('zipErrExists').replace('{name}', fullName));
+    const listed = deps.isSystemDrive(driveId)
+      ? undefined
+      : deps.getFiles(driveId, parent).find((f) => deps.realEntryName(f).toLowerCase() === fullName.toLowerCase());
+    if (listed) {
+      if (!options.overwrite) throw new Error(tGlobal('zipErrExists').replace('{name}', fullName));
+      // The catalogue lists these very objects, so replacing a file is an update
+      // of the entry that is there, not a second entry carrying the same name.
+      listed.size = bytes.length;
+      listed.content = bytesToBase64(bytes);
+      listed.contentEncoding = 'base64';
+      listed.modifiedAt = new Date().toISOString();
+      deps.saveToStorage();
+      return listed;
     }
     const dot = fullName.lastIndexOf('.');
     const now = new Date().toISOString();
@@ -186,6 +234,71 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
     };
     deps.rememberFile(item);
     return item;
+  }
+
+  /** What already sits on a destination name, or null when it is free. */
+  async function existingFileAt(
+    driveId: string,
+    parentPath: string,
+    name: string,
+  ): Promise<{ size?: number; modified?: number; listed?: FileItem } | null> {
+    if (deps.isSystemDrive(driveId)) {
+      const answer = (await deps.callServerFs('stat', {
+        paths: [deps.absoluteForDrive(driveId, deps.childAbsolutePath(parentPath, name))],
+      })) as { entries?: { size: number; isDirectory: boolean }[] } | null;
+      const found = answer?.entries?.[0];
+      return found ? { size: found.isDirectory ? undefined : found.size } : null;
+    }
+    const listed = deps
+      .getFiles(driveId, parentPath)
+      .find((file) => deps.realEntryName(file).toLowerCase() === name.toLowerCase());
+    if (!listed) return null;
+    const modified = Date.parse(listed.modifiedAt);
+    return {
+      size: listed.isDirectory ? undefined : listed.size,
+      modified: Number.isFinite(modified) ? modified : undefined,
+      listed,
+    };
+  }
+
+  /**
+   * The next name in Explorer's numbered series (`nota (2).txt`), checked against
+   * the folder the extraction is writing into rather than assumed to be free.
+   */
+  async function freeSiblingName(driveId: string, parentPath: string, name: string): Promise<string> {
+    const dot = name.lastIndexOf('.');
+    const base = dot > 0 ? name.slice(0, dot) : name;
+    const extension = dot > 0 ? name.slice(dot) : '';
+    for (let index = 2; index < 1000; index++) {
+      const candidate = `${base} (${index})${extension}`;
+      if (!(await existingFileAt(driveId, parentPath, candidate))) return candidate;
+    }
+    throw new Error(tGlobal('zipErrExists').replace('{name}', name));
+  }
+
+  /** Moves the file that is in the way aside, under the next free name. */
+  async function moveExistingAside(
+    driveId: string,
+    parentPath: string,
+    name: string,
+    existing: { listed?: FileItem },
+  ): Promise<void> {
+    const renamed = await freeSiblingName(driveId, parentPath, name);
+    if (deps.isSystemDrive(driveId)) {
+      const result = await deps.callServerFs('rename', {
+        path: deps.absoluteForDrive(driveId, deps.childAbsolutePath(parentPath, name)),
+        newName: renamed,
+      });
+      if (!result) throw new Error(deps.lastCallError() || tGlobal('zipErrExists').replace('{name}', name));
+      return;
+    }
+    const listed = existing.listed;
+    if (!listed) return;
+    const dot = renamed.lastIndexOf('.');
+    listed.fullName = renamed;
+    listed.name = dot > 0 ? renamed.slice(0, dot) : renamed;
+    listed.ext = dot > 0 ? renamed.slice(dot + 1) : '';
+    deps.saveToStorage();
   }
 
   /**
@@ -350,6 +463,7 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
     onBytes: (bytesSoFar: number) => void,
     signal?: AbortSignal,
     job?: string,
+    overwrite = false,
   ): Promise<number | null> {
     const folder = deps.normalizePath(targetPath);
     try {
@@ -362,6 +476,7 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
           destination: deps.absoluteForDrive(targetDriveId, deps.childAbsolutePath(folder, relative)),
           root: deps.absoluteForDrive(targetDriveId, folder),
           job,
+          overwrite,
         },
         onBytes,
         signal,
@@ -395,6 +510,9 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
     const totalBytes = entries.reduce((sum, entry) => sum + (entry.dir ? 0 : entry.size), 0);
     let writtenBytes = 0;
     let extractedCount = 0;
+    // An answer given with "always" covers every later taken name in this run,
+    // and only this run: the next extraction asks again.
+    let rememberedAnswer: ConflictResolution | undefined;
     // Named here so the server can hold and release this very run. The id is
     // what the task sends back to pause and resume, so it has to exist before
     // the first member starts.
@@ -425,6 +543,58 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
           // Named before the first byte, so the task can say what it is writing
           // instead of only how far it has got.
           hooks?.onEntry?.(relative);
+          // A name the destination already holds is a question when the caller
+          // can answer it. Everything below decides where this member lands, or
+          // whether it lands at all.
+          let destinationRelative = relative;
+          let overwrite = false;
+          let skip = false;
+          const leaf = relative.split('\\').pop()!;
+          // Only a caller that can answer is worth the round trip: without a
+          // prompt the write below already refuses the name, and probing every
+          // member would cost one request per file on a large archive.
+          const taken = hooks?.onConflict ? await existingFileAt(targetDriveId, parent, leaf) : null;
+          if (taken) {
+            let action: ConflictResolution | undefined = rememberedAnswer;
+            if (!action && hooks?.onConflict) {
+              const answer = await hooks.onConflict({
+                entry: relative,
+                destination: deps.absoluteForDrive(targetDriveId, deps.childAbsolutePath(parent, leaf)),
+                name: leaf,
+                sourceSize: entry.size,
+                sourceModified: entry.date.getTime(),
+                destinationSize: taken.size,
+                destinationModified: taken.modified,
+              });
+              action = answer.action;
+              if (answer.applyToAll) rememberedAnswer = answer.action;
+            }
+            if (action === 'skip') skip = true;
+            else if (action === 'overwrite') overwrite = true;
+            else if (action === 'overwrite-if-different') {
+              // An entry that is still compressed can only be compared by the
+              // size it declares; reading it to hash would defeat the point.
+              skip = taken.size !== undefined && taken.size === entry.size;
+              overwrite = !skip;
+            } else if (action === 'rename') {
+              const kept = await freeSiblingName(targetDriveId, parent, leaf);
+              destinationRelative = `${relative.slice(0, relative.length - leaf.length)}${kept}`;
+            } else if (action === 'rename-old') {
+              await moveExistingAside(targetDriveId, parent, leaf, taken);
+            } else if (action === 'cancel') {
+              // Backing out of the prompt ends the run where a cancel does, so
+              // nothing else is written under a name nobody answered.
+              hooks?.signal?.throwIfAborted();
+              throw new Error(tGlobal('zipErrExists').replace('{name}', leaf));
+            }
+          }
+          if (skip) {
+            // A skipped member still counts as accounted for, or the bar would
+            // stop short of the end with nothing left to write.
+            writtenBytes += entry.size;
+            hooks?.onProgress?.(writtenBytes, totalBytes);
+            continue;
+          }
           const streamable =
             deps.isSystemDrive(targetDriveId) &&
             deps.isSystemDrive(archiveFile.driveId) &&
@@ -438,15 +608,16 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
                 entry,
                 targetDriveId,
                 targetPath,
-                relative,
+                destinationRelative,
                 (bytesSoFar) => hooks?.onProgress?.(writtenBytes + bytesSoFar, totalBytes),
                 hooks?.signal,
                 job,
+                overwrite,
               )
             : null;
           if (streamed === null) {
             const bytes = await entry.read();
-            await writeBytes(targetDriveId, targetPath, relative, bytes);
+            await writeBytes(targetDriveId, targetPath, destinationRelative, bytes, { overwrite });
             writtenBytes += bytes.length;
           } else {
             writtenBytes += streamed;
