@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CornerDownLeft, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { CommandHistoryItem, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
@@ -57,6 +57,13 @@ export const TerminalModal: React.FC<TerminalModalProps> = ({
     if (log) log.scrollTop = log.scrollHeight;
   }, [commandHistory.length]);
 
+  // Typing keeps the caret in view: the prompt scrolls with the scrollback
+  // instead of being pinned to the bottom, so the screen has to follow it.
+  useEffect(() => {
+    const log = logRef.current;
+    if (log) log.scrollTop = log.scrollHeight;
+  }, [inputVal]);
+
   /** Walks the history from the newest command, the way the command bar does. */
   const recall = (step: number) => {
     if (commandHistory.length === 0) return;
@@ -77,6 +84,13 @@ export const TerminalModal: React.FC<TerminalModalProps> = ({
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    // Enter is the only way to send a line, as on any terminal: there is no
+    // button to fall back on, and an empty line is not worth a round trip.
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      run(inputVal);
+      return;
+    }
     if (event.key === 'ArrowUp') {
       event.preventDefault();
       recall(1);
@@ -140,37 +154,60 @@ export const TerminalModal: React.FC<TerminalModalProps> = ({
           </div>
         </div>
 
-        {/* Screen. The log scrolls under the glass; the scanlines sit on top of
-            it and take no clicks, so the text stays selectable. */}
+        {/* Screen. The prompt is the last line of the scrollback, not a field
+            below the glass: what is typed appears inline with the output, which
+            is the one thing that makes this feel like a terminal instead of a
+            form. The scanlines sit on top and take no clicks. */}
         <div className="relative flex-1 min-h-72">
           <div
             ref={logRef}
-            role="log"
-            aria-live="polite"
-            aria-label={t.terminalTitle}
             data-terminal-log
             onClick={() => inputRef.current?.focus()}
-            className="absolute inset-0 overflow-y-auto p-[var(--space-3)] text-[12px] leading-5 select-text"
+            className="absolute inset-0 overflow-y-auto p-[var(--space-3)] text-[12px] leading-5 select-text cursor-text"
             style={{ color: theme.promptText, textShadow: '0 0 6px currentColor' }}
           >
-            {commandHistory.length === 0 ? (
-              <div className="opacity-50 italic">{t.terminalHint}</div>
-            ) : (
-              commandHistory.map((entry) => (
-                <div key={entry.id} className="mb-[var(--space-1)]">
-                  <div className="font-bold">
-                    <span className="opacity-80">{currentPath}&gt;</span> {entry.command}
+            <div role="log" aria-live="polite" aria-label={t.terminalTitle}>
+              {commandHistory.length === 0 ? (
+                <div className="opacity-50 italic">{t.terminalHint}</div>
+              ) : (
+                commandHistory.map((entry) => (
+                  <div key={entry.id} className="mb-[var(--space-1)]">
+                    <div className="font-bold">
+                      <span className="opacity-80">{currentPath}&gt;</span> {entry.command}
+                    </div>
+                    {entry.output && (
+                      <pre
+                        className={`whitespace-pre-wrap pl-2 ${entry.status === 'error' ? 'text-red-400' : 'text-emerald-300'}`}
+                      >
+                        {entry.output}
+                      </pre>
+                    )}
                   </div>
-                  {entry.output && (
-                    <pre
-                      className={`whitespace-pre-wrap pl-2 ${entry.status === 'error' ? 'text-red-400' : 'text-emerald-300'}`}
-                    >
-                      {entry.output}
-                    </pre>
-                  )}
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
+
+            {/* The caret is the browser's own, coloured like the phosphor. */}
+            <div className="flex items-baseline gap-[var(--space-2)]">
+              <span className="font-bold shrink-0" style={{ color: isAdminMode ? '#f87171' : theme.promptText }}>
+                {isAdminMode ? `[ADMIN] ${currentPath}>` : `${currentPath}>`}
+              </span>
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputVal}
+                onChange={(event) => {
+                  setInputVal(event.target.value);
+                  setRecallIndex(-1);
+                }}
+                onKeyDown={handleKeyDown}
+                aria-label={t.cmdPlaceholder}
+                spellCheck={false}
+                autoComplete="off"
+                className="flex-1 min-w-0 bg-transparent border-0 outline-none p-0"
+                style={{ color: theme.promptText, caretColor: theme.promptText }}
+              />
+            </div>
           </div>
           <div
             aria-hidden="true"
@@ -182,46 +219,6 @@ export const TerminalModal: React.FC<TerminalModalProps> = ({
             }}
           />
         </div>
-
-        {/* Prompt */}
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            run(inputVal);
-          }}
-          className="flex items-center gap-[var(--space-2)] px-[var(--space-3)] py-[var(--space-2)] border-t shrink-0"
-          style={{ borderColor: theme.modalBorder, backgroundColor: theme.promptBg }}
-        >
-          <span
-            className="font-bold shrink-0 select-none"
-            style={{ color: isAdminMode ? '#f87171' : theme.promptText }}
-          >
-            {isAdminMode ? `[ADMIN] ${currentPath}>` : `${currentPath}>`}
-          </span>
-          <input
-            ref={inputRef}
-            type="text"
-            value={inputVal}
-            onChange={(event) => {
-              setInputVal(event.target.value);
-              setRecallIndex(-1);
-            }}
-            onKeyDown={handleKeyDown}
-            placeholder={t.cmdPlaceholder}
-            aria-label={t.cmdPlaceholder}
-            spellCheck={false}
-            autoComplete="off"
-            className="flex-1 min-w-0 bg-transparent border-none outline-none placeholder:opacity-30"
-            style={{ color: theme.promptText, caretColor: theme.promptText }}
-          />
-          <button
-            type="submit"
-            className="px-[var(--space-3)] py-[var(--space-1)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded text-[11px] cursor-pointer shadow flex items-center gap-[var(--space-1)] shrink-0"
-          >
-            <span>{t.runCommand}</span>
-            <CornerDownLeft className="w-3 h-3" />
-          </button>
-        </form>
       </div>
     </ModalShell>
   );
