@@ -279,6 +279,15 @@ export function useKeyboardShortcuts(d: KeyboardShortcutDeps) {
         handleNewTab(activePanel);
         return;
       }
+      // The shell as a window. The backtick is the key DOS boxes used for their
+      // own console, and no other combination in this map claims it.
+      if ((e.ctrlKey || e.metaKey) && e.key === '`') {
+        e.preventDefault();
+        soundManager.playKeyTick();
+        setActiveModal('terminal');
+        return;
+      }
+
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'w') {
         e.preventDefault();
         handleCloseTab(activePanel, currentActiveTab.id);

@@ -1,6 +1,7 @@
 import { type Dispatch, type RefObject, type SetStateAction } from 'react';
 import {
   ActiveModal,
+  CommandHistoryItem,
   Drive,
   FileItem,
   FolderPasswordRecord,
@@ -98,6 +99,12 @@ export interface ModalLayerCommands {
   navigate: (side: 'left' | 'right', path: string) => void;
   selectIndex: (panelSide: 'left' | 'right', index: number) => void;
   executeCommand: (command: string) => void;
+  /** The shell's log and how to empty it: the terminal window shows the same one. */
+  history: CommandHistoryItem[];
+  clearHistory: () => void;
+  isAdminMode: boolean;
+  /** Relaunching elevated is the shell's one move it cannot do to itself. */
+  requestElevation: () => void;
 }
 
 /** The folder-tree handle pinned to the window edge; it is not part of any pane. */
@@ -165,6 +172,10 @@ export function AppModalLayer({ ui, panels, modal, transfers, files, commands, t
         handleNavigate={commands.navigate}
         handleSelectIndex={commands.selectIndex}
         handleExecuteCommand={commands.executeCommand}
+        commandHistory={commands.history}
+        onClearHistory={commands.clearHistory}
+        isAdminMode={commands.isAdminMode}
+        onRequestElevation={commands.requestElevation}
         onRunCopyList={queue.handleRunCopyList}
         handleConfirmCopy={queue.handleConfirmCopy}
         handleConfirmMove={queue.handleConfirmMove}

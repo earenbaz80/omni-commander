@@ -1290,4 +1290,7 @@ export const en = {
   openMediaPlayer: 'Audio and video player',
   openTextEditor: 'Text editor',
   openTerminal: 'Open in the terminal',
+  toolTerminal: 'Retro terminal (CRT)',
+  terminalTitle: 'OmniCommander terminal',
+  terminalHint: "Type 'help' to list the commands. The arrow keys walk the history.",
 } as const;

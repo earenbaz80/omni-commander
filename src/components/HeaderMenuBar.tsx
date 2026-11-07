@@ -463,6 +463,18 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
               >
                 <span>{t.toolMaps}</span> <span className="opacity-60">4</span>
               </button>
+              <button
+                onClick={() => handleAction(() => onOpenModal('terminal'))}
+                className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between text-emerald-300 font-bold"
+              >
+                <span>{t.toolTerminal}</span> <span className="opacity-60">Ctrl+`</span>
+              </button>
+              <button
+                onClick={() => handleAction(() => onOpenModal('editor'))}
+                className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between"
+              >
+                <span>{t.openTextEditor}</span> <span className="opacity-60">F4</span>
+              </button>
             </div>
           )}
         </div>

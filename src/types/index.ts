@@ -462,7 +462,8 @@ export type ActiveModal =
   | 'calculator'
   | 'calendar'
   | 'image_studio'
-  | 'maps';
+  | 'maps'
+  | 'terminal';
 
 /**
  * What a modal needs beyond the current selection: the items a copy or move acts
