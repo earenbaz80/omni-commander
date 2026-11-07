@@ -14,7 +14,7 @@ En la práctica eso significa:
 
 ## Requisitos
 
-- Node.js `^22.22.2 || ^24.15.0 || >=26.0.0` y npm. Es lo que declara `engines` en [package.json](package.json), y el CI lo comprueba en dos versiones: el suelo de ese rango, que lee del propio fichero, y la última 22.x (hoy 22.23.4). npm solo avisa si no se cumple: no bloquea la instalación.
+- Node.js `^22.22.2 || ^24.15.0 || >=26.0.0` y npm. Es lo que declara `engines` en [package.json](package.json), y el CI lo comprueba en tres versiones: el suelo de ese rango, que lee del propio fichero; la última 22.x (hoy 22.23.4), que es la que empaqueta las releases; y la última 24.x (hoy 24.22.2). La 26.x que el rango también admite todavía no está en la matriz. npm solo avisa si no se cumple: no bloquea la instalación.
 - Windows, y solo Windows: ver [Plataforma](#plataforma).
 
 El suelo no lo pone el código propio sino las dependencias: `jsdom` 30, el DOM de los tests, pide 22.22.2 en la línea 22 y 24.15 en la 24; `eslint` 10 pide 22.13 y `vitest` 5, 22.12. Por eso ni 22.20 ni 23.x valen.

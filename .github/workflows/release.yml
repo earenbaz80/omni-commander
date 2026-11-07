@@ -56,9 +56,13 @@ jobs:
       # green latest.
       fail-fast: false
       matrix:
-        # The floor read from engines.node, plus the newest 22.x, which is what
-        # the release job runs on ('22' means the latest 22.x).
-        node-version: ['${{ needs.engines.outputs.floor }}', '22']
+        # The floor read from engines.node; the newest 22.x, which is what the
+        # release job runs on ('22' means the latest 22.x); and the newest 24.x.
+        # Without the 24 leg no run installed a major above 22, so engines.node
+        # could keep promising ^24.15.0 while every push tested only the line it
+        # already shipped, and a break on 24 would first show up in a user's
+        # terminal. The 26.x the range also allows is not in the matrix yet.
+        node-version: ['${{ needs.engines.outputs.floor }}', '22', '24']
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
