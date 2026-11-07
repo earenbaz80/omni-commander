@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { registerFileRoutes } from './server/routes/files.cjs';
+import { registerFileRoutes, renameWithRetry } from './server/routes/files.cjs';
 
 /**
  * The single-path file routes moved out of `server.cjs`. They run against a real
@@ -178,5 +178,66 @@ describe('rutas de un solo fichero', () => {
     );
     expect(refused.status).toBe(400);
     expect((await fs.promises.readdir(folder)).sort()).toEqual(['dato.bin', 'ocupado']);
+  });
+});
+
+/**
+ * The replacement above is a temporary plus a rename, and on Windows that rename
+ * is the racy step: a scan or the indexer holds the destination for a moment and
+ * answers EPERM. The retry is driven here with a fake `fs`, because a real lock
+ * is not something a test can time.
+ */
+describe('el renombrado que reemplaza un fichero', () => {
+  const blocked = (code: string, message: string) => Object.assign(new Error(message), { code });
+
+  /** An `fs` whose rename fails the given number of times before it works. */
+  const flakyFs = (failures: Error[], counter: { calls: number }) => ({
+    promises: {
+      rename: async () => {
+        counter.calls += 1;
+        const failure = failures.shift();
+        if (failure) throw failure;
+        return undefined;
+      },
+    },
+  });
+
+  it('reintenta mientras el sistema dice que está ocupado', async () => {
+    const calls = { calls: 0 };
+    const failures = [blocked('EPERM', 'EPERM: operation not permitted, rename'), blocked('EBUSY', 'EBUSY')];
+    const waits: number[] = [];
+
+    const attempts = await renameWithRetry(flakyFs(failures, calls), 'a.part', 'a.txt', {
+      wait: async (ms: number) => {
+        waits.push(ms);
+      },
+    });
+
+    expect(attempts).toBe(3);
+    expect(calls.calls).toBe(3);
+    // A growing pause between attempts, not a tight loop on a locked file.
+    expect(waits).toEqual([20, 40]);
+  });
+
+  it('no reintenta un error que no es un bloqueo', async () => {
+    const calls = { calls: 0 };
+    const fake = flakyFs([blocked('ENOENT', 'ENOENT: no such file')], calls);
+
+    await expect(renameWithRetry(fake, 'a.part', 'a.txt', { wait: async () => {} })).rejects.toThrow('ENOENT');
+    expect(calls.calls, 'a missing file will not appear on the next try').toBe(1);
+  });
+
+  it('deja de intentarlo y devuelve el último bloqueo', async () => {
+    const calls = { calls: 0 };
+    const failures = [
+      blocked('EBUSY', 'EBUSY: resource busy'),
+      blocked('EBUSY', 'EBUSY: resource busy'),
+      blocked('EBUSY', 'EBUSY: resource busy'),
+    ];
+
+    await expect(
+      renameWithRetry(flakyFs(failures, calls), 'a.part', 'a.txt', { attempts: 3, wait: async () => {} }),
+    ).rejects.toThrow('EBUSY');
+    expect(calls.calls).toBe(3);
   });
 });
