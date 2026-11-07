@@ -9,7 +9,11 @@
 # exiting makes the total go backwards -- which is why this keeps the previous
 # snapshot itself instead of leaving that to whoever reads the file.
 #
-#   powershell -NoProfile -File scripts/cpu-sampler.ps1 -Seconds 700 -Out out.log
+#   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/cpu-sampler.ps1 -Seconds 700 -Out out.log
+#
+# `-ExecutionPolicy Bypass` is scoped to that process: a machine left on the
+# Restricted default refuses to run a .ps1 at all, which is how the hook ended up
+# printing a SecurityError instead of the verdict.
 #
 # The note at the end of .githooks/pre-push says the same thing where a red push
 # is actually read: how to pair this with the suite and read the verdict.
