@@ -61,6 +61,7 @@ function scratch(prefix: string): string {
 }
 
 afterEach(() => {
+  vi.restoreAllMocks();
   while (scratchDirs.length > 0) {
     fs.rmSync(scratchDirs.pop() as string, { recursive: true, force: true });
   }
@@ -155,6 +156,42 @@ describe('copying onto a folder that already exists', () => {
     const dir = path.join(root, 'nueva', 'sub');
     await makeOps().ensureDirectory(dir);
     expect(fs.statSync(dir).isDirectory()).toBe(true);
+  });
+});
+
+/**
+ * A copy publishes each file by renaming its temporary over the destination, so
+ * that same EPERM can fail a copy whose bytes are already written.
+ */
+describe('publishing a copied file', () => {
+  it('reintenta el renombrado del temporal cuando Windows lo bloquea', async () => {
+    const source = scratch('omni-copy-src-');
+    const target = scratch('omni-copy-dst-');
+    fs.writeFileSync(path.join(source, 'nota.txt'), 'hola\n', 'utf8');
+
+    const realRename = fs.promises.rename.bind(fs.promises);
+    let calls = 0;
+    vi.spyOn(fs.promises, 'rename').mockImplementation(async (from, to) => {
+      calls += 1;
+      if (calls <= 2) {
+        const busy = new Error(`EPERM: operation not permitted, rename '${String(from)}'`) as NodeJS.ErrnoException;
+        busy.code = 'EPERM';
+        throw busy;
+      }
+      return realRename(from, to);
+    });
+
+    try {
+      await makeOps().runTransferJob(makeJob(), [source], target);
+    } finally {
+      vi.restoreAllMocks();
+    }
+
+    // Three attempts on the same temporary, and the file landed whole.
+    expect(calls).toBe(3);
+    const copied = path.join(target, path.basename(source), 'nota.txt');
+    expect(fs.readFileSync(copied, 'utf8')).toBe('hola\n');
+    expect(fs.readdirSync(path.dirname(copied)).sort()).toEqual(['nota.txt']);
   });
 });
 

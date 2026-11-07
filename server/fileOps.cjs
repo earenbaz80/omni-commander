@@ -418,7 +418,9 @@ function createFileOps(deps = {}) {
       let backup = path.win32.join(dir, `${parsed.name} (old)${parsed.ext}`);
       if (await pathExists(backup)) backup = path.win32.join(dir, `${parsed.name} (old) ${Date.now()}${parsed.ext}`);
       try {
-        await fs.promises.rename(dest, backup);
+        // The file that is there has to move aside or the copy overwrites it, so
+        // a lock that lasts a moment is worth waiting out.
+        await renameWithRetry(fs, dest, backup);
       } catch {
         /* fall through, overwrite anyway */
       }
@@ -557,7 +559,7 @@ function createFileOps(deps = {}) {
     // The temp is complete: swap it into place. rename within one directory is
     // atomic, so a reader either sees the old file or the whole new one.
     try {
-      await fs.promises.rename(partPath, dest);
+      await renameWithRetry(fs, partPath, dest);
     } catch (err) {
       await fs.promises.rm(partPath, { force: true }).catch(() => {});
       entry.status = 'error';

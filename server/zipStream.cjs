@@ -3,6 +3,7 @@ const path = require('node:path');
 const zlib = require('node:zlib');
 const { Transform } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
+const { renameWithRetry } = require('./fsRetry.cjs');
 
 /**
  * Streaming reader for ZIP, so an archive of any size opens.
@@ -269,7 +270,9 @@ async function extractZipEntryTo(target, entryName, destination, onBytes, signal
   const out = fs.createWriteStream(temporary, { flags: 'wx' });
   try {
     await pipeZipEntry(target, entryName, out, onBytes, signal, gate);
-    await fs.promises.rename(temporary, destination);
+    // The entry is complete in the temporary, so the only thing left is its
+    // name; Windows can refuse that for a moment and the retry covers it.
+    await renameWithRetry(fs, temporary, destination);
     return (await fs.promises.stat(destination)).size;
   } catch (error) {
     out.destroy();
