@@ -68,7 +68,12 @@ start_sampler() {
   [ -f scripts/cpu-sampler.ps1 ] || return 0
   rm -f "$stop_file"
   : >"$cpu_summary"
-  powershell.exe -NoProfile -NonInteractive -File scripts/cpu-sampler.ps1 \
+  # `-ExecutionPolicy Bypass` applies to this one process and nothing else: on a
+  # box whose policy is Restricted the script is refused, and the failure report
+  # then prints a SecurityError where the verdict should be. No policy is
+  # changed system-wide, which is why this is a flag and not `Set-ExecutionPolicy`.
+  powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass \
+    -File scripts/cpu-sampler.ps1 \
     -Seconds 900 -Out "$cpu_log" -StopFile "$stop_file" >"$cpu_summary" 2>&1 &
   sampler_pid=$!
 }
@@ -159,7 +164,7 @@ echo "pre-push: links, types and tests passed. (output: $log)"
 #
 # By hand, outside a push, or to look again at what a push already recorded:
 #
-#   powershell -NoProfile -File scripts/cpu-sampler.ps1 -Seconds 700 -Out cpu.log
+#   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/cpu-sampler.ps1 -Seconds 700 -Out cpu.log
 #   npm test -- --maxWorkers=2     # in another window, sampler already running
 #
 # This is a Windows project, so the sampler is PowerShell and the hook skips it
