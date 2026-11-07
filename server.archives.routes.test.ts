@@ -19,7 +19,34 @@ import { extractZipEntryTo } from './server/zipStream.cjs';
 
 const SAFE = /^[A-Za-z]:\\/;
 
+/**
+ * What the routes publish through: the real filesystem, except for a rename the
+ * test can make fail. It goes in as a dependency because the runner hands a test
+ * its own copy of `node:fs`, and patching that copy never reaches the module
+ * under test -- an assertion on a counter like that would pass while proving
+ * nothing about the retry.
+ */
+let blockedRenames = 0;
+let renameCalls = 0;
+const routeFs = {
+  ...fs,
+  promises: {
+    ...fs.promises,
+    rename: async (from: string, to: string) => {
+      renameCalls += 1;
+      if (blockedRenames > 0) {
+        blockedRenames -= 1;
+        const busy = new Error(`EPERM: operation not permitted, rename '${from}'`) as NodeJS.ErrnoException;
+        busy.code = 'EPERM';
+        throw busy;
+      }
+      return fs.promises.rename(from, to);
+    },
+  },
+} as unknown as typeof fs;
+
 const deps = {
+  fs: routeFs,
   assertSafePath: (value: unknown) => {
     const candidate = String(value ?? '');
     if (!SAFE.test(candidate)) throw new Error(`Unsafe path: ${candidate}`);
@@ -298,6 +325,41 @@ describe('extraer una entrada a disco', () => {
   it('dice que no hay tal extracción cuando el id no existe', async () => {
     expect((await post('/api/archives/extract/pause', { job: 'fantasma' })).status).toBe(404);
     expect((await post('/api/archives/extract/resume', { job: 'fantasma' })).status).toBe(404);
+  });
+
+  /**
+   * The route writes the member under a temporary and renames it into place, and
+   * that rename is what Windows refuses with EPERM while a scan or the indexer
+   * holds the name. Answering 500 there would fail an extraction whose bytes
+   * were already on disk, so the route has to retry it.
+   */
+  it('publica el miembro pese a un EPERM momentáneo al renombrar', async () => {
+    const destination = path.join(output(), 'bloqueado', 'nota.txt');
+    blockedRenames = 1;
+    renameCalls = 0;
+
+    const response = await post('/api/archives/extract', {
+      path: zipFile,
+      entry: 'nota.txt',
+      target: destination,
+      root: output(),
+    });
+    // `fetch` settles on the headers and the write itself is the body, so the
+    // block has to stay until the ndjson stream is consumed or the rename would
+    // happen after it was lifted and the test would prove nothing.
+    const events = (await response.text())
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as { type: string; ok?: boolean; bytes?: number });
+    blockedRenames = 0;
+
+    expect(response.status).toBe(200);
+    expect(events.at(-1)).toMatchObject({ type: 'done', ok: true, bytes: 4 });
+    // One refused attempt and one that worked: the answer is a published member,
+    // not a failure the user would see after the whole entry had been written.
+    expect(renameCalls).toBe(2);
+    expect(await fs.promises.readFile(destination, 'utf8')).toBe('hola');
+    expect((await fs.promises.readdir(path.dirname(destination))).filter((name) => name.endsWith('.part'))).toEqual([]);
   });
 
   it('no publica nada cuando la extracción se cancela', async () => {

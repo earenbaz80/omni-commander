@@ -265,14 +265,14 @@ async function streamZipEntry(target, entryName, res) {
  * process nothing but the chunk in flight. The entry appears under its final
  * name only once it is complete.
  */
-async function extractZipEntryTo(target, entryName, destination, onBytes, signal, gate) {
+async function extractZipEntryTo(target, entryName, destination, onBytes, signal, gate, io = fs) {
   const temporary = temporaryPathFor(destination);
   const out = fs.createWriteStream(temporary, { flags: 'wx' });
   try {
     await pipeZipEntry(target, entryName, out, onBytes, signal, gate);
     // The entry is complete in the temporary, so the only thing left is its
     // name; Windows can refuse that for a moment and the retry covers it.
-    await renameWithRetry(fs, temporary, destination);
+    await renameWithRetry(io, temporary, destination);
     return (await fs.promises.stat(destination)).size;
   } catch (error) {
     out.destroy();

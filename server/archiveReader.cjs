@@ -24,6 +24,9 @@ function registerArchiveRoutes(app, deps) {
   // own in tests; production always passes it, and the write route below rejects
   // a destination outside the root it was given when it is missing.
   const { assertSafePath, assertArchiveDestination } = deps;
+  // The write publishes through this `fs`; production never passes one, and a
+  // test uses it to watch the rename without a real lock.
+  const io = deps.fs || fs;
 
   /**
    * A pause switch a writer waits on. While it is shut the stream holds one
@@ -682,7 +685,7 @@ function registerArchiveRoutes(app, deps) {
       }
       // bsdtar wrote the whole entry; only its name is left, and Windows answers
       // EPERM to that while a scan holds it.
-      await renameWithRetry(fs, temporary, destination);
+      await renameWithRetry(io, temporary, destination);
       return bytes;
     } catch (error) {
       child.kill();
@@ -717,7 +720,7 @@ function registerArchiveRoutes(app, deps) {
       // off its real name until the run is released again.
       if (gate) await gate.wait();
       if (signal && signal.aborted) throw cancelledError();
-      await renameWithRetry(fs, temporary, destination);
+      await renameWithRetry(io, temporary, destination);
       if (onBytes) onBytes(bytes.length);
       return bytes.length;
     } catch (error) {
@@ -746,7 +749,7 @@ function registerArchiveRoutes(app, deps) {
     // The route already asked, unless the conflict prompt answered that this name
     // is meant to be replaced: one guard, reached by both callers.
     if (!overwrite) await assertDestinationFree(destination);
-    if (isZipHead(head)) return zipStream.extractZipEntryTo(target, name, destination, onBytes, signal, gate);
+    if (isZipHead(head)) return zipStream.extractZipEntryTo(target, name, destination, onBytes, signal, gate, io);
     const binary = stat.size > ARCHIVE_MAX_BYTES ? bsdtarBinary() : null;
     if (binary) {
       try {
