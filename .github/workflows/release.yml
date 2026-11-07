@@ -81,18 +81,20 @@ jobs:
         run: npm ci --engine-strict
 
       # Production dependencies must be clean: everything here ships inside the
-      # installer, so an advisory in them is a real one. The full audit runs too,
-      # but only reports: the four lows it finds today live in the build tooling
-      # (deepmerge under workbox) and the only fix npm offers is a downgrade of
-      # vite-plugin-pwa that would break the PWA. Keeping them visible without
-      # failing the push is the point; promoting it to a gate needs an upstream
-      # fix first.
+      # installer, so an advisory in them is a real one. The full audit runs too
+      # and goes red on high or critical, but the four lows it reports today
+      # cannot be patched here: they are one chain (deepmerge under
+      # @rollup/plugin-node-resolve, which workbox-build uses, which
+      # vite-plugin-pwa uses), deepmerge 4.3.1 is the newest published version and
+      # the advisory covers everything up to it, and npm's only offered fix is a
+      # downgrade of vite-plugin-pwa to 0.2.1 that would break the PWA. Gating at
+      # high keeps a real advisory red instead of failing every push on one that
+      # has no fix and only an annotation to show for it.
       - name: Audit production dependencies
         run: npm audit --omit=dev
 
       - name: Audit all dependencies
-        continue-on-error: true
-        run: npm audit
+        run: npm audit --audit-level=high
 
       # A local `npm run electron:build` could not finish while `npm run dev` was
       # up: the dev server watched release/, the folder electron-builder renames
