@@ -179,6 +179,11 @@ function registerFileRoutes(app, deps) {
   // walk, and it cannot stat anything itself. Folders report 0 bytes because the
   // transfer job measures them when it starts; walking every child here would
   // block the request on a folder like Program Files.
+  //
+  // The last-write time goes out in epoch milliseconds, the same unit the rest of
+  // the app compares dates in. The conflict prompt shows it next to the archive
+  // member's own date, and a size alone cannot tell an older file from a newer
+  // one; without it that row read "—" and the user chose blind.
   app.post('/api/fs/stat', async (req, res) => {
     const requested = (req.body || {}).paths;
     if (!Array.isArray(requested)) return res.status(400).json({ error: 'paths must be an array' });
@@ -204,6 +209,7 @@ function registerFileRoutes(app, deps) {
         name: path.win32.basename(target),
         isDirectory: stat.isDirectory(),
         size: stat.isDirectory() ? 0 : stat.size,
+        modified: stat.mtimeMs,
       });
     }
 
