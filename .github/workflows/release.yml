@@ -103,6 +103,15 @@ jobs:
       - name: Formatting
         run: npm run format:check
 
+      # The audits moved into docs/audits/ and every link that pointed at the
+      # repository root had to be rewritten; a rename will do that again, and
+      # nothing caught it but a person rereading the file. The target has to
+      # exist and be in the index, so a link to a file that only exists on one
+      # machine, or one written with the wrong case, fails here instead of
+      # 404ing for whoever reads it next.
+      - name: Documentation links
+        run: npm run check:links
+
       - name: Typecheck
         run: npm run lint
 

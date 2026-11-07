@@ -74,6 +74,7 @@ Hay variables que pone el propio proceso y no se configuran a mano: `OMNI_SESSIO
 | `npm run lint`             | `tsc --noEmit` (tipos).                                                                    |
 | `npm run lint:eslint`      | ESLint sobre `src` con `--max-warnings 0`.                                                 |
 | `npm run typecheck:strict` | Tipos con `strict` y avisos de código muerto, que el tsconfig base no activa.              |
+| `npm run check:links`      | Falla si un enlace relativo de la documentación no resuelve.                               |
 | `npm run format`           | Prettier sobre todo el repositorio, escribiendo.                                           |
 | `npm run format:check`     | Prettier en modo comprobación (la compuerta del CI).                                       |
 | `npm run storybook`        | Storybook en el puerto 6006.                                                               |
@@ -147,7 +148,7 @@ Si hay que borrar una rama remota a mano —el caso del fork, o una que se qued�
 [.github/workflows/release.yml](.github/workflows/release.yml) tiene cuatro jobs:
 
 1. **engines** — en `windows-latest`, lee el suelo de `engines.node` con [scripts/engines-floor.cjs](scripts/engines-floor.cjs) y lo publica como salida para la matriz. Así la versión que se prueba sale del propio `package.json` en vez de estar copiada en el workflow; si el rango no tiene una forma de la que se pueda leer un mínimo, el job falla en vez de adivinar.
-2. **verify** — en `windows-latest`, en cada push a `master` y en cada pull request, en una matriz de dos versiones de Node (el suelo que devuelve `engines` y la última 22.x, hoy 22.23.4): instalación con `npm ci --engine-strict` (un Node fuera de `engines.node` rompe aquí en vez de solo avisar; el job `build` usa el mismo flag), formato (`format:check`), tipos (`lint`), lint (`lint:eslint`) y tests (`npm test -- --maxWorkers=2`). Las dos ramas se reportan por separado, así que un suelo roto se ve aunque la última 22.x esté en verde.
+2. **verify** — en `windows-latest`, en cada push a `master` y en cada pull request, en una matriz de dos versiones de Node (el suelo que devuelve `engines` y la última 22.x, hoy 22.23.4): instalación con `npm ci --engine-strict` (un Node fuera de `engines.node` rompe aquí en vez de solo avisar; el job `build` usa el mismo flag), enlaces de la documentación (`check:links`), formato (`format:check`), tipos (`lint`), lint (`lint:eslint`) y tests (`npm test -- --maxWorkers=2`). Las dos ramas se reportan por separado, así que un suelo roto se ve aunque la última 22.x esté en verde.
 3. **e2e** — en `windows-latest`, tras `verify`: instala Chromium y corre `npm run test:e2e`, los 14 ficheros y 54 casos de Playwright que hasta ahora solo se ejecutaban a mano. Es la única forma de que una rotura en el navegador no pase por verde. Tarda unos 5 minutos porque la suite es serial a propósito, y si falla sube el trace de la corrida como artefacto para saber qué spec y qué página.
 4. **build** — en `windows-latest`, solo en tags `v*`, y depende de `verify` y de `e2e`: si algo falla arriba, no se empaqueta ni se publica la release.
 
