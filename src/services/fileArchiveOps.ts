@@ -245,9 +245,16 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
     if (deps.isSystemDrive(driveId)) {
       const answer = (await deps.callServerFs('stat', {
         paths: [deps.absoluteForDrive(driveId, deps.childAbsolutePath(parentPath, name))],
-      })) as { entries?: { size: number; isDirectory: boolean }[] } | null;
+      })) as { entries?: { size: number; isDirectory: boolean; modified?: number }[] } | null;
       const found = answer?.entries?.[0];
-      return found ? { size: found.isDirectory ? undefined : found.size } : null;
+      if (!found) return null;
+      return {
+        size: found.isDirectory ? undefined : found.size,
+        // The server reports the last-write time in milliseconds already, so the
+        // prompt can compare it with the member's own date instead of showing a
+        // dash the user has to guess about.
+        modified: typeof found.modified === 'number' ? found.modified : undefined,
+      };
     }
     const listed = deps
       .getFiles(driveId, parentPath)

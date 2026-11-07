@@ -101,6 +101,10 @@ describe('rutas de un solo fichero', () => {
 
   it('mide un fichero y no un directorio', async () => {
     const file = path.join(root, 'escrito.txt');
+    // A file written a second ago has a date too, but pinning it here is what
+    // proves the route reports the file's own time instead of the clock's.
+    const when = new Date('2026-02-03T04:05:06Z');
+    await fs.promises.utimes(file, when, when);
     const answer = await (await post('/api/fs/stat', { paths: [file, root, 'ruta-relativa'] })).json();
     expect(answer.entries.map((entry: { name: string; isDirectory: boolean }) => entry.name)).toEqual([
       'escrito.txt',
@@ -108,6 +112,10 @@ describe('rutas de un solo fichero', () => {
     ]);
     expect(answer.entries[0]).toMatchObject({ isDirectory: false, size: 'contenido'.length });
     expect(answer.entries[1]).toMatchObject({ isDirectory: true, size: 0 });
+    // Epoch milliseconds, the unit the conflict prompt compares dates in. The
+    // filesystem may round the stored time, so the assertion allows a few ticks.
+    expect(answer.entries[0].modified).toBeCloseTo(when.getTime(), -2);
+    expect(answer.entries[1].modified).toBeGreaterThan(0);
     expect(answer.missing).toHaveLength(1);
   });
 

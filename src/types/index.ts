@@ -175,6 +175,8 @@ export interface TransferPlanEntry {
   name: string;
   isDirectory: boolean;
   size: number;
+  /** Last-write time in epoch milliseconds, which is what a conflict compares. */
+  modified?: number;
 }
 
 /**

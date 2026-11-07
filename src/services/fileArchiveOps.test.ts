@@ -155,6 +155,29 @@ describe('fileArchiveOps extraction conflicts', () => {
     });
   });
 
+  it('gives the prompt the destination date the server reports', async () => {
+    const bytes = await zipBytes({ 'nota.txt': 'hola' });
+    const modified = 1_700_000_000_000;
+    const asked: ExtractConflict[] = [];
+    const onDisk = { entries: [{ path: '\\dest\\nota.txt', name: 'nota.txt', isDirectory: false, size: 2, modified }] };
+    const { ops } = harness({
+      isSystemDrive: () => true,
+      readFileBytes: async () => bytes,
+      callServerFs: async () => onDisk,
+    });
+    const source = item({ driveId: 'C:', fullName: 'demo.zip', name: 'demo', ext: 'zip' });
+
+    await ops.extractArchive(source, 'C:', '\\dest', undefined, {
+      onConflict: async (conflict) => {
+        asked.push(conflict);
+        return { action: 'skip', applyToAll: false };
+      },
+    });
+
+    expect(asked).toHaveLength(1);
+    expect(asked[0]).toMatchObject({ destinationSize: 2, destinationModified: modified });
+  });
+
   it('leaves the file and the rest of the archive alone when told to skip', async () => {
     const existing = taken();
     const { run, written } = await extraction([existing], [{ action: 'skip', applyToAll: false }]);
