@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * Copying *onto* a folder that is already there.
@@ -155,5 +155,46 @@ describe('copying onto a folder that already exists', () => {
     const dir = path.join(root, 'nueva', 'sub');
     await makeOps().ensureDirectory(dir);
     expect(fs.statSync(dir).isDirectory()).toBe(true);
+  });
+});
+
+/**
+ * A move is a rename, and the engine already treats a refused rename as EXDEV
+ * and falls back to copy-then-delete. That fallback is the wrong answer for a
+ * lock that lasts a few milliseconds, so the rename is retried first; the case
+ * below drives a real move through a rename that fails twice.
+ */
+describe('moving a folder whose rename is refused for a moment', () => {
+  it('retries the rename instead of copying and deleting', async () => {
+    const source = scratch('omni-move-src-');
+    const target = scratch('omni-move-dst-');
+    fs.writeFileSync(path.join(source, 'nota.txt'), 'hola\n', 'utf8');
+
+    const realRename = fs.promises.rename.bind(fs.promises);
+    let calls = 0;
+    const rename = vi.spyOn(fs.promises, 'rename').mockImplementation(async (from, to) => {
+      calls += 1;
+      if (calls <= 2) {
+        const busy = new Error(`EPERM: operation not permitted, rename '${String(from)}'`) as NodeJS.ErrnoException;
+        busy.code = 'EPERM';
+        throw busy;
+      }
+      return realRename(from, to);
+    });
+
+    const job = makeJob();
+    job.op = 'move';
+    try {
+      await makeOps().runTransferJob(job, [source], target);
+    } finally {
+      rename.mockRestore();
+    }
+
+    // Three renames and no fallback: copy-then-delete would have left the source
+    // for the engine to remove rather than renaming it away.
+    expect(calls).toBe(3);
+    expect(job.errors).toEqual([]);
+    expect(fs.existsSync(source)).toBe(false);
+    expect(fs.readFileSync(path.join(target, path.basename(source), 'nota.txt'), 'utf8')).toBe('hola\n');
   });
 });

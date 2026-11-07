@@ -4,8 +4,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { Server } from 'node:http';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { registerFileRoutes, renameWithRetry } from './server/routes/files.cjs';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { registerFileRoutes } from './server/routes/files.cjs';
+import { renameWithRetry } from './server/fsRetry.cjs';
 
 /**
  * The single-path file routes moved out of `server.cjs`. They run against a real
@@ -90,6 +91,36 @@ describe('rutas de un solo fichero', () => {
     const renamed = await (await post('/api/fs/rename', { path: source, newName: 'otra.txt' })).json();
     expect(renamed.path).toBe(path.join(root, 'otra.txt'));
     expect(fs.existsSync(renamed.path)).toBe(true);
+  });
+
+  /**
+   * Renaming an item is the same call Windows refuses with EPERM while a scan or
+   * the indexer still holds the name, so the route retries instead of answering
+   * 400 to a lock that was gone a moment later.
+   */
+  it('reintenta el renombrado que Windows bloquea un momento', async () => {
+    const source = path.join(root, 'bloqueado.txt');
+    await fs.promises.writeFile(source, 'hola');
+    const realRename = fs.promises.rename.bind(fs.promises);
+    let calls = 0;
+    const rename = vi.spyOn(fs.promises, 'rename').mockImplementation(async (from, to) => {
+      calls += 1;
+      if (calls === 1) {
+        const busy = new Error(`EPERM: operation not permitted, rename '${String(from)}'`) as NodeJS.ErrnoException;
+        busy.code = 'EPERM';
+        throw busy;
+      }
+      return realRename(from, to);
+    });
+
+    try {
+      const answer = await (await post('/api/fs/rename', { path: source, newName: 'liberado.txt' })).json();
+      expect(answer.path).toBe(path.join(root, 'liberado.txt'));
+      expect(calls, 'the lock was retried, not reported').toBe(2);
+      expect(fs.existsSync(answer.path)).toBe(true);
+    } finally {
+      rename.mockRestore();
+    }
   });
 
   it('escribe el contenido que recibe', async () => {
