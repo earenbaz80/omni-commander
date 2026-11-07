@@ -97,9 +97,9 @@ describe('fileArchiveOps', () => {
   });
 });
 
-async function zipBytes(files: Record<string, string>): Promise<Uint8Array> {
+async function zipBytes(files: Record<string, string>, date?: Date): Promise<Uint8Array> {
   const zip = new JSZip();
-  for (const [name, text] of Object.entries(files)) zip.file(name, text);
+  for (const [name, text] of Object.entries(files)) zip.file(name, text, date ? { date } : undefined);
   return zip.generateAsync({ type: 'uint8array' });
 }
 
@@ -112,8 +112,9 @@ async function extraction(
   existing: FileItem[],
   answers: ExtractConflictAnswer[],
   files: Record<string, string> = { 'nota.txt': 'hola', 'sub/dentro.txt': 'dentro' },
+  date?: Date,
 ) {
-  const bytes = await zipBytes(files);
+  const bytes = await zipBytes(files, date);
   const catalogue = [...existing];
   const written: FileItem[] = [];
   const asked: ExtractConflict[] = [];
@@ -176,6 +177,30 @@ describe('fileArchiveOps extraction conflicts', () => {
 
     expect(asked).toHaveLength(1);
     expect(asked[0]).toMatchObject({ destinationSize: 2, destinationModified: modified });
+  });
+
+  it('marks the conflict identical only when the date matches as well', async () => {
+    // A ZIP states its dates to the even second, so the member is dated on one.
+    const stated = new Date(2020, 4, 6, 7, 8, 10);
+    const ask = async (existing: FileItem) => {
+      const { run, asked } = await extraction(
+        [existing],
+        [{ action: 'skip', applyToAll: false }],
+        { 'nota.txt': 'hola' },
+        stated,
+      );
+      await run();
+      return asked;
+    };
+    const at = (overrides: Partial<FileItem> = {}) => taken({ modifiedAt: stated.toISOString(), ...overrides });
+
+    const [same] = await ask(at({ size: 4 }));
+    const [otherDate] = await ask(at({ size: 4, modifiedAt: new Date(stated.getTime() - 60_000).toISOString() }));
+    const [otherSize] = await ask(at({ size: 9 }));
+
+    expect(same.identical, 'the same size and date is the same file').toBe(true);
+    expect(otherDate.identical, 'a minute apart is a different file').toBe(false);
+    expect(otherSize.identical, 'a different size is a different file').toBe(false);
   });
 
   it('leaves the file and the rest of the archive alone when told to skip', async () => {

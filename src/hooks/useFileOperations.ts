@@ -303,6 +303,7 @@ export function useFileOperations({
               destinationSize: conflict.destinationSize,
               sourceModified: conflict.sourceModified,
               destinationModified: conflict.destinationModified,
+              identical: conflict.identical,
             });
           });
         try {

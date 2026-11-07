@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import JSZip from 'jszip';
 
 /**
  * Extracting over names that are already taken, driven through the interface.
@@ -104,6 +105,14 @@ function factRow(page: Page, label: string) {
   return page.locator('tr', { hasText: label });
 }
 
+/** The date an archive states for one of its members, as the panel reads it. */
+async function zipMemberDate(archive: string, member: string): Promise<Date> {
+  const zip = await JSZip.loadAsync(await fs.readFile(path.resolve('test-fixtures/archives', archive)));
+  const entry = zip.files[member];
+  if (!entry) throw new Error(`${archive} has no ${member}`);
+  return entry.date;
+}
+
 /** Waits for a file in the scratch folder to hold the bytes the archive carries. */
 function landsWith(file: string, bytes: string, what: string) {
   return expect
@@ -200,16 +209,21 @@ test('applies one always answer to every later member with a taken name', async 
 
 test('leaves an identical file untouched when told to skip identical ones', async ({ page }) => {
   test.setTimeout(240000);
-  // The member's own bytes, dated long ago: the only thing an overwrite could
-  // change here is the date, which is exactly what proves it did not happen.
+  // A copy of the member, dated exactly as the archive states it: that is what
+  // "identical" means, and that date is what a rewrite would move.
+  const memberDate = await zipMemberDate('sample.zip', 'a.txt');
   await fs.writeFile(path.join(workspace, 'a.txt'), ARCHIVE_BYTES, 'utf8');
-  const old = new Date('2020-01-02T03:04:05Z');
-  await fs.utimes(path.join(workspace, 'a.txt'), old, old);
+  await fs.utimes(path.join(workspace, 'a.txt'), memberDate, memberDate);
   const before = (await fs.stat(path.join(workspace, 'a.txt'))).mtimeMs;
   await page.goto('/');
   await extractHere(page);
 
   await expect(prompt(page, 'a.txt')).toBeVisible({ timeout: 60000 });
+  // The prompt says the answer would change nothing, because it compares the
+  // member's own date and no longer stops at the size.
+  await expect(
+    page.getByText('Ambos archivos tienen el mismo tamaño y fecha; sobrescribir no cambia nada.'),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Sobrescribir si es distinto' }).click();
 
   // The rest of the archive lands, and the identical member kept both its bytes
