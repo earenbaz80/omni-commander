@@ -40,6 +40,15 @@ updates:
           - minor
           - patch
 
+    # typescript-eslint 8 declares `typescript >=4.8.4 <6.1.0`, and it is a peer
+    # of the root, so a TypeScript major in the same group as everything else
+    # produces a lock npm refuses to install (ERESOLVE, seen on PR #3). The
+    # major is bumped by hand when typescript-eslint raises that ceiling.
+    ignore:
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
+
   # Every action is pinned by commit SHA with its version in a trailing
   # comment; Dependabot moves the SHA and rewrites that comment together, so the
   # pin keeps meaning what it says.
