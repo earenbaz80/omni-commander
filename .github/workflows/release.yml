@@ -204,6 +204,38 @@ jobs:
           path: test-results/
           retention-days: 7
 
+  # Nothing built the app or the docs before a tag: the publishing job is the
+  # only one that runs a build, so a config change that broke it stayed green on
+  # every push and went red on the release, in front of whoever cut it. These
+  # builds now run on every push, next to the end-to-end specs rather than after
+  # them, so the gate costs the run no extra wall clock.
+  builds:
+    name: Build app and Storybook
+    needs: verify
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --engine-strict
+
+      - name: Build the app
+        run: npm run build
+
+      # The docs were broken in a way no check could see: the PWA plugin in the
+      # app config tried to precache Storybook's 3.3 MB manager runtime and the
+      # build died inside workbox. Building it here keeps that from coming back.
+      - name: Build Storybook
+        run: npm run build-storybook
+
   build:
     name: Build and publish
     needs: [verify, e2e]
