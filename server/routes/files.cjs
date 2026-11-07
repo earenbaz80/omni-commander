@@ -20,47 +20,7 @@ const READ_BYTES_LIMIT = (() => {
   return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : DEFAULT_READ_BYTES_LIMIT;
 })();
 
-/**
- * How many times the write route asks Windows to finish a replacement, and how
- * long it waits first. Five attempts of 20, 40, 80 and 160 ms add up to 300 ms,
- * which is longer than the scan that caused the problem and shorter than a user
- * would notice.
- */
-const RENAME_ATTEMPTS = 5;
-const RENAME_FIRST_WAIT_MS = 20;
-/** The codes Windows uses for "not now": a scanner, the indexer or a reader holds it. */
-const RENAME_RETRY_CODES = new Set(['EPERM', 'EACCES', 'EBUSY']);
-
-/**
- * Renames a file, retrying while the system says the target is busy.
- *
- * The replacement write lands under a temporary name and is then renamed over
- * the destination, which is what keeps a failure from leaving a half-written
- * file. On Windows that final rename is the racy part: an antivirus scan, the
- * search indexer or another process reading the destination can hold it for a
- * few milliseconds and answer EPERM, and the write was already successful by
- * then. Redoing it costs nothing -- the bytes are in the temporary -- so it is
- * retried a few times with a growing pause instead of failing the extraction.
- *
- * Returns the attempt that worked, and takes its `fs` as an argument so a test
- * can drive it without a real lock.
- */
-async function renameWithRetry(fs, source, target, options = {}) {
-  const attempts = options.attempts ?? RENAME_ATTEMPTS;
-  const firstWait = options.firstWaitMs ?? RENAME_FIRST_WAIT_MS;
-  const wait = options.wait ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
-  let pause = firstWait;
-  for (let attempt = 1; ; attempt++) {
-    try {
-      await fs.promises.rename(source, target);
-      return attempt;
-    } catch (err) {
-      if (!RENAME_RETRY_CODES.has(err.code) || attempt >= attempts) throw err;
-      await wait(pause);
-      pause *= 2;
-    }
-  }
-}
+const { renameWithRetry } = require('../fsRetry.cjs');
 
 function registerFileRoutes(app, deps) {
   const {
@@ -163,7 +123,9 @@ function registerFileRoutes(app, deps) {
       }
       const dest = path.win32.join(path.win32.dirname(source), newName);
       if (await pathExists(dest)) return res.status(409).json({ error: 'A file with that name already exists' });
-      await fs.promises.rename(source, dest);
+      // Windows hands back EPERM while a scan or the indexer still holds the
+      // name, so the rename is retried before the route reports a failure.
+      await renameWithRetry(fs, source, dest);
       invalidateListings();
       res.json({ ok: true, path: dest });
     } catch (err) {
@@ -308,4 +270,4 @@ function registerFileRoutes(app, deps) {
   });
 }
 
-module.exports = { registerFileRoutes, renameWithRetry };
+module.exports = { registerFileRoutes };

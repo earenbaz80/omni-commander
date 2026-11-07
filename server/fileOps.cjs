@@ -19,6 +19,7 @@ const { promisify } = require('util');
 const { once } = require('events');
 
 const { assertSafePath, isDriveRoot } = require('./pathSafety.cjs');
+const { renameWithRetry } = require('./fsRetry.cjs');
 
 function createFileOps(deps = {}) {
   const {
@@ -609,7 +610,9 @@ function createFileOps(deps = {}) {
     if (isDriveRoot(src)) throw new Error(`Refusing to move a drive root: ${src}`);
     await waitWhilePaused(job);
     try {
-      await fs.promises.rename(src, dest);
+      // A rename the system refuses for a moment is still a move; only a rename
+      // that keeps failing falls through to copy-then-delete.
+      await renameWithRetry(fs, src, dest);
       const measured = await measureTree(dest);
       job.copiedBytes += measured.bytes;
       job.itemsDone += Math.max(1, measured.files);
