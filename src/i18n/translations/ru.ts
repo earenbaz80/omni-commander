@@ -63,6 +63,10 @@ export const ru = {
   calculateHash: 'Контрольная сумма (MD5/SHA)',
   zipPack: 'Упаковать в архив',
   unzipExtract: 'Распаковать архив',
+  extractMenu: 'Распаковать',
+  extractHere: 'Распаковать здесь',
+  extractIntoFolder: 'Распаковать в «{name}»',
+  extractToOtherPanel: 'Распаковать в другую панель',
   zipErrEmpty: 'В этом архиве нечего распаковывать.',
   zipErrCorrupt: 'Не удалось прочитать «{name}» как архив. Файл может быть повреждён.',
   zipErrTooLarge:

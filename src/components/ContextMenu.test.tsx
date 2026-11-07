@@ -28,6 +28,8 @@ const folder: FileItem = {
   isDirectory: true,
 };
 
+const archive: FileItem = { ...file, id: 'z1', name: 'respaldo', ext: 'ZIP', fullName: 'respaldo.zip' };
+
 const buildProps = (targetItem: FileItem) => ({
   theme: themes.classic_blue,
   lang: 'es' as const,
@@ -65,6 +67,34 @@ describe('ContextMenu on a selected item', () => {
 
     expect(props.onRename).toHaveBeenCalledTimes(1);
     expect(props.onClose).toHaveBeenCalled();
+  });
+
+  /**
+   * Extraction used to be reachable only through the compression window. The
+   * menu now names the destinations a file manager is expected to offer, and
+   * offers none of them for something that is not an archive.
+   */
+  it('offers the extract destinations on an archive, and only on one', () => {
+    const onExtractHere = vi.fn();
+    const onExtractIntoFolder = vi.fn();
+    const onExtractToOtherPanel = vi.fn();
+    const { unmount } = render(
+      <ContextMenu
+        {...buildProps(archive)}
+        isArchive
+        onExtractHere={onExtractHere}
+        onExtractIntoFolder={onExtractIntoFolder}
+        onExtractToOtherPanel={onExtractToOtherPanel}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Extraer'));
+    fireEvent.click(screen.getByText('Extraer en «respaldo»'));
+    expect(onExtractIntoFolder).toHaveBeenCalledTimes(1);
+
+    unmount();
+    render(<ContextMenu {...buildProps(file)} />);
+    expect(screen.queryByText('Extraer')).toBeNull();
   });
 
   it('offers no "Enviar a" for a drive without files on disk', () => {

@@ -63,6 +63,10 @@ export const ja = {
   calculateHash: 'ハッシュ値計算',
   zipPack: 'アーカイブに圧縮',
   unzipExtract: 'アーカイブを展開',
+  extractMenu: '展開',
+  extractHere: 'ここに展開',
+  extractIntoFolder: '「{name}」に展開',
+  extractToOtherPanel: '別のパネルに展開',
   zipErrEmpty: 'このアーカイブには展開する内容がありません。',
   zipErrCorrupt: '「{name}」をアーカイブとして読み取れません。ファイルが破損している可能性があります。',
   zipErrTooLarge:

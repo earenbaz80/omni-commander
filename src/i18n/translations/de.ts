@@ -63,6 +63,10 @@ export const de = {
   calculateHash: 'Prüfsumme berechnen',
   zipPack: 'In Archiv packen',
   unzipExtract: 'Archiv entpacken',
+  extractMenu: 'Entpacken',
+  extractHere: 'Hier entpacken',
+  extractIntoFolder: 'In „{name}“ entpacken',
+  extractToOtherPanel: 'In das andere Fenster entpacken',
   zipErrEmpty: 'Dieses Archiv enthält keine extrahierbaren Daten.',
   zipErrCorrupt: 'Archiv {name} kann nicht gelesen werden. Es ist möglicherweise beschädigt.',
   zipErrTooLarge:
