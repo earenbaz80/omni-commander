@@ -728,8 +728,21 @@ function registerArchiveRoutes(app, deps) {
    * do it without holding the entry: ZIP by its own stream, a large archive by
    * bsdtar, and the decrypting engines by reading the entry (they cannot stream).
    */
-  async function writeEntryToFile(target, head, stat, name, destination, password, onBytes, signal, gate) {
-    await assertDestinationFree(destination);
+  async function writeEntryToFile(
+    target,
+    head,
+    stat,
+    name,
+    destination,
+    password,
+    onBytes,
+    signal,
+    gate,
+    overwrite = false,
+  ) {
+    // The route already asked, unless the conflict prompt answered that this name
+    // is meant to be replaced: one guard, reached by both callers.
+    if (!overwrite) await assertDestinationFree(destination);
     if (isZipHead(head)) return zipStream.extractZipEntryTo(target, name, destination, onBytes, signal, gate);
     const binary = stat.size > ARCHIVE_MAX_BYTES ? bsdtarBinary() : null;
     if (binary) {
@@ -920,8 +933,11 @@ function registerArchiveRoutes(app, deps) {
       }
       // Every refusal that answers with a status happens before the first byte
       // of the body: from then on the answer is a progress stream, and a status
-      // cannot be changed once one line of it has gone out.
-      await assertDestinationFree(destination);
+      // cannot be changed once one line of it has gone out. `overwrite` is the
+      // conflict prompt's answer: the caller asked for this name to be replaced,
+      // and the temporary + rename below still means a failed write never leaves
+      // a short file under the real name.
+      if (body.overwrite !== true) await assertDestinationFree(destination);
       // The renderer names its own run, so it can hold and release the write
       // while this request stays open.
       const jobId = typeof body.job === 'string' && body.job ? body.job : '';
@@ -971,6 +987,7 @@ function registerArchiveRoutes(app, deps) {
           report,
           controller.signal,
           gate,
+          body.overwrite === true,
         );
       } catch (error) {
         // A cancelled extraction is not a failure: the temporary file is already

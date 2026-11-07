@@ -81,6 +81,21 @@ describe('AppModalLayer', () => {
     expect(modalData.items.map((item) => item.id)).toEqual(['z']);
   });
 
+  it('hands an extraction conflict answer to the extraction resolver', () => {
+    const handleResolveExtractConflict = vi.fn();
+    const { props } = setup();
+    props.files = {
+      extractConflict: { name: 'nota.txt' },
+      handleResolveExtractConflict,
+      handleAbortExtractConflict: vi.fn(),
+    } as never;
+
+    render(<AppModalLayer {...props} />);
+    (captured.conflict?.onAnswer as (answer: string, all: boolean) => void)('rename', true);
+
+    expect(handleResolveExtractConflict).toHaveBeenCalledWith('rename', true);
+  });
+
   it("hands a conflict answer to the queue's own resolver", () => {
     const { props, handleResolveConflict } = setup({ conflict: true });
 

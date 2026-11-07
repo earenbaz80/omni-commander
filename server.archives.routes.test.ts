@@ -209,6 +209,26 @@ describe('extraer una entrada a disco', () => {
     expect(await fs.promises.readFile(destination, 'utf8')).toBe('lo que ya habia');
   });
 
+  it('reemplaza el archivo existente cuando la respuesta del aviso lo pide', async () => {
+    const destination = path.join(output(), 'reemplazado.bin');
+    await fs.promises.mkdir(path.dirname(destination), { recursive: true });
+    await fs.promises.writeFile(destination, 'lo que ya habia');
+    const response = await post('/api/archives/extract', {
+      path: zipFile,
+      entry: 'grande.bin',
+      target: destination,
+      root: output(),
+      overwrite: true,
+    });
+    expect(response.status).toBe(200);
+    const events = (await response.text())
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as { type: string; ok?: boolean });
+    expect(events.at(-1)).toMatchObject({ type: 'done', ok: true });
+    expect(await fs.promises.readFile(destination, 'utf8')).not.toBe('lo que ya habia');
+  });
+
   it('no escribe fuera de la carpeta declarada', async () => {
     const response = await post('/api/archives/extract', {
       path: zipFile,
