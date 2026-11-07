@@ -34,7 +34,7 @@ export interface FileOperations {
   handleConfirmNewFile: (fileName: string) => void;
   handleApplyBatchRename: (renames: { id: string; newName: string }[]) => void;
   handleCompressZip: (archiveName: string, format: OpenableArchiveFormat) => Promise<void>;
-  handleExtractZip: (zipFile: FileItem) => Promise<void>;
+  handleExtractZip: (zipFile: FileItem, destination?: { driveId: string; path: string }) => Promise<void>;
   handleDropItems: (
     draggedItems: FileItem[],
     targetPath: string,
@@ -199,17 +199,22 @@ export function useFileOperations({
     setActiveModal(null);
   };
 
-  const handleExtractZip = async (zipFile: FileItem) => {
+  const handleExtractZip = async (zipFile: FileItem, destination?: { driveId: string; path: string }) => {
     const mounted = fsEngine.getArchiveSource(currentActiveTab.driveId, currentActiveTab.currentPath);
     const source = mounted || zipFile;
-    const destination = mounted ? currentInactiveTab : currentActiveTab;
+    // The context menu names where the entries land. The window keeps the old
+    // rule, which extracts into the pane the archive is not shown in.
+    const target = destination ?? {
+      driveId: (mounted ? currentInactiveTab : currentActiveTab).driveId,
+      path: (mounted ? currentInactiveTab : currentActiveTab).currentPath,
+    };
     // The queue names the task after this call returns, and the executor only
     // starts once it has, so the closures below can refer to that id.
     let taskId = '';
     taskId = taskQueue.addTask(
       'extract',
       t.appUnpacking.replace('{name}', `${source.name}.${source.ext}`),
-      t.appDest.replace('{path}', destination.currentPath),
+      t.appDest.replace('{path}', target.path),
       source.size,
       // The bar follows the bytes that reach the disk. Without this an extraction
       // sat at 0% for its whole run, which for a member of gigabytes looked like
@@ -234,7 +239,7 @@ export function useFileOperations({
           );
         }, 200);
         try {
-          await fsEngine.extractArchive(source, destination.driveId, destination.currentPath, undefined, {
+          await fsEngine.extractArchive(source, target.driveId, target.path, undefined, {
             onProgress,
             onEntry: (entryPath) => taskQueue.updateTaskMeta(taskId, { currentFile: entryPath }),
             onJob: (id) => {

@@ -69,6 +69,10 @@ export const es = {
   calculateHash: 'Calcular Checksum (MD5/SHA)',
   zipPack: 'Comprimir en archivo',
   unzipExtract: 'Descomprimir archivo',
+  extractMenu: 'Extraer',
+  extractHere: 'Extraer aquí',
+  extractIntoFolder: 'Extraer en «{name}»',
+  extractToOtherPanel: 'Extraer en el otro panel',
   zipErrEmpty: 'Este archivo no tiene contenido para descomprimir.',
   zipErrCorrupt: 'No se puede leer "{name}" como archivo comprimido. Puede estar corrupto o dañado.',
   zipErrTooLarge:

@@ -36,6 +36,8 @@ const file: FileItem = {
 
 const folder: FileItem = { ...file, id: 'd1', name: 'proyectos', ext: '', fullName: 'proyectos', isDirectory: true };
 
+const archive: FileItem = { ...file, id: 'z1', name: 'respaldo', ext: 'ZIP', fullName: 'respaldo.zip' };
+
 const tab = (driveId: string, currentPath: string) => ({ driveId, currentPath }) as unknown as PanelTab;
 
 const buildProps = (overrides: Partial<FileContextMenuProps> = {}): FileContextMenuProps => ({
@@ -57,6 +59,7 @@ const buildProps = (overrides: Partial<FileContextMenuProps> = {}): FileContextM
   onRefresh: vi.fn(),
   onShowConsole: vi.fn(),
   onExecuteCommand: vi.fn().mockResolvedValue(undefined),
+  onExtract: vi.fn(),
   ...overrides,
 });
 
@@ -76,6 +79,35 @@ describe('FileContextMenu', () => {
 
     expect(props.setSelectedFileForModal).toHaveBeenCalledWith(file);
     expect(props.setActiveModal).toHaveBeenCalledWith('rename');
+  });
+
+  /** The menu names the destination; the engine no longer picks the pane alone. */
+  it('extracts into the folder the archive lives in', () => {
+    const onExtract = vi.fn();
+    const props = buildProps({
+      state: { visible: true, x: 10, y: 10, targetItem: archive, panelSide: 'left' },
+      onExtract,
+    });
+    render(<FileContextMenu {...props} />);
+
+    fireEvent.click(screen.getByText('Extraer'));
+    fireEvent.click(screen.getByText('Extraer aquí'));
+
+    expect(onExtract).toHaveBeenCalledWith(archive, { driveId: 'real_C', path: 'Users\\ana' });
+  });
+
+  it('extracts into the other pane when that is the destination chosen', () => {
+    const onExtract = vi.fn();
+    const props = buildProps({
+      state: { visible: true, x: 10, y: 10, targetItem: archive, panelSide: 'left' },
+      onExtract,
+    });
+    render(<FileContextMenu {...props} />);
+
+    fireEvent.click(screen.getByText('Extraer'));
+    fireEvent.click(screen.getByText('Extraer en el otro panel'));
+
+    expect(onExtract).toHaveBeenCalledWith(archive, { driveId: 'real_D', path: 'D:\\' });
   });
 
   /** The tree lists absolute paths, so a pin that is not absolute never matches. */

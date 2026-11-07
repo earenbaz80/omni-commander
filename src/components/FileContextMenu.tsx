@@ -5,6 +5,7 @@ import { ThemeConfig } from '../services/themeManager';
 import { fsEngine } from '../services/fileSystem';
 import { soundManager } from '../services/soundEffects';
 import { consoleCommandFor } from '../services/appOpeners';
+import { formatFromExtension, isOpenable } from '../services/archiveBackend';
 
 /** What the menu is open on: where it was clicked and what it was clicked over. */
 export interface FileContextMenuState {
@@ -36,6 +37,8 @@ export interface FileContextMenuProps {
   /** Brings the command console forward, for "open in terminal". */
   onShowConsole: () => void;
   onExecuteCommand: (command: string) => Promise<void>;
+  /** Starts an extraction of the target into the destination the menu named. */
+  onExtract: (item: FileItem, destination: { driveId: string; path: string }) => void;
 }
 
 /** An absolute path for a folder the user can pin; a file has no entry in the tree. */
@@ -71,10 +74,43 @@ export const FileContextMenu: React.FC<FileContextMenuProps> = ({
   onRefresh,
   onShowConsole,
   onExecuteCommand,
+  onExtract,
 }) => {
   if (!state.visible) return null;
 
   const item = state.targetItem;
+  const fullName = item ? `${item.name}${item.ext ? `.${item.ext}` : ''}` : '';
+  const isArchive = !!item && !item.isDirectory && isOpenable(formatFromExtension(fullName));
+
+  /**
+   * Where "extract" writes: the folder the archive lives in, a folder named after
+   * it beside the archive, or the pane on the other side. The middle one is
+   * created first, because the extraction only makes the folders *inside* its
+   * destination and writing into a folder that is not there fails.
+   */
+  const extractTo = (where: 'here' | 'folder' | 'panel') => {
+    if (!item) return;
+    if (where === 'panel') {
+      const other = state.panelSide === 'left' ? rightTab : leftTab;
+      onExtract(item, { driveId: other.driveId, path: other.currentPath });
+      return;
+    }
+    if (where === 'folder') {
+      try {
+        if (
+          !fsEngine.getFiles(item.driveId, item.path).some((entry) => entry.isDirectory && entry.name === item.name)
+        ) {
+          fsEngine.createDirectory(item.driveId, item.path, item.name);
+        }
+      } catch (error) {
+        alert(error instanceof Error ? error.message : String(error));
+        return;
+      }
+      onExtract(item, { driveId: item.driveId, path: `${item.path}\\${item.name}` });
+      return;
+    }
+    onExtract(item, { driveId: item.driveId, path: item.path });
+  };
 
   /** Opens one of the app's own tools on the item the menu was opened over. */
   const openTool = (modal: ActiveModal) => {
@@ -103,6 +139,10 @@ export const FileContextMenu: React.FC<FileContextMenuProps> = ({
         setActiveModal('new_file');
       }}
       onZip={() => setActiveModal('zipArchive')}
+      isArchive={isArchive}
+      onExtractHere={() => extractTo('here')}
+      onExtractIntoFolder={() => extractTo('folder')}
+      onExtractToOtherPanel={() => extractTo('panel')}
       onChecksum={() => openTool('checksum')}
       onProperties={() => openTool('properties')}
       onDownload={() => {

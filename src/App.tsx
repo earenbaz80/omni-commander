@@ -702,6 +702,7 @@ export default function App() {
         onRefresh={() => setFsTick((tick) => tick + 1)}
         onShowConsole={() => setConsoleOpenNonce((nonce) => nonce + 1)}
         onExecuteCommand={handleExecuteCommand}
+        onExtract={(target, destination) => void fileOperations.handleExtractZip(target, destination)}
       />
 
       <AppModalLayer

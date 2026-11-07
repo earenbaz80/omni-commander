@@ -7,6 +7,7 @@ import {
   Scissors,
   Trash2,
   FolderPlus,
+  FolderOutput,
   FilePlus,
   FileArchive,
   Hash,
@@ -45,6 +46,14 @@ interface ContextMenuProps {
   onMkDir: () => void;
   onNewFile: () => void;
   onZip: () => void;
+  /** True when the target is an archive some engine can read. */
+  isArchive?: boolean;
+  /** Extracts the target into the folder it lives in. */
+  onExtractHere?: () => void;
+  /** Extracts the target into a folder named after it, beside the archive. */
+  onExtractIntoFolder?: () => void;
+  /** Extracts the target into the pane that is not showing it. */
+  onExtractToOtherPanel?: () => void;
   onChecksum: () => void;
   onProperties: () => void;
   onDownload: () => void;
@@ -98,6 +107,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onMkDir,
   onNewFile,
   onZip,
+  isArchive,
+  onExtractHere,
+  onExtractIntoFolder,
+  onExtractToOtherPanel,
   onChecksum,
   onProperties,
   onDownload,
@@ -125,6 +138,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   const [openWithExpanded, setOpenWithExpanded] = useState(false);
   const [openWithPrograms, setOpenWithPrograms] = useState<OpenWithProgram[] | null>(null);
   const [openWithLoading, setOpenWithLoading] = useState(false);
+  const [extractExpanded, setExtractExpanded] = useState(false);
 
   const toggleOpenWith = () => {
     soundManager.playKeyTick();
@@ -137,6 +151,18 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       .catch(() => setOpenWithPrograms([]))
       .finally(() => setOpenWithLoading(false));
   };
+
+  /** Expanding is not an action either: the menu stays open to pick a destination. */
+  const toggleExtract = () => {
+    soundManager.playKeyTick();
+    setExtractExpanded((expanded) => !expanded);
+  };
+
+  // The fallback keeps the block for the formats it always offered when no caller
+  // says otherwise; the menu itself now asks `isOpenable`, which also covers
+  // TAR.GZ, TAR.BZ2 and TAR.LZMA instead of the four extensions it used to list.
+  const archiveTarget =
+    isArchive ?? ['ZIP', 'RAR', '7Z', 'TAR', 'TAR.GZ'].includes((targetItem?.ext ?? '').toUpperCase());
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -381,10 +407,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           <div role="separator" className="h-px bg-current opacity-20 my-[var(--space-1)]" />
 
           {/* Archive Actions Section */}
-          {(targetItem.ext?.toUpperCase() === 'ZIP' ||
-            targetItem.ext?.toUpperCase() === 'RAR' ||
-            targetItem.ext?.toUpperCase() === '7Z' ||
-            targetItem.ext?.toUpperCase() === 'TAR') && (
+          {archiveTarget && (
             <>
               <div
                 role="presentation"
@@ -392,6 +415,43 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               >
                 {t.archiveActions || 'Archive Actions'}
               </div>
+
+              <MenuItem
+                aria-expanded={extractExpanded}
+                onClick={toggleExtract}
+                className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-white/20 flex items-center justify-between cursor-pointer"
+              >
+                <span className="flex items-center gap-[var(--space-2)]">
+                  <FolderOutput className="w-3.5 h-3.5 text-emerald-300" /> {t.extractMenu}
+                </span>
+                <span className="opacity-60">{extractExpanded ? '▾' : '▸'}</span>
+              </MenuItem>
+              {extractExpanded && (
+                <div
+                  role="group"
+                  aria-label={t.extractMenu}
+                  className="ml-[var(--space-3)] border-l border-white/10 pl-[var(--space-1)]"
+                >
+                  <MenuItem
+                    onClick={() => handleAction(() => onExtractHere?.())}
+                    className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 cursor-pointer"
+                  >
+                    {t.extractHere}
+                  </MenuItem>
+                  <MenuItem
+                    onClick={() => handleAction(() => onExtractIntoFolder?.())}
+                    className="w-full truncate text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 cursor-pointer"
+                  >
+                    {t.extractIntoFolder.replace('{name}', targetItem.name)}
+                  </MenuItem>
+                  <MenuItem
+                    onClick={() => handleAction(() => onExtractToOtherPanel?.())}
+                    className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 cursor-pointer"
+                  >
+                    {t.extractToOtherPanel}
+                  </MenuItem>
+                </div>
+              )}
 
               <MenuItem
                 onClick={() => handleAction(() => onArchiveInfo?.(targetItem))}

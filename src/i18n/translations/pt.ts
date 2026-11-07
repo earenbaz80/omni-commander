@@ -63,6 +63,10 @@ export const pt = {
   calculateHash: 'Calcular Checksum',
   zipPack: 'Compactar em arquivo',
   unzipExtract: 'Extrair arquivo',
+  extractMenu: 'Extrair',
+  extractHere: 'Extrair aqui',
+  extractIntoFolder: 'Extrair em «{name}»',
+  extractToOtherPanel: 'Extrair no outro painel',
   zipErrEmpty: 'Este arquivo não contém dados para extrair.',
   zipErrCorrupt: 'Não foi possível ler {name} como arquivo. O arquivo pode estar corrompido.',
   zipErrTooLarge:
