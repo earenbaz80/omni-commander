@@ -128,4 +128,47 @@ describe('rutas de un solo fichero', () => {
     const response = await post('/api/fs/read-bytes', { path: 'relativa.txt', maxBytes: 10 });
     expect(response.status).toBe(400);
   });
+
+  /**
+   * The extraction's conflict prompt answers through this flag. What it must not
+   * do is relax the guard for anyone else, or leave the temporary file the write
+   * goes through behind when it succeeds.
+   */
+  it('reemplaza con overwrite y no deja temporales junto al fichero', async () => {
+    const folder = path.join(root, 'sobrescritura');
+    await fs.promises.mkdir(folder, { recursive: true });
+    const target = path.join(folder, 'dato.bin');
+    const write = (body: string, overwrite: boolean) =>
+      fetch(
+        `${origin}/api/fs/write-bytes?path=${encodeURIComponent(target)}&root=${encodeURIComponent(folder)}${overwrite ? '&overwrite=1' : ''}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body,
+        },
+      );
+
+    expect((await write('primero', false)).status).toBe(200);
+    // Without the flag the route still refuses a name that is already there.
+    expect((await write('segundo', false)).status).toBe(400);
+    expect(await fs.promises.readFile(target, 'utf8')).toBe('primero');
+
+    expect((await write('segundo', true)).status).toBe(200);
+    expect(await fs.promises.readFile(target, 'utf8')).toBe('segundo');
+    // The replacement is written under a temporary name first, so the folder
+    // must hold the file and nothing else once the answer came back.
+    expect((await fs.promises.readdir(folder)).sort()).toEqual(['dato.bin']);
+
+    // A directory on the destination makes the rename fail after the temporary
+    // has been written: that is where a missing cleanup would show up, and a
+    // plain truncating write would never take this path at all.
+    const asFolder = path.join(folder, 'ocupado');
+    await fs.promises.mkdir(asFolder);
+    const refused = await fetch(
+      `${origin}/api/fs/write-bytes?path=${encodeURIComponent(asFolder)}&root=${encodeURIComponent(folder)}&overwrite=1`,
+      { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: 'nada' },
+    );
+    expect(refused.status).toBe(400);
+    expect((await fs.promises.readdir(folder)).sort()).toEqual(['dato.bin', 'ocupado']);
+  });
 });
