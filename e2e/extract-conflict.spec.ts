@@ -104,8 +104,8 @@ function factRow(page: Page, label: string) {
   return page.locator('tr', { hasText: label });
 }
 
-/** Waits for a file to hold the bytes the archive carries. */
-function landsWith(page: Page, file: string, bytes: string, what: string) {
+/** Waits for a file in the scratch folder to hold the bytes the archive carries. */
+function landsWith(file: string, bytes: string, what: string) {
   return expect
     .poll(async () => fs.readFile(path.join(workspace, file), 'utf8').catch(() => null), {
       timeout: 60000,
@@ -141,9 +141,8 @@ test('asks before replacing an existing file and overwrites when told to', async
   // The prompt is gone and the member landed with the archive's bytes; the rest
   // of the archive followed it.
   await expect(prompt(page, 'a.txt')).toHaveCount(0, { timeout: 30000 });
-  await landsWith(page, 'a.txt', ARCHIVE_BYTES, 'the answered overwrite never replaced the file');
+  await landsWith('a.txt', ARCHIVE_BYTES, 'the answered overwrite never replaced the file');
   await landsWith(
-    page,
     path.join('sub', 'b.txt'),
     ARCHIVE_NESTED,
     'the extraction stopped at the conflict instead of finishing the archive',
@@ -161,10 +160,9 @@ test('keeps both under the next free name when told to keep both', async ({ page
 
   // Neither side is lost: the file that was there keeps its bytes, and the
   // member lands beside it under the first name nobody held.
-  await landsWith(page, 'a (2).txt', ARCHIVE_BYTES, 'the member never landed under a free name');
+  await landsWith('a (2).txt', ARCHIVE_BYTES, 'the member never landed under a free name');
   expect(await fs.readFile(path.join(workspace, 'a.txt'), 'utf8')).toBe(OLD_BYTES);
   await landsWith(
-    page,
     path.join('sub', 'b.txt'),
     ARCHIVE_NESTED,
     'the extraction stopped after keeping both instead of finishing the archive',
@@ -191,9 +189,8 @@ test('applies one always answer to every later member with a taken name', async 
   // The first member followed the answer, and `sub\b.txt` too: had the always
   // variant not been carried, that one would be parked on a prompt of its own
   // and its bytes would still be the old ones.
-  await landsWith(page, 'a.txt', ARCHIVE_BYTES, 'the answered overwrite never replaced the first member');
+  await landsWith('a.txt', ARCHIVE_BYTES, 'the answered overwrite never replaced the first member');
   await landsWith(
-    page,
     path.join('sub', 'b.txt'),
     ARCHIVE_NESTED,
     'the second taken name was not decided by the same always answer',
