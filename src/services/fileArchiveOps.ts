@@ -564,6 +564,17 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
           // member would cost one request per file on a large archive.
           const taken = hooks?.onConflict ? await existingFileAt(targetDriveId, parent, leaf) : null;
           if (taken) {
+            // A ZIP keeps its dates to the even second, so a file written from
+            // this very member can sit up to that far from the date the archive
+            // states. Closer than that is the same file: the prompt can say so
+            // instead of asking a question whose every answer writes the same
+            // bytes, and "overwrite if different" has to decide with the same
+            // definition or it would skip a file that only shares its size.
+            const identical =
+              taken.size !== undefined &&
+              taken.size === entry.size &&
+              taken.modified !== undefined &&
+              Math.abs(taken.modified - entry.date.getTime()) < 2000;
             let action: ConflictResolution | undefined = rememberedAnswer;
             if (!action && hooks?.onConflict) {
               const answer = await hooks.onConflict({
@@ -574,16 +585,7 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
                 sourceModified: entry.date.getTime(),
                 destinationSize: taken.size,
                 destinationModified: taken.modified,
-                // A ZIP keeps its dates to the even second, so a file written
-                // from this very member can sit up to that far from the date
-                // the archive states. Closer than that is the same file, and
-                // the prompt can say so instead of asking a question whose
-                // every answer writes the same bytes.
-                identical:
-                  taken.size !== undefined &&
-                  taken.size === entry.size &&
-                  taken.modified !== undefined &&
-                  Math.abs(taken.modified - entry.date.getTime()) < 2000,
+                identical,
               });
               action = answer.action;
               if (answer.applyToAll) rememberedAnswer = answer.action;
@@ -591,9 +593,10 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
             if (action === 'skip') skip = true;
             else if (action === 'overwrite') overwrite = true;
             else if (action === 'overwrite-if-different') {
-              // An entry that is still compressed can only be compared by the
-              // size it declares; reading it to hash would defeat the point.
-              skip = taken.size !== undefined && taken.size === entry.size;
+              // Same bytes and same date: rewriting would only move the date.
+              // Same size with another date is a different file, and skipping it
+              // is what this answer exists to prevent.
+              skip = identical;
               overwrite = !skip;
             } else if (action === 'rename') {
               const kept = await freeSiblingName(targetDriveId, parent, leaf);

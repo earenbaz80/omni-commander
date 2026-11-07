@@ -233,6 +233,42 @@ test('leaves an identical file untouched when told to skip identical ones', asyn
   expect((await fs.stat(path.join(workspace, 'a.txt'))).mtimeMs).toBe(before);
 });
 
+test('does not call a file identical when only its size matches', async ({ page }) => {
+  test.setTimeout(240000);
+  // The member's own bytes, so both sides report the same size, but an old date:
+  // size alone used to be enough to call the file identical, and that warning is
+  // what tells a user the answer cannot change anything.
+  await fs.writeFile(path.join(workspace, 'a.txt'), ARCHIVE_BYTES, 'utf8');
+  const old = new Date('2021-03-04T05:06:07Z');
+  await fs.utimes(path.join(workspace, 'a.txt'), old, old);
+  const before = (await fs.stat(path.join(workspace, 'a.txt'))).mtimeMs;
+  await page.goto('/');
+  await extractHere(page);
+
+  await expect(prompt(page, 'a.txt')).toBeVisible({ timeout: 60000 });
+  const sizeRow = factRow(page, 'Tamaño');
+  await expect(sizeRow.locator('td').nth(1)).toHaveText('13 B');
+  await expect(sizeRow.locator('td').nth(2)).toHaveText('13 B');
+  // Same size, different date: the file is not identical, so the warning that
+  // an overwrite would change nothing must not be on the prompt.
+  await expect(
+    page.getByText('Ambos archivos tienen el mismo tamaño y fecha; sobrescribir no cambia nada.'),
+  ).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Sobrescribir si es distinto' }).click();
+
+  // The answer does rewrite it: the date is newer than the one it had, which a
+  // skip would have preserved. The rest of the archive follows.
+  await landsWith(path.join('sub', 'b.txt'), ARCHIVE_NESTED, 'the extraction stopped instead of finishing the archive');
+  await expect
+    .poll(async () => (await fs.stat(path.join(workspace, 'a.txt'))).mtimeMs, {
+      timeout: 60000,
+      message: 'the equal-size file was treated as identical and never rewritten',
+    })
+    .not.toBe(before);
+  expect(await fs.readFile(path.join(workspace, 'a.txt'), 'utf8')).toBe(ARCHIVE_BYTES);
+});
+
 test('leaves the file alone and finishes the archive when told to skip', async ({ page }) => {
   test.setTimeout(240000);
   await fs.writeFile(path.join(workspace, 'a.txt'), OLD_BYTES, 'utf8');

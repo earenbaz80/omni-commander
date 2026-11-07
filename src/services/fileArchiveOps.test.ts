@@ -244,15 +244,23 @@ describe('fileArchiveOps extraction conflicts', () => {
     expect(written.map((file) => file.fullName)).toEqual(['nota.txt', 'dentro.txt']);
   });
 
-  it('overwrites only when the size says the file is different', async () => {
-    const sameSize = taken({ size: 4 });
-    const otherSize = taken({ size: 9 });
+  it('overwrites when either the size or the date says the file is different', async () => {
+    // The date the archive states, so one of these can match it exactly.
+    const stated = new Date(2020, 4, 6, 7, 8, 10);
+    const identical = taken({ size: 4, modifiedAt: stated.toISOString() });
+    const otherDate = taken({ size: 4, modifiedAt: new Date(stated.getTime() - 60_000).toISOString() });
+    const otherSize = taken({ size: 9, modifiedAt: stated.toISOString() });
+    // A fresh answer per run: the helper shifts the array, so sharing one would
+    // leave the later extractions answering with the default skip.
+    const answer = (): ExtractConflictAnswer[] => [{ action: 'overwrite-if-different', applyToAll: false }];
 
-    await (await extraction([sameSize], [{ action: 'overwrite-if-different', applyToAll: false }])).run();
-    await (await extraction([otherSize], [{ action: 'overwrite-if-different', applyToAll: false }])).run();
+    await (await extraction([identical], answer(), { 'nota.txt': 'hola' }, stated)).run();
+    await (await extraction([otherDate], answer(), { 'nota.txt': 'hola' }, stated)).run();
+    await (await extraction([otherSize], answer(), { 'nota.txt': 'hola' }, stated)).run();
 
-    expect(sameSize.content).toBe('b2xk');
-    expect(otherSize.content).toBe('aG9sYQ==');
+    expect(identical.content, 'the same size and date needs no rewrite').toBe('b2xk');
+    expect(otherDate.content, 'the same size with another date is a different file').toBe('aG9sYQ==');
+    expect(otherSize.content, 'a different size is a different file').toBe('aG9sYQ==');
   });
 
   it('applies one answer to every later conflict when asked to', async () => {
