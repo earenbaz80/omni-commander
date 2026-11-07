@@ -3,6 +3,7 @@ import { ThemeConfig } from '../services/themeManager';
 import type { ModalData } from '../types';
 import {
   ActiveModal,
+  CommandHistoryItem,
   Drive,
   FileItem,
   FolderPasswordRecord,
@@ -86,6 +87,7 @@ const ImageStudioModal = React.lazy(() =>
   import('./modals/ImageStudioModal').then((m) => ({ default: m.ImageStudioModal })),
 );
 const MapsModal = React.lazy(() => import('./modals/MapsModal').then((m) => ({ default: m.MapsModal })));
+const TerminalModal = React.lazy(() => import('./modals/TerminalModal').then((m) => ({ default: m.TerminalModal })));
 
 type UnlockTarget = {
   side: 'left' | 'right';
@@ -140,6 +142,11 @@ interface AppModalsProps {
   handleSetFolderPassword: (folderPath: string, password: string | null) => void | Promise<void>;
   handleExecuteCommand: (cmd: string) => void;
   onRunCopyList: (plans: TransferPlan[]) => void;
+  /** The shell's log, shared with the command bar it also belongs to. */
+  commandHistory: CommandHistoryItem[];
+  onClearHistory: () => void;
+  isAdminMode: boolean;
+  onRequestElevation?: () => void;
 }
 
 /**
@@ -189,6 +196,10 @@ export const AppModals: React.FC<AppModalsProps> = ({
   handleSetFolderPassword,
   handleExecuteCommand,
   onRunCopyList,
+  commandHistory,
+  onClearHistory,
+  isAdminMode,
+  onRequestElevation,
 }) => {
   return (
     <>
@@ -622,6 +633,20 @@ export const AppModals: React.FC<AppModalsProps> = ({
         )}
 
         {activeModal === 'maps' && <MapsModal theme={currentTheme} lang={lang} onClose={() => setActiveModal(null)} />}
+
+        {activeModal === 'terminal' && (
+          <TerminalModal
+            theme={currentTheme}
+            lang={lang}
+            currentPath={currentActiveTab.currentPath}
+            commandHistory={commandHistory}
+            onExecuteCommand={handleExecuteCommand}
+            onClearHistory={onClearHistory}
+            isAdminMode={isAdminMode}
+            onRequestElevation={onRequestElevation}
+            onClose={() => setActiveModal(null)}
+          />
+        )}
 
         {/* Floating Background Task Queue Bar */}
         {activeModal !== 'copy' && activeModal !== 'move' && (

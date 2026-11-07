@@ -1263,4 +1263,7 @@ export const pt = {
   openMediaPlayer: 'Reprodutor de áudio e vídeo',
   openTextEditor: 'Editor de texto',
   openTerminal: 'Abrir no terminal',
+  toolTerminal: 'Terminal retrô (CRT)',
+  terminalTitle: 'Terminal do OmniCommander',
+  terminalHint: "Digite 'help' para ver os comandos. As setas percorrem o histórico.",
 } as const;

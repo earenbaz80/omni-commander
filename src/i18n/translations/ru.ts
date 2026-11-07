@@ -1265,4 +1265,7 @@ export const ru = {
   openMediaPlayer: 'Плеер аудио и видео',
   openTextEditor: 'Текстовый редактор',
   openTerminal: 'Открыть в терминале',
+  toolTerminal: 'Ретро-терминал (CRT)',
+  terminalTitle: 'Терминал OmniCommander',
+  terminalHint: "Введите 'help', чтобы увидеть команды. Стрелки листают историю.",
 } as const;

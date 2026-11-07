@@ -1273,4 +1273,7 @@ export const fr = {
   openMediaPlayer: 'Lecteur audio et vidéo',
   openTextEditor: 'Éditeur de texte',
   openTerminal: 'Ouvrir dans le terminal',
+  toolTerminal: 'Terminal rétro (CRT)',
+  terminalTitle: 'Terminal d’OmniCommander',
+  terminalHint: "Tapez 'help' pour lister les commandes. Les flèches parcourent l'historique.",
 } as const;

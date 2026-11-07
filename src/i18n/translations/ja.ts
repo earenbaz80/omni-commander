@@ -1265,4 +1265,7 @@ export const ja = {
   openMediaPlayer: '音声・動画プレーヤー',
   openTextEditor: 'テキストエディタ',
   openTerminal: 'ターミナルで開く',
+  toolTerminal: 'レトロターミナル (CRT)',
+  terminalTitle: 'OmniCommander ターミナル',
+  terminalHint: "'help' でコマンド一覧を表示します。矢印キーで履歴をたどれます。",
 } as const;

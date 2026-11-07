@@ -734,7 +734,15 @@ export default function App() {
         }}
         transfers={{ items: transferItems, queue: transferQueue, passwordRequest, submitPassword: settlePassword }}
         files={fileOperations}
-        commands={{ navigate: handleNavigate, selectIndex: handleSelectIndex, executeCommand: handleExecuteCommand }}
+        commands={{
+          navigate: handleNavigate,
+          selectIndex: handleSelectIndex,
+          executeCommand: handleExecuteCommand,
+          history: commandHistory,
+          clearHistory: () => setCommandHistory([]),
+          isAdminMode: isElevated,
+          requestElevation,
+        }}
         treeHandle={{
           visible: leftPanel.isTreeVisible,
           onToggle: () => setLeftPanel((p) => ({ ...p, isTreeVisible: !p.isTreeVisible })),

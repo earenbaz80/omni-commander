@@ -1266,4 +1266,7 @@ export const it = {
   openMediaPlayer: 'Lettore audio e video',
   openTextEditor: 'Editor di testo',
   openTerminal: 'Apri nel terminale',
+  toolTerminal: 'Terminale retrò (CRT)',
+  terminalTitle: 'Terminale di OmniCommander',
+  terminalHint: "Digita 'help' per vedere i comandi. Le frecce scorrono la cronologia.",
 } as const;

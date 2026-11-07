@@ -1269,4 +1269,7 @@ export const de = {
   openMediaPlayer: 'Audio- und Videoplayer',
   openTextEditor: 'Texteditor',
   openTerminal: 'Im Terminal öffnen',
+  toolTerminal: 'Retro-Terminal (CRT)',
+  terminalTitle: 'OmniCommander-Terminal',
+  terminalHint: "'help' zeigt die Befehle. Die Pfeiltasten durchlaufen den Verlauf.",
 } as const;
