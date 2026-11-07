@@ -197,3 +197,24 @@ test('applies one always answer to every later member with a taken name', async 
   );
   await expect(page.getByText(/^El destino ya existe: /)).toHaveCount(0);
 });
+
+test('leaves an identical file untouched when told to skip identical ones', async ({ page }) => {
+  test.setTimeout(240000);
+  // The member's own bytes, dated long ago: the only thing an overwrite could
+  // change here is the date, which is exactly what proves it did not happen.
+  await fs.writeFile(path.join(workspace, 'a.txt'), ARCHIVE_BYTES, 'utf8');
+  const old = new Date('2020-01-02T03:04:05Z');
+  await fs.utimes(path.join(workspace, 'a.txt'), old, old);
+  const before = (await fs.stat(path.join(workspace, 'a.txt'))).mtimeMs;
+  await page.goto('/');
+  await extractHere(page);
+
+  await expect(prompt(page, 'a.txt')).toBeVisible({ timeout: 60000 });
+  await page.getByRole('button', { name: 'Sobrescribir si es distinto' }).click();
+
+  // The rest of the archive lands, and the identical member kept both its bytes
+  // and the date it already had: a rewrite would have moved that date to now.
+  await landsWith(path.join('sub', 'b.txt'), ARCHIVE_NESTED, 'the extraction stopped instead of finishing the archive');
+  expect(await fs.readFile(path.join(workspace, 'a.txt'), 'utf8')).toBe(ARCHIVE_BYTES);
+  expect((await fs.stat(path.join(workspace, 'a.txt'))).mtimeMs).toBe(before);
+});
