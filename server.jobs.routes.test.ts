@@ -39,7 +39,7 @@ beforeAll(async () => {
   app.use(express.json());
   registerJobRoutes(app, { jobs, jobSnapshot, preferredPort: 3001, getActivePort: () => 4321 });
   await new Promise<void>((resolve) => {
-    server = app.listen(0, '127.0.0.1', resolve);
+    server = app.listen(0, '127.0.0.1', () => resolve());
   });
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('no port');
