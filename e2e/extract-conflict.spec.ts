@@ -232,3 +232,43 @@ test('leaves an identical file untouched when told to skip identical ones', asyn
   expect(await fs.readFile(path.join(workspace, 'a.txt'), 'utf8')).toBe(ARCHIVE_BYTES);
   expect((await fs.stat(path.join(workspace, 'a.txt'))).mtimeMs).toBe(before);
 });
+
+test('leaves the file alone and finishes the archive when told to skip', async ({ page }) => {
+  test.setTimeout(240000);
+  await fs.writeFile(path.join(workspace, 'a.txt'), OLD_BYTES, 'utf8');
+  const old = new Date('2021-03-04T05:06:07Z');
+  await fs.utimes(path.join(workspace, 'a.txt'), old, old);
+  const before = (await fs.stat(path.join(workspace, 'a.txt'))).mtimeMs;
+  await page.goto('/');
+  await extractHere(page);
+
+  await expect(prompt(page, 'a.txt')).toBeVisible({ timeout: 60000 });
+  await page.getByRole('button', { name: 'Omitir' }).click();
+
+  // The member was dropped rather than rewritten: same bytes, same date, and
+  // nothing placed beside it. The rest of the archive still lands.
+  await landsWith(
+    path.join('sub', 'b.txt'),
+    ARCHIVE_NESTED,
+    'the extraction stopped at a skipped member instead of finishing the archive',
+  );
+  expect(await fs.readFile(path.join(workspace, 'a.txt'), 'utf8')).toBe(OLD_BYTES);
+  expect((await fs.stat(path.join(workspace, 'a.txt'))).mtimeMs).toBe(before);
+  expect((await fs.readdir(workspace)).sort()).toEqual(['a.txt', 'sample.zip', 'sub']);
+});
+
+test('moves the existing file aside when told to rename it', async ({ page }) => {
+  test.setTimeout(240000);
+  await fs.writeFile(path.join(workspace, 'a.txt'), OLD_BYTES, 'utf8');
+  await page.goto('/');
+  await extractHere(page);
+
+  await expect(prompt(page, 'a.txt')).toBeVisible({ timeout: 60000 });
+  await page.getByRole('button', { name: 'Renombrar el archivo viejo' }).click();
+
+  // The member takes its own name and the file that held it keeps its bytes
+  // under the next free one, so neither side is lost.
+  await landsWith('a.txt', ARCHIVE_BYTES, 'the member did not take its own name back');
+  await landsWith('a (2).txt', OLD_BYTES, 'the file in the way was not kept under a free name');
+  expect((await fs.readdir(workspace)).sort()).toEqual(['a (2).txt', 'a.txt', 'sample.zip', 'sub']);
+});
