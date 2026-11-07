@@ -43,10 +43,10 @@ describe('TerminalModal', () => {
     expect(screen.getByText(t.terminalHint)).toBeTruthy();
   });
 
-  it('runs what is typed and empties the prompt', () => {
+  it('runs what is typed with Enter, as the screen has no button', () => {
     const props = open();
     fireEvent.change(prompt(), { target: { value: 'dir' } });
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(t.runCommand) }));
+    fireEvent.keyDown(prompt(), { key: 'Enter' });
 
     expect(props.onExecuteCommand).toHaveBeenCalledWith('dir');
     expect(prompt().value).toBe('');
@@ -55,8 +55,16 @@ describe('TerminalModal', () => {
   it('does not send an empty line to the shell', () => {
     const props = open();
     fireEvent.change(prompt(), { target: { value: '   ' } });
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(t.runCommand) }));
+    fireEvent.keyDown(prompt(), { key: 'Enter' });
     expect(props.onExecuteCommand).not.toHaveBeenCalled();
+  });
+
+  it('types on the screen itself instead of in a field below it', () => {
+    open();
+    // The prompt belongs to the scrollback and Enter is the only way to send a
+    // line; a visible input row with its own button is what this replaced.
+    expect(prompt().closest('[data-terminal-log]')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: new RegExp(t.runCommand) })).toBeNull();
   });
 
   it('prints the command and its output, with errors apart', () => {
