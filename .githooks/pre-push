@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# Blocks a push that would fail the CI `verify` job: types first, then the test
-# suite. Formatting stays in pre-commit, which is fast; this one is allowed to
-# take a minute. `git push --no-verify` skips it when that is what you want.
+# Blocks a push that would fail the CI `verify` job: documentation links first,
+# then types, then the test suite. Formatting stays in pre-commit, which is
+# fast; this one is allowed to take a minute. `git push --no-verify` skips it when that is what you want.
 # A red run is not automatically a regression; the note at the end of this file
 # is how to tell one from a machine that had no CPU left to give.
 set -eo pipefail
@@ -119,6 +119,12 @@ run() {
   "$@" 2>&1 | tee -a "$log"
 }
 
+# A broken documentation link is a second of work and needs neither the
+# compiler nor the suite, so it goes first: the push stops here instead of
+# after a minute of types and tests. It is the same check the CI runs.
+echo "pre-push: checking documentation links (npm run check:links)..."
+run npm run --silent check:links
+
 echo "pre-push: typechecking (npm run lint)..."
 run npm run --silent lint
 
@@ -132,7 +138,7 @@ echo "pre-push: running the test suite (npm test -- --maxWorkers=2)..."
 start_sampler
 run npm test -- --maxWorkers=2
 
-echo "pre-push: types and tests passed. (output: $log)"
+echo "pre-push: links, types and tests passed. (output: $log)"
 
 # When this hook goes red, the log says which test and does not say why.
 # Contention is one of the answers, and it has been the true one: the same tree
