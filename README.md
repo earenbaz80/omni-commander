@@ -74,7 +74,7 @@ Hay variables que pone el propio proceso y no se configuran a mano: `OMNI_SESSIO
 | `npm run lint`             | `tsc --noEmit` (tipos).                                                                    |
 | `npm run lint:eslint`      | ESLint sobre `src` con `--max-warnings 0`.                                                 |
 | `npm run typecheck:strict` | Tipos con `strict` y avisos de código muerto, que el tsconfig base no activa.              |
-| `npm run check:links`      | Falla si un enlace relativo de la documentación no resuelve.                               |
+| `npm run check:links`      | Falla si un enlace relativo o un ancla de la documentación no resuelve.                    |
 | `npm run format`           | Prettier sobre todo el repositorio, escribiendo.                                           |
 | `npm run format:check`     | Prettier en modo comprobación (la compuerta del CI).                                       |
 | `npm run storybook`        | Storybook en el puerto 6006.                                                               |
@@ -116,7 +116,7 @@ El precio es el que se espera: esa carpeta deja de escanearse en tiempo real. Pa
 Los hooks viven en `.githooks/` y se activan con `core.hooksPath` (lo hace `scripts/install-git-hooks.cjs` desde `prepare`). Son una comodidad para no llegar al CI con el trabajo ya hecho; la compuerta real sigue siendo el CI.
 
 - **pre-commit** — pasa Prettier solo por los ficheros que entran en el commit y vuelve a prepararlos. Salta los ficheros que además tienen cambios sin preparar (prepararlos enteros colaría trabajo en curso en el commit) y avisa sin bloquear si `node_modules` no está instalado.
-- **pre-push** — `npm run lint` y después `npm test`. Corta en los tipos, así que un error de compilación no espera al minuto de suite. Los borrados de rama remota no lo disparan.
+- **pre-push** — `npm run check:links`, después `npm run lint` y después `npm test`. Los enlaces van primero porque cuestan un segundo y no necesitan compilar: uno roto corta en el acto. Corta también en los tipos, así que un error de compilación no espera al minuto de suite. Los borrados de rama remota no lo disparan.
 
 Se saltan con `git commit --no-verify` / `git push --no-verify`. Para desactivarlos del todo: `git config --unset core.hooksPath`; para reinstalarlos: `npm run prepare`.
 
