@@ -43,4 +43,4 @@ for (const hook of readdirSync(hooksDir)) {
   }
 }
 
-console.log('Git hooks enabled: commits format what they touch, pushes run types and tests.');
+console.log('Git hooks enabled: commits format what they touch, pushes check documentation links, types and tests.');
