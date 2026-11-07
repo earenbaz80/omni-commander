@@ -59,6 +59,8 @@ export interface ExtractConflict {
   sourceModified?: number;
   destinationSize?: number;
   destinationModified?: number;
+  /** Same size and same date, so overwriting this member would change nothing. */
+  identical?: boolean;
 }
 
 /** What the person answered to one of those, and whether it covers the rest. */
@@ -572,6 +574,16 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
                 sourceModified: entry.date.getTime(),
                 destinationSize: taken.size,
                 destinationModified: taken.modified,
+                // A ZIP keeps its dates to the even second, so a file written
+                // from this very member can sit up to that far from the date
+                // the archive states. Closer than that is the same file, and
+                // the prompt can say so instead of asking a question whose
+                // every answer writes the same bytes.
+                identical:
+                  taken.size !== undefined &&
+                  taken.size === entry.size &&
+                  taken.modified !== undefined &&
+                  Math.abs(taken.modified - entry.date.getTime()) < 2000,
               });
               action = answer.action;
               if (answer.applyToAll) rememberedAnswer = answer.action;
