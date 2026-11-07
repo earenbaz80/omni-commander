@@ -3,7 +3,7 @@
 **Fecha:** 29-oct-2026 · **Commit auditado:** `f29afd2` más las cinco unidades de esta jornada y su corrección posterior — `a96ec8a` (FTP), `383bf07` (shell), `aed9cad` (vista rápida), `380e13a` (sincronización y búsqueda), `b58ce2e` (limpieza), `dea20de` (presupuesto de `tasklist`), `b7bf9a9` (fallo visible), `59c2ba1` (E2E de la barra), `820923f` (mutación de la barra), `3845a8a` (teardown de vitest), `e75a72a` (poll cancelable), `01cdde3` (lectura de procesos), `83bba23` (presupuesto del suite) · y la cadena de ventanas de la tarde: `f689011` (aviso una vez), `3edd1ae` (E2E del aviso), `3358f19` (solo `ModalShell`), `53f4019` (foco al abrir), `6cb3647` (ventanas con selección), `918c82b` (visor y editor), `0e5be21` (relevo visor→editor y lista nombrada), `186b13c` (panel en el nombre) · **Versión:** 1.0.4
 **Alcance:** compuertas de calidad, datos que la interfaz presenta como reales, seguridad de la API local y de Electron, rendimiento, pruebas y CI.
 **Método:** ejecución de las compuertas reales sobre el árbol de trabajo, lectura del código y prueba de ejecución de los endpoints nuevos contra la máquina.
-**Relación con la anterior:** [AUDITORIA_2026-10-26.md](AUDITORIA_2026-10-26.md) midió `d3b113e`. Esta es una foto nueva, no una actualización de aquella.
+**Relación con la anterior:** [AUDITORIA_2026-10-26.md](AUDITORIA_2026-10-26.md#0-estado-a-28-oct-2026) midió `d3b113e`. Esta es una foto nueva, no una actualización de aquella.
 
 ---
 
