@@ -3,6 +3,7 @@ const path = require('path');
 const { execFile, execFileSync, spawn } = require('node:child_process');
 const { Worker } = require('node:worker_threads');
 const zipStream = require('./zipStream.cjs');
+const { renameWithRetry } = require('./fsRetry.cjs');
 const { pathToFileURL } = require('node:url');
 
 /**
@@ -679,7 +680,9 @@ function registerArchiveRoutes(app, deps) {
         const message = stderr.trim() || `bsdtar exited with ${code}`;
         throw Object.assign(new Error(message), { entryMissing: /not found in archive/i.test(message) });
       }
-      await fs.promises.rename(temporary, destination);
+      // bsdtar wrote the whole entry; only its name is left, and Windows answers
+      // EPERM to that while a scan holds it.
+      await renameWithRetry(fs, temporary, destination);
       return bytes;
     } catch (error) {
       child.kill();
@@ -714,7 +717,7 @@ function registerArchiveRoutes(app, deps) {
       // off its real name until the run is released again.
       if (gate) await gate.wait();
       if (signal && signal.aborted) throw cancelledError();
-      await fs.promises.rename(temporary, destination);
+      await renameWithRetry(fs, temporary, destination);
       if (onBytes) onBytes(bytes.length);
       return bytes.length;
     } catch (error) {
