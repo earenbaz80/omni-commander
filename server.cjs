@@ -24,6 +24,7 @@ const { registerSpaceRoutes } = require('./server/routes/space.cjs');
 const { dashboardHtml } = require('./server/dashboard.cjs');
 const { createJobEngine } = require('./server/jobEngine.cjs');
 const { createFileOps } = require('./server/fileOps.cjs');
+const { appendLog } = require('./server/scratch.cjs');
 const { registerMapRoutes } = require('./server/routes/maps.cjs');
 const { registerOpenWithRoutes } = require('./server/openWith.cjs');
 const { createCatalog } = require('./server/catalog.cjs');
@@ -416,20 +417,22 @@ function registerFsRoutes() {
   });
 
   /**
-   * Writes a rejected filesystem request to a log file next to the system temp
-   * directory. A transfer that never starts leaves no other trace: the client
-   * can only surface a short message, so the full request body is recorded here
-   * to make the cause diagnosable after the fact.
+   * Writes a rejected filesystem request to the app's diagnostic log. A transfer
+   * that never starts leaves no other trace: the client can only surface a short
+   * message, so the full request body is recorded here to make the cause
+   * diagnosable after the fact. `scratch.cjs` keeps the file from growing without
+   * bound.
    */
-  const rejectionLogPath = path.join(process.env.TEMP || process.env.TMP || '.', 'omnicommander-fs.log');
   function logRejected(route, body, err) {
-    const line = JSON.stringify({
-      at: new Date().toISOString(),
-      route,
-      body,
-      error: err && err.message ? err.message : String(err),
-    });
-    fs.promises.appendFile(rejectionLogPath, line + '\n').catch(() => {});
+    appendLog(
+      'omnicommander-fs.log',
+      JSON.stringify({
+        at: new Date().toISOString(),
+        route,
+        body,
+        error: err && err.message ? err.message : String(err),
+      }),
+    );
   }
 
   registerTransferRoutes(app, {

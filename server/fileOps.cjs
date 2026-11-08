@@ -19,7 +19,7 @@ const { once } = require('events');
 
 const { assertSafePath, isDriveRoot } = require('./pathSafety.cjs');
 const { renameWithRetry } = require('./fsRetry.cjs');
-const { scratchFile } = require('./scratch.cjs');
+const { appendLog, scratchFile } = require('./scratch.cjs');
 
 function createFileOps(deps = {}) {
   const {
@@ -841,15 +841,15 @@ function createFileOps(deps = {}) {
   }
 
   /**
-   * Records each transfer phase in a log file. A copy that stalls on the user's
-   * side leaves no other trace, so the phases are written down to make the next
-   * report diagnosable instead of guessed at.
+   * Records each transfer phase in the app's diagnostic log. A copy that stalls
+   * on the user's side leaves no other trace, so the phases are written down to
+   * make the next report diagnosable instead of guessed at. The file is rotated:
+   * a stall appends a line every couple of seconds.
    */
   function jobLog(...parts) {
-    const file = path.join(process.env.TEMP || '.', 'omnicommander-job.log');
-    const line = `${new Date().toISOString()} ${parts.join(' ')}`;
-    fs.promises.appendFile(file, line + '\n').catch(() => {});
+    appendLog('omnicommander-job.log', `${new Date().toISOString()} ${parts.join(' ')}`);
   }
+
   /**
    * Asks the destination to take one byte before the copy starts. A protected
    * folder only reveals itself when the first write fails, which for a tree of
