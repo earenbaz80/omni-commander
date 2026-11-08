@@ -9,6 +9,7 @@ const { isAllowedExternalTarget } = require('./externalLinks.cjs');
 const { denyAllPermissions } = require('./permissions.cjs');
 const { normalizeChannel, readUpdateChannel } = require('./updateChannel.cjs');
 const { nextStateForOffer } = require('./updateOffer.cjs');
+const { canReloadRenderer, rendererGoneLine } = require('./rendererRecovery.cjs');
 
 // Per-launch session token. It is the shared secret between this process, the
 // embedded API server and the renderer: every mutating request, and every GET
@@ -62,6 +63,9 @@ function whenApiPortReady() {
 const isDev = !app.isPackaged;
 
 let mainWindow;
+// Renderer deaths since the last load that managed to finish: a window that
+// dies on every load must not be reloaded forever.
+let rendererCrashes = 0;
 
 // ---------------------------------------------------------------------------
 // Updates
@@ -434,6 +438,33 @@ function createMainWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+
+  // A renderer that dies leaves the shell running around a window that paints
+  // nothing: the tray, the local API and any transfer in flight survive, so the
+  // app looks hung instead of gone and nothing says why. Write the reason down
+  // and rebuild the interface; a renderer that dies on every load is left alone.
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    const line = rendererGoneLine(details);
+    console.error('Renderer gone:', line);
+    try {
+      appendLogSync('omnicommander-renderer.log', `${new Date().toISOString()} renderer gone ${line}`);
+    } catch {
+      // A log that cannot be written is no reason to keep the window dead.
+    }
+    if (!canReloadRenderer(rendererCrashes)) {
+      console.error('Renderer gone again after reloads; leaving the window as it is.');
+      return;
+    }
+    rendererCrashes += 1;
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.reload();
+  });
+
+  // A load that finished means the interface came back, so the next death —
+  // hours later, or after whatever caused it is gone — starts the count again.
+  mainWindow.webContents.on('did-finish-load', () => {
+    rendererCrashes = 0;
   });
 
   if (isDev) {
