@@ -285,7 +285,8 @@ El día que haya certificado, el cambio es una línea en `build.win` (`certifica
 4. Tras el push de la etiqueta: la release no está en borrador, lleva los dos `.exe`, sus `.zip`, el `.blockmap` y `latest.yml`.
 5. `latest.yml` apunta a un fichero que existe en la release y con el tamaño declarado.
 6. Se ha descargado el instalador de la release y se ha instalado en una máquina limpia: abre, encuentra la versión y el updater ve la siguiente.
-7. Los volcados `.txt` de la raíz y las builds viejas de `release/` se borran cuando ya no hacen falta; un `release/` con versiones de varias semanas ocupa más de un giga y no lo usa nadie.
+7. Una copia instalada de la versión **anterior** ve la nueva: con la casilla beta desmarcada, **Ajustes → Seguridad → Actualizaciones → Buscar actualizaciones** ofrece el número que acaba de publicarse, y después de instalarla la app se identifica con ese número. Es el único paso que ejerce el feed de verdad —`/releases/latest` y el `latest.yml` que va dentro de la release— en vez de la API de GitHub: si la versión no aparece, el fallo está en el manifiesto o en el flag de prerelease, no en la descarga, y la comprobación del paso 5 no lo habría visto porque mira los ficheros, no lo que el updater pregunta.
+8. Los volcados `.txt` de la raíz y las builds viejas de `release/` se borran cuando ya no hacen falta; un `release/` con versiones de varias semanas ocupa más de un giga y no lo usa nadie.
 
 El orden que hace que la beta llegue antes es el del propio flujo: se publica primero la beta (`1.0.22-beta.1`), se deja rodar, y cuando toca se publica la estable (`1.0.22`). Una copia con la casilla marcada ve la beta en cuanto se publica, porque su lista de releases incluye las prereleases; una copia sin marcar sigue mirando `latest.yml` y no ve la beta ni cuando ya existe, porque `/releases/latest` excluye por definición todo lo que no es la última estable.
 
