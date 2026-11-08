@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog, shell, ses
 const path = require('node:path');
 const fs = require('node:fs');
 const { launchElevated } = require('./elevation.cjs');
+const { appendLogSync } = require('../server/scratch.cjs');
 const crypto = require('node:crypto');
 const { isAllowedNavigationUrl } = require('./navigationGuard.cjs');
 const { isAllowedExternalTarget } = require('./externalLinks.cjs');
@@ -23,6 +24,9 @@ process.env.OMNI_SESSION_TOKEN = sessionToken;
 // The map's offline cache belongs beside the app's other data, not in the
 // temporary folder: an area saved before a flight has to survive a reboot.
 process.env.OMNI_MAP_CACHE_DIR = path.join(app.getPath('userData'), 'map-tiles');
+// The diagnostic logs belong with the rest of the app's data too, and the server
+// reads this at require time like the two above.
+process.env.OMNI_LOG_DIR = path.join(app.getPath('userData'), 'logs');
 
 // Start the local real-drive API inside Electron so the packaged app is standalone.
 // The server never crashes on a busy port: it walks forward to the first free one,
@@ -577,27 +581,10 @@ ipcMain.handle('app:relaunch-admin', async () => {
   // Single quotes inside a PowerShell single-quoted literal are doubled.
   const exePath = target.replace(/'/g, "''");
   // The relaunch happens in a separate process after this one exits, so any
-  // failure there is invisible. Record what was attempted and how it ended.
-  const logPath = path.join(process.env.TEMP || '.', 'omnicommander-relaunch.log').replace(/'/g, "''");
-  const log = (message) => {
-    try {
-      fs.appendFileSync(
-        path.join(process.env.TEMP || '.', 'omnicommander-relaunch.log'),
-        `${new Date().toISOString()} ${message}\n`,
-      );
-    } catch {
-      /* logging must never break the relaunch */
-    }
-  };
-  const file = path.join(process.env.TEMP || '.', 'omnicommander-relaunch.log');
-  // Anything already in the log belongs to a previous attempt, so remember how
-  // much text was there and only read what this attempt appends.
-  let previousLog = '';
-  try {
-    previousLog = fs.readFileSync(file, 'utf8');
-  } catch {
-    previousLog = '';
-  }
+  // failure there is invisible. Record what was attempted and how it ended, in
+  // the app's own log folder, and write it before returning: the elevated helper
+  // reports its outcome into this same file and the reply is read back from it.
+  const log = (message) => appendLogSync('omnicommander-relaunch.log', `${new Date().toISOString()} ${message}`);
   log(
     `request target=${target} portable=${process.env.PORTABLE_EXECUTABLE_FILE || 'unset'} execPath=${process.execPath}`,
   );

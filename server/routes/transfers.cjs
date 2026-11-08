@@ -7,6 +7,7 @@
  * which is why the suites that boot the real server did not have to change.
  */
 const { isDriveRoot } = require('../pathSafety.cjs');
+const { appendLog } = require('../scratch.cjs');
 
 function registerTransferRoutes(app, deps) {
   const {
@@ -28,8 +29,6 @@ function registerTransferRoutes(app, deps) {
     runCleanup,
   } = deps;
 
-  const nodePath = require('node:path');
-
   /**
    * One line for the transfer route itself, in the same diary the copy engine
    * writes. An accepted request and the job it becomes then read as one story,
@@ -38,8 +37,7 @@ function registerTransferRoutes(app, deps) {
    * that was never asked for.
    */
   function noteJob(...parts) {
-    const file = nodePath.join(process.env.TEMP || process.env.TMP || '.', 'omnicommander-job.log');
-    fs.promises.appendFile(file, `${new Date().toISOString()} ${parts.join(' ')}\n`).catch(() => {});
+    appendLog('omnicommander-job.log', `${new Date().toISOString()} ${parts.join(' ')}`);
   }
 
   const transfer = (op) => async (req, res) => {
