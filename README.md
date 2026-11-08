@@ -277,6 +277,18 @@ Si nadie llegó a descargarla, el borrado es limpio y no hay nada más que hacer
 
 El día que haya certificado, el cambio es una línea en `build.win` (`certificateSubjectName`) más el secreto con el fichero `.pfx` que lea el job de build; nada más del flujo depende de ello, porque los artefactos ya se renombran sin espacios y `latest.yml` ya se comprueba.
 
+### Instalar el build para comprobarlo
+
+`build.nsis` declara `oneClick: false` y `perMachine: false`, y eso no significa «instalar solo para el usuario actual»: significa que el instalador no obliga a instalar para todos y muestra la página que pregunta si es para todos los usuarios o solo para el actual. Quien lo ejecuta en silencio no ve esa página, y el resultado tampoco es la carpeta del usuario. Medido el 8-nov-2026 instalando la 1.0.40 con `Setup.exe /S`: quedó en `C:\Program Files\OmniCommander Pro` —404 MB—, con la entrada de desinstalación en `HKLM`, `DisplayVersion 1.0.40` y el desinstalador con `/allusers`. `perMachine: false` no impide esa instalación para todos los usuarios; solo evita que sea la única opción.
+
+Tampoco sirve `/D=` para elegir carpeta cuando se instala así. En la misma prueba el destino se pidió con `/D=G:\temp\oc-app` como último argumento y sin comillas, que es la forma que exige NSIS, y el fichero acabó igualmente en `C:\Program Files`. El script sí trae su propio lector de `/D=` —`GetDParameter`, en `multiUser.nsh`—, pero aquí no llegó a aplicarse: la copia quedó donde decide el modo de instalación, no donde decía el argumento. Para elegir carpeta está la página del instalador gráfico; en silencio el destino no se negocia, y lo que queda es desinstalar al terminar:
+
+```bash
+"C:\Program Files\OmniCommander Pro\Uninstall OmniCommander Pro.exe" /allusers /S
+```
+
+Ese orden es el de la checklist: el paso 6 se cierra instalando en una máquina que se pueda tirar o desinstalando lo que se instaló, y la copia sirve sobre todo para el paso 7, porque el updater solo existe en la instalación NSIS. Una copia que se queda en `C:\Program Files` no daña nada, pero ocupa sitio y sale en «Aplicaciones instaladas» de todos los usuarios de la máquina.
+
 ### Checklist de una release
 
 1. La rama está en verde: formato, tipos, lint, tests y e2e en el CI, no solo en local.
