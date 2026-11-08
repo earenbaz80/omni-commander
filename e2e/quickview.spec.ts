@@ -1,6 +1,7 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import fs from 'node:fs/promises';
 import os from 'node:os';
+import { removeWorkspace } from './support/tempWorkspaces';
 import path from 'node:path';
 
 /**
@@ -82,7 +83,7 @@ test.beforeEach(async () => {
 });
 
 test.afterEach(async () => {
-  if (workspace) await fs.rm(workspace, { recursive: true, force: true });
+  if (workspace) await removeWorkspace(workspace);
 });
 
 /** Types an absolute path into one panel's path bar and submits it. */

@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs/promises';
 import os from 'node:os';
+import { removeWorkspace } from './support/tempWorkspaces';
 import path from 'node:path';
 
 // Pin the UI language so the specs don't break if the app default changes.
@@ -330,7 +331,7 @@ test('every grouping inside a window is named, like the ones on the page', async
       [],
     );
   } finally {
-    await fs.rm(workspace, { recursive: true, force: true });
+    await removeWorkspace(workspace);
   }
 });
 

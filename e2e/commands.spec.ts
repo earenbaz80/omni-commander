@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { ipconfigProblems, processTableProblems, treeProblems } from './support/commandOutput';
+import { removeWorkspace } from './support/tempWorkspaces';
 
 /**
  * The command bar, driven through the interface and checked against the machine.
@@ -175,6 +176,6 @@ test('tree lists the folders the active panel is really showing', async ({ page 
     });
     expect(problems, problems.join('\n')).toEqual([]);
   } finally {
-    await fs.rm(workspace, { recursive: true, force: true });
+    await removeWorkspace(workspace);
   }
 });
