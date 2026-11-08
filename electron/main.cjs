@@ -8,6 +8,7 @@ const { isAllowedNavigationUrl } = require('./navigationGuard.cjs');
 const { isAllowedExternalTarget } = require('./externalLinks.cjs');
 const { denyAllPermissions } = require('./permissions.cjs');
 const { normalizeChannel, readUpdateChannel } = require('./updateChannel.cjs');
+const { nextStateForOffer } = require('./updateOffer.cjs');
 
 // Per-launch session token. It is the shared secret between this process, the
 // embedded API server and the renderer: every mutating request, and every GET
@@ -180,9 +181,10 @@ function setupUpdater() {
   applyUpdateChannel();
 
   autoUpdater.on('checking-for-update', () => setUpdateState({ status: 'checking', error: null }));
-  autoUpdater.on('update-available', (info) =>
-    setUpdateState({ status: 'available', version: info?.version ?? null, percent: 0, error: null }),
-  );
+  // A check can land on a version whose installer is already downloaded — the
+  // timer eight seconds after launch, the one every six hours, or the button.
+  // The decision keeps that restart instead of asking for the file again.
+  autoUpdater.on('update-available', (info) => setUpdateState(nextStateForOffer(updateState, info)));
   autoUpdater.on('update-not-available', () =>
     setUpdateState({ status: 'up-to-date', version: null, percent: 0, error: null }),
   );
