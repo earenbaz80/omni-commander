@@ -9,11 +9,12 @@
 
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const http = require('http');
 const net = require('net');
 const { execFile, spawn } = require('child_process');
 const { promisify } = require('util');
+
+const { mapTilesDir } = require('../scratch.cjs');
 
 const execFileAsync = promisify(execFile);
 function registerMapRoutes(app, deps) {
@@ -35,10 +36,10 @@ function registerMapRoutes(app, deps) {
   const MAP_TILE_DISK_PRUNE_EVERY = 400;
   const MAP_OFFLINE_MAX_TILES = 400;
   const MAP_OFFLINE_CONCURRENCY = 2;
-  // The app passes its userData folder; a bare server run falls back to the temp
-  // folder so a test never writes into the real profile.
-  const MAP_TILE_DISK_DIR =
-    String(process.env.OMNI_MAP_CACHE_DIR || '').trim() || path.join(os.tmpdir(), 'omnicommander-map-tiles');
+  // The app passes its userData folder; a bare server run and a test resolve to the
+  // same place without it, which is the app's own data folder rather than the
+  // machine's temporary one.
+  const MAP_TILE_DISK_DIR = mapTilesDir();
   const MAP_SEARCH_CACHE_LIMIT = 200;
   const MAP_SEARCH_MIN_INTERVAL_MS = 1100;
   const MAP_SEARCH_CACHE_MS = 60 * 60 * 1000;

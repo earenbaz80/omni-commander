@@ -56,9 +56,13 @@ async function call(
   return captured;
 }
 
+/** Folders this file created, so an expectation that fails cannot leave them behind. */
+const seeded: string[] = [];
+
 /** A cache folder with two tiles of known size, in two layers. */
 function seedCache(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-map-cache-'));
+  seeded.push(dir);
   fs.mkdirSync(path.join(dir, 'osm', '5', '10'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'osm', '5', '10', '12.png'), Buffer.alloc(10));
   fs.mkdirSync(path.join(dir, 'topo', '6', '1'), { recursive: true });
@@ -72,6 +76,9 @@ function seedCache(): string {
 
 afterEach(() => {
   delete process.env.OMNI_MAP_CACHE_DIR;
+  // One folder per test is cheap to create and, never removed, had left dozens of
+  // tile trees in the machine's temp folder after a few days of runs.
+  for (const dir of seeded.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
 });
 
 describe('the map cache routes', () => {

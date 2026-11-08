@@ -13,13 +13,13 @@
 
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
 const { once } = require('events');
 
 const { assertSafePath, isDriveRoot } = require('./pathSafety.cjs');
 const { renameWithRetry } = require('./fsRetry.cjs');
+const { scratchFile } = require('./scratch.cjs');
 
 function createFileOps(deps = {}) {
   const {
@@ -636,7 +636,9 @@ function createFileOps(deps = {}) {
   let shortcutScriptPath = null;
   function ensureRecycleScript() {
     if (recycleScriptPath) return recycleScriptPath;
-    const scriptPath = path.join(os.tmpdir(), `omnicommander-recycle-${process.pid}.ps1`);
+    // Beside the app's data, not in %TEMP%: left there, the script outlived every
+    // launch that wrote it. `scratch.cjs` also removes it when the process exits.
+    const scriptPath = scratchFile(`omnicommander-recycle-${process.pid}.ps1`);
     const lines = [
       'param([Parameter(ValueFromRemainingArguments=$true)][string[]]$Targets)',
       'Add-Type -AssemblyName Microsoft.VisualBasic',
@@ -794,7 +796,7 @@ function createFileOps(deps = {}) {
 
   function ensureShortcutScript() {
     if (shortcutScriptPath) return shortcutScriptPath;
-    const scriptPath = path.join(os.tmpdir(), `omnicommander-shortcut-${process.pid}.ps1`);
+    const scriptPath = scratchFile(`omnicommander-shortcut-${process.pid}.ps1`);
     const lines = [
       'param([Parameter(Mandatory=$true)][string]$TargetB64, [Parameter(Mandatory=$true)][string]$ShortcutB64)',
       // Paths travel base64-encoded: arguments are decoded with the console code page
@@ -848,7 +850,6 @@ function createFileOps(deps = {}) {
     const line = `${new Date().toISOString()} ${parts.join(' ')}`;
     fs.promises.appendFile(file, line + '\n').catch(() => {});
   }
-
   /**
    * Asks the destination to take one byte before the copy starts. A protected
    * folder only reveals itself when the first write fails, which for a tree of
