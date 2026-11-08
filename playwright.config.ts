@@ -51,6 +51,12 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   reporter: 'list',
+  // The suite's workspaces are thrown away by each spec, but a run stopped with
+  // Ctrl+C never reaches that code and a folder the app still holds a handle in
+  // survives it. Both cases accumulated folders in the temp directory, so the
+  // run sweeps them up front and again at the end.
+  globalSetup: './e2e/support/workspaceSweep.ts',
+  globalTeardown: './e2e/support/workspaceSweep.ts',
   // A single refusal in a 51-case interface suite used to turn the release red and
   // take the packaging job down with it. One retry in CI keeps a broken spec red --
   // both attempts fail, so nothing is hidden -- while a transient one costs a retry

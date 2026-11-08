@@ -1,6 +1,7 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import fs from 'node:fs/promises';
 import os from 'node:os';
+import { removeWorkspace } from './support/tempWorkspaces';
 import path from 'node:path';
 
 /**
@@ -62,7 +63,7 @@ test.beforeEach(async () => {
 
 test.afterEach(async () => {
   for (const dir of [leftDir, rightDir]) {
-    if (dir) await fs.rm(dir, { recursive: true, force: true });
+    if (dir) await removeWorkspace(dir);
   }
 });
 
