@@ -202,20 +202,22 @@ Volver al canal estable no degrada la copia instalada. Si tienes una beta más n
 
 ### Cortar una release
 
-El job `build` solo se dispara con una etiqueta `v*` y exige que la etiqueta coincida con `version` en [package.json](package.json); si no coinciden, falla antes de empaquetar. El orden que funciona:
+El job `build` solo se dispara con una etiqueta `v*` y exige que la etiqueta coincida con `version` en [package.json](package.json); si no coinciden, falla antes de empaquetar. Así se cortó la 1.0.41:
 
 ```bash
-npm version 1.0.16 --no-git-tag-version    # sube package.json y package-lock.json
+npm version 1.0.41 --no-git-tag-version    # sube package.json y package-lock.json
+git commit -am "chore(release): cut 1.0.41"
+git push origin master
 
-git add package.json package-lock.json
-git commit -m "chore(release): cut 1.0.16"
-git tag v1.0.16
-git push origin master v1.0.16
+git tag v1.0.41                            # sobre la punta de master, ya en verde
+git push origin v1.0.41                    # solo la etiqueta
 ```
 
-El push de la etiqueta empaqueta el NSIS y el portable, renombra los artefactos sin espacios —GitHub los reescribe al subirlos y `latest.yml` dejaría de encontrarlos—, comprueba que `latest.yml` apunta a un fichero que existe y con el tamaño declarado, y publica la release de una vez en lugar de dejarla en borrador. Los dos `.exe`, sus `.zip`, el `.blockmap` y `latest.yml` quedan en esa misma release, y una versión con sufijo añade además su `<canal>.yml`; las copias instaladas los leen sin credencial alguna.
+El commit del *bump* toca dos ficheros y seis líneas: la versión en `package.json` y sus dos entradas del lockfile. La etiqueta no tiene que ir encima de él, y en la 1.0.41 no fue así: se puso 25 commits más tarde, sobre un merge de Dependabot que seguía declarando `1.0.41`, porque el job compara ese campo y no mira la historia. Etiquetar la punta de `master` es lo que se hizo, y así el instalador sale de lo último que ya pasó el CI.
 
-Una versión con sufijo en `package.json` (`1.0.19-beta.1`) se publica **sola** como prerelease: el paso de publicación marca `prerelease` cuando el número lleva un guion, así que una beta no aparece como Latest ni llega a las copias que no han marcado la casilla de arriba. La etiqueta sigue teniendo que coincidir con esa versión (`v1.0.19-beta.1`), y la release lleva su `latest.yml` como cualquier otra más un `beta.yml` copiado de él —el fichero que el updater pide primero dentro de la release elegida—, así que ambos apuntan al mismo instalador.
+El push de la etiqueta empaqueta el NSIS y el portable, renombra los artefactos sin espacios —GitHub los reescribe al subirlos y `latest.yml` dejaría de encontrarlos—, comprueba que `latest.yml` apunta a un fichero que existe y con el tamaño declarado, y publica la release de una vez en lugar de dejarla en borrador. Los dos `.exe`, sus `.zip`, el `.blockmap` y `latest.yml` quedan en esa misma release, y una versión con sufijo añade además su `<canal>.yml`; las copias instaladas los leen sin credencial alguna. De punta a punta, la 1.0.41 tardó 12 min 47 s desde el push de la etiqueta hasta la release publicada: 15 s para comprobar el suelo de Node, las tres patas de `verify` de 2 min 40 s, 3 min 1 s y 1 min 37 s —en paralelo—, 1 min 17 s de `Build app and Storybook`, 4 min 48 s de `e2e` y 4 min 34 s del job que empaqueta y publica.
+
+Una versión con sufijo en `package.json` (`1.0.42-beta.1`) se publica **sola** como prerelease: el paso de publicación marca `prerelease` cuando el número lleva un guion, así que una beta no aparece como Latest ni llega a las copias que no han marcado la casilla de arriba. La etiqueta sigue teniendo que coincidir con esa versión (`v1.0.42-beta.1`), y la release lleva su `latest.yml` como cualquier otra más un `beta.yml` copiado de él —el fichero que el updater pide primero dentro de la release elegida—, así que ambos apuntan al mismo instalador.
 
 ### Ensayar el release sin publicar una versión
 
@@ -233,7 +235,7 @@ git branch -D release-smoke-test
 
 El push de la etiqueta corre el workflow entero —las tres patas de `verify`, el `e2e` y el `build`— y publica una **prerelease** con sus siete ficheros: los dos `.exe`, sus dos `.zip`, el `.blockmap`, `latest.yml` y el `beta.yml` que el updater de una copia beta pide primero. Medido el 8-nov-2026 con una `1.0.42-beta.1` cuando la pendiente era la `1.0.41`: doce minutos de punta a punta, de los cuales el job de publicación tardó 3 min 51 s, con artefactos de 113 MB y 125 MB.
 
-Dos detalles que ahorran una sorpresa. El número tiene que ser distinto del que se piense publicar después, y por eso el ejemplo salta a `1.0.43-beta.1` en lugar de quedarse en la `1.0.42` que sigue en `master`: una etiqueta `v1.0.42` sobre esa versión publicaría la real, no una prueba. El sufijo conviene que sea el de un canal que ya exista (`beta.1`), porque el job copia `latest.yml` a `<canal>.yml` tomando el sufijo como nombre de canal. Y el commit se queda fuera de `master` a propósito: no hay nada que revertir, y `package.json` sigue con la versión que va a publicarse.
+Dos detalles que ahorran una sorpresa. El número tiene que ser distinto del que se piense publicar después, y por eso el ejemplo salta a `1.0.43-beta.1` en lugar de quedarse en la `1.0.42`, que es la siguiente que toca: una etiqueta `v1.0.42` sobre esa versión publicaría la real, no una prueba. El sufijo conviene que sea el de un canal que ya exista (`beta.1`), porque el job copia `latest.yml` a `<canal>.yml` tomando el sufijo como nombre de canal. Y el commit se queda fuera de `master` a propósito: no hay nada que revertir, y `package.json` sigue con la versión que va a publicarse.
 
 Leída la ejecución, se retira entero y empezando por la release: borrar solo la etiqueta deja una prerelease publicada apuntando a una etiqueta que ya no existe, y una copia en canal beta la seguiría viendo.
 
@@ -244,6 +246,30 @@ git tag -d v1.0.43-beta.1
 ```
 
 Queda comprobado con `git tag --list 'v1.0.43*'` vacío en local y en el remoto, y con que `…/releases/tags/v1.0.43-beta.1` contesta `404`. Antes de cortar la primera release detrás de un cambio en el workflow, este ensayo es el que dice si el `build` sigue en pie sin gastar un número de versión.
+
+### Retirar una versión publicada por error
+
+Borrar la release no desinstala nada: la copia instalada conserva su versión, y `allowDowngrade` sigue en `false` —nada en `electron/main.cjs` lo toca—, así que `isUpdateAvailable` descarta cualquier número menor y el updater no baja nunca. Lo que cambia es el feed: sin esa release, `/releases/latest` —la URL por la que el proveedor de GitHub resuelve el canal estable— pasa a apuntar a la anterior que no sea borrador ni prerelease, y una copia en la versión retirada se queda donde está, sin nada que instalar hasta que salga una superior.
+
+De ahí las dos reglas. La release se borra **antes** que la etiqueta: al revés queda una release publicada colgando de una etiqueta inexistente, y `/releases/latest` no la distingue de una buena. Y si alguien llegó a instalarla, borrarla no lo arregla —no hay marcha atrás—, así que la corrección es publicar una versión **más alta**, no reetiquetar la misma: una copia ya en `1.0.41` no volvería a instalar otra `1.0.41`, porque `isUpdateAvailable` compara igualdad y contesta que no hay nada.
+
+```bash
+gh release delete v1.0.41 --yes     # o Releases → la versión → Delete release
+git push origin --delete v1.0.41
+git tag -d v1.0.41
+```
+
+Se comprueba al final: `git ls-remote --tags origin 'v1.0.41*'` vacío, `gh release view v1.0.41` contestando que no existe, y `…/releases/latest` devolviendo la `1.0.40`. Si el número no se va a reutilizar, `gh release delete v1.0.41 --yes --cleanup-tag` hace los dos pasos de una vez; a mano se separan porque el orden importa.
+
+Lo que **no** arregla el problema, y por qué:
+
+- **Ponerla en borrador o marcarla prerelease.** Saca la versión del canal estable en el acto y conserva los ficheros, así que sirve de freno mientras se decide; pero no devuelve a nadie a la anterior, y marcarla prerelease la deja visible para las copias con la casilla beta, que eligen la primera entrada del feed sin filtrar.
+- **Editar a mano el `latest.yml` de la release.** Un manifiesto que declara un número menor no produce marcha atrás: el updater lo compara y lo ignora. Y si su `sha512` o su `size` dejan de coincidir con el fichero, quien sí tenga una versión anterior ve un error de comprobación en vez de una actualización.
+- **Resubir un instalador recompilado con el mismo número.** Nadie que ya tenga esa versión lo recibe, y quien esté descargando en ese momento puede acabar con los bytes de uno y el hash del otro.
+- **Borrar todas las estables.** El canal estable se resuelve por `…/releases/latest` y sin ninguna el updater falla con `ERR_UPDATER_LATEST_VERSION_NOT_FOUND`; la anterior es justo la que hay que dejar en pie.
+- **Borrar solo la etiqueta.** La release sigue publicada y el feed la sigue sirviendo: es el caso que deja la versión viva sin código detrás.
+
+Si nadie llegó a descargarla, el borrado es limpio y no hay nada más que hacer. El contador de descargas de cada asset —o `gh release view v1.0.41 --json assets`— dice si alguien la cogió; no dice si la instaló, porque instalar no deja rastro en el repositorio, y una descarga de más se resuelve igual con una versión nueva.
 
 ### Firma y SmartScreen
 
