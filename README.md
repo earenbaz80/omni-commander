@@ -217,6 +217,34 @@ El push de la etiqueta empaqueta el NSIS y el portable, renombra los artefactos 
 
 Una versión con sufijo en `package.json` (`1.0.19-beta.1`) se publica **sola** como prerelease: el paso de publicación marca `prerelease` cuando el número lleva un guion, así que una beta no aparece como Latest ni llega a las copias que no han marcado la casilla de arriba. La etiqueta sigue teniendo que coincidir con esa versión (`v1.0.19-beta.1`), y la release lleva su `latest.yml` como cualquier otra más un `beta.yml` copiado de él —el fichero que el updater pide primero dentro de la release elegida—, así que ambos apuntan al mismo instalador.
 
+### Ensayar el release sin publicar una versión
+
+Cortar una etiqueta sobre la versión que ya está en `package.json` no es una prueba: `build` no distingue un ensayo de un release, así que publicaría la versión pendiente como **Latest** y las copias instaladas la verían en la siguiente comprobación del updater. Para ejercer el flujo entero —empaquetado, nombres de artefactos, `latest.yml`, canal beta y publicación— sin tocar el feed estable se usa la misma ruta que un canal beta: una versión con sufijo, en un commit que no llega a `master`.
+
+```bash
+git switch -c release-smoke-test
+npm version 1.0.43-beta.1 --no-git-tag-version   # sube package.json y package-lock.json
+git commit -am "chore: bump to a beta version for a release smoke test"
+git tag v1.0.43-beta.1
+git push origin v1.0.43-beta.1                   # solo la etiqueta; la rama se queda local
+git switch master
+git branch -D release-smoke-test
+```
+
+El push de la etiqueta corre el workflow entero —las tres patas de `verify`, el `e2e` y el `build`— y publica una **prerelease** con sus siete ficheros: los dos `.exe`, sus dos `.zip`, el `.blockmap`, `latest.yml` y el `beta.yml` que el updater de una copia beta pide primero. Medido el 8-nov-2026 con una `1.0.42-beta.1` cuando la pendiente era la `1.0.41`: doce minutos de punta a punta, de los cuales el job de publicación tardó 3 min 51 s, con artefactos de 113 MB y 125 MB.
+
+Dos detalles que ahorran una sorpresa. El número tiene que ser distinto del que se piense publicar después, y por eso el ejemplo salta a `1.0.43-beta.1` en lugar de quedarse en la `1.0.42` que sigue en `master`: una etiqueta `v1.0.42` sobre esa versión publicaría la real, no una prueba. El sufijo conviene que sea el de un canal que ya exista (`beta.1`), porque el job copia `latest.yml` a `<canal>.yml` tomando el sufijo como nombre de canal. Y el commit se queda fuera de `master` a propósito: no hay nada que revertir, y `package.json` sigue con la versión que va a publicarse.
+
+Leída la ejecución, se retira entero y empezando por la release: borrar solo la etiqueta deja una prerelease publicada apuntando a una etiqueta que ya no existe, y una copia en canal beta la seguiría viendo.
+
+```bash
+# Releases → la beta → Delete   (o: gh release delete v1.0.43-beta.1 --yes)
+git push origin --delete v1.0.43-beta.1
+git tag -d v1.0.43-beta.1
+```
+
+Queda comprobado con `git tag --list 'v1.0.43*'` vacío en local y en el remoto, y con que `…/releases/tags/v1.0.43-beta.1` contesta `404`. Antes de cortar la primera release detrás de un cambio en el workflow, este ensayo es el que dice si el `build` sigue en pie sin gastar un número de versión.
+
 ### Firma y SmartScreen
 
 **Hoy no hay firma.** `package.json` no declara `certificateSubjectName` ni `signingHashAlgorithms`, el workflow no define `CSC_LINK`, y no hay ningún paso de `signtool` en el repositorio: electron-builder empaqueta el NSIS y el portable sin firmar. La consecuencia es la de cualquier binario sin reputación — la primera vez que alguien ejecuta el instalador, SmartScreen muestra «Windows protegió su PC» y hay que pasar por *Más información → Ejecutar de todas formas*. No es un fallo del build ni algo que se arregle con una opción: un certificado de firma de código con reputación se compra, y uno autofirmado no cambia ese aviso, solo lo hace aparecer con otro nombre.
