@@ -10,9 +10,10 @@ import { removeWorkspace } from './support/tempWorkspaces';
  * It is the only way to undo a delete made inside the app, and nothing covered
  * it: the accessibility sweeps leave it out on purpose ("Papelera reads the real
  * recycle bin"), no unit test builds one, and the delete spec stops at the
- * folder. So both of its promises are checked here -- Restaurar puts the entry
- * back, and the permanent delete takes it away -- with the bin seeded the way a
- * previous run would have left it.
+ * folder. So its promises are checked here -- Restaurar puts the entry back, the
+ * permanent delete takes it away, and the two buttons that act on the whole list
+ * do all of it in one press -- with the bin seeded the way a previous run would
+ * have left it.
  *
  * The window acts on the catalogue, not on bytes. For a drive the app manages, a
  * delete parks the entry under the app's own `TR:` drive and records it in
@@ -48,10 +49,11 @@ interface Entry {
 
 /**
  * Seeds the bin the way `moveToRecycleBin` leaves it: one record per deletion in
- * `nc_recycle_bin_v1`, and the file parked on the app's `TR:` drive. Both keys
- * are written before the app loads, so the engine reads them at boot.
+ * `nc_recycle_bin_v1`, and the file parked on the app's `TR:` drive. `kept` seeds
+ * catalogue entries on a drive of their own, which are there to be left alone.
+ * Both keys are written before the app loads, so the engine reads them at boot.
  */
-async function seedBin(page: Page, entries: Entry[]) {
+async function seedBin(page: Page, entries: Entry[], kept: Entry[] = []) {
   const bin = entries.map(({ id, name }) => ({
     id: `trash_${id}`,
     originalId: id,
@@ -60,15 +62,26 @@ async function seedBin(page: Page, entries: Entry[]) {
     deletedAt: '2026-11-09 10:00:00',
     item: { id, name, ext: 'txt', path: 'TR:', driveId: 'drive_trash', isDirectory: false, size: 4 },
   }));
-  const files = entries.map(({ id, name }) => ({
-    id,
-    name,
-    ext: 'txt',
-    path: 'TR:',
-    driveId: 'drive_trash',
-    isDirectory: false,
-    size: 4,
-  }));
+  const files = [
+    ...entries.map(({ id, name }) => ({
+      id,
+      name,
+      ext: 'txt',
+      path: 'TR:',
+      driveId: 'drive_trash',
+      isDirectory: false,
+      size: 4,
+    })),
+    ...kept.map(({ id, name }) => ({
+      id,
+      name,
+      ext: 'txt',
+      path: ORIGINAL_PATH,
+      driveId: 'drive_prueba',
+      isDirectory: false,
+      size: 4,
+    })),
+  ];
 
   await page.addInitScript(
     (payload: { bin: unknown[]; files: unknown[] }) => {
@@ -176,4 +189,64 @@ test('the permanent delete drops the record and leaves the bin empty', async ({ 
   expect(files.filter((file) => file.id === 'f-unico')).toHaveLength(0);
 
   expect(await isThere('intacto.txt'), 'a bin must never delete a real file').toBe(true);
+});
+
+test('Restaurar Todo puts every record back in one press', async ({ page }) => {
+  await seedBin(page, [
+    { id: 'f-uno', name: 'uno' },
+    { id: 'f-dos', name: 'dos' },
+    { id: 'f-tres', name: 'tres' },
+  ]);
+
+  const dialog = await openBin(page);
+  await expect(dialog).toContainText(/3\s*elementos en la papelera/);
+
+  await dialog.getByRole('button', { name: 'Restaurar Todo' }).click();
+
+  // One press, every record: a batch that stopped after the first would leave
+  // an entry listed and a file still parked on the TR: drive.
+  await expect.poll(async () => (await readList(page, RECYCLE_BIN_KEY)).length).toBe(0);
+  await expect(dialog.getByText(/La Papelera de Reciclaje está vacía/)).toBeVisible();
+
+  const files = await readList(page, FILES_KEY);
+  expect(files.some((file) => String(file.driveId) === 'drive_trash')).toBe(false);
+
+  // The catalogue also holds whatever the panels listed at boot, so the check
+  // is about the three records that were ours.
+  const ours = files.filter((file) => ['f-uno', 'f-dos', 'f-tres'].includes(String(file.id)));
+  expect(ours).toHaveLength(3);
+  expect(ours.every((file) => String(file.driveId) === 'drive_prueba' && String(file.path) === ORIGINAL_PATH)).toBe(
+    true,
+  );
+
+  expect(await isThere('intacto.txt')).toBe(true);
+});
+
+test('Vaciar Papelera drops the records and nothing else', async ({ page }) => {
+  await seedBin(
+    page,
+    [
+      { id: 'f-uno', name: 'uno' },
+      { id: 'f-dos', name: 'dos' },
+    ],
+    [{ id: 'f-fuera', name: 'fuera' }],
+  );
+
+  const dialog = await openBin(page);
+  await expect(dialog).toContainText(/2\s*elementos en la papelera/);
+
+  await dialog.getByRole('button', { name: 'Vaciar Papelera' }).click();
+
+  await expect.poll(async () => (await readList(page, RECYCLE_BIN_KEY)).length).toBe(0);
+  await expect(dialog.getByText(/La Papelera de Reciclaje está vacía/)).toBeVisible();
+
+  const files = await readList(page, FILES_KEY);
+  expect(files.some((file) => String(file.driveId) === 'drive_trash')).toBe(false);
+  // The button empties the bin, not the catalogue: a file that was never in it
+  // has no business disappearing because someone emptied something else.
+  const ids = files.map((file) => String(file.id));
+  expect(ids).toContain('f-fuera');
+  expect(ids).toEqual(expect.not.arrayContaining(['f-uno', 'f-dos']));
+
+  expect(await isThere('intacto.txt'), 'emptying the bin must not delete a real file').toBe(true);
 });
