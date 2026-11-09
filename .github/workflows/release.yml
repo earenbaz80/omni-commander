@@ -191,24 +191,44 @@ jobs:
       - name: Install Chromium
         run: npx playwright install chromium
 
+      # The suite's own window, not the job's: a retry or a slow runner only
+      # shows up when the spec run is measured on its own.
+      - name: Note when the suite started
+        id: e2e-start
+        shell: bash
+        run: |
+          echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+          echo "iso=$(date -u +'%Y-%m-%d %H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+
       - name: End-to-end tests
         run: npm run test:e2e
 
       # The run list shows when the job ended, not when the suite did: the two
       # differ by the runner's own bookkeeping and, when it matters, by a retry.
       # A job name cannot carry a clock (expressions are evaluated when the job
-      # starts), so the finish time goes in the summary, which stays with the run
-      # and is written even when the specs failed -- the case somebody looks at.
+      # starts), so the suite's own window goes in the summary, which stays with
+      # the run and is written even when the specs failed -- the case somebody
+      # looks at.
       - name: Note when the suite finished
         if: always()
         shell: bash
         run: |
+          finished=$(date +%s)
+          started='${{ steps.e2e-start.outputs.epoch }}'
+          if [ -n "$started" ]; then
+            elapsed=$(( finished - started ))
+            duration=$(printf '%dm %02ds' $(( elapsed / 60 )) $(( elapsed % 60 )))
+          else
+            duration='unknown: the run never reached the start marker'
+          fi
           {
             echo "### End-to-end (Playwright)"
             echo ""
             echo "| | |"
             echo "| --- | --- |"
+            echo "| Suite started (UTC) | ${{ steps.e2e-start.outputs.iso }} |"
             echo "| Suite finished (UTC) | $(date -u +'%Y-%m-%d %H:%M:%SZ') |"
+            echo "| Duration | ${duration} |"
             echo "| Result | ${{ job.status }} |"
           } >> "$GITHUB_STEP_SUMMARY"
 
