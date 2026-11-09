@@ -220,6 +220,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const update = useAppUpdate();
+  // The card reports the quiet outcomes the header chip hides, as the About box
+  // does: a manual check that answers with nothing would look broken.
+  const updateStatusText =
+    update.status === 'available'
+      ? t.updateAvailable.replace('{version}', update.version || '')
+      : update.status === 'downloading'
+        ? t.updateDownloading.replace('{percent}', String(update.percent))
+        : update.status === 'up-to-date'
+          ? t.updateUpToDate
+          : update.status === 'error'
+            ? t.updateFailed
+            : '';
 
   // Validación en tiempo real
   const validateField = useCallback(
@@ -838,6 +850,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             {update.channel === 'beta' && (
               <span className="text-[var(--fs-8)] text-sky-300">{t.updateChannelBetaActive}</span>
             )}
+            {/* The check the main process also runs on its own, on demand: the
+                card is where the feed is chosen, so it is where asking belongs. */}
+            <div className="flex flex-wrap items-center gap-[var(--space-2)] pt-[var(--space-1)]">
+              <button
+                onClick={update.check}
+                disabled={update.status === 'checking' || update.status === 'downloading'}
+                className="px-[var(--space-2)] py-[var(--space-1)] text-[10px] font-bold rounded border border-sky-400/40 bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 cursor-pointer disabled:opacity-50 disabled:cursor-default"
+              >
+                {update.status === 'checking' ? t.updateChecking : t.updateCheck}
+              </button>
+              {updateStatusText && <span className="text-[var(--fs-8)] text-sky-300">{updateStatusText}</span>}
+            </div>
           </div>
         </SectionCard>
       )}

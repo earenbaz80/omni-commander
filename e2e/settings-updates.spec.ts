@@ -29,13 +29,19 @@ test.beforeEach(async ({ page }) => {
       enabled: true,
       channel: 'stable',
     };
-    const bridge = window as unknown as { electronAPI?: Record<string, unknown> };
+    const bridge = window as unknown as { electronAPI?: Record<string, unknown>; __updateChecks?: number };
+    bridge.__updateChecks = 0;
     bridge.electronAPI = {
-      getUpdateState: async () => snapshot,
-      checkForUpdates: async () => snapshot,
+      // Idle until asked, so the manual check has an outcome to change.
+      getUpdateState: async () => ({ ...snapshot, status: 'idle' }),
+      checkForUpdates: async () => {
+        bridge.__updateChecks = (bridge.__updateChecks ?? 0) + 1;
+        return snapshot;
+      },
       // The main process applies the switch before answering, so the snapshot
-      // that comes back already says which feed is in force.
-      setUpdateChannel: async (channel: string) => ({ ...snapshot, channel }),
+      // that comes back already says which feed is in force. Switching the feed
+      // is not a check, so the status stays idle.
+      setUpdateChannel: async (channel: string) => ({ ...snapshot, channel, status: 'idle' }),
       onUpdateState: () => () => {},
     };
   });
@@ -82,4 +88,16 @@ test('the updates card offers the beta channel and asks for no credential', asyn
   await beta.check();
   await expect(dialog.getByText('Siguiendo el canal beta')).toBeVisible();
   await expect(beta).toBeChecked();
+
+  // The card also runs the check on demand, and says what it found: the same
+  // answer the About box gives when nobody asked for a chip in the header.
+  const check = dialog.getByRole('button', { name: 'Buscar actualizaciones' });
+  await expect(dialog.getByText('Ya tienes la última versión')).toHaveCount(0);
+  await check.click();
+
+  await expect(dialog.getByText('Ya tienes la última versión')).toBeVisible();
+  expect(
+    await page.evaluate(() => (window as unknown as { __updateChecks?: number }).__updateChecks),
+    'the press has to reach the updater, not only change a label',
+  ).toBe(1);
 });
