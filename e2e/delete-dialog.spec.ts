@@ -72,11 +72,13 @@ async function openWorkspace(page: Page) {
 
   await expect(page.locator('[data-name="uno.txt"]').first()).toBeVisible();
   await expect(page.locator('[data-name="intacto.txt"]').first()).toBeVisible();
-} /**
- * Marks rows with the selection box each row carries. Ctrl-clicking the row is
- * the other way in, but the box is the one that reports its own state through
- * `aria-pressed`, so a case fails on the selection itself instead of on
- * whatever the window shows afterwards.
+}
+
+/**
+ * Marks rows with the selection box each row carries: the box reports its own
+ * state through `aria-pressed`, so a case fails on the selection itself instead
+ * of on whatever the window shows afterwards. The other way in, ctrl-clicking
+ * the row, has its own case at the end.
  */
 async function selectRows(page: Page, names: string[]) {
   for (const name of names) {
@@ -188,4 +190,40 @@ test('with the Recycle Bin off the file still goes, and never into the virtual b
   expect(await isThere('dos.txt')).toBe(true);
   expect(await isThere('intacto.txt')).toBe(true);
   expect(await virtualBinCount(page)).toBe(0);
+});
+
+test('ctrl-click builds the selection the window acts on', async ({ page }) => {
+  await seedSettings(page);
+  await openWorkspace(page);
+
+  const row = (name: string) => page.locator(`[data-name="${name}"]`).first();
+  const box = (name: string) => row(name).locator('button[aria-pressed]');
+
+  // A plain click moves the cursor and leaves the selection alone, so the
+  // modifier is the only thing that can build one here.
+  await row('uno.txt').click();
+  await expect(box('uno.txt')).toHaveAttribute('aria-pressed', 'false');
+
+  await row('uno.txt').click({ modifiers: ['Control'] });
+  await row('dos.txt').click({ modifiers: ['Control'] });
+  await expect(box('uno.txt')).toHaveAttribute('aria-pressed', 'true');
+  await expect(box('dos.txt')).toHaveAttribute('aria-pressed', 'true');
+
+  // The same gesture takes a row back out; a toggle that could only add would
+  // be a selection a user cannot shrink.
+  await row('dos.txt').click({ modifiers: ['Control'] });
+  await expect(box('dos.txt')).toHaveAttribute('aria-pressed', 'false');
+  await row('dos.txt').click({ modifiers: ['Control'] });
+  await expect(box('dos.txt')).toHaveAttribute('aria-pressed', 'true');
+
+  const dialog = await openDelete(page);
+  await expect(dialog).toContainText(/uno\.txt/i);
+  await expect(dialog).toContainText(/dos\.txt/i);
+  await expect(dialog).toContainText(/2 elemento\(s\)/);
+  await expect(dialog).not.toContainText(/intacto/i);
+
+  await dialog.getByRole('button', { name: /\(Esc\)/ }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(await isThere('uno.txt')).toBe(true);
+  expect(await isThere('dos.txt')).toBe(true);
 });
