@@ -201,14 +201,20 @@ jobs:
           echo "iso=$(date -u +'%Y-%m-%d %H:%M:%SZ')" >> "$GITHUB_OUTPUT"
 
       - name: End-to-end tests
-        run: npm run test:e2e
+        # The count in the summary has to say what actually ran, retries and
+        # skips included, so the JSON reporter records the run beside the list
+        # output people read in the log.
+        run: npm run test:e2e -- --reporter=list,json
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/playwright-report.json
 
       # The run list shows when the job ended, not when the suite did: the two
       # differ by the runner's own bookkeeping and, when it matters, by a retry.
       # A job name cannot carry a clock (expressions are evaluated when the job
       # starts), so the suite's own window goes in the summary, which stays with
       # the run and is written even when the specs failed -- the case somebody
-      # looks at.
+      # looks at. The counts and the link are there for the same reason: the
+      # summary should answer "what ran, and how long" without opening the log.
       - name: Note when the suite finished
         if: always()
         shell: bash
@@ -221,6 +227,20 @@ jobs:
           else
             duration='unknown: the run never reached the start marker'
           fi
+          report='${{ runner.temp }}/playwright-report.json'
+          tests=''
+          if [ -f "$report" ]; then
+            tests=$(node -e '
+              const { stats } = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+              const out = [];
+              if (stats.expected) out.push(`${stats.expected} passed`);
+              if (stats.flaky) out.push(`${stats.flaky} flaky`);
+              if (stats.unexpected) out.push(`${stats.unexpected} failed`);
+              if (stats.skipped) out.push(`${stats.skipped} skipped`);
+              process.stdout.write(out.join(", "));
+            ' "$report" 2>/dev/null) || tests=''
+          fi
+          [ -n "$tests" ] || tests='unknown: the run left no readable JSON report'
           {
             echo "### End-to-end (Playwright)"
             echo ""
@@ -229,7 +249,9 @@ jobs:
             echo "| Suite started (UTC) | ${{ steps.e2e-start.outputs.iso }} |"
             echo "| Suite finished (UTC) | $(date -u +'%Y-%m-%d %H:%M:%SZ') |"
             echo "| Duration | ${duration} |"
+            echo "| Tests | ${tests} |"
             echo "| Result | ${{ job.status }} |"
+            echo "| Run | [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       # A failing spec says which one broke; the trace says what the page was
