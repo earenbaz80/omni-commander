@@ -215,6 +215,9 @@ jobs:
       # the run and is written even when the specs failed -- the case somebody
       # looks at. The counts and the link are there for the same reason: the
       # summary should answer "what ran, and how long" without opening the log.
+      # A summary that cannot count the tests is a broken report, not a run with
+      # none, so this step fails rather than printing "unknown" under a green
+      # job: a row nobody can trust is worse than no row at all.
       - name: Note when the suite finished
         if: always()
         shell: bash
@@ -229,18 +232,41 @@ jobs:
           fi
           report='${{ runner.temp }}/playwright-report.json'
           tests=''
-          if [ -f "$report" ]; then
-            tests=$(node -e '
-              const { stats } = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+          problem=''
+          if [ ! -f "$report" ]; then
+            problem='the JSON report was never written to the runner temp directory'
+          else
+            if output=$(node -e '
+              const fs = require("fs");
+              let json;
+              try {
+                json = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+              } catch (error) {
+                // Only the message: the stack and its location header are noise
+                // once the summary row already says which file is at fault.
+                console.error(error.message);
+                process.exit(1);
+              }
+              const { stats } = json;
+              if (!stats) {
+                console.error("the report has no stats section");
+                process.exit(1);
+              }
               const out = [];
               if (stats.expected) out.push(`${stats.expected} passed`);
               if (stats.flaky) out.push(`${stats.flaky} flaky`);
               if (stats.unexpected) out.push(`${stats.unexpected} failed`);
               if (stats.skipped) out.push(`${stats.skipped} skipped`);
               process.stdout.write(out.join(", "));
-            ' "$report" 2>/dev/null) || tests=''
+            ' "$report" 2>&1); then
+              tests=$output
+            else
+              # Node names the fault on one line; a stack would break the table.
+              problem="the JSON report could not be read: $(printf '%s' "$output" | head -1)"
+            fi
+            [ -n "$tests" ] || [ -n "$problem" ] || problem='the JSON report lists no tests'
           fi
-          [ -n "$tests" ] || tests='unknown: the run left no readable JSON report'
+          [ -n "$tests" ] || tests="unknown: $problem"
           {
             echo "### End-to-end (Playwright)"
             echo ""
@@ -253,6 +279,12 @@ jobs:
             echo "| Result | ${{ job.status }} |"
             echo "| Run | [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |"
           } >> "$GITHUB_STEP_SUMMARY"
+          # The summary is already written, so the annotation and the red step
+          # land next to the row that explains them.
+          if [ -n "$problem" ]; then
+            echo "::error::the end-to-end summary could not count the tests: $(printf '%s' "$problem" | tr -d '\r\n' | sed 's/%/%25/g')"
+            exit 1
+          fi
 
       # A failing spec says which one broke; the trace says what the page was
       # doing, and only exists for the run that failed.
