@@ -271,6 +271,8 @@ El push de la etiqueta empaqueta el NSIS y el portable, renombra los artefactos 
 
 **Cortada la 1.0.44 (9-nov-2026).** Etiqueta sobre la punta de `master` (`b67d990`, con el CI en verde sobre ese mismo commit) y release publicada, marcada Latest, con sus seis ficheros. La justifica un arreglo y nada más: el updater que ahora reintenta una comprobación que topó con un 5xx (`da6fb47`), con su escalera probada en vuelo sobre un paquete de esta misma versión. El camino fue el más terco hasta la fecha: `Build and publish` falló tres veces seguidas en `Package Windows artifacts` —el primer intento murió a los diez minutos con `Response code 504 (Gateway Time-out)` de GitHub al empaquetar, y los dos siguientes en ese mismo paso, aunque de esos dos no se abrió el log y no se afirma que fuera el mismo 504—, y el cuarto empaquetó y publicó a las 08:22:46 UTC, cincuenta y un minutos después del push de la etiqueta. Los números, medidos descargando: el instalador pesa 125 572 974 bytes y su `sha512` en base64 coincide carácter por carácter con el del `latest.yml` de 366 bytes, que declara ese mismo tamaño; el `.blockmap` pesa 132 135, el `.zip` del instalador 125 576 260, el `.zip` del portable 113 203 830 y el portable 113 190 837. Con esa descarga quedan cerrados el paso 3 —`git tag --list 'v1.0.44*'` vacío en local y en el remoto antes de cortar— y el paso 5. El 6 sigue abierto, y se ha mirado por qué no se puede cerrar desde esta máquina: no hay ninguna limpia donde instalarlo y aquí tampoco cabría, con el detalle al final de «Instalar el build para comprobarlo». El 7 sí se ejerció después, con la copia instalada en `C:\Program Files\OmniCommander Pro` —que seguía en 1.0.41, saltándose la 1.0.43— y sus propios botones: su primera comprobación devolvió `available 1.0.44` y la descarga terminó en `downloaded 100%`, con 125 572 974 bytes en `pending/` y el `sha512` del manifiesto en su `update-info.json`, comprobado hasheando el fichero descargado.
 
+**Preparada la 1.0.45 (9-nov-2026).** El *bump* está hecho —`package.json` y sus dos entradas del lockfile, seis líneas como en las anteriores— y **no hay etiqueta ni release**: `git tag --list 'v1.0.45*'` sigue vacío en local y en el remoto. La justifica un arreglo visible y nada más: Atrás y Adelante escribían `currentPath` directamente en la pestaña y entraban en una carpeta protegida sin pedir su contraseña, mientras que abrirla desde la lista, el árbol o la barra de ruta sí la pedían. Ahora los dos botones comparten un solo paso que hace la misma comprobación que la navegación, deja la pestaña y su índice quietos y abre el modal de desbloqueo (`04e3f2c`), con cuatro tests nuevos en `src/hooks/usePanels.history.test.tsx` —retroceso, avance, paso sin protección y los dos extremos del historial— que fallan sobre la implementación anterior: con el `usePanels.ts` de `e39cf86` fallan los dos de carpeta protegida y con el arreglo pasan los cuatro. El commit está en `master` con el CI en verde sobre él —«CI and Release» número 252, id 42623464583, de las 13:12:41 a las 13:25:17 UTC del 9-nov—, con `Node floor`, las tres matrices de tipos/lint/tests, el *build* de la app y Storybook y el `e2e` en verde, y `Build and publish` saltado por no haber etiqueta; la suite queda en 149 ficheros y 1115 tests. Pendientes: los pasos 3, 4 y 5 al empujar la etiqueta y los 6 y 7 sobre el instalador, con el 6 en el mismo bloqueo de máquina limpia que la release anterior.
+
 Una versión con sufijo en `package.json` (`1.0.42-beta.1`) se publica **sola** como prerelease: el paso de publicación marca `prerelease` cuando el número lleva un guion, así que una beta no aparece como Latest ni llega a las copias que no han marcado la casilla de arriba. La etiqueta sigue teniendo que coincidir con esa versión (`v1.0.42-beta.1`), y la release lleva su `latest.yml` como cualquier otra más un `beta.yml` copiado de él —el fichero que el updater pide primero dentro de la release elegida—, así que ambos apuntan al mismo instalador.
 
 ### Ensayar el release sin publicar una versión
@@ -279,27 +281,27 @@ Cortar una etiqueta sobre la versión que ya está en `package.json` no es una p
 
 ```bash
 git switch -c release-smoke-test
-npm version 1.0.45-beta.1 --no-git-tag-version   # sube package.json y package-lock.json
+npm version 1.0.46-beta.1 --no-git-tag-version   # sube package.json y package-lock.json
 git commit -am "chore: bump to a beta version for a release smoke test"
-git tag v1.0.45-beta.1
-git push origin v1.0.45-beta.1                   # solo la etiqueta; la rama se queda local
+git tag v1.0.46-beta.1
+git push origin v1.0.46-beta.1                   # solo la etiqueta; la rama se queda local
 git switch master
 git branch -D release-smoke-test
 ```
 
 El push de la etiqueta corre el workflow entero —las tres patas de `verify`, el `e2e` y el `build`— y publica una **prerelease** con sus siete ficheros: los dos `.exe`, sus dos `.zip`, el `.blockmap`, `latest.yml` y el `beta.yml` que el updater de una copia beta pide primero. Medido el 8-nov-2026 con una `1.0.42-beta.1` cuando la pendiente era la `1.0.41`: doce minutos de punta a punta, de los cuales el job de publicación tardó 3 min 51 s, con artefactos de 113 MB y 125 MB.
 
-Dos detalles que ahorran una sorpresa. El número tiene que ser distinto del que se piense publicar después, y por eso el ejemplo salta a `1.0.45-beta.1` en lugar de quedarse en la `1.0.44`, que es la siguiente que toca publicar: una etiqueta `v1.0.44` sobre esa versión publicaría la real, no una prueba. El sufijo conviene que sea el de un canal que ya exista (`beta.1`), porque el job copia `latest.yml` a `<canal>.yml` tomando el sufijo como nombre de canal. Y el commit se queda fuera de `master` a propósito: no hay nada que revertir, y `package.json` sigue con la versión que va a publicarse.
+Dos detalles que ahorran una sorpresa. El número tiene que ser distinto del que se piense publicar después, y por eso el ejemplo salta a `1.0.46-beta.1` en lugar de quedarse en la `1.0.45`, que es la siguiente que toca publicar: una etiqueta `v1.0.45` sobre esa versión publicaría la real, no una prueba. El sufijo conviene que sea el de un canal que ya exista (`beta.1`), porque el job copia `latest.yml` a `<canal>.yml` tomando el sufijo como nombre de canal. Y el commit se queda fuera de `master` a propósito: no hay nada que revertir, y `package.json` sigue con la versión que va a publicarse.
 
 Leída la ejecución, se retira entero y empezando por la release: borrar solo la etiqueta deja una prerelease publicada apuntando a una etiqueta que ya no existe, y una copia en canal beta la seguiría viendo.
 
 ```bash
-# Releases → la beta → Delete   (o: gh release delete v1.0.45-beta.1 --yes)
-git push origin --delete v1.0.45-beta.1
-git tag -d v1.0.45-beta.1
+# Releases → la beta → Delete   (o: gh release delete v1.0.46-beta.1 --yes)
+git push origin --delete v1.0.46-beta.1
+git tag -d v1.0.46-beta.1
 ```
 
-Queda comprobado con `git tag --list 'v1.0.45*'` vacío en local y en el remoto, y con que `…/releases/tags/v1.0.45-beta.1` contesta `404`. Antes de cortar la primera release detrás de un cambio en el workflow, este ensayo es el que dice si el `build` sigue en pie sin gastar un número de versión.
+Queda comprobado con `git tag --list 'v1.0.46*'` vacío en local y en el remoto, y con que `…/releases/tags/v1.0.46-beta.1` contesta `404`. Antes de cortar la primera release detrás de un cambio en el workflow, este ensayo es el que dice si el `build` sigue en pie sin gastar un número de versión.
 
 ### Retirar una versión publicada por error
 
