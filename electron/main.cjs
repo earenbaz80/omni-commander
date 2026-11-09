@@ -10,6 +10,7 @@ const { denyAllPermissions } = require('./permissions.cjs');
 const { normalizeChannel, readUpdateChannel } = require('./updateChannel.cjs');
 const { nextStateForOffer } = require('./updateOffer.cjs');
 const { canReloadRenderer, rendererGoneLine } = require('./rendererRecovery.cjs');
+const { isTransientUpdateError, nextRetryDelay } = require('./updateRetry.cjs');
 
 // Per-launch session token. It is the shared secret between this process, the
 // embedded API server and the renderer: every mutating request, and every GET
@@ -98,6 +99,9 @@ let updateState = {
   channel: 'stable',
 };
 let updater = null;
+// Checks that failed against a GitHub 5xx, and the timer that repeats one.
+let updateRetryAttempt = 0;
+let updateRetryTimer = null;
 
 function isUpdaterSupported() {
   return !isDev && !process.env.PORTABLE_EXECUTABLE_FILE;
@@ -153,8 +157,47 @@ function checkNow() {
   try {
     updater.checkForUpdates()?.catch(() => {});
   } catch (error) {
-    setUpdateState({ status: 'error', error: String(error?.message ?? error) });
+    reportUpdateError(error);
   }
+}
+
+function cancelUpdateRetry() {
+  if (!updateRetryTimer) return;
+  clearTimeout(updateRetryTimer);
+  updateRetryTimer = null;
+}
+
+/** A check that worked, or one the user asked for, starts the ladder over. */
+function resetUpdateRetry() {
+  updateRetryAttempt = 0;
+  cancelUpdateRetry();
+}
+
+/**
+ * A 5xx is GitHub having a bad half hour, and copying it into the interface
+ * until the six-hour timer looks the same as a broken feed. Repeat the check
+ * here instead, backing off, and leave every other failure alone: a 404 is our
+ * own manifest being wrong and an offline machine has nothing to ask.
+ */
+function scheduleUpdateRetry(message) {
+  if (!isTransientUpdateError(message)) return;
+  const delay = nextRetryDelay(updateRetryAttempt);
+  if (delay === null) return;
+  updateRetryAttempt += 1;
+  cancelUpdateRetry();
+  console.log(`Update check failed with a server error; retrying in ${Math.round(delay / 1000)}s`);
+  updateRetryTimer = setTimeout(checkNow, delay);
+  // The wait must not be what keeps the process alive.
+  updateRetryTimer.unref?.();
+}
+
+function reportUpdateError(error) {
+  const message = String(error?.message ?? error);
+  // Offline machines are normal for this app, so a failed check is a state to
+  // display, never something that interrupts the session.
+  console.error('Update error:', error);
+  setUpdateState({ status: 'error', error: message });
+  scheduleUpdateRetry(message);
 }
 
 function setupUpdater() {
@@ -185,6 +228,9 @@ function setupUpdater() {
   applyUpdateChannel();
 
   autoUpdater.on('checking-for-update', () => setUpdateState({ status: 'checking', error: null }));
+  // A check that got as far as an answer ends the retry ladder.
+  autoUpdater.on('update-available', () => resetUpdateRetry());
+  autoUpdater.on('update-not-available', () => resetUpdateRetry());
   // A check can land on a version whose installer is already downloaded — the
   // timer eight seconds after launch, the one every six hours, or the button.
   // The decision keeps that restart instead of asking for the file again.
@@ -198,12 +244,7 @@ function setupUpdater() {
   autoUpdater.on('update-downloaded', (info) =>
     setUpdateState({ status: 'downloaded', version: info?.version ?? updateState.version, percent: 100, error: null }),
   );
-  autoUpdater.on('error', (error) => {
-    // Offline machines are normal for this app, so a failed check is a state to
-    // display, never something that interrupts the session.
-    console.error('Update error:', error);
-    setUpdateState({ status: 'error', error: String(error?.message ?? error) });
-  });
+  autoUpdater.on('error', reportUpdateError);
 
   const firstCheck = setTimeout(checkNow, UPDATE_FIRST_CHECK_DELAY_MS);
   const periodicCheck = setInterval(checkNow, UPDATE_CHECK_INTERVAL_MS);
@@ -511,6 +552,8 @@ ipcMain.handle('update:state', (event) => (isFromAppWindow(event) ? updateState 
 
 ipcMain.handle('update:check', async (event) => {
   if (!isFromAppWindow(event) || !updater) return updateState;
+  // The user asking is also the answer to a pending retry.
+  resetUpdateRetry();
   try {
     await updater.checkForUpdates();
   } catch (error) {
@@ -545,6 +588,7 @@ ipcMain.handle('update:download', async (event) => {
   if (!isFromAppWindow(event) || !updater) return updateState;
   // Only an offered update may be fetched; a stale click does nothing.
   if (updateState.status !== 'available') return updateState;
+  resetUpdateRetry();
   try {
     await updater.downloadUpdate();
   } catch (error) {
