@@ -233,27 +233,27 @@ Cortar una etiqueta sobre la versión que ya está en `package.json` no es una p
 
 ```bash
 git switch -c release-smoke-test
-npm version 1.0.44-beta.1 --no-git-tag-version   # sube package.json y package-lock.json
+npm version 1.0.45-beta.1 --no-git-tag-version   # sube package.json y package-lock.json
 git commit -am "chore: bump to a beta version for a release smoke test"
-git tag v1.0.44-beta.1
-git push origin v1.0.44-beta.1                   # solo la etiqueta; la rama se queda local
+git tag v1.0.45-beta.1
+git push origin v1.0.45-beta.1                   # solo la etiqueta; la rama se queda local
 git switch master
 git branch -D release-smoke-test
 ```
 
 El push de la etiqueta corre el workflow entero —las tres patas de `verify`, el `e2e` y el `build`— y publica una **prerelease** con sus siete ficheros: los dos `.exe`, sus dos `.zip`, el `.blockmap`, `latest.yml` y el `beta.yml` que el updater de una copia beta pide primero. Medido el 8-nov-2026 con una `1.0.42-beta.1` cuando la pendiente era la `1.0.41`: doce minutos de punta a punta, de los cuales el job de publicación tardó 3 min 51 s, con artefactos de 113 MB y 125 MB.
 
-Dos detalles que ahorran una sorpresa. El número tiene que ser distinto del que se piense publicar después, y por eso el ejemplo salta a `1.0.44-beta.1` en lugar de quedarse en la `1.0.43`, que es la siguiente que toca publicar: una etiqueta `v1.0.43` sobre esa versión publicaría la real, no una prueba. El sufijo conviene que sea el de un canal que ya exista (`beta.1`), porque el job copia `latest.yml` a `<canal>.yml` tomando el sufijo como nombre de canal. Y el commit se queda fuera de `master` a propósito: no hay nada que revertir, y `package.json` sigue con la versión que va a publicarse.
+Dos detalles que ahorran una sorpresa. El número tiene que ser distinto del que se piense publicar después, y por eso el ejemplo salta a `1.0.45-beta.1` en lugar de quedarse en la `1.0.44`, que es la siguiente que toca publicar: una etiqueta `v1.0.44` sobre esa versión publicaría la real, no una prueba. El sufijo conviene que sea el de un canal que ya exista (`beta.1`), porque el job copia `latest.yml` a `<canal>.yml` tomando el sufijo como nombre de canal. Y el commit se queda fuera de `master` a propósito: no hay nada que revertir, y `package.json` sigue con la versión que va a publicarse.
 
 Leída la ejecución, se retira entero y empezando por la release: borrar solo la etiqueta deja una prerelease publicada apuntando a una etiqueta que ya no existe, y una copia en canal beta la seguiría viendo.
 
 ```bash
-# Releases → la beta → Delete   (o: gh release delete v1.0.44-beta.1 --yes)
-git push origin --delete v1.0.44-beta.1
-git tag -d v1.0.44-beta.1
+# Releases → la beta → Delete   (o: gh release delete v1.0.45-beta.1 --yes)
+git push origin --delete v1.0.45-beta.1
+git tag -d v1.0.45-beta.1
 ```
 
-Queda comprobado con `git tag --list 'v1.0.44*'` vacío en local y en el remoto, y con que `…/releases/tags/v1.0.44-beta.1` contesta `404`. Antes de cortar la primera release detrás de un cambio en el workflow, este ensayo es el que dice si el `build` sigue en pie sin gastar un número de versión.
+Queda comprobado con `git tag --list 'v1.0.45*'` vacío en local y en el remoto, y con que `…/releases/tags/v1.0.45-beta.1` contesta `404`. Antes de cortar la primera release detrás de un cambio en el workflow, este ensayo es el que dice si el `build` sigue en pie sin gastar un número de versión.
 
 ### Retirar una versión publicada por error
 
