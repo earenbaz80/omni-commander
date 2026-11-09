@@ -194,6 +194,24 @@ jobs:
       - name: End-to-end tests
         run: npm run test:e2e
 
+      # The run list shows when the job ended, not when the suite did: the two
+      # differ by the runner's own bookkeeping and, when it matters, by a retry.
+      # A job name cannot carry a clock (expressions are evaluated when the job
+      # starts), so the finish time goes in the summary, which stays with the run
+      # and is written even when the specs failed -- the case somebody looks at.
+      - name: Note when the suite finished
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### End-to-end (Playwright)"
+            echo ""
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| Suite finished (UTC) | $(date -u +'%Y-%m-%d %H:%M:%SZ') |"
+            echo "| Result | ${{ job.status }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       # A failing spec says which one broke; the trace says what the page was
       # doing, and only exists for the run that failed.
       - name: Keep the trace of a failed run
