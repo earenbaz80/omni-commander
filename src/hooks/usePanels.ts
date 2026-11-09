@@ -426,41 +426,43 @@ export function usePanels(deps: PanelDeps) {
     void handleRefresh('right');
   }, [handleRefresh]);
 
-  const handleGoBack = useCallback((panelSide: 'left' | 'right') => {
-    const targetSet = panelSide === 'left' ? setLeftPanel : setRightPanel;
-    targetSet((p) => ({
-      ...p,
-      tabs: p.tabs.map((tab) => {
-        if (tab.id !== p.activeTabId || tab.historyIndex <= 0) return tab;
-        const newIdx = tab.historyIndex - 1;
-        return {
-          ...tab,
-          currentPath: tab.history[newIdx],
-          historyIndex: newIdx,
-          selectedIds: [],
-          focusedIndex: 0,
-        };
-      }),
-    }));
-  }, []);
+  /**
+   * Moves one step through the panel's history.
+   *
+   * The destination is a path the user is entering, exactly like the ones
+   * `handleNavigate` receives, so it asks for the password of a protected
+   * folder on the way. Back and forward used to write `currentPath` straight
+   * into the tab, which meant going back into a protected folder walked past
+   * the prompt the same folder asks for when it is opened from the list.
+   */
+  const stepHistory = useCallback(
+    (panelSide: 'left' | 'right', delta: 1 | -1) => {
+      const tab = panelSide === 'left' ? leftTab : rightTab;
+      const newIdx = tab.historyIndex + delta;
+      if (newIdx < 0 || newIdx >= tab.history.length) return;
+      const targetPath = tab.history[newIdx];
+      if (checkFolderPasswordProtection(panelSide, targetPath)) return;
 
-  const handleGoForward = useCallback((panelSide: 'left' | 'right') => {
-    const targetSet = panelSide === 'left' ? setLeftPanel : setRightPanel;
-    targetSet((p) => ({
-      ...p,
-      tabs: p.tabs.map((tab) => {
-        if (tab.id !== p.activeTabId || tab.historyIndex >= tab.history.length - 1) return tab;
-        const newIdx = tab.historyIndex + 1;
-        return {
-          ...tab,
-          currentPath: tab.history[newIdx],
-          historyIndex: newIdx,
-          selectedIds: [],
-          focusedIndex: 0,
-        };
-      }),
-    }));
-  }, []);
+      const targetSet = panelSide === 'left' ? setLeftPanel : setRightPanel;
+      targetSet((p) => ({
+        ...p,
+        tabs: p.tabs.map((current) => {
+          if (current.id !== p.activeTabId) return current;
+          return {
+            ...current,
+            currentPath: targetPath,
+            historyIndex: newIdx,
+            selectedIds: [],
+            focusedIndex: 0,
+          };
+        }),
+      }));
+    },
+    [leftTab, rightTab, checkFolderPasswordProtection, setLeftPanel, setRightPanel],
+  );
+
+  const handleGoBack = useCallback((panelSide: 'left' | 'right') => stepHistory(panelSide, -1), [stepHistory]);
+  const handleGoForward = useCallback((panelSide: 'left' | 'right') => stepHistory(panelSide, 1), [stepHistory]);
 
   const handleSelectDrive = useCallback(
     async (panelSide: 'left' | 'right', driveId: string) => {
