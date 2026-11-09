@@ -196,6 +196,50 @@ El repositorio es público, así que comprobar actualizaciones no necesita ningu
 
 La comprobación no se queda en error por un fallo pasajero del servidor. Un **5xx** —el `HttpError: 504` con que el proveedor envuelve el fallo, un cuerpo `504 Gateway Time-out` que llega en lugar del manifiesto, o un `Response code 502` del descargador— se reintenta solo, con 30 s, 60 s y 120 s entre intentos; después deja de insistir y el error queda a la vista hasta el siguiente parte automático. La escalera se reinicia en cuanto una comprobación llega a una respuesta —haya actualización o no— y también cuando el usuario pulsa comprobar o descargar, que es la forma de cancelar un reintento pendiente. Un **404** no se reintenta: el feed no tiene lo que la app busca, y repetirlo da el mismo 404 dentro de un minuto. Tampoco se reintenta un fallo de red local, para no despertar a una máquina sin conexión a fallar otra vez. La decisión vive en [electron/updateRetry.cjs](electron/updateRetry.cjs), aparte de `main.cjs` para poder probarla sin arrancar Electron.
 
+#### Cómo se repite la prueba
+
+En `npm run dev` el updater no existe y en el portable tampoco, así que verlo reintentar pide un paquete de verdad y un feed que falle a voluntad. Un paquete sin instalador basta y tarda menos:
+
+```bash
+npm run build:electron
+npx electron-builder --win --dir     # deja release/win-unpacked/
+```
+
+Ese modo no escribe `app-update.yml`, así que se pone uno en `release/win-unpacked/resources/` que apunte a un servidor local. Es lo único que se toca: el ejecutable, el `asar` y el updater son los del paquete.
+
+```yaml
+provider: generic
+url: http://127.0.0.1:8123/
+updaterCacheDirName: omnicommander-pro-updater
+```
+
+El servidor contesta lo que diga un fichero de modo y apunta cada petición con su hora, que es lo que se va a mirar después:
+
+```js
+// feed.cjs — node feed.cjs 8123, con '503' o '404' escrito en feed.mode
+const http = require('node:http');
+const fs = require('node:fs');
+http
+  .createServer((req, res) => {
+    const mode = fs.readFileSync('feed.mode', 'utf8').trim();
+    fs.appendFileSync('feed.log', `${new Date().toISOString()} ${mode} ${req.url}\n`);
+    res.writeHead(Number(mode), { 'content-type': 'text/html' });
+    res.end(`<html><body><h1>${mode}</h1></body></html>`);
+  })
+  .listen(8123, '127.0.0.1');
+```
+
+Se arranca con un `userData` aparte para no mezclarlo con el perfil de la máquina, y con el puerto de depuración para poder preguntarle el estado sin tocar la ventana:
+
+```bash
+"./release/win-unpacked/OmniCommander Pro.exe" \
+  --remote-debugging-port=9333 --user-data-dir="$PWD/.git/omni-work/userdata"
+```
+
+A los ocho segundos de arrancar sale el primer chequeo por su propio temporizador, sin pulsar nada. Lo que se lee es `feed.log`: con `503` hay cuatro líneas separadas por 30, 60 y 120 s y ninguna más; con `404`, una sola, y en los cincuenta segundos siguientes no vuelve. El estado sale por el mismo IPC que usan los botones, así que desde la pestaña de depuración basta `window.electronAPI.getUpdateState()` para ver el mensaje que se le enseña al usuario. Al terminar, cerrar las instancias por su ruta —no por nombre, que la copia instalada se llama igual— y retirar el `app-update.yml` puesto a mano.
+
+Un matiz que conviene no olvidar al leer el resultado: el 5xx es de ese servidor local, no de GitHub, así que lo probado es la decisión sobre el mensaje y la espera, no la CDN del proveedor.
+
 ### El canal beta
 
 Las versiones de prueba se publican como **prerelease** de GitHub, y el canal estable no las ve nunca: electron-updater pregunta a `/releases/latest`, que las excluye por definición. Para recibirlas hay que pedirlo, con la casilla **Ajustes → Seguridad → Recibir versiones beta**. Marcarla escribe `beta` en `%APPDATA%\omnicommander-pro\update-channel`; desmarcarla borra el fichero, y sin fichero el canal es el estable. El cambio se aplica al momento y lanza una comprobación nueva, porque un interruptor que deja en pantalla el veredicto del feed anterior parece que no hizo nada.
