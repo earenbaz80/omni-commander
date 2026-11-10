@@ -111,8 +111,13 @@ const readList = (page: Page, key: string) =>
 async function openBin(page: Page) {
   await page.goto('/');
 
+  // The menu title is chrome: it mounts before the boot resolves, so waiting for
+  // it says nothing about the app behind it. A row is the real gate -- a drive
+  // was confirmed and a folder was listed.
+  await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
+
   const commands = page.getByRole('button', { name: 'Comandos', exact: true }).first();
-  await expect(commands).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
+  await expect(commands).toBeVisible();
   await commands.click();
   await commands
     .locator('..')

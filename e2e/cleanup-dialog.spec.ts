@@ -113,8 +113,13 @@ const runAnswer = (overrides: Record<string, unknown> = {}): Answer => ({
 async function openCleanup(page: Page) {
   await page.goto('/');
 
+  // The toolbar is chrome: it mounts before the boot resolves, so waiting for it
+  // says nothing about the app behind it. A row is the real gate -- a drive was
+  // confirmed and a folder was listed.
+  await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
+
   const toolbar = page.getByTitle(TOOLBAR_LABEL);
-  await expect(toolbar).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
+  await expect(toolbar).toBeVisible();
   await toolbar.click();
 
   const menu = page.getByRole('menu', { name: TOOLBAR_LABEL });
@@ -133,8 +138,10 @@ test('it measures first, asks once, and only the second press deletes', async ({
   const calls = await stubCleanup(page, { scan: () => scanAnswer(), run: () => runAnswer() });
 
   await page.goto('/');
+  // Same gate as `openCleanup`: the toolbar is up before the boot finishes.
+  await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
   const toolbar = page.getByTitle(TOOLBAR_LABEL);
-  await expect(toolbar).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
+  await expect(toolbar).toBeVisible();
   await toolbar.click();
 
   const menu = page.getByRole('menu', { name: TOOLBAR_LABEL });
