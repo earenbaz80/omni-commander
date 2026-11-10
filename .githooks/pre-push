@@ -137,8 +137,10 @@ run npm run --silent lint
 # one worker per core, and with four of them on this four-core machine the suite
 # has gone red with nothing broken (odd/tasks records the rule: always pass
 # --maxWorkers=2). It is not a speed trade: alternating both settings over the
-# same half hour, the cap ran 128s/138s/139s against 106s/112s/161s uncapped. It
-# costs nothing measurable and turns half a minute of spread into a second.
+# same half hour once ran 128s/138s/139s capped against 106s/112s/161s uncapped.
+# Those seconds are a record of one machine on one day, not a budget: the same
+# capped run measured 39 s on an idle box. What the cap reliably buys is the
+# shape -- no cost, and half a minute of spread turned into a second.
 echo "pre-push: running the test suite (npm test -- --maxWorkers=2)..."
 start_sampler
 run npm test -- --maxWorkers=2
