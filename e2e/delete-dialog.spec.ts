@@ -36,6 +36,21 @@ test.skip(
   `the interface addresses paths by drive letter, but this platform's root is "${driveRoot}"`,
 );
 
+/**
+ * How long the folder may take to lose a file once the window is confirmed.
+ *
+ * The delete runs as a queued server job, so Playwright's five-second default
+ * for `expect.poll` measures the queue, the server and -- on the Recycle Bin
+ * branch -- the shell call that moves the file, not just the app. A full local
+ * run on 2026-11-10 spent more than those five seconds on `uno.txt` and failed
+ * while the same case passed alone and in CI on the same commit, which makes
+ * five seconds the machine's budget rather than the app's.
+ *
+ * 30 s is the wait the rest of the suite gives a queued job, and it leaves the
+ * case's own 120 s timeout room to fail on the right assertion.
+ */
+const DELETION_TIMEOUT_MS = 30_000;
+
 let workspace = '';
 
 test.beforeEach(async () => {
@@ -163,8 +178,8 @@ test('confirming removes the selected files and nothing else', async ({ page }) 
   await expect(dialog).toHaveCount(0);
 
   // The delete runs as a queued server job, so the folder is read until it does.
-  await expect.poll(() => isThere('uno.txt')).toBe(false);
-  await expect.poll(() => isThere('dos.txt')).toBe(false);
+  await expect.poll(() => isThere('uno.txt'), { timeout: DELETION_TIMEOUT_MS }).toBe(false);
+  await expect.poll(() => isThere('dos.txt'), { timeout: DELETION_TIMEOUT_MS }).toBe(false);
 
   expect(await isThere('intacto.txt'), 'a delete must not take the whole folder').toBe(true);
   await expect(page.locator('[data-name="intacto.txt"]').first()).toBeVisible();
@@ -190,7 +205,7 @@ test('with the Recycle Bin off the file still goes, and never into the virtual b
 
   // Turning the bin off switches the server to a permanent removal, and the
   // folder has to end up the same: gone, with the rest untouched.
-  await expect.poll(() => isThere('uno.txt')).toBe(false);
+  await expect.poll(() => isThere('uno.txt'), { timeout: DELETION_TIMEOUT_MS }).toBe(false);
   expect(await isThere('dos.txt')).toBe(true);
   expect(await isThere('intacto.txt')).toBe(true);
   expect(await virtualBinCount(page)).toBe(0);
