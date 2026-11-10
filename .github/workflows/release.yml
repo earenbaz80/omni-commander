@@ -296,6 +296,35 @@ jobs:
           fi
           [ -z "$failed" ] || exit 1
 
+      # A case that fails once and passes on the retry leaves the job green, so
+      # the JSON report is the only place the retry shows up: it carries the
+      # counts the summary step reads, "1 flaky" among them. It is written to the
+      # runner's temp directory, which an artifact cannot be uploaded from, so it
+      # is copied into the workspace first. Kept on every run, red or green,
+      # because a green run is exactly where a flake hides.
+      - name: Keep the JSON report of the run
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p e2e-report
+          report='${{ runner.temp }}/playwright-report.json'
+          if [ -f "$report" ]; then
+            cp "$report" e2e-report/playwright-report.json
+          else
+            # The summary step already failed the job over this, so the upload
+            # has nothing to keep and says so instead of inventing a report.
+            echo 'the run left no JSON report'
+          fi
+
+      - name: Upload the JSON report of the run
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: e2e-report/
+          retention-days: 7
+          if-no-files-found: ignore
+
       # A failing spec says which one broke; the trace says what the page was
       # doing, and only exists for the run that failed.
       - name: Keep the trace of a failed run
