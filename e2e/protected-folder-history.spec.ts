@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { pbkdf2Sync } from 'node:crypto';
 import { removeWorkspace } from './support/tempWorkspaces';
+import { BOOT_TIMEOUT_MS } from './support/boot';
 
 /**
  * Back and forward are entrances to a folder, and a protected folder has to ask
@@ -94,7 +95,7 @@ async function unlock(page: Page) {
 
 test('going back into a protected folder asks for its password again', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: 60000 });
+  await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
 
   await enterPath(page, workspace);
   await expect(page.locator('[data-name="afuera.txt"]').first()).toBeVisible();

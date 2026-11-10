@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { BOOT_TIMEOUT_MS } from './support/boot';
 
 /**
  * The case phase F5 could not close: an audit with `axe` over a window that the
@@ -28,7 +29,7 @@ test('a window moved and sized by keyboard has no axe violations', async ({ page
   // The rows carry aria-pressed, which is the same structural hook the naming
   // audit waits for: nothing here depends on a style class or on the language.
   await page.waitForFunction(() => document.querySelectorAll('button[aria-pressed]').length > 20, undefined, {
-    timeout: 60000,
+    timeout: BOOT_TIMEOUT_MS,
     // Polled rather than rAF (throttled in a background tab), but fine-grained:
     // a coarse interval adds its own delay to every boot this suite waits on.
     polling: 100,

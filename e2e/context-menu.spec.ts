@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import { removeWorkspace } from './support/tempWorkspaces';
+import { BOOT_TIMEOUT_MS } from './support/boot';
 import path from 'node:path';
 
 /**
@@ -76,7 +77,7 @@ async function focusList(page: Page) {
 
 test('the context menu is a named menu the keyboard can walk', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: 60000 });
+  await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
   await focusList(page);
 
   await page.locator('[data-name="nota.txt"]').first().click({ button: 'right' });
@@ -115,7 +116,7 @@ test('the context menu is a named menu the keyboard can walk', async ({ page }) 
 
 test('the arrows reach the menu, not the panel behind it', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: 60000 });
+  await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
   await focusList(page);
 
   // The panel's arrow navigation is a global shortcut; with the menu open the

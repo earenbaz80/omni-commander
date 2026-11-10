@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { BOOT_TIMEOUT_MS } from './support/boot';
 
 /**
  * Every command in the header's Comandos menu opens the window it names.
@@ -27,7 +28,7 @@ test.beforeEach(async ({ page }) => {
 async function boot(page: Page) {
   await page.goto('/');
   await page.waitForFunction(() => document.querySelectorAll('button[aria-pressed]').length > 20, undefined, {
-    timeout: 60000,
+    timeout: BOOT_TIMEOUT_MS,
     // Polled rather than rAF (throttled in a background tab), but fine-grained:
     // a coarse interval adds its own delay to every boot this suite waits on.
     polling: 100,

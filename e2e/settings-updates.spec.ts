@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { BOOT_TIMEOUT_MS } from './support/boot';
 
 /**
  * The Updates card, now that updating needs no credentials.
@@ -51,7 +52,7 @@ test('the updates card offers the beta channel and asks for no credential', asyn
   test.setTimeout(120000);
   await page.goto('/');
 
-  await page.getByTitle('Configuración').click({ timeout: 60000 });
+  await page.getByTitle('Configuración').click({ timeout: BOOT_TIMEOUT_MS });
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible({ timeout: 30000 });
   await dialog.getByRole('button', { name: 'Seguridad' }).click();

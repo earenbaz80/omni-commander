@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { removeWorkspace } from './support/tempWorkspaces';
+import { BOOT_TIMEOUT_MS } from './support/boot';
 
 /**
  * The recycle bin window, walked from the header menu a user opens it from.
@@ -111,7 +112,7 @@ async function openBin(page: Page) {
   await page.goto('/');
 
   const commands = page.getByRole('button', { name: 'Comandos', exact: true }).first();
-  await expect(commands).toBeVisible({ timeout: 60000 });
+  await expect(commands).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
   await commands.click();
   await commands
     .locator('..')

@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { removeWorkspace } from './support/tempWorkspaces';
+import { BOOT_TIMEOUT_MS } from './support/boot';
 
 // Pin the UI language so the specs don't break if the app default changes.
 test.beforeEach(async ({ page }) => {
@@ -91,7 +92,7 @@ const TOOLBAR_MODALS: Array<[string, string]> = [
 async function boot(page: Page) {
   await page.goto('/');
   await page.waitForFunction(() => document.querySelectorAll('button[aria-pressed]').length > 20, undefined, {
-    timeout: 60000,
+    timeout: BOOT_TIMEOUT_MS,
     polling: 100,
   });
 }
