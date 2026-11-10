@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs/promises';
 import os from 'node:os';
+import { BOOT_TIMEOUT_MS } from './support/boot';
 import { removeWorkspace } from './support/tempWorkspaces';
 import path from 'node:path';
 import JSZip from 'jszip';
@@ -77,7 +78,7 @@ async function extractHere(page: Page) {
   // refuses a listing that points outside the panel's own drive.
   const drive = path.parse(workspace).root.replace(/[\\/]/g, '');
   const driveButton = page.getByRole('button', { name: `[${drive}]` });
-  await expect(driveButton.first()).toBeVisible({ timeout: 90000 });
+  await expect(driveButton.first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
   await driveButton.first().click();
   await enterPath(page, 0, workspace);
 

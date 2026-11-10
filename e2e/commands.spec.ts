@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { BOOT_TIMEOUT_MS } from './support/boot';
 import { ipconfigProblems, processTableProblems, treeProblems } from './support/commandOutput';
 import { removeWorkspace } from './support/tempWorkspaces';
 
@@ -153,7 +154,7 @@ test('tree lists the folders the active panel is really showing', async ({ page 
 
     const drive = path.parse(workspace).root.replace(/[\\/]/g, '');
     const driveButtons = page.getByRole('button', { name: `[${drive}]` });
-    await expect(driveButtons.first()).toBeVisible({ timeout: 90000 });
+    await expect(driveButtons.first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
     await driveButtons.first().click();
     await enterPath(page, 0, workspace);
 

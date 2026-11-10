@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs/promises';
 import os from 'node:os';
+import { BOOT_TIMEOUT_MS } from './support/boot';
 import { removeWorkspace } from './support/tempWorkspaces';
 import path from 'node:path';
 
@@ -113,7 +114,7 @@ for (const archive of archives) {
     // refuses a listing that points outside the panel's own drive.
     const drive = path.parse(workspace).root.replace(/[\\/]/g, '');
     const driveButtons = page.getByRole('button', { name: `[${drive}]` });
-    await expect(driveButtons.first()).toBeVisible({ timeout: 90000 });
+    await expect(driveButtons.first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
     await driveButtons.nth(0).click();
     await driveButtons.nth(1).click();
 
