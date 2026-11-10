@@ -235,6 +235,7 @@ jobs:
           fi
           report='${{ runner.temp }}/playwright-report.json'
           tests=''
+          flaky=''
           problem=''
           if [ ! -f "$report" ]; then
             problem='the JSON report was never written to the runner temp directory'
@@ -260,9 +261,25 @@ jobs:
               if (stats.flaky) out.push(`${stats.flaky} flaky`);
               if (stats.unexpected) out.push(`${stats.unexpected} failed`);
               if (stats.skipped) out.push(`${stats.skipped} skipped`);
-              process.stdout.write(out.join(", "));
+              // A retried pass keeps the job green, so the titles travel with
+              // the counts: they are what turns "1 flaky" into a name.
+              const retried = [];
+              (function walk(suites) {
+                for (const suite of suites || []) {
+                  for (const spec of suite.specs || []) {
+                    for (const test of spec.tests || []) {
+                      if (test.status === "flaky") retried.push(spec.title);
+                    }
+                  }
+                  walk(suite.suites);
+                }
+              })(json.suites);
+              process.stdout.write([out.join(", "), retried.join("; ")].join("\n"));
             ' "$report" 2>&1); then
-              tests=$output
+              # Two lines: the counts, then the titles of the cases that only
+              # passed on the retry, empty when nothing was retried.
+              tests=$(printf '%s\n' "$output" | sed -n '1p')
+              flaky=$(printf '%s\n' "$output" | sed -n '2p')
             else
               # Node names the fault on one line; a stack would break the table.
               problem="the JSON report could not be read: $(printf '%s' "$output" | head -1)"
@@ -282,6 +299,17 @@ jobs:
             echo "| Result | ${{ job.status }} |"
             echo "| Run | [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |"
           } >> "$GITHUB_STEP_SUMMARY"
+          # A case that failed once and passed on the retry leaves the job green,
+          # so the summary names it and the run carries a warning. The step stays
+          # green on purpose: a retried case is news, not a blocked push, and the
+          # red is kept for a summary that cannot be counted.
+          if [ -n "$flaky" ]; then
+            {
+              echo ""
+              echo "Passed on a retry: ${flaky}"
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::the suite retried and passed: $(printf '%s' "$flaky" | tr -d '\r\n' | sed 's/%/%25/g')"
+          fi
           # The summary is already written, so the annotation and the red step
           # land next to the row that explains them. A run can lose its clock
           # and its report at once, so both are reported before exiting.
