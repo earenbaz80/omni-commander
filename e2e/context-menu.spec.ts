@@ -76,6 +76,7 @@ async function focusList(page: Page) {
 }
 
 test('the context menu is a named menu the keyboard can walk', async ({ page }) => {
+  test.setTimeout(120000);
   await page.goto('/');
   await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
   await focusList(page);
@@ -115,6 +116,7 @@ test('the context menu is a named menu the keyboard can walk', async ({ page }) 
 });
 
 test('the arrows reach the menu, not the panel behind it', async ({ page }) => {
+  test.setTimeout(120000);
   await page.goto('/');
   await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
   await focusList(page);

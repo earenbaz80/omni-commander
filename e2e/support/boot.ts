@@ -15,5 +15,10 @@
  *
  * 90 s leaves 27 s on top of the budget for the browser and a loaded runner, and
  * still fails a boot that is genuinely dead instead of hanging the suite.
+ *
+ * The number only buys that time if the case's own timeout sits above it:
+ * Playwright's default is 30 s, so a 90 s gate inside a case that never raised
+ * its timeout is cut short at 30 s and blames the assertion for a test-level
+ * timeout. Cases that wait for the boot raise theirs with `test.setTimeout`.
  */
 export const BOOT_TIMEOUT_MS = 90_000;

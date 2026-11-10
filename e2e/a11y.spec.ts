@@ -47,6 +47,7 @@ const AUDIT = `(() => {
 })()`;
 
 test('the file list is a named group, so focus on it is announced', async ({ page }) => {
+  test.setTimeout(120000);
   await page.goto('/');
 
   // Both panels render their own list, and focus lands on it every time a
@@ -113,6 +114,7 @@ const GROUPING_ROLES = [
 ];
 
 test('every grouping or landmark is named', async ({ page }) => {
+  test.setTimeout(120000);
   await page.goto('/');
   await expect(page.locator('[data-file-list]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
 

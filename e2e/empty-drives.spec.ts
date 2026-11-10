@@ -34,6 +34,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('reports no drives when the drive probe never answers', async ({ page }) => {
+  test.setTimeout(120000);
   // The probe is held until this test has seen the cached list on screen, so the
   // case cannot pass on whichever of the two happened to paint first: it pins the
   // order that matters, a drive shown from the cache and then taken away.
