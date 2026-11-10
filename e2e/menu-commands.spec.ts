@@ -72,7 +72,9 @@ test('every Comandos command opens the window it names', async ({ page }) => {
  * the F2 key (which went through the keyboard engine with the right one) worked.
  */
 test('the F2 button on the function bar opens the user menu', async ({ page }) => {
-  test.setTimeout(60000);
+  // Longer than the boot gate below, like the case above: a budget under
+  // BOOT_TIMEOUT_MS kills the test while `boot` is still waiting legitimately.
+  test.setTimeout(120000);
   await boot(page);
 
   await page.getByRole('button', { name: /^2\s*Menú Usuario$/ }).click();
