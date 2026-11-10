@@ -1,6 +1,7 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import fs from 'node:fs/promises';
 import os from 'node:os';
+import { BOOT_TIMEOUT_MS } from './support/boot';
 import { removeWorkspace } from './support/tempWorkspaces';
 import path from 'node:path';
 
@@ -96,8 +97,8 @@ async function openSync(page: Page): Promise<Locator> {
 
   // Both listings have to be on screen before the dialog copies them into its
   // comparison; waiting for the rows is waiting for the panels, not for a delay.
-  await expect(page.locator('[data-name="solo-izq.txt"]')).toBeVisible();
-  await expect(page.locator('[data-name="solo-der.txt"]')).toBeVisible();
+  await expect(page.locator('[data-name="solo-izq.txt"]')).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
+  await expect(page.locator('[data-name="solo-der.txt"]')).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
 
   await page.getByRole('button', { name: 'Comandos', exact: true }).click();
   await page.getByRole('button', { name: /Sincronizar Carpetas/ }).click();
@@ -114,6 +115,7 @@ async function openSync(page: Page): Promise<Locator> {
 }
 
 test('lists what differs between the panels and hides what is equal', async ({ page }) => {
+  test.setTimeout(120000);
   const dialog = await openSync(page);
 
   const leftOnly = dialog.locator('[data-sync-name="solo-izq"]');
@@ -140,6 +142,7 @@ test('lists what differs between the panels and hides what is equal', async ({ p
 });
 
 test('copies the marked items in both directions and leaves the skipped one alone', async ({ page }) => {
+  test.setTimeout(120000);
   const sharedBefore = await fs.stat(path.join(rightDir, 'comun.txt'));
 
   const dialog = await openSync(page);

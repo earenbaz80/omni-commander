@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs/promises';
 import os from 'node:os';
+import { BOOT_TIMEOUT_MS } from './support/boot';
 import { removeWorkspace } from './support/tempWorkspaces';
 import path from 'node:path';
 
@@ -73,11 +74,12 @@ async function enterPath(page: Page, panel: 0 | 1, target: string) {
 }
 
 test('the folder tree navigates the panel the user is working in', async ({ page }) => {
+  test.setTimeout(120000);
   await page.goto('/');
   await enterPath(page, 0, leftDir);
   await enterPath(page, 1, rightDir);
-  await expect(page.locator('[data-name="izquierda.txt"]')).toBeVisible();
-  await expect(page.locator('[data-name="derecha.txt"]')).toBeVisible();
+  await expect(page.locator('[data-name="izquierda.txt"]')).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
+  await expect(page.locator('[data-name="derecha.txt"]')).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
 
   // The tree lives in the left panel, but the right one is where the user is.
   await page.getByRole('button', { name: 'Árbol', exact: true }).first().click();

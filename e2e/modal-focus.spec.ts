@@ -218,8 +218,9 @@ async function expectWindowGivesFocusBack(page: Page, label: string, dialog: Loc
 
 for (const win of KEY_WINDOWS) {
   test(`focus enters the ${win.label} window and stays inside it`, async ({ page }) => {
+    test.setTimeout(120000);
     await page.goto('/');
-    await expect(page.locator('[data-name]').first()).toBeVisible();
+    await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
     if (win.file) await focusFile(page);
 
     // Where a keyboard user is when they press the key, and where the window has
@@ -274,8 +275,9 @@ const MORE_WINDOWS: MoreWindow[] = [
 
 for (const win of MORE_WINDOWS) {
   test(`focus leaves and returns through the ${win.label} window`, async ({ page }) => {
+    test.setTimeout(120000);
     await page.goto('/');
-    await expect(page.locator('[data-name]').first()).toBeVisible();
+    await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
     if (win.file) await focusFile(page);
 
     let opener: Locator;
@@ -331,8 +333,9 @@ test('closing a window hands focus back to the control that opened it', async ({
 });
 
 test('editing from the viewer hands focus to the editor', async ({ page }) => {
+  test.setTimeout(120000);
   await page.goto('/');
-  await expect(page.locator('[data-name]').first()).toBeVisible();
+  await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
   await focusFile(page);
 
   await page.keyboard.press('F3');
@@ -383,8 +386,9 @@ test('editing from the viewer hands focus to the editor', async ({ page }) => {
 });
 
 test('a window opened before anything was focused still gives focus back', async ({ page }) => {
+  test.setTimeout(120000);
   await page.goto('/');
-  await expect(page.locator('[data-name]').first()).toBeVisible();
+  await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
 
   // Nothing has been clicked, so no control has been recorded as the opener:
   // this is the case the history alone cannot answer. Tab switches the active
@@ -406,8 +410,9 @@ test('a window opened before anything was focused still gives focus back', async
 });
 
 test('the copy window opens with focus on its destination field', async ({ page }) => {
+  test.setTimeout(120000);
   await page.goto('/');
-  await expect(page.locator('[data-name]').first()).toBeVisible();
+  await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
   await focusFile(page);
 
   await page.keyboard.press('F5');

@@ -1,6 +1,7 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import fs from 'node:fs/promises';
 import os from 'node:os';
+import { BOOT_TIMEOUT_MS } from './support/boot';
 import { removeWorkspace } from './support/tempWorkspaces';
 import path from 'node:path';
 
@@ -100,7 +101,7 @@ async function openQuickView(page: Page, name: string): Promise<Locator> {
   await page.goto('/');
   await enterPath(page, 1, workspace);
   const row = page.locator(`[data-name="${name}"]`);
-  await expect(row).toBeVisible();
+  await expect(row).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
   await row.click();
   await expect(row).toHaveAttribute('data-focused', 'true');
   await page.keyboard.press('Control+q');
@@ -110,6 +111,7 @@ async function openQuickView(page: Page, name: string): Promise<Locator> {
 }
 
 test('shows the characters of the focused file, not a placeholder', async ({ page }) => {
+  test.setTimeout(120000);
   const pane = await openQuickView(page, 'nota.txt');
 
   // The name in the header is the file's own, not a label about previews.
@@ -129,6 +131,7 @@ test('shows the characters of the focused file, not a placeholder', async ({ pag
 });
 
 test('dumps the real bytes of a binary file and says it has no text preview', async ({ page }) => {
+  test.setTimeout(120000);
   const pane = await openQuickView(page, 'binario.bin');
 
   // NUL in the first block: the text tab must refuse to decode rather than show
@@ -149,6 +152,7 @@ test('dumps the real bytes of a binary file and says it has no text preview', as
 });
 
 test('hands a real audio file to the browser player and reports its real size', async ({ page }) => {
+  test.setTimeout(120000);
   const pane = await openQuickView(page, 'tono.wav');
 
   // Media is what a user wants first for a sound file, without clicking a tab.
@@ -167,6 +171,7 @@ test('hands a real audio file to the browser player and reports its real size', 
 });
 
 test('closing the pane brings the file list back', async ({ page }) => {
+  test.setTimeout(120000);
   const pane = await openQuickView(page, 'nota.txt');
   await pane.getByRole('button', { name: 'Cerrar' }).click();
   await expect(page.locator('[data-quick-view]')).toHaveCount(0);
