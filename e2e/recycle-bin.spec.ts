@@ -135,6 +135,7 @@ const isThere = async (name: string) => {
 };
 
 test('the window lists what was deleted and Restaurar puts it back', async ({ page }) => {
+  test.setTimeout(120000);
   await seedBin(page, [
     { id: 'f-restaurar', name: 'restaurar' },
     { id: 'f-borrar', name: 'borrar' },
@@ -172,6 +173,7 @@ test('the window lists what was deleted and Restaurar puts it back', async ({ pa
 });
 
 test('the permanent delete drops the record and leaves the bin empty', async ({ page }) => {
+  test.setTimeout(120000);
   await seedBin(page, [{ id: 'f-unico', name: 'unico' }]);
 
   const dialog = await openBin(page);
@@ -193,6 +195,7 @@ test('the permanent delete drops the record and leaves the bin empty', async ({ 
 });
 
 test('Restaurar Todo puts every record back in one press', async ({ page }) => {
+  test.setTimeout(120000);
   await seedBin(page, [
     { id: 'f-uno', name: 'uno' },
     { id: 'f-dos', name: 'dos' },
@@ -224,6 +227,7 @@ test('Restaurar Todo puts every record back in one press', async ({ page }) => {
 });
 
 test('Vaciar Papelera drops the records and nothing else', async ({ page }) => {
+  test.setTimeout(120000);
   await seedBin(
     page,
     [

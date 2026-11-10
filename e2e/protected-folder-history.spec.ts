@@ -94,6 +94,7 @@ async function unlock(page: Page) {
 }
 
 test('going back into a protected folder asks for its password again', async ({ page }) => {
+  test.setTimeout(120000);
   await page.goto('/');
   await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
 

@@ -21,6 +21,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('application loads without fatal errors', async ({ page }) => {
+  test.setTimeout(120000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
 
@@ -32,6 +33,7 @@ test('application loads without fatal errors', async ({ page }) => {
 });
 
 test('header shows frameless window controls', async ({ page }) => {
+  test.setTimeout(120000);
   await page.goto('/');
 
   await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });

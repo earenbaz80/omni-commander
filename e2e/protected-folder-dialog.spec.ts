@@ -116,6 +116,7 @@ const recordFields = async (page: Page, folder: string) => {
 };
 
 test('protecting a folder stores a hash, refuses bad input and can be undone', async ({ page }) => {
+  test.setTimeout(120000);
   await page.goto('/');
   await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
 

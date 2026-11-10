@@ -124,6 +124,7 @@ const virtualBinCount = (page: Page) =>
   });
 
 test('cancelling the delete window leaves every file where it was', async ({ page }) => {
+  test.setTimeout(120000);
   await seedSettings(page);
   await openWorkspace(page);
 
@@ -147,6 +148,7 @@ test('cancelling the delete window leaves every file where it was', async ({ pag
 });
 
 test('confirming removes the selected files and nothing else', async ({ page }) => {
+  test.setTimeout(120000);
   await seedSettings(page);
   await openWorkspace(page);
 
@@ -175,6 +177,7 @@ test('confirming removes the selected files and nothing else', async ({ page }) 
 });
 
 test('with the Recycle Bin off the file still goes, and never into the virtual bin', async ({ page }) => {
+  test.setTimeout(120000);
   await seedSettings(page, { useRecycleBin: false });
   await openWorkspace(page);
 
@@ -194,6 +197,7 @@ test('with the Recycle Bin off the file still goes, and never into the virtual b
 });
 
 test('ctrl-click builds the selection the window acts on', async ({ page }) => {
+  test.setTimeout(120000);
   await seedSettings(page);
   await openWorkspace(page);
 

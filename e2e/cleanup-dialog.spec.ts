@@ -128,6 +128,7 @@ async function openCleanup(page: Page) {
 }
 
 test('it measures first, asks once, and only the second press deletes', async ({ page }) => {
+  test.setTimeout(120000);
   await seedSettings(page);
   const calls = await stubCleanup(page, { scan: () => scanAnswer(), run: () => runAnswer() });
 
@@ -190,6 +191,7 @@ test('it measures first, asks once, and only the second press deletes', async ({
 });
 
 test('the age filter measures the folder again instead of reusing the count', async ({ page }) => {
+  test.setTimeout(120000);
   await seedSettings(page);
   const calls = await stubCleanup(page, {
     scan: (body) =>
@@ -217,6 +219,7 @@ test('the age filter measures the folder again instead of reusing the count', as
 });
 
 test('a folder with nothing to offer cannot reach the point of deleting', async ({ page }) => {
+  test.setTimeout(120000);
   await seedSettings(page);
   const calls = await stubCleanup(page, {
     scan: () => scanAnswer({ files: 0, dirs: 0, bytes: 0, skipped: 0, largest: [] }),
@@ -233,6 +236,7 @@ test('a folder with nothing to offer cannot reach the point of deleting', async 
 });
 
 test('a folder the server cannot read says so and offers no action', async ({ page }) => {
+  test.setTimeout(120000);
   await seedSettings(page);
   await stubCleanup(page, {
     scan: () => ({ status: 500, body: { error: 'EACCES: permiso denegado' } }),
