@@ -95,6 +95,10 @@ Hay variables que pone el propio proceso y no se configuran a mano: `OMNI_SESSIO
 
 Fija `E2E_UI_PORT` y `OMNI_API_PORT` para lo contrario: apuntar la suite a servidores que ya tengas levantados, que entonces reutiliza.
 
+### Qué prueba que el arranque terminó
+
+La cabecera, la barra de menús, la toolbar y el chrome de las ventanas montan antes de que el arranque resuelva, y el pill de unidad puede salir de la caché de la sesión anterior: esperar cualquiera de ellos prueba que el shell pintó, no que el sondeo de unidades respondiera. Lo que sí lo prueba es la fila de un fichero (`[data-name]`), que solo existe cuando el servidor confirmó una unidad y listó una carpeta. Por eso los specs que arrancan esperan esa fila con el presupuesto de [e2e/support/boot.ts](e2e/support/boot.ts) —90 s, frente a los 63 s que puede gastar un arranque que agota sus reintentos—, y el caso que usa la compuerta sube su propio `test.setTimeout` por encima de ella: el default de Playwright son 30 s, así que una espera de 90 s dentro de un caso de 30 s se corta y culpa a la aserción.
+
 ## La suite y el antivirus
 
 `npm test` crea un jsdom por fichero de test —84 de los 149 de hoy; los otros 65 piden `@vitest-environment node`— porque el aislamiento da a cada uno un registro de módulos nuevo, y jsdom son 949 módulos que hay que volver a leer del disco cada vez. En un equipo con el antivirus escaneando en tiempo real, esa lectura se paga cara. Aquí, abrir y cerrar un fichero de 55 bytes cuesta **0,68 ms** con el escaneo activo y **0,06 ms** con la carpeta excluida, mientras que un `stat` del mismo fichero son 0,05 ms: el peaje está en abrir contenido, no en mirar metadatos. Y no es cosa de la carpeta, porque una copia idéntica en `%TEMP%` lo paga igual.
