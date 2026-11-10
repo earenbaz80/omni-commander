@@ -1,6 +1,7 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import fs from 'node:fs/promises';
 import os from 'node:os';
+import { BOOT_TIMEOUT_MS } from './support/boot';
 import { removeWorkspace } from './support/tempWorkspaces';
 import path from 'node:path';
 
@@ -305,10 +306,14 @@ for (const win of MORE_WINDOWS) {
 }
 
 test('closing a window hands focus back to the control that opened it', async ({ page }) => {
+  // The opener is a header button, so it mounts with the chrome while the boot
+  // behind it may still be retrying: the wait needs the shared boot budget, and
+  // the case's own timeout has to sit above that budget rather than under it.
+  test.setTimeout(120000);
   await page.goto('/');
 
   const opener = page.getByTitle('Configuración');
-  await expect(opener).toBeVisible({ timeout: 60000 });
+  await expect(opener).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
   await opener.click();
 
   const dialog = page.getByRole('dialog');
