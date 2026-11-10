@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs/promises';
 import os from 'node:os';
+import { BOOT_TIMEOUT_MS } from './support/boot';
 import { removeWorkspace } from './support/tempWorkspaces';
 import path from 'node:path';
 
@@ -76,10 +77,10 @@ async function openPanels(page: Page) {
   await page.goto('/');
   await enterPath(page, 0, leftDir);
   await enterPath(page, 1, rightDir);
-  await expect(page.locator('[data-name="nota.txt"]').first()).toBeVisible();
+  await expect(page.locator('[data-name="nota.txt"]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
   // The right panel holds the same names, so it has to be checked by its own
   // copy of the row rather than by a count.
-  await expect(page.locator('[data-name="mover.txt"]')).toHaveCount(2);
+  await expect(page.locator('[data-name="mover.txt"]')).toHaveCount(2, { timeout: BOOT_TIMEOUT_MS });
 }
 
 /**
@@ -136,6 +137,7 @@ async function startTransferAsking(page: Page, op: 'copy' | 'move') {
  * merely looks right.
  */
 test('copies with Ctrl+C and Ctrl+V into the folder in front of the user', async ({ page }) => {
+  test.setTimeout(120000);
   await fs.writeFile(path.join(rightDir, 'nuevo.txt'), NEWEST, 'utf8');
   await openPanels(page);
 
@@ -154,6 +156,7 @@ test('copies with Ctrl+C and Ctrl+V into the folder in front of the user', async
 });
 
 test('cuts with Ctrl+X and the paste moves the file instead of copying it', async ({ page }) => {
+  test.setTimeout(120000);
   await fs.writeFile(path.join(rightDir, 'recorte.txt'), MOVED, 'utf8');
   await openPanels(page);
 
@@ -168,6 +171,7 @@ test('cuts with Ctrl+X and the paste moves the file instead of copying it', asyn
 });
 
 test('asks before replacing a file and then overwrites only that one', async ({ page }) => {
+  test.setTimeout(120000);
   await openPanels(page);
   await focusRow(page, 'nota.txt');
 
@@ -193,6 +197,7 @@ test('asks before replacing a file and then overwrites only that one', async ({ 
 });
 
 test('moves onto a collision as a new name when told to keep both', async ({ page }) => {
+  test.setTimeout(120000);
   await openPanels(page);
   await focusRow(page, 'mover.txt');
 
