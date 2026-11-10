@@ -151,8 +151,10 @@ test('every grouping or landmark is named', async ({ page }) => {
 
   // A menu only exists while it is open, so the page as loaded would never
   // audit one. This is the only place in the app that declares `role="menu"`.
+  // The toolbar mounts with the chrome, but the boot behind it can still be
+  // spending its retries, so this waits the same budget as any other gate.
   const cleanupButton = page.getByTitle('Limpiar carpetas temporales');
-  await expect(cleanupButton).toBeVisible({ timeout: 60000 });
+  await expect(cleanupButton).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
   await cleanupButton.click();
   await expect(page.getByRole('menu')).toBeVisible();
   const withMenuOpen = await auditContainers();
