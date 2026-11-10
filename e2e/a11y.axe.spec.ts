@@ -29,7 +29,9 @@ test('a window moved and sized by keyboard has no axe violations', async ({ page
   // audit waits for: nothing here depends on a style class or on the language.
   await page.waitForFunction(() => document.querySelectorAll('button[aria-pressed]').length > 20, undefined, {
     timeout: 60000,
-    polling: 500,
+    // Polled rather than rAF (throttled in a background tab), but fine-grained:
+    // a coarse interval adds its own delay to every boot this suite waits on.
+    polling: 100,
   });
 
   await page.getByTitle('Configuración').click();

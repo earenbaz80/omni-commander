@@ -28,7 +28,9 @@ async function boot(page: Page) {
   await page.goto('/');
   await page.waitForFunction(() => document.querySelectorAll('button[aria-pressed]').length > 20, undefined, {
     timeout: 60000,
-    polling: 500,
+    // Polled rather than rAF (throttled in a background tab), but fine-grained:
+    // a coarse interval adds its own delay to every boot this suite waits on.
+    polling: 100,
   });
 }
 
