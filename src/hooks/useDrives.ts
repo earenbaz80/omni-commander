@@ -24,12 +24,25 @@ export function useDrives(): Drive[] {
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // Whether this session's server has answered even once. The list the engine
+    // boots with comes from storage, so until an answer arrives it is the cache
+    // of the last session and not a set of drives this run can open.
+    let confirmed = false;
     // The poll is cancelled for real on unmount, not just ignored: otherwise a
     // retrying read outlives the window and logs a failure for it.
     const controller = new AbortController();
     const poll = async () => {
       const answered = await fsEngine.loadRealDrivesFromApi({ signal: controller.signal });
       if (cancelled) return;
+      if (answered) {
+        confirmed = true;
+      } else if (!confirmed && fsEngine.getDrives().length > 0) {
+        // A boot that has spent every retry has nothing it can list. Keeping the
+        // cached drives leaves both panels on a path the server cannot answer,
+        // which reads as an empty folder instead of an empty machine. Later
+        // failures are a hiccup and keep the list the user is working from.
+        fsEngine.setDrives([]);
+      }
       timer = setTimeout(poll, answered ? DRIVE_POLL_MS : DRIVE_POLL_RETRY_MS);
     };
     void poll();

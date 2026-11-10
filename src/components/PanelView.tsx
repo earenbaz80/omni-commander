@@ -1,5 +1,7 @@
 import React from 'react';
+import { HardDrive } from 'lucide-react';
 import { ThemeConfig } from '../services/themeManager';
+import { getTranslations } from '../i18n/translations';
 import { Drive, FileItem, LanguageCode, PanelState, PanelTab, SortField, UserSettings } from '../types';
 import { soundManager } from '../services/soundEffects';
 import { TreeNavigationPane } from './TreeNavigationPane';
@@ -124,6 +126,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
   onItemHover,
 }) => {
   const isActive = activePanel === side;
+  const t = getTranslations(lang);
 
   return (
     <div
@@ -239,7 +242,20 @@ export const PanelView: React.FC<PanelViewProps> = ({
               onToggleTree={onToggleTree}
             />
 
-            {panel.isQuickView ? (
+            {drives.length === 0 ? (
+              // A machine with no drive it can list is not an empty folder: the
+              // file view would draw its own empty state over a folder that does
+              // not exist, and offer a drop target for it.
+              <div
+                data-no-drives
+                className="flex-1 flex flex-col items-center justify-center text-center p-6 gap-1 min-h-0"
+                style={{ color: currentTheme.itemText }}
+              >
+                <HardDrive className="w-8 h-8 opacity-40 mb-1" aria-hidden />
+                <div className="text-xs font-semibold opacity-80">{t.panelNoRealDrives}</div>
+                <div className="text-[11px] opacity-50 max-w-[320px]">{t.panelNoRealDrivesDesc}</div>
+              </div>
+            ) : panel.isQuickView ? (
               <QuickViewPane
                 lang={lang}
                 theme={currentTheme}
