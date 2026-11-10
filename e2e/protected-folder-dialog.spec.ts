@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { removeWorkspace } from './support/tempWorkspaces';
+import { BOOT_TIMEOUT_MS } from './support/boot';
 
 /**
  * The dialog that protects a folder, walked through the real interface.
@@ -116,7 +117,7 @@ const recordFields = async (page: Page, folder: string) => {
 
 test('protecting a folder stores a hash, refuses bad input and can be undone', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: 60000 });
+  await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
 
   // The command protects the folder the panel is in, so the panel has to be in
   // it: what the dialog names has to be that folder and not the workspace.

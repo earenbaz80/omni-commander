@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import crypto from 'node:crypto';
+import { BOOT_TIMEOUT_MS } from './support/boot';
 
 /**
  * The lock screen: the one window that stands between the user and everything
@@ -84,7 +85,7 @@ const settingsDialog = (page: Page) => page.getByRole('dialog', { name: SETTINGS
 
 /** Opens Settings on its security tab, the way the toolbar does. */
 async function openSecurityTab(page: Page) {
-  await page.getByTitle('Configuración').click({ timeout: 60000 });
+  await page.getByTitle('Configuración').click({ timeout: BOOT_TIMEOUT_MS });
   const dialog = settingsDialog(page);
   await expect(dialog).toBeVisible({ timeout: 30000 });
   await dialog.getByRole('button', { name: 'Seguridad' }).click();
@@ -104,7 +105,7 @@ test('arming the lock in Settings covers the window and a relaunch still asks', 
   test.setTimeout(120000);
   await pinLanguage(page);
   await page.goto('/');
-  await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: 60000 });
+  await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
   await expect(lockScreen(page)).toHaveCount(0);
 
   const settings = await openSecurityTab(page);
@@ -209,7 +210,7 @@ test('an enabled lock with no password does not lock the app out', async ({ page
   await seedSettings(page, { appLockEnabled: true, appUsername: 'admin', appPasswordHash: '' });
   await page.goto('/');
 
-  await expect(page.locator('[data-file-list]').first()).toBeVisible({ timeout: 60000 });
+  await expect(page.locator('[data-file-list]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
   await expect(lockScreen(page)).toHaveCount(0);
 
   // Settings agrees there is nothing to verify against, which is why the flag

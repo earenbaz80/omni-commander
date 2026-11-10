@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { removeWorkspace } from './support/tempWorkspaces';
+import { BOOT_TIMEOUT_MS } from './support/boot';
 
 /**
  * The window that deletes files, walked from the list a user works in.
@@ -62,7 +63,7 @@ async function seedSettings(page: Page, settings: Record<string, unknown> = {}) 
 /** Points the left panel at the scratch folder and waits for its rows. */
 async function openWorkspace(page: Page) {
   await page.goto('/');
-  await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: 60000 });
+  await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
 
   await page.locator('[data-path-bar]').nth(0).click();
   const input = page.locator('[data-path-input]');

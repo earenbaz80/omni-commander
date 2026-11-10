@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import { removeWorkspace } from './support/tempWorkspaces';
+import { BOOT_TIMEOUT_MS } from './support/boot';
 import path from 'node:path';
 
 // Pin the UI language so the specs don't break if the app default changes.
@@ -51,7 +52,7 @@ test('the file list is a named group, so focus on it is announced', async ({ pag
   // Both panels render their own list, and focus lands on it every time a
   // window closes back onto it.
   const lists = page.locator('[data-file-list]');
-  await expect(lists.first()).toBeVisible({ timeout: 60000 });
+  await expect(lists.first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
 
   const audit = await lists.evaluateAll((els) =>
     els.map((el) => ({
@@ -113,7 +114,7 @@ const GROUPING_ROLES = [
 
 test('every grouping or landmark is named', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('[data-file-list]').first()).toBeVisible({ timeout: 60000 });
+  await expect(page.locator('[data-file-list]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
 
   const auditContainers = () =>
     page.evaluate((roles: string[]) => {
@@ -290,7 +291,7 @@ test('every grouping inside a window is named, like the ones on the page', async
     await fs.writeFile(path.join(workspace, 'nota.txt'), 'una nota\n', 'utf8');
 
     await page.goto('/');
-    await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: 60000 });
+    await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
     await focusFixtureFile(page, workspace);
 
     const seen: GroupingInWindow[] = [];
@@ -347,7 +348,7 @@ test('every visible button has an accessible name', async ({ page }) => {
   // (no style classes) and language independent. polling keeps it alive even
   // when requestAnimationFrame is throttled.
   await page.waitForFunction(() => document.querySelectorAll('button[aria-pressed]').length > 20, undefined, {
-    timeout: 60000,
+    timeout: BOOT_TIMEOUT_MS,
     // Polled rather than rAF (throttled in a background tab), but fine-grained:
     // a coarse interval adds its own delay to every boot this suite waits on.
     polling: 100,

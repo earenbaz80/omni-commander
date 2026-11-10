@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
+import { BOOT_TIMEOUT_MS } from './support/boot';
 
 /**
  * The temporary-folder cleanup window, opened from the toolbar the way a user
@@ -113,7 +114,7 @@ async function openCleanup(page: Page) {
   await page.goto('/');
 
   const toolbar = page.getByTitle(TOOLBAR_LABEL);
-  await expect(toolbar).toBeVisible({ timeout: 60000 });
+  await expect(toolbar).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
   await toolbar.click();
 
   const menu = page.getByRole('menu', { name: TOOLBAR_LABEL });
@@ -132,7 +133,7 @@ test('it measures first, asks once, and only the second press deletes', async ({
 
   await page.goto('/');
   const toolbar = page.getByTitle(TOOLBAR_LABEL);
-  await expect(toolbar).toBeVisible({ timeout: 60000 });
+  await expect(toolbar).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
   await toolbar.click();
 
   const menu = page.getByRole('menu', { name: TOOLBAR_LABEL });
