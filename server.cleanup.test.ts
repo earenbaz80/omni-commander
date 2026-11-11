@@ -4,7 +4,7 @@ import { spawn, ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { startServer, type TestServer } from '@/scripts/serverHarness';
+import { startServer, WINDOWS_PROCESS_CASE_TIMEOUT_MS, type TestServer } from '@/scripts/serverHarness';
 
 /**
  * Emptying a whole folder is the one operation in this app that can destroy work
@@ -142,7 +142,7 @@ beforeAll(async () => {
   server = await startServer({
     env: { OMNI_SESSION_TOKEN: '', OMNI_CLEANUP_USER_TEMP_ROOT: root },
   });
-}, 90000);
+}, WINDOWS_PROCESS_CASE_TIMEOUT_MS);
 
 afterAll(async () => {
   await server.stop();
@@ -232,31 +232,37 @@ describe('POST /api/fs/cleanup/scan', () => {
 });
 
 describe('POST /api/fs/cleanup/run', () => {
-  it('empties the old entries, keeps the fresh ones and reports what it could not remove', async () => {
-    const { status, body } = await post('cleanup/run', { target: 'user-temp', minAgeDays: 1 });
+  // The run deletes a file PowerShell is holding with FileShare.None, so how long
+  // the refusal takes is up to that process, not to this one.
+  it(
+    'empties the old entries, keeps the fresh ones and reports what it could not remove',
+    async () => {
+      const { status, body } = await post('cleanup/run', { target: 'user-temp', minAgeDays: 1 });
 
-    expect(status).toBe(200);
-    expect(body.deletedFiles).toBe(3);
-    expect(body.deletedDirs).toBe(2);
-    // The file in use is reported, never counted as freed space.
-    expect(body.freedBytes).toBe(DELETABLE_BYTES);
-    expect(body.failedCount).toBe(1);
-    expect(String(body.failed[0].path).toLowerCase()).toBe(inUsePath.toLowerCase());
+      expect(status).toBe(200);
+      expect(body.deletedFiles).toBe(3);
+      expect(body.deletedDirs).toBe(2);
+      // The file in use is reported, never counted as freed space.
+      expect(body.freedBytes).toBe(DELETABLE_BYTES);
+      expect(body.failedCount).toBe(1);
+      expect(String(body.failed[0].path).toLowerCase()).toBe(inUsePath.toLowerCase());
 
-    expect(fs.existsSync(path.join(root, 'viejo-a.bin'))).toBe(false);
-    expect(fs.existsSync(path.join(root, 'vieja'))).toBe(false);
+      expect(fs.existsSync(path.join(root, 'viejo-a.bin'))).toBe(false);
+      expect(fs.existsSync(path.join(root, 'vieja'))).toBe(false);
 
-    // Fresh entries survive the run.
-    expect(fs.readFileSync(path.join(root, 'suelto-nuevo.txt')).length).toBe(50);
-    expect(fs.readFileSync(path.join(root, 'nueva', 'fresco.txt')).length).toBe(20);
+      // Fresh entries survive the run.
+      expect(fs.readFileSync(path.join(root, 'suelto-nuevo.txt')).length).toBe(50);
+      expect(fs.readFileSync(path.join(root, 'nueva', 'fresco.txt')).length).toBe(20);
 
-    // The junction was left alone, and so was everything it points at.
-    expect(fs.existsSync(path.join(root, 'enlace-externo'))).toBe(true);
-    expect(fs.readFileSync(path.join(outside, 'importante.txt')).length).toBe(999);
+      // The junction was left alone, and so was everything it points at.
+      expect(fs.existsSync(path.join(root, 'enlace-externo'))).toBe(true);
+      expect(fs.readFileSync(path.join(outside, 'importante.txt')).length).toBe(999);
 
-    // The file it could not delete is still there, as reported.
-    expect(fs.existsSync(inUsePath)).toBe(true);
-  });
+      // The file it could not delete is still there, as reported.
+      expect(fs.existsSync(inUsePath)).toBe(true);
+    },
+    WINDOWS_PROCESS_CASE_TIMEOUT_MS,
+  );
 
   it('refuses a target that needs elevation', async () => {
     const { status, body } = await post('cleanup/run', { target: 'prefetch', minAgeDays: 0 });
