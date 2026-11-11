@@ -534,6 +534,12 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
                 Matrix Terminal {theme.id === 'matrix_green' ? '✓' : ''}
               </button>
               <button
+                onClick={() => handleAction(() => onSetTheme('retro_futurist'))}
+                className="w-full text-left px-4 py-0.5 hover:bg-white/20"
+              >
+                {t.themeRetroFuturist} {theme.id === 'retro_futurist' ? '✓' : ''}
+              </button>
+              <button
                 onClick={() => handleAction(() => onSetTheme('windows11_dark'))}
                 className="w-full text-left px-4 py-0.5 hover:bg-white/20"
               >

@@ -127,6 +127,60 @@ const retroGrayConfig: ThemeConfig = {
 };
 
 /**
+ * Retro-futurism built like an instrument panel rather than a poster: a black
+ * petrol chassis, phosphor teal for whatever is live — the header strip, the
+ * active tab, the column heads, the status line, the function numbers — and
+ * amber as the second signal, carried by archives, warnings and the selected
+ * rows. Structure stays in cold steel and desaturated blue-grey, and no hue is
+ * warmer than terracotta, so the panel never drifts towards pink or magenta.
+ *
+ * The file list's cursor bar is not the theme's to paint: App.tsx swaps
+ * `cursorBg`/`selectedBg` for the user's file-selector colour, so the row under
+ * the focus follows that setting whatever theme is active.
+ */
+const retroFuturistConfig: ThemeConfig = {
+  id: 'retro_futurist',
+  nameKey: 'themeRetroFuturist',
+  bgApp: '#08151b',
+  bgPanel: '#0e212a',
+  bgPanelInactive: '#08151b',
+  borderPanel: '#20414d',
+  borderFocus: '#3fe0c5',
+  headerBg: '#2fc7b4',
+  headerText: '#061a1f',
+  itemText: '#dfe9e4',
+  dirText: '#6ec8e8',
+  exeText: '#8fe0a0',
+  zipText: '#ffb347',
+  docText: '#e8d7a0',
+  mediaText: '#e0885f',
+  selectedText: '#ffb347',
+  selectedBg: '#1b3a44',
+  cursorBg: '#ffb347',
+  cursorText: '#0a1a20',
+  statusBg: '#0e212a',
+  statusText: '#8fb3bd',
+  fkeyNumBg: '#061318',
+  fkeyNumText: '#3fe0c5',
+  fkeyLabelBg: '#173440',
+  fkeyLabelText: '#cfe8e4',
+  promptBg: '#061318',
+  promptText: '#dfe9e4',
+  modalBg: '#0e212a',
+  modalBorder: '#2b5460',
+  modalHeaderBg: '#2fc7b4',
+  modalHeaderText: '#061a1f',
+  accent: '#3fe0c5',
+  accentWarn: '#ffb347',
+  accentDanger: '#e0553a',
+  accentOk: '#8fe0a0',
+  overlay: '#00000099',
+  radius: '0',
+  shadow: 'none',
+  isRetro: true,
+};
+
+/**
  * Theme names that earlier builds wrote to saved settings. They are not themes
  * of their own: each one is the same palette under its old name, so a stored
  * value is translated on load. Without that, the settings would keep a name
@@ -152,6 +206,7 @@ export function migrateThemeId(savedId: unknown): ThemeId {
 export const themes: Record<ThemeId, ThemeConfig> = {
   classic_blue: classicBlueConfig,
   retro_gray: retroGrayConfig,
+  retro_futurist: retroFuturistConfig,
   midnight_amber: {
     id: 'midnight_amber',
     nameKey: 'themeMidnight',

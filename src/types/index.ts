@@ -104,7 +104,8 @@ export type ThemeId =
   | 'windows11_light'
   | 'retro_gray'
   | 'dracula_retro'
-  | 'solarized_dark';
+  | 'solarized_dark'
+  | 'retro_futurist';
 
 export type LanguageCode = 'es' | 'en' | 'de' | 'fr' | 'pt' | 'it' | 'ru' | 'ja';
 
