@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { startServer, type TestServer } from '@/scripts/serverHarness';
+import { startServer, WINDOWS_PROCESS_CASE_TIMEOUT_MS, type TestServer } from '@/scripts/serverHarness';
 
 /**
  * `/api/tree` walks real folders to draw the panel: it exposes the same structure
@@ -44,18 +44,26 @@ describe('lecturas que describen el disco', () => {
 describe('lecturas que describen la máquina', () => {
   const token = { headers: { 'x-omni-token': TOKEN } };
 
-  it('la tabla de procesos exige el token', async () => {
-    expect(await statusOf('/api/processes')).toBe(403);
-    expect(await statusOf('/api/processes', token)).toBe(200);
-  });
+  it(
+    'la tabla de procesos exige el token',
+    async () => {
+      expect(await statusOf('/api/processes')).toBe(403);
+      expect(await statusOf('/api/processes', token)).toBe(200);
+    },
+    WINDOWS_PROCESS_CASE_TIMEOUT_MS,
+  );
 
   it('las direcciones de red exigen el token', async () => {
     expect(await statusOf('/api/net/adapters')).toBe(403);
     expect(await statusOf('/api/net/adapters', token)).toBe(200);
   });
 
-  it('la carga del sistema exige el token', async () => {
-    expect(await statusOf('/api/system/stats')).toBe(403);
-    expect(await statusOf('/api/system/stats', token)).toBe(200);
-  });
+  it(
+    'la carga del sistema exige el token',
+    async () => {
+      expect(await statusOf('/api/system/stats')).toBe(403);
+      expect(await statusOf('/api/system/stats', token)).toBe(200);
+    },
+    WINDOWS_PROCESS_CASE_TIMEOUT_MS,
+  );
 });
