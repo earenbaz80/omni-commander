@@ -88,6 +88,7 @@ const ImageStudioModal = React.lazy(() =>
 );
 const MapsModal = React.lazy(() => import('./modals/MapsModal').then((m) => ({ default: m.MapsModal })));
 const TerminalModal = React.lazy(() => import('./modals/TerminalModal').then((m) => ({ default: m.TerminalModal })));
+const ShareModal = React.lazy(() => import('./modals/ShareModal').then((m) => ({ default: m.ShareModal })));
 
 type UnlockTarget = {
   side: 'left' | 'right';
@@ -432,6 +433,15 @@ export const AppModals: React.FC<AppModalsProps> = ({
             lang={lang}
             settings={settings}
             onUpdateSettings={(newS) => setSettings((prev) => ({ ...prev, ...newS }))}
+            onClose={() => setActiveModal(null)}
+          />
+        )}
+
+        {activeModal === 'share' && (
+          <ShareModal
+            theme={currentTheme}
+            lang={lang}
+            startFolder={modalData?.shareFolderPath ?? currentActiveTab.currentPath}
             onClose={() => setActiveModal(null)}
           />
         )}

@@ -17,6 +17,12 @@ export interface ElectronBridge {
   relaunchAsAdmin?: () => Promise<ElevationResult>;
   /** Hands a URL to the shell: the app blocks navigation out of its window. */
   openExternal?: (url: string) => Promise<unknown>;
+  /**
+   * Native picker for paths outside the panels. Windows cannot mix files and
+   * folders in one dialog, so the mode chooses; it answers absolute paths, and
+   * an empty list when the dialog was cancelled.
+   */
+  pickPaths?: (mode: 'folders' | 'files', title?: string) => Promise<string[]>;
   minimizeWindow?: () => void;
   maximizeWindow?: () => void;
   closeWindow?: () => void;
