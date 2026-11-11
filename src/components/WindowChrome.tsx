@@ -38,6 +38,8 @@ export interface WindowChromeProps {
   onNewTab: (side: 'left' | 'right') => void;
   onSelectDrive: (side: 'left' | 'right', driveId: string) => void;
   onNavigate: (side: 'left' | 'right', path: string) => void;
+  /** Opens the browser inside the panel the user is working in. */
+  onOpenBrowserInPanel?: () => void;
   runLauncherOpenRequest: number;
   launcherOnly: boolean;
   setLauncherOnly: (value: boolean) => void;
@@ -82,6 +84,7 @@ export const WindowChrome: React.FC<WindowChromeProps> = ({
   onNewTab,
   onSelectDrive,
   onNavigate,
+  onOpenBrowserInPanel,
   runLauncherOpenRequest,
   launcherOnly,
   setLauncherOnly,
@@ -140,6 +143,7 @@ export const WindowChrome: React.FC<WindowChromeProps> = ({
           }
           setActiveModal(m);
         }}
+        onOpenBrowserInPanel={onOpenBrowserInPanel}
         onRefresh={() => {
           soundManager.playKeyTick();
           setFsTick((t) => t + 1);

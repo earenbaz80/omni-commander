@@ -1141,6 +1141,7 @@ export const en = {
 
   // Browsing window: a real page in a session of its own, never an iframe.
   webBrowser: 'Web browser…',
+  browserInPanel: 'Web browser in the panel',
   browserTitle: 'Web browser',
   browserAddress: 'Address (e.g. example.com)',
   browserBack: 'Back',

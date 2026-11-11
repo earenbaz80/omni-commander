@@ -1114,6 +1114,7 @@ export const pt = {
 
   // Janela de navegação: uma página real numa sessão isolada, nunca um iframe.
   webBrowser: 'Navegador web…',
+  browserInPanel: 'Navegador no painel',
   browserTitle: 'Navegador web',
   browserAddress: 'Endereço (ex. example.com)',
   browserBack: 'Voltar',

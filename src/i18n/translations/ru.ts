@@ -1116,6 +1116,7 @@ export const ru = {
 
   // Окно браузера: настоящая страница в отдельном сеансе, а не iframe.
   webBrowser: 'Веб-браузер…',
+  browserInPanel: 'Браузер в панели',
   browserTitle: 'Веб-браузер',
   browserAddress: 'Адрес (например, example.com)',
   browserBack: 'Назад',

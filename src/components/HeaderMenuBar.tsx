@@ -28,6 +28,8 @@ interface HeaderMenuBarProps {
   crtEffectEnabled?: boolean;
   onToggleCrt?: () => void;
   onOpenModal: (modal: ActiveModal) => void;
+  /** Opens the built-in browser inside the panel the user is working in. */
+  onOpenBrowserInPanel?: () => void;
   onRefresh: () => void;
   onSelectAll: () => void;
   onInvertSelection: () => void;
@@ -55,6 +57,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
   clockPosition = 'header',
   hoverOpen = false,
   onOpenModal,
+  onOpenBrowserInPanel,
   onRefresh,
   onSelectAll,
   onInvertSelection,
@@ -475,6 +478,18 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
               >
                 <span>{t.openTextEditor}</span> <span className="opacity-60">F4</span>
               </button>
+              <button
+                onClick={() => handleAction(() => onOpenModal('browser'))}
+                className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between"
+              >
+                <span>{t.webBrowser}</span> <span className="opacity-60">🌍</span>
+              </button>
+              <button
+                onClick={() => handleAction(() => onOpenBrowserInPanel?.())}
+                className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between text-cyan-300 font-bold"
+              >
+                <span>{t.browserInPanel}</span> <span className="opacity-60">⇱</span>
+              </button>
             </div>
           )}
         </div>
@@ -504,12 +519,6 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
                 className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between"
               >
                 <span>{t.shareNetwork}</span> <span className="opacity-60">🌐</span>
-              </button>
-              <button
-                onClick={() => handleAction(() => onOpenModal('browser'))}
-                className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between"
-              >
-                <span>{t.webBrowser}</span> <span className="opacity-60">🌍</span>
               </button>
               <div className="h-px bg-current opacity-20 my-1"></div>
               <div className="px-[var(--space-3)] py-[var(--space-1)] font-bold text-xs uppercase opacity-75">

@@ -65,9 +65,12 @@ export const DriveBar: React.FC<DriveBarProps> = ({
     }
   };
 
-  const usedPercent = currentDrive
-    ? Math.round(((currentDrive.totalBytes - currentDrive.freeBytes) / currentDrive.totalBytes) * 100)
-    : 50;
+  // A mapped drive whose server is away reports no size at all: there is no
+  // percentage to draw, so the meter keeps its resting width.
+  const usedPercent =
+    currentDrive && currentDrive.totalBytes > 0
+      ? Math.round(((currentDrive.totalBytes - currentDrive.freeBytes) / currentDrive.totalBytes) * 100)
+      : 50;
 
   return (
     <div
@@ -88,9 +91,13 @@ export const DriveBar: React.FC<DriveBarProps> = ({
         </span>
 
         {drives
-          .filter((d) => d.isMounted)
+          // A mapped drive keeps its letter while its server is unreachable, and
+          // that is precisely when the user needs to see it: hiding it made the
+          // share look unmapped. It is drawn dimmed instead.
+          .filter((d) => d.isMounted || d.type === 'network')
           .map((drive) => {
             const isSelected = drive.id === currentDriveId;
+            const offline = !drive.isMounted;
             return (
               <button
                 key={drive.id}
@@ -98,8 +105,8 @@ export const DriveBar: React.FC<DriveBarProps> = ({
                   soundManager.playDiskAccess();
                   onSelectDrive(drive.id);
                 }}
-                title={`${drive.letter} ${drive.name}${drive.fileSystem ? ` [${drive.fileSystem}]` : ''}${drive.driveKind ? ` (${drive.driveKind})` : ''} - ${formatBytes(drive.freeBytes)} free`}
-                className={`px-[var(--space-2)] py-[var(--space-1)] text-xs font-bold transition-all rounded flex items-center gap-[var(--space-1)] shrink-0 cursor-pointer ${
+                title={`${drive.letter} ${drive.name}${drive.fileSystem ? ` [${drive.fileSystem}]` : ''}${drive.driveKind ? ` (${drive.driveKind})` : ''} - ${offline ? 'not connected' : `${formatBytes(drive.freeBytes)} free`}`}
+                className={`${offline ? 'opacity-60 border border-dashed border-white/30 ' : ''}px-[var(--space-2)] py-[var(--space-1)] text-xs font-bold transition-all rounded flex items-center gap-[var(--space-1)] shrink-0 cursor-pointer ${
                   isSelected
                     ? 'bg-amber-400 text-black shadow-inner font-extrabold ring-1 ring-amber-300'
                     : 'bg-black/30 hover:bg-black/50 text-white/90 border border-white/20'

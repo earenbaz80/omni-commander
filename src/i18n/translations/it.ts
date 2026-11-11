@@ -1116,6 +1116,7 @@ export const it = {
 
   // Finestra di navigazione: una pagina vera in una sessione separata, mai un iframe.
   webBrowser: 'Browser web…',
+  browserInPanel: 'Browser nel pannello',
   browserTitle: 'Browser web',
   browserAddress: 'Indirizzo (es. example.com)',
   browserBack: 'Indietro',

@@ -28,6 +28,9 @@ export interface PaneBinding {
   onToggleSelect: (id: string) => void;
   onContextMenu: (e: React.MouseEvent, item: FileItem | null) => void;
   onItemHover: (e: React.MouseEvent, item: FileItem | null) => void;
+  /** Address this side shows instead of its files, when the browser is open in it. */
+  browserUrl?: string;
+  onCloseBrowser?: () => void;
 }
 
 /**
@@ -158,6 +161,8 @@ export const DualPaneView: React.FC<DualPaneViewProps> = ({
       onOpenItem={handlers.openItem}
       onContextMenu={binding.onContextMenu}
       onItemHover={binding.onItemHover}
+      browserUrl={binding.browserUrl}
+      onCloseBrowser={binding.onCloseBrowser}
     />
   );
 

@@ -76,6 +76,9 @@ export default function App() {
   // File system state
   const drives = useDrives();
   const [activePanel, setActivePanel] = useState<'left' | 'right'>('left');
+  // The browser is a single native view owned by the main process: it is either
+  // a window of its own or the content of one pane, never both at once.
+  const [panelBrowser, setPanelBrowser] = useState<{ side: 'left' | 'right'; url: string } | null>(null);
 
   // Hover Tooltip state
   const [hoveredItem, setHoveredItem] = useState<FileItem | null>(null);
@@ -510,7 +513,10 @@ export default function App() {
         rightTab={rightTab}
         activeFocusedItem={activeFocusedItem}
         setSelectedFileForModal={setSelectedFileForModal}
-        setActiveModal={setActiveModal}
+        setActiveModal={(next) => {
+          setPanelBrowser(null);
+          setActiveModal(next);
+        }}
         setCleanupTarget={setCleanupTarget}
         setFsTick={setFsTick}
         isAppLocked={isAppLocked}
@@ -522,6 +528,10 @@ export default function App() {
         onNewTab={handleNewTab}
         onSelectDrive={handleSelectDrive}
         onNavigate={handleNavigate}
+        onOpenBrowserInPanel={() => {
+          setActiveModal(null);
+          setPanelBrowser({ side: activePanel, url: '' });
+        }}
         runLauncherOpenRequest={runLauncherOpenRequest}
         launcherOnly={launcherOnly}
         setLauncherOnly={setLauncherOnly}
@@ -584,6 +594,8 @@ export default function App() {
           onToggleSelect: handleLeftToggleSelect,
           onContextMenu: handleLeftContextMenu,
           onItemHover: handleLeftItemHover,
+          browserUrl: panelBrowser?.side === 'left' ? panelBrowser.url : undefined,
+          onCloseBrowser: () => setPanelBrowser(null),
         }}
         right={{
           panel: rightPanel,
@@ -602,6 +614,8 @@ export default function App() {
           onToggleSelect: handleRightToggleSelect,
           onContextMenu: handleRightContextMenu,
           onItemHover: handleRightItemHover,
+          browserUrl: panelBrowser?.side === 'right' ? panelBrowser.url : undefined,
+          onCloseBrowser: () => setPanelBrowser(null),
         }}
       />
 
