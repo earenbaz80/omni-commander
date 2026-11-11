@@ -1293,4 +1293,40 @@ export const pt = {
   shareNoAddress: 'Nenhuma conexão de rede encontrada: o link aparece quando o Windows informar uma placa de rede.',
   sharePortLabel: 'Porta:',
   shareFailed: 'Não foi possível iniciar o compartilhamento.',
+  panelLayoutSingle: 'Painel único (Tab troca de lado)',
+  shareNetwork: 'Compartilhar na rede…',
+
+  // Janela de navegação: uma página real numa sessão isolada, nunca um iframe.
+  webBrowser: 'Navegador web…',
+  browserTitle: 'Navegador web',
+  browserAddress: 'Endereço (ex. example.com)',
+  browserBack: 'Voltar',
+  browserForward: 'Avançar',
+  browserReload: 'Recarregar',
+  browserOpenExternal: 'Abrir no navegador do sistema',
+  browserPrivacy:
+    'Sessão isolada: sem permissões, sem transferências e sem partilhar cookies com a aplicação. As ligações que pedem uma janela nova não abrem.',
+  browserUnavailable:
+    'O navegador integrado só existe na aplicação de ambiente de trabalho: aqui não há página para mostrar.',
+  browserOpenFailed: 'Não foi possível abrir esse endereço.',
+  shareTitle: 'Compartilhar uma pasta na rede',
+  shareIntro:
+    'Serve a pasta só para leitura via HTTP, para outro computador da rede abri-la no navegador. Nada é compartilhado antes de «Iniciar», e o link é a chave: quem o tiver pode ler a pasta.',
+  shareFolderLabel: 'Pasta a compartilhar:',
+  shareChooseFolder: 'Escolher pasta…',
+  shareChooseTitle: 'Escolher a pasta a compartilhar',
+  sharePickerUnavailable: 'O seletor de pastas só existe no aplicativo de desktop.',
+  shareNoFolder: 'Nenhuma pasta escolhida.',
+  shareStart: 'Iniciar compartilhamento',
+  shareStop: 'Parar compartilhamento',
+  shareActive: 'O compartilhamento está ativo.',
+  shareInactive: 'O compartilhamento está desligado.',
+  shareLinkLabel: 'Abra isto no outro computador:',
+  shareCopyLink: 'Copiar link',
+  shareCopied: 'Copiado',
+  shareWarning:
+    'Somente leitura. Fica ativo enquanto o app estiver aberto, até você parar; qualquer pessoa na rede com o link pode ler a pasta.',
+  shareNoAddress: 'Nenhuma conexão de rede encontrada: o link aparece quando o Windows informar uma placa de rede.',
+  sharePortLabel: 'Porta:',
+  shareFailed: 'Não foi possível iniciar o compartilhamento.',
 } as const;

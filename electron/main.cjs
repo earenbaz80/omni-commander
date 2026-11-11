@@ -1,4 +1,15 @@
-const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog, shell, session } = require('electron');
+const {
+  app,
+  BrowserWindow,
+  WebContentsView,
+  ipcMain,
+  Menu,
+  Tray,
+  nativeImage,
+  dialog,
+  shell,
+  session,
+} = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { launchElevated } = require('./elevation.cjs');
@@ -11,6 +22,7 @@ const { normalizeChannel, readUpdateChannel } = require('./updateChannel.cjs');
 const { nextStateForOffer } = require('./updateOffer.cjs');
 const { canReloadRenderer, rendererGoneLine } = require('./rendererRecovery.cjs');
 const { isTransientUpdateError, nextRetryDelay } = require('./updateRetry.cjs');
+const { normalizeBrowserUrl } = require('./browserUrl.cjs');
 
 // Per-launch session token. It is the shared secret between this process, the
 // embedded API server and the renderer: every mutating request, and every GET
@@ -432,6 +444,84 @@ function createTray() {
   console.log('Tray controls ready.');
 }
 
+// ---------------------------------------------------------------------------
+// Built-in web browser
+//
+// A page of its own inside the app. It is a WebContentsView — real Chromium —
+// rather than an iframe, because most sites refuse to be framed. The view lives
+// in a memory-only partition (no `persist:`), has no preload and no Node, drops
+// downloads and denies every permission, so it shows the web without becoming a
+// second application inside this one. The main window keeps its own rules: this
+// view is the only place in the product that may leave the machine.
+// ---------------------------------------------------------------------------
+const BROWSER_PARTITION = 'omni-browser-view';
+const BROWSER_COMMANDS = new Set(['back', 'forward', 'reload']);
+
+let browserView = null;
+
+function browserState() {
+  const contents = browserView?.webContents;
+  if (!contents) return { url: '', title: '', loading: false, canGoBack: false, canGoForward: false };
+  return {
+    url: contents.getURL(),
+    title: contents.getTitle(),
+    loading: contents.isLoading(),
+    canGoBack: contents.navigationHistory.canGoBack(),
+    canGoForward: contents.navigationHistory.canGoForward(),
+  };
+}
+
+function pushBrowserState() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('browser:state', browserState());
+}
+
+/** Removes the view, and the page with it: a closed window leaves nothing running. */
+function destroyBrowser() {
+  if (!browserView) return;
+  const view = browserView;
+  browserView = null;
+  try {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.contentView.removeChildView(view);
+    view.webContents.close();
+  } catch (error) {
+    console.error('Could not close the browser view:', error);
+  }
+}
+
+function createBrowserView() {
+  if (browserView) return browserView;
+  if (!mainWindow || mainWindow.isDestroyed()) return null;
+  const view = new WebContentsView({
+    webPreferences: {
+      partition: BROWSER_PARTITION,
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+    },
+  });
+  const browserSession = view.webContents.session;
+  denyAllPermissions(browserSession);
+  // A download would be written by this process, in a folder the user never
+  // chose; the view is for reading pages, so the transfer is dropped.
+  browserSession.on('will-download', (event) => event.preventDefault());
+  // A `window.open` target would be a window we cannot place, with none of the
+  // rules above; the page stays where it is.
+  view.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  for (const event of [
+    'did-navigate',
+    'did-navigate-in-page',
+    'did-start-loading',
+    'did-stop-loading',
+    'page-title-updated',
+  ]) {
+    view.webContents.on(event, pushBrowserState);
+  }
+  mainWindow.contentView.addChildView(view);
+  browserView = view;
+  return view;
+}
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -478,6 +568,7 @@ function createMainWindow() {
   });
 
   mainWindow.on('closed', () => {
+    destroyBrowser();
     mainWindow = null;
   });
 
@@ -506,6 +597,10 @@ function createMainWindow() {
   // hours later, or after whatever caused it is gone — starts the count again.
   mainWindow.webContents.on('did-finish-load', () => {
     rendererCrashes = 0;
+    // A reload rebuilds the interface from scratch, so the window that owned
+    // the page is gone even though the view is not: close it rather than leave
+    // a page floating over a window that no longer has a browser in it.
+    destroyBrowser();
   });
 
   if (isDev) {
@@ -627,6 +722,61 @@ ipcMain.handle('window:maximize', () => {
   else mainWindow.maximize();
 });
 ipcMain.handle('window:close', () => mainWindow?.close());
+
+// The browser's window: the renderer places a box and asks for a page here. The
+// box's geometry is what the native view follows, so the page always sits where
+// the dialog says it does.
+ipcMain.handle('browser:open', (event, target) => {
+  if (!isFromAppWindow(event)) return { ok: false };
+  const view = createBrowserView();
+  if (!view) return { ok: false };
+  const url = normalizeBrowserUrl(target);
+  if (url) void view.webContents.loadURL(url);
+  return { ok: true, url };
+});
+
+ipcMain.handle('browser:navigate', (event, target) => {
+  if (!isFromAppWindow(event) || !browserView) return { ok: false };
+  const url = normalizeBrowserUrl(target);
+  if (!url) return { ok: false };
+  void browserView.webContents.loadURL(url);
+  return { ok: true, url };
+});
+
+ipcMain.handle('browser:command', (event, command) => {
+  if (!isFromAppWindow(event) || !browserView || !BROWSER_COMMANDS.has(command)) return false;
+  const contents = browserView.webContents;
+  if (command === 'back') contents.navigationHistory.goBack();
+  else if (command === 'forward') contents.navigationHistory.goForward();
+  else contents.reload();
+  return true;
+});
+
+ipcMain.handle('browser:set-bounds', (event, bounds) => {
+  if (!isFromAppWindow(event) || !browserView) return false;
+  const width = Math.max(0, Math.round(Number(bounds?.width) || 0));
+  const height = Math.max(0, Math.round(Number(bounds?.height) || 0));
+  // A rolled-up dialog reports an empty box; hiding keeps the page from floating
+  // over the rest of the interface while its window is not showing it.
+  if (width < 2 || height < 2) {
+    browserView.setVisible(false);
+    return true;
+  }
+  browserView.setVisible(true);
+  browserView.setBounds({
+    x: Math.max(0, Math.round(Number(bounds?.x) || 0)),
+    y: Math.max(0, Math.round(Number(bounds?.y) || 0)),
+    width,
+    height,
+  });
+  return true;
+});
+
+ipcMain.handle('browser:close', (event) => {
+  if (!isFromAppWindow(event)) return false;
+  destroyBrowser();
+  return true;
+});
 
 // Adds entries to an open transfer list from outside the panels. A sandboxed
 // renderer cannot see arbitrary folders, so the picker runs here and only hands
