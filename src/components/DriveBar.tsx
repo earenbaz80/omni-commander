@@ -117,7 +117,7 @@ export const DriveBar: React.FC<DriveBarProps> = ({
         <div className="hidden lg:flex items-center gap-[var(--space-2)] text-[11px] opacity-90 shrink-0 pl-2">
           <div className="w-16 h-2 bg-black/40 rounded-full overflow-hidden border border-white/20">
             <div
-              className={`h-full ${usedPercent > 85 ? 'bg-red-500' : usedPercent > 60 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+              className={`h-full ${usedPercent > 85 ? 'nc-danger-fill' : usedPercent > 60 ? 'bg-amber-400' : 'bg-emerald-400'}`}
               style={{ width: `${usedPercent}%` }}
             />
           </div>

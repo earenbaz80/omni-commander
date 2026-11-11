@@ -400,7 +400,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
 
           <MenuItem
             onClick={() => handleAction(onDelete)}
-            className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-red-500/30 text-red-300 flex items-center justify-between cursor-pointer"
+            className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:nc-danger-surface-strong nc-danger-ink flex items-center justify-between cursor-pointer"
           >
             <span className="flex items-center gap-[var(--space-2)]">
               <Trash2 className="w-3.5 h-3.5" /> {t.delete}

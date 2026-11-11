@@ -216,7 +216,7 @@ export const DiskUsageTree: React.FC<DiskUsageTreeProps> = ({
   };
 
   const treeBody = () => {
-    if (failure) return <div className="text-rose-300">{failureMessage(failure)}</div>;
+    if (failure) return <div className="nc-danger-ink">{failureMessage(failure)}</div>;
     if (!tree) return <div className="opacity-50">{t.diskUsageNoData}</div>;
     return renderNode(tree, 0, true);
   };
