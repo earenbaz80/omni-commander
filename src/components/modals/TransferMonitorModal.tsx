@@ -210,7 +210,7 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({ them
                         }}
                         aria-label={t.btnCancel}
                         title={t.btnCancel}
-                        className="px-[var(--space-1)] border border-rose-500/50 rounded text-rose-300 hover:bg-rose-950/60 cursor-pointer text-[10px] leading-4"
+                        className="px-[var(--space-1)] border nc-danger-edge rounded nc-danger-ink hover:nc-danger-fill cursor-pointer text-[10px] leading-4"
                       >
                         ✕
                       </button>
@@ -242,7 +242,7 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({ them
                       title={entry.title}
                     >
                       <span className="opacity-60 shrink-0 tabular-nums">{entry.time}</span>
-                      <span className="flex-1 break-all text-rose-300">{entry.message}</span>
+                      <span className="flex-1 break-all nc-danger-ink">{entry.message}</span>
                     </div>
                   ))}
                 </>
@@ -325,7 +325,7 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({ them
                     soundManager.playKeyTick();
                     taskQueue.cancelTask(active.id);
                   }}
-                  className="px-[var(--space-3)] py-[var(--space-1)] border border-rose-500/60 rounded text-rose-300 hover:bg-rose-950/60 cursor-pointer font-bold"
+                  className="px-[var(--space-3)] py-[var(--space-1)] border nc-danger-edge rounded nc-danger-ink hover:nc-danger-fill cursor-pointer font-bold"
                 >
                   {t.btnCancel}
                 </button>

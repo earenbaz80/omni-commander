@@ -87,8 +87,8 @@ export const AppLockModal: React.FC<AppLockModalProps> = ({
           </div>
 
           {hasError && (
-            <div className="p-[var(--space-2)].5 bg-red-950 border border-red-500 text-red-200 font-bold rounded text-[var(--fs-sm)] text-center flex items-center justify-center gap-[var(--space-2)]">
-              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+            <div className="p-[var(--space-2)].5 nc-danger-fill border nc-danger-edge nc-danger-ink-soft font-bold rounded text-[var(--fs-sm)] text-center flex items-center justify-center gap-[var(--space-2)]">
+              <AlertTriangle className="w-4 h-4 nc-danger-ink shrink-0" />
               <span>{t.appLockBadCreds}</span>
             </div>
           )}

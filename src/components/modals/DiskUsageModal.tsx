@@ -76,7 +76,7 @@ export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({ theme, lang, dri
                       {/* Progress bar */}
                       <div className="w-full h-2.5 bg-black/60 rounded-full overflow-hidden border border-white/20">
                         <div
-                          className={`h-full transition-all ${percent > 85 ? 'bg-red-500' : percent > 60 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                          className={`h-full transition-all ${percent > 85 ? 'nc-danger-fill' : percent > 60 ? 'bg-amber-400' : 'bg-emerald-400'}`}
                           style={{ width: `${Math.min(100, percent)}%` }}
                         />
                       </div>

@@ -216,7 +216,7 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({ theme, lang, onClo
                     onClick={() => deleteEvent(event.id)}
                     aria-label={t.calendarDeleteEvent}
                     title={t.calendarDeleteEvent}
-                    className="shrink-0 cursor-pointer rounded p-[2px] text-red-300 hover:bg-red-500/20"
+                    className="shrink-0 cursor-pointer rounded p-[2px] nc-danger-ink hover:nc-danger-surface-strong"
                   >
                     <Trash2 className="h-3 w-3" />
                   </button>

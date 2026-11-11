@@ -350,7 +350,7 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
                       break;
                     case 'SIZE_MISMATCH':
                       statusBadge = (
-                        <span className="bg-red-950 text-red-300 border border-red-400/50 px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[9px]">
+                        <span className="nc-danger-fill nc-danger-ink border nc-danger-edge px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[9px]">
                           {t.syncSizeDiff}
                         </span>
                       );

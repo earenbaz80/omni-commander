@@ -162,7 +162,7 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({ them
                             ? 'text-amber-400'
                             : isCompleted
                               ? 'text-cyan-400'
-                              : 'text-rose-400'
+                              : 'nc-danger-ink'
                       }`}
                     >
                       {task.status}
@@ -193,7 +193,7 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({ them
                           file.status === 'done'
                             ? 'text-emerald-400'
                             : file.status === 'error'
-                              ? 'text-rose-300'
+                              ? 'nc-danger-ink'
                               : file.status === 'skipped'
                                 ? 'text-neutral-500'
                                 : 'text-cyan-300';
@@ -223,7 +223,7 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({ them
                 )}
 
                 {task.error && (
-                  <div className="text-[var(--fs-8)] text-rose-300 bg-rose-950/40 border-l-2 border-rose-500 px-[var(--space-2)] py-[var(--space-1)] rounded-sm break-words">
+                  <div className="text-[var(--fs-8)] nc-danger-ink nc-danger-surface-strong border-l-2 nc-danger-edge px-[var(--space-2)] py-[var(--space-1)] rounded-sm break-words">
                     {task.error}
                   </div>
                 )}
@@ -260,7 +260,7 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({ them
                     {(isRunning || isPaused) && (
                       <button
                         onClick={() => handleCancel(task.id)}
-                        className="px-[var(--space-2)] py-[var(--space-1)] bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 rounded flex items-center gap-[var(--space-1)] cursor-pointer"
+                        className="px-[var(--space-2)] py-[var(--space-1)] nc-danger-surface-strong hover:nc-danger-fill nc-danger-ink rounded flex items-center gap-[var(--space-1)] cursor-pointer"
                       >
                         <XCircle className="w-2.5 h-2.5" />
                         <span>{t.btnCancel}</span>

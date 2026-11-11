@@ -155,7 +155,7 @@ export const BookmarksHotlistModal: React.FC<BookmarksHotlistModalProps> = ({
                   <div className="flex items-center gap-[var(--space-2)] shrink-0">
                     <button
                       onClick={(e) => handleDelete(bm.id, e)}
-                      className="p-[var(--space-1)] text-neutral-400 hover:text-rose-400 hover:bg-rose-950/30 rounded cursor-pointer"
+                      className="p-[var(--space-1)] text-neutral-400 hover:nc-danger-ink hover:nc-danger-surface-strong rounded cursor-pointer"
                       title={t.hotlistDelete}
                     >
                       <Trash2 className="w-3.5 h-3.5" />

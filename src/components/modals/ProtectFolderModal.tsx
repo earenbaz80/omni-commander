@@ -60,15 +60,15 @@ export const ProtectFolderModal: React.FC<ProtectFolderModalProps> = ({
           </div>
 
           {isAlreadyProtected ? (
-            <div className="p-[var(--space-3)] bg-red-950/60 border border-red-500/50 rounded space-y-[var(--space-3)] text-center">
-              <div className="flex items-center justify-center gap-[var(--space-2)] text-red-300 font-bold">
-                <ShieldCheck className="w-5 h-5 text-red-400" />
+            <div className="p-[var(--space-3)] nc-danger-fill border nc-danger-edge rounded space-y-[var(--space-3)] text-center">
+              <div className="flex items-center justify-center gap-[var(--space-2)] nc-danger-ink font-bold">
+                <ShieldCheck className="w-5 h-5 nc-danger-ink" />
                 <span>{t.protectAlready}</span>
               </div>
               <p className="text-[var(--fs-sm)] opacity-80">{t.protectWarning}</p>
               <button
                 onClick={handleRemoveProtection}
-                className="w-full py-[var(--space-2)] bg-red-600 hover:bg-red-500 text-white font-bold rounded cursor-pointer shadow"
+                className="w-full py-[var(--space-2)] nc-danger-fill hover:nc-danger-fill text-white font-bold rounded cursor-pointer shadow"
               >
                 {t.protectRemove}
               </button>
@@ -76,7 +76,7 @@ export const ProtectFolderModal: React.FC<ProtectFolderModalProps> = ({
           ) : (
             <div className="space-y-[var(--space-3)]">
               {errorMsg && (
-                <div className="p-[var(--space-2)] bg-red-950 border border-red-500 text-red-300 font-bold rounded text-[var(--fs-sm)] flex items-center gap-[var(--space-2)]">
+                <div className="p-[var(--space-2)] nc-danger-fill border nc-danger-edge nc-danger-ink font-bold rounded text-[var(--fs-sm)] flex items-center gap-[var(--space-2)]">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
                   <span>{errorMsg}</span>
                 </div>

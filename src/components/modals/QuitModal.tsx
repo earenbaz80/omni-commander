@@ -36,7 +36,7 @@ export const QuitModal: React.FC<QuitModalProps> = ({ theme, lang, onConfirmQuit
                 soundManager.playBeep(300, 0.2);
                 onConfirmQuit();
               }}
-              className="px-5 py-[var(--space-2)] bg-red-600 hover:bg-red-500 text-white font-extrabold rounded cursor-pointer shadow"
+              className="px-5 py-[var(--space-2)] nc-danger-fill hover:nc-danger-fill text-white font-extrabold rounded cursor-pointer shadow"
             >
               {t.quitToMsDos}
             </button>

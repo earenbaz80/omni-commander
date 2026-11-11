@@ -117,8 +117,8 @@ export const CleanupModal: React.FC<CleanupModalProps> = ({ theme, lang, target,
           )}
 
           {phase === 'error' && (
-            <div className="border border-red-500/40 bg-red-900/20 rounded p-[var(--space-3)] space-y-1">
-              <div className="flex items-center gap-[var(--space-2)] text-red-300 font-bold">
+            <div className="border nc-danger-edge nc-danger-surface-strong rounded p-[var(--space-3)] space-y-1">
+              <div className="flex items-center gap-[var(--space-2)] nc-danger-ink font-bold">
                 <AlertTriangle className="w-4 h-4" />
                 {t.cleanupScanFailed}
               </div>
@@ -182,7 +182,7 @@ export const CleanupModal: React.FC<CleanupModalProps> = ({ theme, lang, target,
               )}
 
               {phase === 'confirming' && (
-                <div className="border border-red-500/50 bg-red-900/20 rounded p-[var(--space-3)] text-xs text-red-200">
+                <div className="border nc-danger-edge nc-danger-surface-strong rounded p-[var(--space-3)] text-xs nc-danger-ink-soft">
                   {t.cleanupConfirm
                     .replace('{files}', String(scan.files))
                     .replace('{dirs}', String(scan.dirs))
@@ -195,7 +195,7 @@ export const CleanupModal: React.FC<CleanupModalProps> = ({ theme, lang, target,
                   <>
                     <button
                       onClick={runCleanup}
-                      className={`${primaryButton} bg-red-600/40 border-red-400/70 text-white`}
+                      className={`${primaryButton} nc-danger-surface-strong nc-danger-edge text-white`}
                     >
                       {t.cleanupConfirmYes}
                     </button>
@@ -209,7 +209,7 @@ export const CleanupModal: React.FC<CleanupModalProps> = ({ theme, lang, target,
                       onClick={() => setPhase('confirming')}
                       disabled={pending === 0 || phase === 'running'}
                       className={`${primaryButton} flex items-center gap-[var(--space-2)] ${
-                        pending === 0 ? 'border-white/20' : 'bg-red-600/30 border-red-400/60 text-white'
+                        pending === 0 ? 'border-white/20' : 'nc-danger-surface-strong nc-danger-edge text-white'
                       }`}
                     >
                       {phase === 'running' ? (
@@ -246,12 +246,12 @@ export const CleanupModal: React.FC<CleanupModalProps> = ({ theme, lang, target,
                 {run.skipped > 0 && (
                   <div className="text-[10px] opacity-60">{t.cleanupSkipped.replace('{n}', String(run.skipped))}</div>
                 )}
-                {run.truncated && <div className="text-[10px] text-amber-300">{t.cleanupTruncated}</div>}
+                {run.truncated && <div className="text-[10px] nc-warn-ink">{t.cleanupTruncated}</div>}
               </div>
 
               {run.failedCount > 0 && (
-                <div className="border border-amber-500/40 bg-amber-900/20 rounded p-[var(--space-3)] space-y-1">
-                  <div className="text-amber-300 font-bold text-xs">
+                <div className="border nc-danger-edge nc-danger-surface rounded p-[var(--space-3)] space-y-1">
+                  <div className="nc-danger-ink font-bold text-xs">
                     {t.cleanupFailed.replace('{n}', String(run.failedCount))}
                   </div>
                   <div className="space-y-0.5">

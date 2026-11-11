@@ -70,7 +70,7 @@ export const ChecksumModal: React.FC<ChecksumModalProps> = ({ theme, lang, file,
           </div>
 
           {error && (
-            <div className="p-[var(--space-2)] bg-red-500/15 rounded border border-red-500/40 text-red-300 text-[var(--fs-sm)] break-words">
+            <div className="p-[var(--space-2)] nc-danger-surface-strong rounded border nc-danger-edge nc-danger-ink text-[var(--fs-sm)] break-words">
               {error}
             </div>
           )}

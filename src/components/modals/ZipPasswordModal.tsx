@@ -42,7 +42,7 @@ export const ZipPasswordModal: React.FC<ZipPasswordModalProps> = ({
             <Lock className="w-4 h-4" />
             <span>{t.zipPassPrompt.replace('{name}', fileName)}</span>
           </div>
-          {invalid && <div className="text-red-400 text-xs">{t.zipPassInvalid.replace('{name}', fileName)}</div>}
+          {invalid && <div className="nc-danger-ink text-xs">{t.zipPassInvalid.replace('{name}', fileName)}</div>}
 
           {/* Opción de detectar formato */}
           {detectFormat && (

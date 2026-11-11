@@ -28,11 +28,11 @@ export const DeleteModal: React.FC<DeleteModalProps> = ({ theme, lang, items, on
     <ModalShell title={t.deleteDialogLabel} theme={theme} onClose={onClose}>
       <div className="font-mono select-none">
         <div
-          className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-b font-bold shrink-0 bg-red-900/60 text-white"
+          className="flex items-center justify-between px-[var(--space-3)] py-[var(--space-2)] border-b font-bold shrink-0 nc-danger-fill text-white"
           style={{ borderColor: theme.modalBorder }}
         >
           <div className="flex items-center gap-[var(--space-2)]">
-            <Trash2 className="w-4 h-4 text-red-300" />
+            <Trash2 className="w-4 h-4 nc-danger-ink" />
             <span>{t.deleteTitle} (F8 / Supr)</span>
           </div>
           <button
@@ -45,7 +45,7 @@ export const DeleteModal: React.FC<DeleteModalProps> = ({ theme, lang, items, on
 
         <div className="p-[var(--space-4)] space-y-[var(--space-4)]">
           <div className="flex items-start gap-[var(--space-3)]">
-            <AlertTriangle className="w-8 h-8 text-amber-400 shrink-0 mt-0.5" />
+            <AlertTriangle className="w-8 h-8 nc-warn-ink shrink-0 mt-0.5" />
             <div>
               <p className="font-bold text-white mb-[var(--space-1)]">{t.msgConfirmDelete}</p>
               <p className="opacity-75 text-[var(--fs-sm)]">
@@ -56,7 +56,7 @@ export const DeleteModal: React.FC<DeleteModalProps> = ({ theme, lang, items, on
 
           <div className="max-h-32 overflow-y-auto bg-black/40 p-[var(--space-2)] rounded border border-white/10 text-[var(--fs-sm)] space-y-0.5">
             {items.map((i) => (
-              <div key={i.id} className="truncate text-red-300">
+              <div key={i.id} className="truncate nc-danger-ink">
                 • {i.name}
                 {i.ext ? `.${i.ext}` : ''} {i.isDirectory ? t.markerFolder : ''}
               </div>
@@ -72,7 +72,7 @@ export const DeleteModal: React.FC<DeleteModalProps> = ({ theme, lang, items, on
             </button>
             <button
               onClick={handleConfirm}
-              className="px-5 py-[var(--space-2)] bg-red-600 hover:bg-red-500 text-white font-extrabold rounded cursor-pointer shadow"
+              className="px-5 py-[var(--space-2)] nc-danger-fill hover:nc-danger-fill text-white font-extrabold rounded cursor-pointer shadow"
             >
               {t.delete} (Enter)
             </button>

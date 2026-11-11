@@ -291,7 +291,7 @@ export const ImageStudioModal: React.FC<ImageStudioModalProps> = ({ theme, lang,
 
         <div className="max-h-[45vh] min-h-40 overflow-auto rounded border border-white/15 bg-black/60 p-[var(--space-2)]">
           {state === 'loading' && <p className="p-[var(--space-2)] text-xs opacity-70">{t.loading}</p>}
-          {state === 'error' && <p className="p-[var(--space-2)] text-xs text-red-400">{error || t.imageLoadError}</p>}
+          {state === 'error' && <p className="p-[var(--space-2)] text-xs nc-danger-ink">{error || t.imageLoadError}</p>}
           <canvas
             ref={canvasRef}
             className="mx-auto block"
@@ -347,7 +347,7 @@ export const ImageStudioModal: React.FC<ImageStudioModalProps> = ({ theme, lang,
           </label>
         </div>
 
-        {error && state === 'ready' && <p className="text-xs text-red-400">{error}</p>}
+        {error && state === 'ready' && <p className="text-xs nc-danger-ink">{error}</p>}
         {savedPath && (
           <p className="flex items-center gap-[var(--space-1)] break-all text-xs text-emerald-300">
             <Check className="h-3.5 w-3.5 shrink-0" /> {t.imageSaved}: {savedPath}

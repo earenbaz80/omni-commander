@@ -271,7 +271,7 @@ export const SearchGrepModal: React.FC<SearchGrepModalProps> = ({
                   saveSearchHistory([]);
                   soundManager.playKeyTick();
                 }}
-                className="px-[var(--space-1)].5 py-[var(--space-1)] text-[10px] text-red-400/80 hover:text-red-300 hover:bg-red-950/40 rounded transition-colors cursor-pointer"
+                className="px-[var(--space-1)].5 py-[var(--space-1)] text-[10px] nc-danger-ink hover:nc-danger-ink hover:nc-danger-surface-strong rounded transition-colors cursor-pointer"
                 title={t.searchClearHistory}
               >
                 <Trash2 className="w-3 h-3" />
