@@ -162,6 +162,7 @@ export const es = {
   themeWin11Light: 'Windows 11 Fluent Claro',
   themeDracula: 'Dracula Retro Cyberpunk',
   themeSolarized: 'Solarized Dark Pro',
+  themeRetroFuturist: 'Retro Futurista (Petróleo, Cian y Ámbar)',
 
   // Prompt
   dosPromptHint: 'Escriba un comando DOS/PowerShell (ej: dir, cd, mkdir, echo, type, tree, cls, help)...',
@@ -1141,6 +1142,42 @@ export const es = {
 
   panelLayoutRows: 'Apilar paneles (arriba/abajo)',
   panelLayoutColumns: 'Paneles lado a lado',
+  panelLayoutSingle: 'Panel único (Tab cambia de lado)',
+  shareNetwork: 'Compartir en red…',
+
+  // Ventana de navegación: página real en una sesión aparte, nunca un iframe.
+  webBrowser: 'Navegador web…',
+  browserTitle: 'Navegador web',
+  browserAddress: 'Dirección (ej. example.com)',
+  browserBack: 'Atrás',
+  browserForward: 'Adelante',
+  browserReload: 'Recargar',
+  browserOpenExternal: 'Abrir en el navegador del sistema',
+  browserPrivacy:
+    'Sesión aparte: sin permisos, sin descargas y sin compartir cookies con la aplicación. Los enlaces que piden una ventana nueva no se abren.',
+  browserUnavailable:
+    'El navegador integrado solo existe en la aplicación de escritorio: aquí no hay una página que mostrar.',
+  browserOpenFailed: 'No se pudo abrir esa dirección.',
+  shareTitle: 'Compartir una carpeta en la red',
+  shareIntro:
+    'Sirve la carpeta en solo lectura por HTTP para que otro ordenador de la red la abra en su navegador. No se comparte nada hasta pulsar «Iniciar», y el enlace es la llave: quien lo tenga puede leer la carpeta.',
+  shareFolderLabel: 'Carpeta a compartir:',
+  shareChooseFolder: 'Elegir carpeta…',
+  shareChooseTitle: 'Elegir la carpeta a compartir',
+  sharePickerUnavailable: 'El selector de carpetas solo existe en la aplicación de escritorio.',
+  shareNoFolder: 'Todavía no hay una carpeta elegida.',
+  shareStart: 'Iniciar compartición',
+  shareStop: 'Detener compartición',
+  shareActive: 'Compartición activa.',
+  shareInactive: 'Compartición detenida.',
+  shareLinkLabel: 'Abre esto en el otro ordenador:',
+  shareCopyLink: 'Copiar enlace',
+  shareCopied: 'Copiado',
+  shareWarning:
+    'Solo lectura. Sigue activa mientras la aplicación esté abierta, hasta que la detengas; cualquiera en esta red que tenga el enlace puede leer la carpeta.',
+  shareNoAddress: 'No hay conexión de red: el enlace aparecerá cuando Windows informe de una tarjeta de red.',
+  sharePortLabel: 'Puerto:',
+  shareFailed: 'No se pudo iniciar la compartición.',
 
   // Caja Ejecutar: abre rutas y destinos, y lanza un programa al pulsar Enter.
   runTitle: 'Ejecutar…',
@@ -1304,63 +1341,4 @@ export const es = {
   toolTerminal: 'Terminal retro (CRT)',
   terminalTitle: 'Terminal de OmniCommander',
   terminalHint: "Escriba 'help' para ver los comandos. Las flechas recorren el historial.",
-  panelLayoutSingle: 'Panel único (Tab cambia de lado)',
-  panelLayoutSingle: 'Panel único (Tab cambia de lado)',
-  shareNetwork: 'Compartir en red…',
-  shareTitle: 'Compartir una carpeta en la red',
-  shareIntro:
-    'Sirve la carpeta en solo lectura por HTTP para que otro ordenador de la red la abra en su navegador. No se comparte nada hasta pulsar «Iniciar», y el enlace es la llave: quien lo tenga puede leer la carpeta.',
-  shareFolderLabel: 'Carpeta a compartir:',
-  shareChooseFolder: 'Elegir carpeta…',
-  shareChooseTitle: 'Elegir la carpeta a compartir',
-  sharePickerUnavailable: 'El selector de carpetas solo existe en la aplicación de escritorio.',
-  shareNoFolder: 'Todavía no hay una carpeta elegida.',
-  shareStart: 'Iniciar compartición',
-  shareStop: 'Detener compartición',
-  shareActive: 'Compartición activa.',
-  shareInactive: 'Compartición detenida.',
-  shareLinkLabel: 'Abre esto en el otro ordenador:',
-  shareCopyLink: 'Copiar enlace',
-  shareCopied: 'Copiado',
-  shareWarning:
-    'Solo lectura. Sigue activa mientras la aplicación esté abierta, hasta que la detengas; cualquiera en esta red que tenga el enlace puede leer la carpeta.',
-  shareNoAddress: 'No hay conexión de red: el enlace aparecerá cuando Windows informe de una tarjeta de red.',
-  sharePortLabel: 'Puerto:',
-  shareFailed: 'No se pudo iniciar la compartición.',
-  panelLayoutSingle: 'Panel único (Tab cambia de lado)',
-  shareNetwork: 'Compartir en red…',
-
-  // Ventana de navegación: página real en una sesión aparte, nunca un iframe.
-  webBrowser: 'Navegador web…',
-  browserTitle: 'Navegador web',
-  browserAddress: 'Dirección (ej. example.com)',
-  browserBack: 'Atrás',
-  browserForward: 'Adelante',
-  browserReload: 'Recargar',
-  browserOpenExternal: 'Abrir en el navegador del sistema',
-  browserPrivacy:
-    'Sesión aparte: sin permisos, sin descargas y sin compartir cookies con la aplicación. Los enlaces que piden una ventana nueva no se abren.',
-  browserUnavailable:
-    'El navegador integrado solo existe en la aplicación de escritorio: aquí no hay una página que mostrar.',
-  browserOpenFailed: 'No se pudo abrir esa dirección.',
-  shareTitle: 'Compartir una carpeta en la red',
-  shareIntro:
-    'Sirve la carpeta en solo lectura por HTTP para que otro ordenador de la red la abra en su navegador. No se comparte nada hasta pulsar «Iniciar», y el enlace es la llave: quien lo tenga puede leer la carpeta.',
-  shareFolderLabel: 'Carpeta a compartir:',
-  shareChooseFolder: 'Elegir carpeta…',
-  shareChooseTitle: 'Elegir la carpeta a compartir',
-  sharePickerUnavailable: 'El selector de carpetas solo existe en la aplicación de escritorio.',
-  shareNoFolder: 'Todavía no hay una carpeta elegida.',
-  shareStart: 'Iniciar compartición',
-  shareStop: 'Detener compartición',
-  shareActive: 'Compartición activa.',
-  shareInactive: 'Compartición detenida.',
-  shareLinkLabel: 'Abre esto en el otro ordenador:',
-  shareCopyLink: 'Copiar enlace',
-  shareCopied: 'Copiado',
-  shareWarning:
-    'Solo lectura. Sigue activa mientras la aplicación esté abierta, hasta que la detengas; cualquiera en esta red que tenga el enlace puede leer la carpeta.',
-  shareNoAddress: 'No hay conexión de red: el enlace aparecerá cuando Windows informe de una tarjeta de red.',
-  sharePortLabel: 'Puerto:',
-  shareFailed: 'No se pudo iniciar la compartición.',
 } as const;

@@ -68,6 +68,7 @@ const themeList: { id: ThemeId; name: string; colorsKey?: TranslationKey }[] = [
   { id: 'matrix_green', name: 'Matrix Green', colorsKey: 'themeColorsBlackGreen' },
   { id: 'windows11_dark', name: 'Windows 11 Fluent Dark' },
   { id: 'windows11_light', name: 'Windows 11 Fluent Light' },
+  { id: 'retro_futurist', name: 'Retro Futurista' },
   { id: 'dracula_retro', name: 'Dracula Retro Cyberpunk' },
   { id: 'solarized_dark', name: 'Solarized Dark Pro' },
 ];
