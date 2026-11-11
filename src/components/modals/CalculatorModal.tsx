@@ -183,7 +183,7 @@ export const CalculatorModal: React.FC<CalculatorModalProps> = ({ theme, lang, o
             </div>
             <div className="mt-[var(--space-1)] min-h-5 text-xs">
               {error ? (
-                <span className="text-red-400">{error}</span>
+                <span className="nc-danger-ink">{error}</span>
               ) : preview !== null ? (
                 <span className="text-emerald-300">= {formatResult(preview)}</span>
               ) : (
@@ -223,7 +223,7 @@ export const CalculatorModal: React.FC<CalculatorModalProps> = ({ theme, lang, o
             {history.length > 0 && (
               <button
                 onClick={clearHistory}
-                className="flex cursor-pointer items-center gap-[var(--space-1)] hover:text-red-300"
+                className="flex cursor-pointer items-center gap-[var(--space-1)] hover:nc-danger-ink"
                 title={t.calcClearHistory}
               >
                 <Trash2 className="h-3 w-3" />

@@ -656,7 +656,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
           <span>{t.settingsShowSystem}</span>
         </label>
 
-        <label className="flex items-center gap-[var(--space-2)] cursor-pointer font-bold text-rose-300">
+        <label className="flex items-center gap-[var(--space-2)] cursor-pointer font-bold nc-danger-ink">
           <input
             type="checkbox"
             checked={formData.useRecycleBin !== false}
@@ -759,7 +759,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
                   {showCurrentPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
                 {errors.currentPassword && (
-                  <span className="text-[var(--fs-8)] text-rose-300 mt-[var(--space-1)] block">
+                  <span className="text-[var(--fs-8)] nc-danger-ink mt-[var(--space-1)] block">
                     {errors.currentPassword}
                   </span>
                 )}
@@ -796,7 +796,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
                 {showNewPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
               </button>
               {errors.newPassword && (
-                <span className="text-[var(--fs-8)] text-rose-300 mt-[var(--space-1)] block">{errors.newPassword}</span>
+                <span className="text-[var(--fs-8)] nc-danger-ink mt-[var(--space-1)] block">{errors.newPassword}</span>
               )}
             </div>
           </div>
@@ -821,7 +821,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
                 {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
               </button>
               {errors.confirmPassword && (
-                <span className="text-[var(--fs-8)] text-rose-300 mt-[var(--space-1)] block">
+                <span className="text-[var(--fs-8)] nc-danger-ink mt-[var(--space-1)] block">
                   {errors.confirmPassword}
                 </span>
               )}

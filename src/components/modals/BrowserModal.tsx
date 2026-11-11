@@ -186,7 +186,7 @@ export const BrowserModal: React.FC<BrowserModalProps> = ({ theme, lang, startUr
         </div>
 
         {error ? (
-          <p role="alert" className="m-0 shrink-0 text-red-300">
+          <p role="alert" className="m-0 shrink-0 nc-danger-ink">
             {error}
           </p>
         ) : null}

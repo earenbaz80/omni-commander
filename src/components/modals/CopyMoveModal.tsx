@@ -429,7 +429,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                       setSelected(new Set());
                     }}
                     disabled={selected.size === 0}
-                    className="px-[var(--space-2)] py-[var(--space-1)] border border-rose-500/50 rounded text-rose-300 cursor-pointer disabled:opacity-40"
+                    className="px-[var(--space-2)] py-[var(--space-1)] border nc-danger-edge rounded nc-danger-ink cursor-pointer disabled:opacity-40"
                   >
                     {t.transferRemoveSelected}
                   </button>
@@ -548,7 +548,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                           <button
                             type="button"
                             onClick={() => removeEntry(index)}
-                            className="text-rose-300 hover:text-rose-100 cursor-pointer"
+                            className="nc-danger-ink hover:nc-danger-ink-soft cursor-pointer"
                             aria-label={t.btnCancel}
                           >
                             X
@@ -584,7 +584,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                     <button
                       type="button"
                       onClick={() => taskQueue.cancelTask(entry.id)}
-                      className="text-rose-300 hover:text-rose-100 cursor-pointer shrink-0"
+                      className="nc-danger-ink hover:nc-danger-ink-soft cursor-pointer shrink-0"
                       aria-label={t.btnCancel}
                     >
                       ?
@@ -647,16 +647,12 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
             ) : (
               <div className="flex flex-col gap-[var(--space-2)]">
                 {log.map((entry) => (
-                  <div
-                    key={entry.key}
-                    className="border border-rose-500/30 rounded p-[var(--space-2)]"
-                    title={entry.title}
-                  >
+                  <div key={entry.key} className="border nc-danger-edge rounded p-[var(--space-2)]" title={entry.title}>
                     <div className="flex items-center gap-[var(--space-2)] text-[10px] opacity-70">
                       <span>{entry.time}</span>
                       <span className="truncate">{entry.title}</span>
                     </div>
-                    <div className="text-rose-300 break-all">{entry.message}</div>
+                    <div className="nc-danger-ink break-all">{entry.message}</div>
                   </div>
                 ))}
               </div>
@@ -785,7 +781,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                 )}
                 <div className="text-[11px] opacity-80 break-all">
                   {active.status === 'failed' && active.error ? (
-                    <span className="text-rose-400 font-bold">{active.error}</span>
+                    <span className="nc-danger-ink font-bold">{active.error}</span>
                   ) : (
                     <>
                       {active.speed || t.inProgress}
@@ -814,7 +810,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                         soundManager.playKeyTick();
                         taskQueue.cancelTask(active.id);
                       }}
-                      className="px-[var(--space-3)] py-[var(--space-1)] border border-rose-500/60 rounded text-rose-300 hover:bg-rose-950/60 cursor-pointer font-bold"
+                      className="px-[var(--space-3)] py-[var(--space-1)] border nc-danger-edge rounded nc-danger-ink hover:nc-danger-fill cursor-pointer font-bold"
                     >
                       {t.btnCancel}
                     </button>
@@ -1026,7 +1022,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
 
             <div className="text-[11px] opacity-80 break-all">
               {task.status === 'failed' && task.error ? (
-                <span className="text-rose-400 font-bold">{task.error}</span>
+                <span className="nc-danger-ink font-bold">{task.error}</span>
               ) : (
                 <>
                   {task.speed || t.inProgress}
@@ -1054,7 +1050,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                     soundManager.playKeyTick();
                     taskQueue.cancelTask(task.id);
                   }}
-                  className="px-[var(--space-3)] py-[var(--space-1)] border border-rose-500/60 rounded text-rose-300 hover:bg-rose-950/60 cursor-pointer font-bold"
+                  className="px-[var(--space-3)] py-[var(--space-1)] border nc-danger-edge rounded nc-danger-ink hover:nc-danger-fill cursor-pointer font-bold"
                 >
                   {t.btnCancel}
                 </button>
@@ -1079,7 +1075,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                       }}
                       aria-label={t.btnCancel}
                       title={t.btnCancel}
-                      className="px-[var(--space-1)].5 py-[var(--space-1)] border border-rose-500/50 rounded text-rose-300 hover:bg-rose-950/60 cursor-pointer shrink-0"
+                      className="px-[var(--space-1)].5 py-[var(--space-1)] border nc-danger-edge rounded nc-danger-ink hover:nc-danger-fill cursor-pointer shrink-0"
                     >
                       ?
                     </button>

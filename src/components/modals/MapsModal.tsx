@@ -969,7 +969,7 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
             )}
           </div>
         )}
-        {worldPrompt && <p className="text-[11px] text-amber-300">{t.mapsWorldWarning}</p>}
+        {worldPrompt && <p className="text-[11px] nc-warn-ink">{t.mapsWorldWarning}</p>}
         {selecting && <p className="text-[11px] text-amber-300">{t.mapsSelectAreaHint}</p>}
         {tileError && (
           <p className="text-[11px] text-amber-300">
@@ -996,7 +996,7 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
             ))}
           </div>
         )}
-        {searchError && <p className="text-xs text-amber-300">{searchError}</p>}
+        {searchError && <p className="text-xs nc-danger-ink">{searchError}</p>}
 
         {/* The map has no height of its own: it takes whatever the dialog
             leaves, so maximising or dragging the window makes it bigger. */}
@@ -1073,7 +1073,7 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
 
           {markerPosition && (
             <span
-              className="pointer-events-none absolute -translate-x-1/2 -translate-y-full text-red-500 drop-shadow"
+              className="pointer-events-none absolute -translate-x-1/2 -translate-y-full nc-danger-ink drop-shadow"
               style={{ left: `${markerPosition.x}px`, top: `${markerPosition.y}px` }}
               aria-label={marker?.label}
             >

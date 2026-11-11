@@ -300,8 +300,8 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({ theme, lang, file, onC
           )}
 
           {state.status === 'error' && (
-            <div className="border border-red-500/40 bg-red-900/20 rounded p-[var(--space-3)] space-y-[var(--space-2)]">
-              <div className="flex items-center gap-[var(--space-2)] text-red-300 font-bold">
+            <div className="border nc-danger-edge nc-danger-surface-strong rounded p-[var(--space-3)] space-y-[var(--space-2)]">
+              <div className="flex items-center gap-[var(--space-2)] nc-danger-ink font-bold">
                 <AlertTriangle className="w-4 h-4" />
                 {t.contentLoadFailed}
               </div>

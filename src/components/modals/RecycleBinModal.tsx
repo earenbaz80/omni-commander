@@ -79,7 +79,7 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({ theme, lang, o
                 </button>
                 <button
                   onClick={handleEmptyBin}
-                  className="px-[var(--space-3)] py-[var(--space-1)] bg-rose-600/30 hover:bg-rose-600/50 text-rose-300 border border-rose-500/40 rounded flex items-center gap-[var(--space-1)] font-bold cursor-pointer"
+                  className="px-[var(--space-3)] py-[var(--space-1)] nc-danger-surface-strong hover:nc-danger-surface-strong nc-danger-ink border nc-danger-edge rounded flex items-center gap-[var(--space-1)] font-bold cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>{t.binEmpty}</span>
@@ -135,7 +135,7 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({ theme, lang, o
                     </button>
                     <button
                       onClick={() => handlePermanentDelete(binItem.id)}
-                      className="p-[var(--space-1)] text-rose-400 hover:text-rose-200 hover:bg-rose-950/40 rounded cursor-pointer"
+                      className="p-[var(--space-1)] nc-danger-ink hover:nc-danger-ink-soft hover:nc-danger-surface-strong rounded cursor-pointer"
                       title={t.binDeletePerm}
                     >
                       <Trash2 className="w-3.5 h-3.5" />

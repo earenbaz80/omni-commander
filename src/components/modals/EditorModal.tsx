@@ -132,7 +132,7 @@ export const EditorModal: React.FC<EditorModalProps> = ({ theme, lang, file, onS
         {blockedReason && (
           <div
             data-testid="editor-save-blocked"
-            className="flex items-center gap-[var(--space-2)] px-[var(--space-3)] py-[var(--space-1)] bg-amber-950/70 border-b border-amber-500/40 text-amber-200 text-[11px] shrink-0"
+            className="flex items-center gap-[var(--space-2)] px-[var(--space-3)] py-[var(--space-1)] nc-warn-surface border-b nc-warn-edge nc-warn-ink text-[11px] shrink-0"
           >
             <AlertTriangle className="w-3.5 h-3.5" />
             <span>{blockedReason}</span>

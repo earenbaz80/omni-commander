@@ -77,7 +77,7 @@ describe('TerminalModal', () => {
 
     expect(screen.getByText('dir')).toBeTruthy();
     expect(screen.getByText('uno.txt')).toBeTruthy();
-    expect(screen.getByText('no existe').className).toContain('text-red-400');
+    expect(screen.getByText('no existe').className).toContain('nc-danger-ink');
   });
 
   it('walks the history with the arrow keys from the newest command', () => {

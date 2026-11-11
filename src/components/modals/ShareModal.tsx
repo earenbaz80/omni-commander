@@ -209,7 +209,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ theme, lang, startFolder
         ) : null}
 
         {error ? (
-          <p role="alert" className="m-0 text-red-300">
+          <p role="alert" className="m-0 nc-danger-ink">
             {error}
           </p>
         ) : null}
@@ -227,7 +227,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ theme, lang, startFolder
               type="button"
               disabled={busy}
               onClick={() => void stop()}
-              className="px-[var(--space-3)] py-[var(--space-1)] rounded bg-red-500/80 hover:bg-red-500 text-white font-bold cursor-pointer disabled:opacity-50"
+              className="px-[var(--space-3)] py-[var(--space-1)] rounded nc-danger-fill hover:nc-danger-fill text-white font-bold cursor-pointer disabled:opacity-50"
             >
               {t.shareStop}
             </button>

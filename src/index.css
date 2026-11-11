@@ -1,5 +1,52 @@
 @import 'tailwindcss';
 
+/*
+ * Danger and warning ink belong to the theme.
+ *
+ * The dialogs were written with fixed rose, red and amber utilities, which is
+ * how a theme ends up showing hues it never chose: a rose failure on the retro
+ * panel is another palette's leftover. These utilities read the two colours the
+ * active theme declares — App.tsx sets them on <html> from accentDanger and
+ * accentWarn — so every theme repaints a failure or a caution without a single
+ * dialog having to know where its colours come from. The fallbacks keep a page
+ * rendered outside the app readable.
+ */
+@utility nc-danger-ink {
+  color: var(--nc-danger, #f43f5e);
+}
+
+@utility nc-danger-ink-soft {
+  color: color-mix(in srgb, var(--nc-danger, #f43f5e) 78%, white);
+}
+
+@utility nc-danger-edge {
+  border-color: color-mix(in srgb, var(--nc-danger, #f43f5e) 60%, transparent);
+}
+
+@utility nc-danger-surface {
+  background-color: color-mix(in srgb, var(--nc-danger, #f43f5e) 18%, transparent);
+}
+
+@utility nc-danger-surface-strong {
+  background-color: color-mix(in srgb, var(--nc-danger, #f43f5e) 34%, transparent);
+}
+
+@utility nc-danger-fill {
+  background-color: var(--nc-danger, #f43f5e);
+}
+
+@utility nc-warn-ink {
+  color: var(--nc-warn, #fbbf24);
+}
+
+@utility nc-warn-edge {
+  border-color: color-mix(in srgb, var(--nc-warn, #fbbf24) 55%, transparent);
+}
+
+@utility nc-warn-surface {
+  background-color: color-mix(in srgb, var(--nc-warn, #fbbf24) 22%, transparent);
+}
+
 @layer utilities {
   /* Hide scrollbar for Chrome, Safari and Opera */
   .no-scrollbar::-webkit-scrollbar {

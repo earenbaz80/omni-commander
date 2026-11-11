@@ -68,7 +68,7 @@ export const ArchiveInfoModal: React.FC<ArchiveInfoModalProps> = ({
                 {t.zipExtractAllBtn}
               </button>
             ) : (
-              <p className="text-xs text-amber-300">{t.zipInfoUnsupported.replace('{format}', formatLabel(format))}</p>
+              <p className="text-xs nc-warn-ink">{t.zipInfoUnsupported.replace('{format}', formatLabel(format))}</p>
             )}
 
             {/* Copy path option */}

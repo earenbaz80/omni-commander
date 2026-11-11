@@ -43,7 +43,7 @@ export const DiffCompareModal: React.FC<DiffCompareModalProps> = ({ theme, lang,
             const isRightOnly = rightLines[idx] !== undefined && leftLines[idx] === undefined;
 
             let rowBg = 'hover:bg-white/5';
-            if (isLeftOnly) rowBg = 'bg-red-950/40';
+            if (isLeftOnly) rowBg = 'nc-danger-surface-strong';
             else if (isRightOnly) rowBg = 'bg-emerald-950/40';
             else if (isDiff) rowBg = 'bg-amber-950/40';
 
@@ -55,7 +55,7 @@ export const DiffCompareModal: React.FC<DiffCompareModalProps> = ({ theme, lang,
                     {leftLines[idx] !== undefined ? idx + 1 : ''}
                   </span>
                   <span
-                    className={`whitespace-pre ${isDiff && lText ? 'text-red-300 font-semibold' : 'text-slate-200'}`}
+                    className={`whitespace-pre ${isDiff && lText ? 'nc-danger-ink font-semibold' : 'text-slate-200'}`}
                   >
                     {lText}
                   </span>
@@ -87,7 +87,7 @@ export const DiffCompareModal: React.FC<DiffCompareModalProps> = ({ theme, lang,
         >
           <div className="flex items-center gap-[var(--space-4)]">
             <span className="flex items-center gap-[var(--space-2)]">
-              <span className="w-3 h-3 bg-red-900 rounded"></span> {t.diffRemovedDifferent}
+              <span className="w-3 h-3 nc-danger-fill rounded"></span> {t.diffRemovedDifferent}
             </span>
             <span className="flex items-center gap-[var(--space-2)]">
               <span className="w-3 h-3 bg-emerald-900 rounded"></span> {t.diffAdded}

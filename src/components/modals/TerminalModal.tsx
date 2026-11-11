@@ -125,7 +125,7 @@ export const TerminalModal: React.FC<TerminalModalProps> = ({
           <div className="flex items-center gap-[var(--space-2)] min-w-0">
             <span className="font-black tracking-widest truncate">{t.cmdShellTitle}</span>
             {isAdminMode && (
-              <span className="bg-red-600 text-white font-black px-[var(--space-1)] py-0.5 rounded text-[9px] uppercase tracking-wider animate-pulse shrink-0">
+              <span className="nc-danger-fill text-white font-black px-[var(--space-1)] py-0.5 rounded text-[9px] uppercase tracking-wider animate-pulse shrink-0">
                 {t.cmdAdminElevated}
               </span>
             )}
@@ -147,7 +147,7 @@ export const TerminalModal: React.FC<TerminalModalProps> = ({
             <button
               type="button"
               onClick={onClearHistory}
-              className="flex items-center gap-[var(--space-1)] hover:text-red-400 cursor-pointer"
+              className="flex items-center gap-[var(--space-1)] hover:nc-danger-ink cursor-pointer"
             >
               <Trash2 className="w-3 h-3" /> {t.clearLabel}
             </button>
@@ -177,7 +177,7 @@ export const TerminalModal: React.FC<TerminalModalProps> = ({
                     </div>
                     {entry.output && (
                       <pre
-                        className={`whitespace-pre-wrap pl-2 ${entry.status === 'error' ? 'text-red-400' : 'text-emerald-300'}`}
+                        className={`whitespace-pre-wrap pl-2 ${entry.status === 'error' ? 'nc-danger-ink' : 'text-emerald-300'}`}
                       >
                         {entry.output}
                       </pre>

@@ -74,7 +74,7 @@ export const UnlockFolderModal: React.FC<UnlockFolderModalProps> = ({
       <div className="font-mono select-none">
         <form onSubmit={handleSubmit} className="p-[var(--space-4)] space-y-[var(--space-4)]">
           <div className="text-center space-y-[var(--space-1)]">
-            <div className="w-12 h-12 mx-auto rounded-full bg-red-950/80 border-2 border-amber-400 flex items-center justify-center text-amber-300">
+            <div className="w-12 h-12 mx-auto rounded-full nc-danger-fill border-2 border-amber-400 flex items-center justify-center text-amber-300">
               <Lock className="w-6 h-6" />
             </div>
             <h3 className="font-bold text-white text-sm pt-1">{t.unlockFolder}</h3>
@@ -82,8 +82,8 @@ export const UnlockFolderModal: React.FC<UnlockFolderModalProps> = ({
           </div>
 
           {hasError && (
-            <div className="p-[var(--space-2)] bg-red-950 border border-red-500 text-red-200 font-bold rounded text-[var(--fs-sm)] text-center flex items-center justify-center gap-[var(--space-2)]">
-              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+            <div className="p-[var(--space-2)] nc-danger-fill border nc-danger-edge nc-danger-ink-soft font-bold rounded text-[var(--fs-sm)] text-center flex items-center justify-center gap-[var(--space-2)]">
+              <AlertTriangle className="w-4 h-4 nc-danger-ink shrink-0" />
               <span>{t.unlockBadPass}</span>
             </div>
           )}
