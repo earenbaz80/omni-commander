@@ -628,7 +628,7 @@ const FileListComponent: React.FC<FileListProps> = ({
             className={`flex items-center justify-between px-[var(--space-2)] py-[var(--space-1)] cursor-pointer hover:bg-white/10 transition-colors group text-yellow-300 font-bold ${dragOverFolderId === 'parent_dir' ? 'ring-2 ring-amber-400 bg-amber-400/25 shadow' : ''}`}
           >
             <div className="flex items-center gap-[var(--space-2)] flex-1 min-w-0">
-              <FileTypeIcon kind="folder" color={theme.dirText} className="w-3.5 h-3.5 shrink-0" />
+              <FileTypeIcon kind="folder" color={fileIconColor('folder', theme)} className="w-3.5 h-3.5 shrink-0" />
               <span className="tracking-wider">..</span>
               <span className="opacity-50 text-[10px]">&lt;UP--DIR&gt;</span>
             </div>
@@ -1133,7 +1133,7 @@ const FileListComponent: React.FC<FileListProps> = ({
             onDrop={(e) => handleDrop(e)}
             className="m-4 p-8 border-2 border-dashed border-white/20 hover:border-amber-400/60 rounded flex flex-col items-center justify-center text-center transition-all bg-black/20"
           >
-            <FileTypeIcon kind="folder" color={theme.dirText} className="w-8 h-8 opacity-40 mb-2" />
+            <FileTypeIcon kind="folder" color={fileIconColor('folder', theme)} className="w-8 h-8 opacity-40 mb-2" />
             <div className="text-xs opacity-70 font-semibold mb-1">&lt;{t.emptyFolder}&gt;</div>
             <div className="text-[11px] opacity-40">{t.emptyFolderDropHint}</div>
           </div>

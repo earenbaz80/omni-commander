@@ -49,7 +49,7 @@ describe('fileIconColor', () => {
   const theme = themes.retro_futurist;
 
   it('takes every colour from the theme instead of carrying its own', () => {
-    expect(fileIconColor('folder', theme)).toBe(theme.dirText);
+    expect(fileIconColor('folder', theme)).toBe(theme.folderText);
     expect(fileIconColor('exec', theme)).toBe(theme.exeText);
     expect(fileIconColor('archive', theme)).toBe(theme.zipText);
     expect(fileIconColor('disk', theme)).toBe(theme.zipText);

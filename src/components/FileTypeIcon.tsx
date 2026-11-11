@@ -5,14 +5,18 @@ import type { ThemeConfig } from '../services/themeManager';
 /**
  * The file-type glyphs are drawn here instead of borrowed from an icon library.
  *
- * The listing used to mix library shapes with fixed Tailwind hues — amber-300
- * folders, pink-400 audio, rose-400 video, purple-400 images and packages — so
- * every theme ended up with a second palette on top of its own, and the
- * retro-futurist panel carried the magenta and pink it never asked for. These
- * glyphs are one family: a 16×16 grid, half-pixel strokes that stay crisp at
- * 14 px, square caps and no curves. Every colour comes from the active
- * ThemeConfig, because a file's icon and the name printed next to it should
- * never disagree.
+ * The listing used to mix library shapes with fixed Tailwind hues — pink-400
+ * audio, rose-400 video, purple-400 images and packages — so every theme ended
+ * up with a second palette on top of its own, and the retro-futurist panel
+ * carried the magenta and pink it never asked for. These glyphs are one family:
+ * a 16×16 grid, half-pixel strokes that stay crisp at 14 px, square caps and no
+ * curves. Their colour comes from the active ThemeConfig, because a file's icon
+ * and the name printed next to it should never disagree.
+ *
+ * Folders are the exception in kind, not in source: `folderText` is the one
+ * entry a theme tunes to keep a directory looking like one — amber in the
+ * warm palettes, lime in Matrix, Solarized's yellow in Solarized — while the
+ * name beside it keeps the theme's directory colour.
  */
 export type FileIconKind =
   'folder' | 'exec' | 'archive' | 'disk' | 'document' | 'code' | 'image' | 'audio' | 'video' | 'file';
@@ -49,7 +53,7 @@ export function fileIconKind(item: Pick<FileItem, 'isDirectory' | 'ext'>): FileI
 export function fileIconColor(kind: FileIconKind, theme: ThemeConfig): string {
   switch (kind) {
     case 'folder':
-      return theme.dirText;
+      return theme.folderText;
     case 'exec':
       return theme.exeText;
     case 'archive':
@@ -71,7 +75,7 @@ export function fileIconColor(kind: FileIconKind, theme: ThemeConfig): string {
 const GLYPHS: Record<FileIconKind, (color: string) => React.ReactNode> = {
   folder: (color) => (
     <>
-      <path d="M1.5 13.5V2.5h5l2 2h6v9z" fill={color} fillOpacity={0.16} />
+      <path d="M1.5 13.5V2.5h5l2 2h6v9z" fill={color} fillOpacity={0.3} />
       <path d="M1.5 13.5V2.5h5l2 2h6v9z" />
       <path d="M3.5 9.5h6" strokeOpacity={0.55} />
     </>
