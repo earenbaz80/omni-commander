@@ -24,6 +24,20 @@ const ANNOUNCE_LINE = /listening on http:\/\/localhost:(\d+)/;
 const DEFAULT_STARTUP_TIMEOUT_MS = 20000;
 const DEFAULT_STOP_TIMEOUT_MS = 5000;
 
+/**
+ * Budget for a case whose route spawns a Windows process: `tasklist` for the
+ * process table, PowerShell to resolve a shell document, the shell itself.
+ *
+ * The suite-wide 20 s default is a budget for an assertion, not for a spawn.
+ * On a machine running an LLM server and a dev build, the process table and the
+ * shell-document cases have been measured sitting at the 20 s mark and past it,
+ * and since every push runs this suite from the pre-push hook, that turned into
+ * rejected pushes with nothing wrong in the commit. The server's own child
+ * budget is 60 s, so the case has to outlast it: a smaller window reports the
+ * test's timeout while the child it waits for is still legitimate.
+ */
+export const WINDOWS_PROCESS_CASE_TIMEOUT_MS = 120000;
+
 export interface TestServer {
   /** Port the server really bound, which is not necessarily the one it asked for. */
   port: number;

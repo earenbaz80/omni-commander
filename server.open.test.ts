@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { startServer, type TestServer } from '@/scripts/serverHarness';
+import { startServer, WINDOWS_PROCESS_CASE_TIMEOUT_MS, type TestServer } from '@/scripts/serverHarness';
 
 /**
  * The Run dialog opens what Windows would open, and refuses everything else.
@@ -160,37 +160,49 @@ describe('POST /api/open', () => {
     expect(body.launched.at(-1)).toBe(path.join(root, 'start-menu', 'Chrome Beta.lnk'));
   });
 
-  it.runIf(process.platform === 'win32')('opens a shell document typed by name, like services.msc', async () => {
-    const { status, body } = await post('services.msc');
-    expect(status).toBe(200);
-    expect(body.kind).toBe('opened');
-    expect(body.target.toLowerCase()).toMatch(/services\.msc$/);
-    expect(body.launched[0]).toBe('rundll32.exe');
-  });
-
-  it('refuses bare commands: this is a launcher, not a shell', async () => {
-    for (const target of ['notepad', 'cmd /c calc', 'powershell -Command Get-Process']) {
-      const { status, body } = await post(target);
-      expect(status, target).toBe(422);
-      expect(body.error).toBe('unsupported-target');
-      expect(body.launched).toBeUndefined();
-    }
-  });
-
-  it('opens a web address typed without its scheme, like the Run box does', async () => {
-    for (const [typed, opened] of [
-      ['google.com', 'http://google.com'],
-      ['www.example.org/guia?q=1', 'http://www.example.org/guia?q=1'],
-      ['localhost:3000', 'http://localhost:3000'],
-    ]) {
-      const { status, body } = await post(typed);
-      expect(status, typed).toBe(200);
+  it.runIf(process.platform === 'win32')(
+    'opens a shell document typed by name, like services.msc',
+    async () => {
+      const { status, body } = await post('services.msc');
+      expect(status).toBe(200);
       expect(body.kind).toBe('opened');
-      expect(body.target).toBe(opened);
-      // The browser is handed a real http URL, not the bare words.
-      expect(body.launched.at(-1)).toBe(opened);
-    }
-  });
+      expect(body.target.toLowerCase()).toMatch(/services\.msc$/);
+      expect(body.launched[0]).toBe('rundll32.exe');
+    },
+    WINDOWS_PROCESS_CASE_TIMEOUT_MS,
+  );
+
+  it(
+    'refuses bare commands: this is a launcher, not a shell',
+    async () => {
+      for (const target of ['notepad', 'cmd /c calc', 'powershell -Command Get-Process']) {
+        const { status, body } = await post(target);
+        expect(status, target).toBe(422);
+        expect(body.error).toBe('unsupported-target');
+        expect(body.launched).toBeUndefined();
+      }
+    },
+    WINDOWS_PROCESS_CASE_TIMEOUT_MS,
+  );
+
+  it(
+    'opens a web address typed without its scheme, like the Run box does',
+    async () => {
+      for (const [typed, opened] of [
+        ['google.com', 'http://google.com'],
+        ['www.example.org/guia?q=1', 'http://www.example.org/guia?q=1'],
+        ['localhost:3000', 'http://localhost:3000'],
+      ]) {
+        const { status, body } = await post(typed);
+        expect(status, typed).toBe(200);
+        expect(body.kind).toBe('opened');
+        expect(body.target).toBe(opened);
+        // The browser is handed a real http URL, not the bare words.
+        expect(body.launched.at(-1)).toBe(opened);
+      }
+    },
+    WINDOWS_PROCESS_CASE_TIMEOUT_MS,
+  );
 
   it('does not mistake a file name for a web address', async () => {
     // These are documents, not hosts: sending them to a browser would open a
