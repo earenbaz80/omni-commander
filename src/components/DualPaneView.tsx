@@ -64,6 +64,11 @@ export interface DualPaneViewProps {
   drives: Drive[];
   /** Panels stacked (top/bottom) instead of side by side. */
   stacked: boolean;
+  /**
+   * Only the active side is on screen, at full size. There is no divider in that
+   * mode: the pane the shortcuts act on is the pane that is shown.
+   */
+  single?: boolean;
   /** Share of the split the left pane takes, along the axis they are arranged on. */
   ratio: number;
   dragging: boolean;
@@ -91,6 +96,7 @@ export const DualPaneView: React.FC<DualPaneViewProps> = ({
   quickSearchQuery,
   drives,
   stacked,
+  single = false,
   ratio,
   dragging,
   onDragStart,
@@ -100,11 +106,16 @@ export const DualPaneView: React.FC<DualPaneViewProps> = ({
 }) => {
   const t = getTranslations(lang);
 
-  const renderPane = (side: 'left' | 'right', binding: PaneBinding, widthPercent: number) => (
+  const renderPane = (
+    side: 'left' | 'right',
+    binding: PaneBinding,
+    widthPercent: number,
+    stackedLayout: boolean = stacked,
+  ) => (
     <PanelView
       side={side}
       widthPercent={widthPercent}
-      stacked={stacked}
+      stacked={stackedLayout}
       currentTheme={theme}
       themeForFileList={themeForFileList}
       lang={lang}
@@ -149,6 +160,14 @@ export const DualPaneView: React.FC<DualPaneViewProps> = ({
       onItemHover={binding.onItemHover}
     />
   );
+
+  if (single) {
+    return (
+      <div id="dual-panel-container" className="flex-1 flex flex-col min-h-0 relative p-1 gap-1">
+        {renderPane(activePanel, activePanel === 'left' ? left : right, 100, false)}
+      </div>
+    );
+  }
 
   return (
     <div

@@ -1304,4 +1304,5 @@ export const es = {
   toolTerminal: 'Terminal retro (CRT)',
   terminalTitle: 'Terminal de OmniCommander',
   terminalHint: "Escriba 'help' para ver los comandos. Las flechas recorren el historial.",
+  panelLayoutSingle: 'Panel único (Tab cambia de lado)',
 } as const;

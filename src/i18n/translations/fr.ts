@@ -1280,4 +1280,5 @@ export const fr = {
   toolTerminal: 'Terminal rétro (CRT)',
   terminalTitle: 'Terminal d’OmniCommander',
   terminalHint: "Tapez 'help' pour lister les commandes. Les flèches parcourent l'historique.",
+  panelLayoutSingle: 'Volet unique (Tab change de côté)',
 } as const;

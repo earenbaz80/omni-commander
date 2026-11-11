@@ -1273,4 +1273,5 @@ export const it = {
   toolTerminal: 'Terminale retrò (CRT)',
   terminalTitle: 'Terminale di OmniCommander',
   terminalHint: "Digita 'help' per vedere i comandi. Le frecce scorrono la cronologia.",
+  panelLayoutSingle: 'Pannello singolo (Tab cambia lato)',
 } as const;

@@ -155,6 +155,9 @@ export default function App() {
   // which is what a wide monitor wants: two full-width panes instead of two
   // narrow columns. The splitter follows whichever axis is on screen.
   const stackedPanels = settings.splitLayout === 'vertical';
+  // Single-pane mode keeps one side on screen at a time. Tab still switches the
+  // active panel, which is also what decides which side is the visible one.
+  const singlePane = settings.splitLayout === 'single';
 
   // Manual Panel Resizing State
   const {
@@ -517,6 +520,7 @@ export default function App() {
         launcherOnly={launcherOnly}
         setLauncherOnly={setLauncherOnly}
         stackedPanels={stackedPanels}
+        singlePane={singlePane}
       />
 
       {/* 2. Main Dual-Panel Viewport */}
@@ -531,6 +535,7 @@ export default function App() {
         quickSearchQuery={quickSearchQuery}
         drives={drives}
         stacked={stackedPanels}
+        single={singlePane}
         ratio={dualPaneRatio}
         dragging={isDraggingSplitter}
         onDragStart={() => setIsDraggingSplitter(true)}

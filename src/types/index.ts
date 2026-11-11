@@ -286,7 +286,7 @@ export interface UserSettings {
   soundEffects: boolean;
   fontSize: 'compact' | 'normal' | 'large';
   fontFamily: 'mono' | 'dos' | 'sans';
-  splitLayout: 'horizontal' | 'vertical';
+  splitLayout: 'horizontal' | 'vertical' | 'single';
   dualPaneRatio: number; // 50% default, panes side by side
   /** Same 50% default, for the stacked arrangement. Kept apart so switching layouts does not move both splits. */
   dualPaneRatioRows?: number;
