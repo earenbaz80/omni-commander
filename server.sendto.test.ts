@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { startServer, type TestServer } from '@/scripts/serverHarness';
+import { startServer, WINDOWS_PROCESS_CASE_TIMEOUT_MS, type TestServer } from '@/scripts/serverHarness';
 
 /**
  * "Enviar a" writes on the user's real disk, and the rule that matters is the
@@ -91,25 +91,32 @@ afterAll(async () => {
 describe('POST /api/fs/sendto', () => {
   // These two are the only cases here that pay for two PowerShell processes each:
   // the server runs one to write the .lnk (COM, WScript.Shell) and the test runs
-  // another to read its target back. With the suite's other servers probing drives
-  // in parallel, that has been seen to overrun the default 5s per-test limit, which
-  // failed the test with a timeout rather than with an assertion.
-  it('puts a shortcut on the desktop that points at the item', async () => {
-    const { status, body } = await post('sendto', { path: targetFile, destination: 'desktop' });
+  // another to read its target back. That is a spawn, not an assertion, so they
+  // take the harness's Windows-process budget instead of a limit of their own.
+  it(
+    'puts a shortcut on the desktop that points at the item',
+    async () => {
+      const { status, body } = await post('sendto', { path: targetFile, destination: 'desktop' });
 
-    expect(status).toBe(200);
-    expect(body.kind).toBe('shortcut');
-    expect(path.basename(body.path)).toBe('informe.txt - Acceso directo.lnk');
-    expect(canonical(await shortcutTarget(body.path))).toBe(canonical(targetFile));
-  }, 30000);
+      expect(status).toBe(200);
+      expect(body.kind).toBe('shortcut');
+      expect(path.basename(body.path)).toBe('informe.txt - Acceso directo.lnk');
+      expect(canonical(await shortcutTarget(body.path))).toBe(canonical(targetFile));
+    },
+    WINDOWS_PROCESS_CASE_TIMEOUT_MS,
+  );
 
-  it('numbers a second desktop shortcut instead of replacing the first', async () => {
-    const { status, body } = await post('sendto', { path: targetFile, destination: 'desktop' });
+  it(
+    'numbers a second desktop shortcut instead of replacing the first',
+    async () => {
+      const { status, body } = await post('sendto', { path: targetFile, destination: 'desktop' });
 
-    expect(status).toBe(200);
-    expect(path.basename(body.path)).toBe('informe.txt - Acceso directo (2).lnk');
-    expect(canonical(await shortcutTarget(body.path))).toBe(canonical(targetFile));
-  }, 30000);
+      expect(status).toBe(200);
+      expect(path.basename(body.path)).toBe('informe.txt - Acceso directo (2).lnk');
+      expect(canonical(await shortcutTarget(body.path))).toBe(canonical(targetFile));
+    },
+    WINDOWS_PROCESS_CASE_TIMEOUT_MS,
+  );
 
   it('copies the item to documents instead of shortcutting it', async () => {
     const { status, body } = await post('sendto', { path: targetFile, destination: 'documents' });
