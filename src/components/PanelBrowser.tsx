@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, ExternalLink, Globe, RotateCw, X } from 'lucide-
 import { LanguageCode } from '../types';
 import { ThemeConfig } from '../services/themeManager';
 import { getTranslations } from '../i18n/translations';
+import { OVERLAY_MENU_EVENT } from '../services/overlayEvents';
 
 interface PanelBrowserProps {
   theme: ThemeConfig;
@@ -40,6 +41,7 @@ export const PanelBrowser: React.FC<PanelBrowserProps> = ({ theme, lang, startUr
   const [page, setPage] = useState<BrowserPageState>(EMPTY_PAGE);
   const [error, setError] = useState('');
   const boxRef = useRef<HTMLDivElement | null>(null);
+  const menuOpenRef = useRef(false);
   const bridge = typeof window !== 'undefined' ? window.electronAPI : undefined;
   const available = !!bridge?.openBrowser;
 
@@ -74,6 +76,12 @@ export const PanelBrowser: React.FC<PanelBrowserProps> = ({ theme, lang, startUr
     const sync = () => {
       const box = boxRef.current;
       if (!box || !bridge?.setBrowserBounds) return;
+      // An empty box is how the main process hides the view, and it keeps the
+      // page at its own size instead of reflowing it to nothing.
+      if (menuOpenRef.current) {
+        void bridge.setBrowserBounds({ x: 0, y: 0, width: 0, height: 0 });
+        return;
+      }
       const rect = box.getBoundingClientRect();
       void bridge.setBrowserBounds({
         x: Math.round(rect.left),
@@ -82,12 +90,18 @@ export const PanelBrowser: React.FC<PanelBrowserProps> = ({ theme, lang, startUr
         height: Math.round(rect.height),
       });
     };
+    const onMenu = (event: Event) => {
+      menuOpenRef.current = Boolean((event as CustomEvent<boolean>).detail);
+      sync();
+    };
     sync();
     const timer = window.setInterval(sync, BOUNDS_SYNC_MS);
     window.addEventListener('resize', sync);
+    window.addEventListener(OVERLAY_MENU_EVENT, onMenu);
     return () => {
       window.clearInterval(timer);
       window.removeEventListener('resize', sync);
+      window.removeEventListener(OVERLAY_MENU_EVENT, onMenu);
     };
   }, [available, bridge]);
 
