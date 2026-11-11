@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Settings, Terminal, Minimize2, Maximize2, Minus, Square, X, Clock } from 'lucide-react';
 import { ActiveModal, LanguageCode, ThemeId } from '../types';
 import { getTranslations } from '../i18n/translations';
+import { notifyMenuOpen } from '../services/overlayEvents';
 import { ThemeConfig } from '../services/themeManager';
 import { soundManager } from '../services/soundEffects';
 import { PWAInstallButton } from './PWAInstallButton';
@@ -74,6 +75,13 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
 }) => {
   const t = getTranslations(lang);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  // The pane's browser is a native layer above this page, so a pull-down would
+  // be painted under it: the menu announces itself and the browser hides.
+  useEffect(() => {
+    notifyMenuOpen(openMenu !== null);
+  }, [openMenu]);
+  // A menu still open when the bar goes away must not leave the page hidden.
+  useEffect(() => () => notifyMenuOpen(false), []);
   const [timeStr, setTimeStr] = useState(() => new Date().toLocaleTimeString());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
