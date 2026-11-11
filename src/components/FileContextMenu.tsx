@@ -47,6 +47,15 @@ export function favoritePath(item: FileItem): string {
 }
 
 /**
+ * A folder and a name as one path. A panel sitting on a drive root reports its
+ * path with the trailing separator already there, and joining blindly produced
+ * `C:\\Program Files` — one backslash too many for the share dialog to show.
+ */
+function joinFolder(folder: string, name: string): string {
+  return `${folder.replace(/[\\/]+$/, '')}\\${name}`;
+}
+
+/**
  * The file context menu, wired to the engine and the modal stack.
  *
  * Extracted from App, which had ~30 closures over engine, settings and the modal
@@ -175,6 +184,15 @@ export const FileContextMenu: React.FC<FileContextMenuProps> = ({
           setModalData({ targetFolderPath: currentActiveTab.currentPath });
         }
         setActiveModal('protect_folder');
+      }}
+      onShareFolder={() => {
+        // Sharing takes a folder, so a file target opens the folder that holds
+        // it and the empty-space menu shares the panel's own folder.
+        const folderPath = item?.isDirectory
+          ? joinFolder(item.path, item.fullName ?? item.name)
+          : currentActiveTab.currentPath;
+        setModalData({ shareFolderPath: folderPath });
+        setActiveModal('share');
       }}
       onSplitFile={() => openTool('file_splitter')}
       onArchiveInfo={() => openTool('archive_info')}

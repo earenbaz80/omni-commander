@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Lock,
   Star,
+  Share2,
   ExternalLink,
 } from 'lucide-react';
 import { FileItem, LanguageCode } from '../types';
@@ -60,6 +61,8 @@ interface ContextMenuProps {
   onUpload: () => void;
   onRefresh: () => void;
   onProtectFolder: () => void;
+  /** Opens the network share dialog on the target folder, or on the panel's folder. */
+  onShareFolder?: () => void;
   onSplitFile?: () => void;
   onArchiveInfo?: (item: FileItem) => void;
   /** Pins the target folder to the tree, or unpins it when it is already there. */
@@ -117,6 +120,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onUpload,
   onRefresh,
   onProtectFolder,
+  onShareFolder,
   onSplitFile,
   onArchiveInfo,
   onSendTo,
@@ -599,6 +603,15 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             </>
           )}
 
+          {targetItem.isDirectory && onShareFolder && (
+            <MenuItem
+              onClick={() => handleAction(onShareFolder)}
+              className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-emerald-500/20 text-emerald-300 flex items-center gap-[var(--space-2)] cursor-pointer"
+            >
+              <Share2 className="w-3.5 h-3.5 text-emerald-300" /> {t.shareNetwork}
+            </MenuItem>
+          )}
+
           {!targetItem.isDirectory && onSplitFile && (
             <>
               <div role="separator" className="h-px bg-current opacity-20 my-[var(--space-1)]" />
@@ -642,6 +655,15 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             </span>
             <span className="opacity-60">🔒</span>
           </MenuItem>
+
+          {onShareFolder && (
+            <MenuItem
+              onClick={() => handleAction(onShareFolder)}
+              className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-emerald-500/20 text-emerald-300 flex items-center gap-[var(--space-2)] cursor-pointer"
+            >
+              <Share2 className="w-3.5 h-3.5 text-emerald-300" /> {t.shareNetwork}
+            </MenuItem>
+          )}
 
           <div role="separator" className="h-px bg-current opacity-20 my-[var(--space-1)]" />
 

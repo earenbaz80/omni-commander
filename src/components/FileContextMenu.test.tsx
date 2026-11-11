@@ -114,4 +114,33 @@ describe('FileContextMenu', () => {
   it('pins a folder by its absolute path', () => {
     expect(favoritePath(folder)).toBe('Users\\ana\\proyectos');
   });
+
+  /** Sharing a folder from the menu targets that folder, not the panel it sits in. */
+  it('shares the folder the menu was opened over', () => {
+    const props = buildProps({ state: { visible: true, x: 10, y: 10, targetItem: folder, panelSide: 'left' } });
+    render(<FileContextMenu {...props} />);
+
+    fireEvent.click(screen.getByText('Compartir en red…'));
+
+    expect(props.setModalData).toHaveBeenCalledWith({ shareFolderPath: 'Users\\ana\\proyectos' });
+    expect(props.setActiveModal).toHaveBeenCalledWith('share');
+  });
+
+  /** A drive root already ends in a separator; the share path must not add another. */
+  it('shares a folder at a drive root without doubling the separator', () => {
+    const atRoot: FileItem = { ...folder, path: 'C:\\' };
+    const props = buildProps({ state: { visible: true, x: 10, y: 10, targetItem: atRoot, panelSide: 'left' } });
+    render(<FileContextMenu {...props} />);
+
+    fireEvent.click(screen.getByText('Compartir en red…'));
+
+    expect(props.setModalData).toHaveBeenCalledWith({ shareFolderPath: 'C:\\proyectos' });
+  });
+
+  /** A file is not a folder to serve, so the entry is not offered on one. */
+  it('does not offer the network share for a file', () => {
+    render(<FileContextMenu {...buildProps()} />);
+
+    expect(screen.queryByText('Compartir en red…')).toBeNull();
+  });
 });

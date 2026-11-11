@@ -30,6 +30,8 @@ const { registerOpenWithRoutes } = require('./server/openWith.cjs');
 const { createCatalog } = require('./server/catalog.cjs');
 const { registerProcessRoutes } = require('./server/processes.cjs');
 const { registerTreeRoutes } = require('./server/tree.cjs');
+const { createShareService } = require('./server/share.cjs');
+const { registerShareRoutes } = require('./server/routes/share.cjs');
 const app = express();
 
 /**
@@ -132,6 +134,10 @@ const SENSITIVE_GET_ROUTES = new Set([
   '/api/processes',
   '/api/net/adapters',
   '/api/system/stats',
+  // A share names a folder on this disk, and its token is the key to that folder.
+  // Handing either of them to a client that cannot prove it is the app would be
+  // handing out the folder.
+  '/api/share',
 ]);
 
 /** Mutations, and the GETs that describe the disk, need the per-launch token. */
@@ -403,6 +409,12 @@ registerTreeRoutes(app, { assertSafePath, logDebug, listDirectory });
 // The adapter names carry drive letters, so these routes read the same listing
 // cache the catalog owns and are registered once it exists.
 registerProcessRoutes(app, { logDebug, powershellTimeoutMs: POWERSHELL_TIMEOUT_MS });
+
+// Sharing a folder with the rest of the network is its own listener, so the API
+// above stays on loopback. Nothing listens there until the user starts a share
+// from the panel, and closing the list ends it: none of it is on disk.
+const shareService = createShareService({ logDebug });
+registerShareRoutes(app, { share: shareService });
 function registerFsRoutes() {
   registerJobRoutes(app, {
     jobs,

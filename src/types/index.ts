@@ -267,6 +267,20 @@ export interface FolderPasswordRecord {
   hash: string;
 }
 
+/**
+ * What the local server answers about the folder it may be serving to the rest
+ * of the network: the URL handed to the other computer, and the token inside it.
+ */
+export interface ShareStatus {
+  active: boolean;
+  folder: string | null;
+  port: number | null;
+  token: string | null;
+  startedAt: string | null;
+  /** One link per network address, ready to open on the other computer. */
+  urls: string[];
+}
+
 export interface UserSettings {
   theme: ThemeId;
   language: LanguageCode;
@@ -465,7 +479,8 @@ export type ActiveModal =
   | 'calendar'
   | 'image_studio'
   | 'maps'
-  | 'terminal';
+  | 'terminal'
+  | 'share';
 
 /**
  * What a modal needs beyond the current selection: the items a copy or move acts
@@ -480,6 +495,8 @@ export interface ModalData {
   sendToDriveId?: string;
   sendToPath?: string;
   targetFolderPath?: string;
+  /** Folder the network-share dialog should open on. */
+  shareFolderPath?: string;
   viewerTab?: 'preview' | 'text';
   isNewFile?: boolean;
   [key: string]: unknown;

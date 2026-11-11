@@ -499,6 +499,12 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
               >
                 <span>{t.settings}</span> <span className="opacity-60">Alt+O</span>
               </button>
+              <button
+                onClick={() => handleAction(() => onOpenModal('share'))}
+                className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between"
+              >
+                <span>{t.shareNetwork}</span> <span className="opacity-60">🌐</span>
+              </button>
               <div className="h-px bg-current opacity-20 my-1"></div>
               <div className="px-[var(--space-3)] py-[var(--space-1)] font-bold text-xs uppercase opacity-75">
                 {t.visualTheme}
