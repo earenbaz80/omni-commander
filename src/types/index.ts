@@ -480,7 +480,8 @@ export type ActiveModal =
   | 'image_studio'
   | 'maps'
   | 'terminal'
-  | 'share';
+  | 'share'
+  | 'browser';
 
 /**
  * What a modal needs beyond the current selection: the items a copy or move acts

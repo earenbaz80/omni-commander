@@ -42,6 +42,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // The renderer cannot leave its own document, so links that must open the real
   // browser go through the main process, which only accepts allowlisted pages.
   openExternal: (url) => ipcRenderer.invoke('app:open-external', url),
+  // The built-in browser is a native view owned by the main process, so the
+  // renderer can only create it, point it at a page, and tell it where the
+  // dialog's box is. The page never runs code from here.
+  openBrowser: (url) => ipcRenderer.invoke('browser:open', url),
+  navigateBrowser: (url) => ipcRenderer.invoke('browser:navigate', url),
+  browserCommand: (command) => ipcRenderer.invoke('browser:command', command),
+  setBrowserBounds: (bounds) => ipcRenderer.invoke('browser:set-bounds', bounds),
+  closeBrowser: () => ipcRenderer.invoke('browser:close'),
+  onBrowserState: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, state) => callback(state);
+    ipcRenderer.on('browser:state', listener);
+    return () => ipcRenderer.removeListener('browser:state', listener);
+  },
   onUpdateState: (callback) => {
     if (typeof callback !== 'function') return () => {};
     const listener = (_event, state) => callback(state);

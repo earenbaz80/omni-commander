@@ -18,6 +18,17 @@ export interface ElectronBridge {
   /** Hands a URL to the shell: the app blocks navigation out of its window. */
   openExternal?: (url: string) => Promise<unknown>;
   /**
+   * The built-in browser. The page is a native view owned by the main process,
+   * so the renderer creates it, points it somewhere and reports where the box
+   * that holds it is; it never receives the page's content.
+   */
+  openBrowser?: (url?: string) => Promise<BrowserAnswer>;
+  navigateBrowser?: (url: string) => Promise<BrowserAnswer>;
+  browserCommand?: (command: 'back' | 'forward' | 'reload') => Promise<boolean>;
+  setBrowserBounds?: (bounds: { x: number; y: number; width: number; height: number }) => Promise<boolean>;
+  closeBrowser?: () => Promise<boolean>;
+  onBrowserState?: (callback: (state: BrowserPageState) => void) => () => void;
+  /**
    * Native picker for paths outside the panels. Windows cannot mix files and
    * folders in one dialog, so the mode chooses; it answers absolute paths, and
    * an empty list when the dialog was cancelled.
@@ -26,6 +37,23 @@ export interface ElectronBridge {
   minimizeWindow?: () => void;
   maximizeWindow?: () => void;
   closeWindow?: () => void;
+}
+
+/** What the main process answers when it is asked for a page. */
+export interface BrowserAnswer {
+  /** False when the address could not become an http(s) URL, or there is no view. */
+  ok: boolean;
+  /** The URL that was actually loaded, normalised by the main process. */
+  url?: string | null;
+}
+
+/** The bounded snapshot of the page the renderer is allowed to know. */
+export interface BrowserPageState {
+  url: string;
+  title: string;
+  loading: boolean;
+  canGoBack: boolean;
+  canGoForward: boolean;
 }
 
 /** What the main process answers to a UAC request. */
