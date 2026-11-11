@@ -37,7 +37,7 @@ function fillColorFor(status: RetroProgressStatus, theme: ThemeConfig): string {
       return theme.docText;
     case 'failed':
     case 'cancelled':
-      return theme.isRetro ? '#ff5555' : '#f87171';
+      return theme.accentDanger;
     case 'queued':
       return theme.borderPanel;
     default:

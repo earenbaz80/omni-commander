@@ -121,7 +121,7 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
             </span>
             <div className="w-16 h-2 bg-black/60 rounded-full overflow-hidden border border-white/20">
               <div
-                className={`h-full ${usedPercent > 85 ? 'nc-danger-fill' : 'bg-cyan-400'}`}
+                className={`h-full ${usedPercent > 85 ? 'nc-danger-fill' : 'nc-ok-fill'}`}
                 style={{ width: `${usedPercent}%` }}
               />
             </div>

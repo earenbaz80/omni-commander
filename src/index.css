@@ -35,6 +35,15 @@
   background-color: var(--nc-danger, #f43f5e);
 }
 
+/* The two other bands a gauge shows: a caution and a healthy reading. */
+@utility nc-warn-fill {
+  background-color: var(--nc-warn, #fbbf24);
+}
+
+@utility nc-ok-fill {
+  background-color: var(--nc-ok, #34d399);
+}
+
 @utility nc-warn-ink {
   color: var(--nc-warn, #fbbf24);
 }

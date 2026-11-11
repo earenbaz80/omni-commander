@@ -70,6 +70,7 @@ export default function App() {
     document.documentElement.lang = lang;
     document.documentElement.style.setProperty('--nc-danger', currentTheme.accentDanger);
     document.documentElement.style.setProperty('--nc-warn', currentTheme.accentWarn);
+    document.documentElement.style.setProperty('--nc-ok', currentTheme.accentOk);
   }
 
   // File system state
