@@ -42,6 +42,8 @@ export interface WindowChromeProps {
   launcherOnly: boolean;
   setLauncherOnly: (value: boolean) => void;
   stackedPanels: boolean;
+  /** The window shows a single pane; the layout button then offers the way out. */
+  singlePane?: boolean;
 }
 
 /**
@@ -84,6 +86,7 @@ export const WindowChrome: React.FC<WindowChromeProps> = ({
   launcherOnly,
   setLauncherOnly,
   stackedPanels,
+  singlePane = false,
 }) => {
   const t = getTranslations(lang);
 
@@ -205,8 +208,15 @@ export const WindowChrome: React.FC<WindowChromeProps> = ({
         launcherOnly={launcherOnly}
         onLauncherDismiss={() => setLauncherOnly(false)}
         panelStacked={stackedPanels}
+        panelSingle={singlePane}
         onTogglePanelLayout={() =>
-          setSettings((s) => ({ ...s, splitLayout: s.splitLayout === 'vertical' ? 'horizontal' : 'vertical' }))
+          setSettings((s) => ({
+            ...s,
+            // Three arrangements, one button: side by side, stacked, and the
+            // single pane, which returns to the historical columns.
+            splitLayout:
+              s.splitLayout === 'horizontal' ? 'vertical' : s.splitLayout === 'vertical' ? 'single' : 'horizontal',
+          }))
         }
         onToggleRightPanelDiskUsage={() =>
           setRightPanel((p) => ({ ...p, panelView: p.panelView === 'diskUsage' ? 'files' : 'diskUsage' }))

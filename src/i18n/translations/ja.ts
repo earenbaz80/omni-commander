@@ -1272,4 +1272,5 @@ export const ja = {
   toolTerminal: 'レトロターミナル (CRT)',
   terminalTitle: 'OmniCommander ターミナル',
   terminalHint: "'help' でコマンド一覧を表示します。矢印キーで履歴をたどれます。",
+  panelLayoutSingle: '単一パネル（Tab で左右を切り替え）',
 } as const;

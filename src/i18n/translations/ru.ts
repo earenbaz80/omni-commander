@@ -1272,4 +1272,5 @@ export const ru = {
   toolTerminal: 'Ретро-терминал (CRT)',
   terminalTitle: 'Терминал OmniCommander',
   terminalHint: "Введите 'help', чтобы увидеть команды. Стрелки листают историю.",
+  panelLayoutSingle: 'Одна панель (Tab переключает сторону)',
 } as const;

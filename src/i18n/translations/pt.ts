@@ -1270,4 +1270,5 @@ export const pt = {
   toolTerminal: 'Terminal retrô (CRT)',
   terminalTitle: 'Terminal do OmniCommander',
   terminalHint: "Digite 'help' para ver os comandos. As setas percorrem o histórico.",
+  panelLayoutSingle: 'Painel único (Tab troca de lado)',
 } as const;

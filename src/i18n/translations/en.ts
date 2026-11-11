@@ -1297,4 +1297,5 @@ export const en = {
   toolTerminal: 'Retro terminal (CRT)',
   terminalTitle: 'OmniCommander terminal',
   terminalHint: "Type 'help' to list the commands. The arrow keys walk the history.",
+  panelLayoutSingle: 'Single pane (Tab switches sides)',
 } as const;

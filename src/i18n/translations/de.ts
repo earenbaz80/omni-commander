@@ -1276,4 +1276,5 @@ export const de = {
   toolTerminal: 'Retro-Terminal (CRT)',
   terminalTitle: 'OmniCommander-Terminal',
   terminalHint: "'help' zeigt die Befehle. Die Pfeiltasten durchlaufen den Verlauf.",
+  panelLayoutSingle: 'Einzelner Bereich (Tab wechselt die Seite)',
 } as const;

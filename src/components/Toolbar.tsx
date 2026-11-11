@@ -13,6 +13,7 @@ import {
   PanelRight,
   Columns2,
   Rows2,
+  Square,
 } from 'lucide-react';
 import { ThemeConfig } from '../services/themeManager';
 import { ActiveModal, FileItem, PanelState, PanelTab } from '../types';
@@ -53,6 +54,8 @@ interface ToolbarProps {
   onLauncherDismiss?: () => void;
   /** True while the two panes are stacked one above the other. */
   panelStacked?: boolean;
+  /** True while only the active pane is on screen. */
+  panelSingle?: boolean;
   onTogglePanelLayout?: () => void;
   /**
    * Which commands to show, in order. Undefined means all of them: that is what
@@ -90,6 +93,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   launcherOnly = false,
   onLauncherDismiss,
   panelStacked = false,
+  panelSingle = false,
   onTogglePanelLayout,
   toolbarItems,
 }) => {
@@ -304,12 +308,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           onTogglePanelLayout();
         }}
         className={`px-[var(--space-2)] py-[var(--space-1)] rounded border cursor-pointer ${
-          panelStacked ? 'bg-amber-400 text-black border-amber-300 font-bold' : 'bg-black/20'
+          panelSingle || panelStacked ? 'bg-amber-400 text-black border-amber-300 font-bold' : 'bg-black/20'
         }`}
-        title={panelStacked ? t.panelLayoutColumns : t.panelLayoutRows}
-        aria-pressed={panelStacked}
+        title={panelSingle ? t.panelLayoutColumns : panelStacked ? t.panelLayoutSingle : t.panelLayoutRows}
+        aria-pressed={panelSingle || panelStacked}
       >
-        {panelStacked ? <Columns2 className="w-4 h-4" /> : <Rows2 className="w-4 h-4" />}
+        {panelSingle ? (
+          <Columns2 className="w-4 h-4" />
+        ) : panelStacked ? (
+          <Square className="w-4 h-4" />
+        ) : (
+          <Rows2 className="w-4 h-4" />
+        )}
       </button>
     ) : null,
     /*
