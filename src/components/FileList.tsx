@@ -1,22 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import {
-  Folder,
-  FileText,
-  FileCode,
-  FileArchive,
-  FolderArchive,
-  Package,
-  Archive,
-  Image as ImageIcon,
-  Music,
-  Film,
-  Terminal,
-  Check,
-  File,
-  Copy,
-  Scissors,
-} from 'lucide-react';
+import { Check, Copy, Scissors } from 'lucide-react';
+import { FileTypeIcon, fileIconColor, fileIconKind } from './FileTypeIcon';
 import { FileItem, SortField, SortDirection, ViewMode, LanguageCode } from '../types';
 import { ThemeConfig } from '../services/themeManager';
 import { getTranslations } from '../i18n/translations';
@@ -294,45 +279,13 @@ const FileListComponent: React.FC<FileListProps> = ({
     return `${bytes}`;
   };
 
+  /**
+   * The listing draws its own glyphs so they carry the theme's colours; see
+   * FileTypeIcon for why the icon library was dropped from this column.
+   */
   const getFileIcon = (item: FileItem, size = 'w-3.5 h-3.5', style?: React.CSSProperties) => {
-    if (item.isDirectory) {
-      return <Folder className={`${size} text-amber-300 fill-amber-300/30 shrink-0`} style={style} />;
-    }
-    const ext = item.ext.toUpperCase();
-    if (['EXE', 'COM', 'BAT', 'CMD', 'SH', 'PS1'].includes(ext)) {
-      return <Terminal className={`${size} text-emerald-400 shrink-0`} style={style} />;
-    }
-    if (ext === 'ZIP') {
-      return <FileArchive className={`${size} text-amber-400 shrink-0`} style={style} />;
-    }
-    if (ext === 'RAR' || ext === 'R00' || ext === 'R01' || ext === 'R10' || ext === 'R99') {
-      return <Package className={`${size} text-purple-400 shrink-0`} style={style} />;
-    }
-    if (ext === '7Z' || ext === '7ZIP') {
-      return <FolderArchive className={`${size} text-cyan-400 shrink-0`} style={style} />;
-    }
-    if (ext === 'TAR' || ext === 'TGZ' || ext === 'TBZ2' || ext === 'TZ' || ext === 'TAZ') {
-      return <Archive className={`${size} text-emerald-400 shrink-0`} style={style} />;
-    }
-    if (['GZ', 'ISO'].includes(ext)) {
-      return <FileArchive className={`${size} text-red-400 shrink-0`} style={style} />;
-    }
-    if (['TXT', 'DOC', 'DOCX', 'PDF', 'MD', 'RTF'].includes(ext)) {
-      return <FileText className={`${size} text-sky-300 shrink-0`} style={style} />;
-    }
-    if (['JS', 'TS', 'TSX', 'JSX', 'HTML', 'CSS', 'JSON', 'PY', 'C', 'CPP', 'RS', 'GO', 'SQL'].includes(ext)) {
-      return <FileCode className={`${size} text-yellow-300 shrink-0`} style={style} />;
-    }
-    if (['JPG', 'JPEG', 'PNG', 'GIF', 'BMP', 'SVG', 'WEBP', 'ICO'].includes(ext)) {
-      return <ImageIcon className={`${size} text-purple-400 shrink-0`} style={style} />;
-    }
-    if (['MP3', 'WAV', 'OGG', 'FLAC', 'AAC', 'MID'].includes(ext)) {
-      return <Music className={`${size} text-pink-400 shrink-0`} style={style} />;
-    }
-    if (['MP4', 'AVI', 'MKV', 'MOV', 'WMV', 'WEBM'].includes(ext)) {
-      return <Film className={`${size} text-rose-400 shrink-0`} style={style} />;
-    }
-    return <File className={`${size} text-slate-400 shrink-0`} style={style} />;
+    const kind = fileIconKind(item);
+    return <FileTypeIcon kind={kind} color={fileIconColor(kind, theme)} className={`${size} shrink-0`} style={style} />;
   };
 
   const getItemTextColor = (item: FileItem, isSelected: boolean): string => {
@@ -675,7 +628,7 @@ const FileListComponent: React.FC<FileListProps> = ({
             className={`flex items-center justify-between px-[var(--space-2)] py-[var(--space-1)] cursor-pointer hover:bg-white/10 transition-colors group text-yellow-300 font-bold ${dragOverFolderId === 'parent_dir' ? 'ring-2 ring-amber-400 bg-amber-400/25 shadow' : ''}`}
           >
             <div className="flex items-center gap-[var(--space-2)] flex-1 min-w-0">
-              <Folder className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+              <FileTypeIcon kind="folder" color={theme.dirText} className="w-3.5 h-3.5 shrink-0" />
               <span className="tracking-wider">..</span>
               <span className="opacity-50 text-[10px]">&lt;UP--DIR&gt;</span>
             </div>
@@ -1104,20 +1057,29 @@ const FileListComponent: React.FC<FileListProps> = ({
                               alt={item.name}
                               fit="cover"
                               fallback={
-                                <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-indigo-950 to-purple-950 text-indigo-300">
-                                  <ImageIcon className="w-8 h-8 opacity-80" />
+                                <div
+                                  className="w-full h-full flex flex-col items-center justify-center"
+                                  style={{ background: theme.bgPanel, color: theme.mediaText }}
+                                >
+                                  <FileTypeIcon kind="image" color={theme.mediaText} className="w-8 h-8" />
                                   <span className="text-[9px] font-bold mt-1 uppercase">{ext} IMAGE</span>
                                 </div>
                               }
                             />
                           ) : isAudio ? (
-                            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-amber-950 to-orange-950 text-amber-300">
-                              <Music className="w-8 h-8 animate-pulse" />
+                            <div
+                              className="w-full h-full flex flex-col items-center justify-center"
+                              style={{ background: theme.bgPanel, color: theme.mediaText }}
+                            >
+                              <FileTypeIcon kind="audio" color={theme.mediaText} className="w-8 h-8 animate-pulse" />
                               <span className="text-[9px] font-bold mt-1 uppercase">AUDIO TRACK</span>
                             </div>
                           ) : isVideo ? (
-                            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-cyan-950 to-blue-950 text-cyan-300">
-                              <Film className="w-8 h-8" />
+                            <div
+                              className="w-full h-full flex flex-col items-center justify-center"
+                              style={{ background: theme.bgPanel, color: theme.mediaText }}
+                            >
+                              <FileTypeIcon kind="video" color={theme.mediaText} className="w-8 h-8" />
                               <span className="text-[9px] font-bold mt-1 uppercase">VIDEO CLIP</span>
                             </div>
                           ) : (
@@ -1171,7 +1133,7 @@ const FileListComponent: React.FC<FileListProps> = ({
             onDrop={(e) => handleDrop(e)}
             className="m-4 p-8 border-2 border-dashed border-white/20 hover:border-amber-400/60 rounded flex flex-col items-center justify-center text-center transition-all bg-black/20"
           >
-            <Folder className="w-8 h-8 opacity-40 mb-2 text-amber-300" />
+            <FileTypeIcon kind="folder" color={theme.dirText} className="w-8 h-8 opacity-40 mb-2" />
             <div className="text-xs opacity-70 font-semibold mb-1">&lt;{t.emptyFolder}&gt;</div>
             <div className="text-[11px] opacity-40">{t.emptyFolderDropHint}</div>
           </div>
