@@ -194,10 +194,10 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
             </button>
             <button
               onClick={onCloseWindow}
-              className="p-0.5 hover:bg-red-500/80 rounded transition-colors cursor-pointer"
+              className="p-0.5 hover:nc-danger-fill rounded transition-colors cursor-pointer"
               title={t.btnClose}
             >
-              <X className="w-3 h-3 text-red-500" />
+              <X className="w-3 h-3 nc-danger-ink" />
             </button>
           </div>
         )}
@@ -360,7 +360,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
               )}
               <button
                 onClick={() => handleAction(() => onOpenModal('recycle_bin'))}
-                className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between text-rose-300"
+                className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between nc-danger-ink"
               >
                 <span>{t.recycleBin}</span> <span className="opacity-60">TR:</span>
               </button>
@@ -554,7 +554,7 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
               <div className="h-px bg-current opacity-20 my-1"></div>
               <button
                 onClick={() => handleAction(onResetDefaults)}
-                className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] text-red-400 hover:bg-red-500/20"
+                className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] nc-danger-ink hover:nc-danger-surface-strong"
               >
                 {t.menuResetFactory}
               </button>

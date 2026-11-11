@@ -447,7 +447,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
             <div className="flex items-center gap-[var(--space-2)]">
               <span className="font-bold text-amber-400">{t.cmdShellTitle}</span>
               {isAdminMode && (
-                <span className="bg-red-600 text-white font-black px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[9px] uppercase tracking-wider animate-pulse">
+                <span className="nc-danger-fill text-white font-black px-[var(--space-1)].5 py-[var(--space-1)] rounded text-[9px] uppercase tracking-wider animate-pulse">
                   {t.cmdAdminElevated}
                 </span>
               )}
@@ -468,7 +468,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
               )}
               <button
                 onClick={onClearHistory}
-                className="hover:text-red-400 cursor-pointer flex items-center gap-[var(--space-1)] text-[10px]"
+                className="hover:nc-danger-ink cursor-pointer flex items-center gap-[var(--space-1)] text-[10px]"
               >
                 <Trash2 className="w-3 h-3" /> {t.clearLabel}
               </button>
@@ -489,7 +489,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
                 </div>
                 {item.output && (
                   <pre
-                    className={`whitespace-pre-wrap pl-2 ${item.status === 'error' ? 'text-red-400' : 'text-emerald-400'}`}
+                    className={`whitespace-pre-wrap pl-2 ${item.status === 'error' ? 'nc-danger-ink' : 'text-emerald-400'}`}
                   >
                     {item.output}
                   </pre>
@@ -655,7 +655,7 @@ export const CommandLineBar: React.FC<CommandLineBarProps> = ({
         </button>
 
         <span
-          className={`font-bold shrink-0 select-none ${isAdminMode ? 'text-red-400 font-extrabold' : 'text-amber-400'}`}
+          className={`font-bold shrink-0 select-none ${isAdminMode ? 'nc-danger-ink font-extrabold' : 'text-amber-400'}`}
         >
           {isAdminMode ? `[ADMIN] ${currentPath}>` : `${currentPath}>`}
         </span>

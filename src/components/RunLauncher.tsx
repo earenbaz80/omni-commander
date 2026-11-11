@@ -528,7 +528,7 @@ export const RunLauncher: React.FC<RunLauncherProps> = ({
               soundManager.playKeyTick();
               onDismiss();
             }}
-            className="shrink-0 rounded px-[var(--space-1)] text-white/40 hover:text-red-300 cursor-pointer"
+            className="shrink-0 rounded px-[var(--space-1)] text-white/40 hover:nc-danger-ink cursor-pointer"
             title={t.runDismiss}
             aria-label={t.runDismiss}
           >
@@ -675,7 +675,7 @@ export const RunLauncher: React.FC<RunLauncherProps> = ({
                               onClick={() => dropFavorite(suggestion.value)}
                               title={t.runFavRemove}
                               aria-label={`${t.runFavRemove} — ${label}`}
-                              className="px-[2px] text-white/50 hover:text-red-300 cursor-pointer"
+                              className="px-[2px] text-white/50 hover:nc-danger-ink cursor-pointer"
                             >
                               <X className="w-3 h-3" aria-hidden="true" />
                             </button>
@@ -695,7 +695,7 @@ export const RunLauncher: React.FC<RunLauncherProps> = ({
               under the field, where the typo is, until the next attempt. */}
           {!keysOpen && (
             <p
-              className={`text-[10px] leading-tight ${error ? 'text-red-300' : 'text-white/50'} ${
+              className={`text-[10px] leading-tight ${error ? 'nc-danger-ink' : 'text-white/50'} ${
                 showList ? 'mt-[var(--space-1)]' : ''
               }`}
               role={error ? 'alert' : undefined}

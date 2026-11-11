@@ -121,7 +121,7 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
             </span>
             <div className="w-16 h-2 bg-black/60 rounded-full overflow-hidden border border-white/20">
               <div
-                className={`h-full ${usedPercent > 85 ? 'bg-red-500' : 'bg-cyan-400'}`}
+                className={`h-full ${usedPercent > 85 ? 'nc-danger-fill' : 'bg-cyan-400'}`}
                 style={{ width: `${usedPercent}%` }}
               />
             </div>
@@ -157,7 +157,7 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
             onClick={onProtectFolder}
             className={`px-[var(--space-2)] py-[var(--space-1)] rounded font-bold border flex items-center gap-[var(--space-1)] cursor-pointer transition-colors ${
               isFolderProtected
-                ? 'bg-red-950/80 border-red-500 text-red-300 hover:bg-red-900'
+                ? 'nc-danger-fill nc-danger-edge nc-danger-ink hover:nc-danger-fill'
                 : 'bg-black/40 border-white/20 text-white/70 hover:bg-white/10'
             }`}
             title={isFolderProtected ? t.folderProtectedTitle : t.protectFolderWithPassTitle}

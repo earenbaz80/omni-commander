@@ -337,12 +337,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             soundManager.playKeyTick();
             setCleanupMenuOpen((open) => !open);
           }}
-          className="px-[var(--space-2)] py-[var(--space-1)] rounded border bg-red-900/30 cursor-pointer"
+          className="px-[var(--space-2)] py-[var(--space-1)] rounded border nc-danger-surface-strong cursor-pointer"
           title={t.toolbarCleanup}
           aria-haspopup="menu"
           aria-expanded={cleanupMenuOpen}
         >
-          <Trash className="w-4 h-4 text-red-300" />
+          <Trash className="w-4 h-4 nc-danger-ink" />
         </button>
 
         {cleanupMenuOpen && (
