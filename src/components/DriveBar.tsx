@@ -50,7 +50,14 @@ export const DriveBar: React.FC<DriveBarProps> = ({
       case 'ram':
         return <Cpu className={`w-3 h-3 ${tone('text-emerald-400')} inline mr-[var(--space-1)]`} />;
       case 'network':
-        return <FolderSync className={`w-3 h-3 ${tone('text-purple-400')} inline mr-[var(--space-1)]`} />;
+        // A network location is the live one among the drives, so it takes the
+        // theme's accent instead of a fixed violet.
+        return (
+          <FolderSync
+            className={`w-3 h-3 inline mr-[var(--space-1)] ${selected ? 'text-black' : ''}`}
+            style={selected ? undefined : { color: theme.accent }}
+          />
+        );
       case 'host_fs':
         return <Database className={`w-3 h-3 ${tone('text-amber-400')} inline mr-[var(--space-1)]`} />;
       default:

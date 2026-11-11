@@ -447,7 +447,7 @@ export const ViewerModal: React.FC<ViewerModalProps> = ({ theme, lang, file, onC
                       )}
                       {isAudio && (
                         <div className="w-full max-w-xl space-y-[var(--space-2)] text-center">
-                          <Music className="w-14 h-14 text-violet-400 mx-auto" />
+                          <Music className="w-14 h-14 mx-auto" style={{ color: theme.mediaText }} />
                           <p className="font-bold text-base">
                             {file.name}.{file.ext}
                           </p>
