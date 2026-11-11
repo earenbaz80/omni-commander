@@ -12,6 +12,8 @@ export interface ThemeConfig {
   headerText: string;
   itemText: string;
   dirText: string;
+  /** The folder glyph's colour: a directory reads as one before its label. */
+  folderText: string;
   exeText: string;
   zipText: string;
   docText: string;
@@ -53,7 +55,8 @@ const classicBlueConfig: ThemeConfig = {
   headerBg: '#00aaaa',
   headerText: '#000000',
   itemText: '#55ffff', // Cyan text
-  dirText: '#ffffff', // Bold white for directories
+  dirText: '#ffffff',
+  folderText: '#ffd700', // Bold white for directories
   exeText: '#55ff55', // Bright green for executables
   zipText: '#ff55ff', // Magenta for archives
   docText: '#ffff55', // Yellow for docs
@@ -96,6 +99,7 @@ const retroGrayConfig: ThemeConfig = {
   headerText: '#f1f5f9',
   itemText: '#cbd5e1',
   dirText: '#60a5fa',
+  folderText: '#fbbf24',
   exeText: '#4ade80',
   zipText: '#c084fc',
   docText: '#fde047',
@@ -150,6 +154,7 @@ const retroFuturistConfig: ThemeConfig = {
   headerText: '#061a1f',
   itemText: '#dfe9e4',
   dirText: '#6ec8e8',
+  folderText: '#ffb347',
   exeText: '#8fe0a0',
   zipText: '#ffb347',
   docText: '#e8d7a0',
@@ -219,6 +224,7 @@ export const themes: Record<ThemeId, ThemeConfig> = {
     headerText: '#0d0800',
     itemText: '#ffb000',
     dirText: '#ffffff',
+    folderText: '#ffc107',
     exeText: '#ffe082',
     zipText: '#ff9100',
     docText: '#ffc107',
@@ -260,6 +266,7 @@ export const themes: Record<ThemeId, ThemeConfig> = {
     headerText: '#040d06',
     itemText: '#00ff66',
     dirText: '#ffffff',
+    folderText: '#b5ff2b',
     exeText: '#a3ff70',
     zipText: '#00e5ff',
     docText: '#ccff00',
@@ -301,6 +308,7 @@ export const themes: Record<ThemeId, ThemeConfig> = {
     headerText: '#f4f4f5',
     itemText: '#e4e4e7',
     dirText: '#93c5fd',
+    folderText: '#eab308',
     exeText: '#86efac',
     zipText: '#d8b4fe',
     docText: '#fef08a',
@@ -342,6 +350,7 @@ export const themes: Record<ThemeId, ThemeConfig> = {
     headerText: '#0f172a',
     itemText: '#1e293b',
     dirText: '#1d4ed8',
+    folderText: '#d97706',
     exeText: '#15803d',
     zipText: '#7e22ce',
     docText: '#a16207',
@@ -383,6 +392,7 @@ export const themes: Record<ThemeId, ThemeConfig> = {
     headerText: '#f8f8f2',
     itemText: '#f8f8f2',
     dirText: '#8be9fd',
+    folderText: '#f1fa8c',
     exeText: '#50fa7b',
     zipText: '#ff79c6',
     docText: '#f1fa8c',
@@ -424,6 +434,7 @@ export const themes: Record<ThemeId, ThemeConfig> = {
     headerText: '#93a1a1',
     itemText: '#839496',
     dirText: '#268bd2',
+    folderText: '#b58900',
     exeText: '#859900',
     zipText: '#d33682',
     docText: '#b58900',

@@ -7,6 +7,16 @@ import { migrateThemeId, themes } from './themeManager';
  * the old names map to the palette they always rendered, and anything unusable
  * falls back to the default theme instead of leaving the menu with no selection.
  */
+describe('theme folder colour', () => {
+  it('gives every theme a folder glyph colour of its own', () => {
+    for (const [id, theme] of Object.entries(themes)) {
+      expect(theme.folderText, id).toMatch(/^#[0-9a-f]{6}$/i);
+    }
+    // A single shared amber would be the old hardcoded hue again.
+    expect(new Set(Object.values(themes).map((theme) => theme.folderText)).size).toBeGreaterThan(1);
+  });
+});
+
 describe('migrateThemeId', () => {
   it('maps the retired classic and retro names to their current ids', () => {
     expect(migrateThemeId('norton_classic')).toBe('classic_blue');
