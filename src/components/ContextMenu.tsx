@@ -543,7 +543,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             onClick={() => handleAction(onZip)}
             className="w-full text-left px-[var(--space-3)] py-[var(--space-2)] hover:bg-white/20 flex items-center gap-[var(--space-2)] cursor-pointer"
           >
-            <FileArchive className="w-3.5 h-3.5 text-fuchsia-300" /> {t.zipPack}
+            <FileArchive className="w-3.5 h-3.5" style={{ color: theme.zipText }} /> {t.zipPack}
           </MenuItem>
 
           <MenuItem

@@ -198,11 +198,19 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
             )}
           </button>
 
-          {/* Folder icon */}
+          {/*
+            Folder icon. It takes the theme's folder ink, the same one the file
+            list paints its directories with, so the two panes agree on what a
+            folder looks like; the row under the cursor uses the ink that theme
+            pairs with its cursor bar.
+          */}
           {isExpanded ? (
-            <FolderOpen className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-black' : 'text-amber-300'}`} />
+            <FolderOpen
+              className="w-3.5 h-3.5 shrink-0"
+              style={{ color: isActive ? theme.cursorText : theme.dirText }}
+            />
           ) : (
-            <Folder className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-black' : 'text-amber-400'}`} />
+            <Folder className="w-3.5 h-3.5 shrink-0" style={{ color: isActive ? theme.cursorText : theme.dirText }} />
           )}
 
           {/* Name */}
@@ -537,10 +545,16 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
                       handleSelectNode(currentDriveId, fullPath);
                     }}
                     className={`w-full text-left px-[var(--space-2)] py-[var(--space-1)] rounded flex items-center gap-[var(--space-2)] cursor-pointer transition-colors text-[11px] truncate ${
-                      isActive ? 'bg-emerald-400 text-black font-extrabold shadow' : 'hover:bg-white/10 text-white/90'
+                      isActive ? 'font-extrabold shadow' : 'hover:bg-white/10 text-white/90'
                     }`}
+                    style={isActive ? { backgroundColor: theme.cursorBg, color: theme.cursorText } : undefined}
                   >
-                    <Folder className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-black' : 'text-emerald-400'}`} />
+                    {/* A folder that lives inside an archive is drawn in the ink
+                        the theme gives archives. */}
+                    <Folder
+                      className="w-3.5 h-3.5 shrink-0"
+                      style={{ color: isActive ? theme.cursorText : theme.zipText }}
+                    />
                     <span className="truncate">{folder.name}</span>
                   </button>
                 );
@@ -610,11 +624,14 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
                         {isDriveExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                       </button>
                       {network ? (
-                        <Network className="w-3.5 h-3.5 text-purple-300 shrink-0" />
+                        <Network className="w-3.5 h-3.5 shrink-0" style={{ color: theme.accent }} />
                       ) : (
                         <HardDrive className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                       )}
-                      <span className={network ? 'font-black text-purple-300' : 'font-black text-amber-300'}>
+                      <span
+                        className={network ? 'font-black' : 'font-black text-amber-300'}
+                        style={network ? { color: theme.accent } : undefined}
+                      >
                         [{driveLetter}]
                       </span>
                       <span className="opacity-75 text-[10px] truncate">{drive.name}</span>
