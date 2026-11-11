@@ -542,7 +542,16 @@ function createMainWindow() {
     },
   });
 
-  mainWindow.webContents.setVisualZoomLevelLimits(1, 1);
+  // The zoom limits belong to the frame, and a window that was just created has
+  // none yet: asking then rejects with "Render frame was disposed before
+  // WebFrameMain could be accessed", which went unhandled on every packaged
+  // start and left the window zoomable all the same. Pinning them when the
+  // document is ready is both safe and effective.
+  mainWindow.webContents.on('dom-ready', () => {
+    // Only a frame that goes away mid-setup rejects here, and the next dom-ready
+    // applies the limits again.
+    void mainWindow?.webContents.setVisualZoomLevelLimits(1, 1).catch(() => {});
+  });
 
   // The product is offline by design, so the window is only ever allowed to stay
   // on its two legitimate local documents. Denying navigation and window.open
