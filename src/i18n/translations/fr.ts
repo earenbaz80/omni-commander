@@ -1123,6 +1123,7 @@ export const fr = {
 
   // Fenêtre de navigation : une vraie page dans une session à part, jamais une iframe.
   webBrowser: 'Navigateur web…',
+  browserInPanel: 'Navigateur dans le panneau',
   browserTitle: 'Navigateur web',
   browserAddress: 'Adresse (ex. example.com)',
   browserBack: 'Précédent',

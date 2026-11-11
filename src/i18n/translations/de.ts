@@ -1120,6 +1120,7 @@ export const de = {
 
   // Browserfenster: eine echte Seite in eigener Sitzung, kein iframe.
   webBrowser: 'Webbrowser…',
+  browserInPanel: 'Webbrowser im Bereich',
   browserTitle: 'Webbrowser',
   browserAddress: 'Adresse (z. B. example.com)',
   browserBack: 'Zurück',

@@ -77,6 +77,12 @@ function createCatalog(deps = {}) {
   // discovered asynchronously via WMI. The filesystem probe below always provides
   // the drive list itself, so this is only enrichment.
   let drivesMeta = new Map();
+  // Mapped drives have a table of their own, and it is the only place that keeps
+  // a letter whose server is unreachable: Win32_LogicalDisk may report the
+  // mapping with no size, or not at all, and the probe drops the letter because
+  // its root cannot be stat'ed. Reading the mapping table keeps that drive on
+  // the list, dimmed, instead of letting it vanish until the share answers.
+  let networkMeta = new Map();
 
   // Enumerating drives must never block a request: a WMI/CIM query can take
   // minutes on a cold or constrained machine. The fast path stats candidate roots
@@ -150,11 +156,12 @@ function createCatalog(deps = {}) {
     for (const found of probed) {
       if (!found) continue;
       const meta = drivesMeta.get(found.letter) || {};
+      const mapping = networkMeta.get(found.letter);
       drives.push(
         makeDrive({
           letter: found.letter,
-          volumeName: meta.volumeName,
-          driveType: meta.driveType != null ? meta.driveType : 3,
+          volumeName: meta.volumeName || mapping?.remoteName,
+          driveType: meta.driveType != null ? meta.driveType : mapping ? 4 : 3,
           size: meta.size || found.totalBytes,
           free: meta.free || found.freeBytes,
           fileSystem: meta.fileSystem,
@@ -177,6 +184,22 @@ function createCatalog(deps = {}) {
       if (seen.has(letter)) continue;
       if (Number(meta.driveType) !== 4) continue;
       offline.push(makeDrive({ letter, ...meta, isMounted: false }));
+    }
+    // The mapping table knows letters LogicalDisk does not, which is exactly the
+    // disconnected share the probe and the volume query both miss.
+    for (const [letter, mapping] of networkMeta) {
+      if (seen.has(letter)) continue;
+      const meta = drivesMeta.get(letter) || {};
+      offline.push(
+        makeDrive({
+          letter,
+          volumeName: meta.volumeName || mapping.remoteName,
+          ...meta,
+          driveType: 4,
+          isMounted: false,
+        }),
+      );
+      seen.add(letter);
     }
     return offline.length ? [...drives, ...offline] : drives;
   }
@@ -230,6 +253,28 @@ function createCatalog(deps = {}) {
     return meta;
   }
 
+  async function queryMappedNetworkDrives() {
+    if (process.platform !== 'win32') return new Map();
+    const command =
+      'Get-CimInstance Win32_NetworkConnection | Select-Object LocalName,RemoteName | ConvertTo-Json -Compress';
+    const { stdout: out } = await execFileAsync(
+      'powershell',
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', command],
+      { encoding: 'utf8', windowsHide: true, maxBuffer: 8 * 1024 * 1024, timeout: POWERSHELL_TIMEOUT_MS },
+    );
+    const parsed = JSON.parse((out || '').trim() || '[]');
+    const entries = Array.isArray(parsed) ? parsed : parsed ? [parsed] : [];
+    const meta = new Map();
+    for (const item of entries) {
+      const letter = String(item.LocalName || '')
+        .trim()
+        .toUpperCase();
+      if (!/^[A-Z]:$/.test(letter)) continue;
+      meta.set(letter, { remoteName: String(item.RemoteName || '').trim() });
+    }
+    return meta;
+  }
+
   // Runs the slow WMI query off the request path and merges its metadata into the
   // cached drive list once it resolves. One query at a time, so hot-plug polling
   // can never stack PowerShell spawns.
@@ -243,9 +288,18 @@ function createCatalog(deps = {}) {
     wmiInflight = true;
     try {
       const meta = await queryWmiDriveInfo();
-      if (!meta.size) return;
-      drivesMeta = meta;
-      drivesCache = { at: 0, data: null, inflight: null };
+      let mapped = null;
+      try {
+        mapped = await queryMappedNetworkDrives();
+      } catch (error) {
+        // No mapping table is not the same as no mappings: keep the last one.
+        logDebug('Mapped drive query failed:', error?.message || error);
+      }
+      if (mapped) networkMeta = mapped;
+      if (meta.size) drivesMeta = meta;
+      if (meta.size || (mapped && mapped.size)) {
+        drivesCache = { at: 0, data: null, inflight: null };
+      }
     } catch (error) {
       // Keep the fast probe's generic metadata; the next new letter retries.
       logDebug('WMI drive enrichment failed:', error?.message || error);
@@ -280,6 +334,11 @@ function createCatalog(deps = {}) {
           wmiInflight = true;
           try {
             const meta = await queryWmiDriveInfo();
+            for (const [letter, mapping] of networkMeta) {
+              if (!meta.has(letter)) {
+                meta.set(letter, { driveType: 4, volumeName: mapping.remoteName });
+              }
+            }
             if (meta.size) {
               drivesMeta = meta;
               return drivesFromMeta(meta);

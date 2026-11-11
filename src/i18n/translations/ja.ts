@@ -1116,6 +1116,7 @@ export const ja = {
 
   // ブラウザウィンドウ：専用セッションの実ページ。iframe ではない。
   webBrowser: 'ウェブブラウザ…',
+  browserInPanel: 'パネルでブラウザー',
   browserTitle: 'ウェブブラウザ',
   browserAddress: 'アドレス（例: example.com）',
   browserBack: '戻る',

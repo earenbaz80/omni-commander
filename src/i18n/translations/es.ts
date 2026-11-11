@@ -1147,6 +1147,7 @@ export const es = {
 
   // Ventana de navegación: página real en una sesión aparte, nunca un iframe.
   webBrowser: 'Navegador web…',
+  browserInPanel: 'Navegador en el panel',
   browserTitle: 'Navegador web',
   browserAddress: 'Dirección (ej. example.com)',
   browserBack: 'Atrás',

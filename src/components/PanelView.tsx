@@ -11,6 +11,7 @@ import { DiskUsagePane } from './DiskUsagePane';
 import { PathBar } from './PathBar';
 import { QuickViewPane } from './QuickViewPane';
 import { FileList } from './FileList';
+import { PanelBrowser } from './PanelBrowser';
 
 interface PanelViewProps {
   side: 'left' | 'right';
@@ -71,6 +72,9 @@ interface PanelViewProps {
   onOpenItem: (item: FileItem) => void;
   onContextMenu: (e: React.MouseEvent, item: FileItem | null) => void;
   onItemHover: (e: React.MouseEvent, item: FileItem | null) => void;
+  /** Address the pane shows instead of its files, while the browser is open in it. */
+  browserUrl?: string;
+  onCloseBrowser?: () => void;
 }
 
 /**
@@ -124,6 +128,8 @@ export const PanelView: React.FC<PanelViewProps> = ({
   onOpenItem,
   onContextMenu,
   onItemHover,
+  browserUrl,
+  onCloseBrowser,
 }) => {
   const isActive = activePanel === side;
   const t = getTranslations(lang);
@@ -196,6 +202,10 @@ export const PanelView: React.FC<PanelViewProps> = ({
             followPath={otherTab.currentPath}
             onClose={() => setPanel((p) => ({ ...p, panelView: 'files' }))}
           />
+        ) : browserUrl !== undefined ? (
+          // The pane's own files stay where they are: closing the browser puts
+          // them back exactly as they were, without touching the tab's path.
+          <PanelBrowser theme={currentTheme} lang={lang} startUrl={browserUrl} onClose={onCloseBrowser ?? (() => {})} />
         ) : (
           <>
             <PanelTabs

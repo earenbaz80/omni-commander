@@ -41,6 +41,33 @@ function bandOf(container: HTMLElement): string | null {
   return BANDS.find((band) => container.querySelector(`.${band}`)) ?? null;
 }
 
+describe('DriveBar network drives', () => {
+  it('keeps a mapped drive whose server is away on the bar', () => {
+    const local = driveUsedAt(20);
+    const mapped: Drive = {
+      id: 'Z:',
+      letter: 'Z:',
+      name: 'NAS media',
+      type: 'network',
+      driveKind: 'network',
+      totalBytes: 0,
+      freeBytes: 0,
+      isMounted: false,
+    };
+    const { getByText } = render(
+      <DriveBar
+        theme={theme}
+        drives={[local, mapped]}
+        currentDriveId={local.id}
+        onSelectDrive={() => {}}
+        panelSide="left"
+        isActive
+      />,
+    );
+    expect(getByText('[Z:]')).toBeTruthy();
+  });
+});
+
 describe('DriveBar disk meter', () => {
   it('reads a low usage as healthy', () => {
     expect(bandOf(renderMeter(20))).toBe('nc-ok-fill');
