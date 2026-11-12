@@ -4,6 +4,7 @@ import { Drive, DriveType } from '../types';
 import { ThemeConfig } from '../services/themeManager';
 import { soundManager } from '../services/soundEffects';
 import { tGlobal } from '../i18n/translations';
+import { formatBytesWithTerabytes } from '../utils/formatBytes';
 
 interface DriveBarProps {
   theme: ThemeConfig;
@@ -30,19 +31,6 @@ export const DriveBar: React.FC<DriveBarProps> = ({
     );
   }
   const currentDrive = drives.find((d) => d.id === currentDriveId) || drives[0];
-
-  const formatBytes = (bytes: number): string => {
-    if (bytes >= 1024 * 1024 * 1024 * 1024) {
-      return `${(bytes / (1024 * 1024 * 1024 * 1024)).toFixed(1)} TB`;
-    }
-    if (bytes >= 1024 * 1024 * 1024) {
-      return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-    }
-    if (bytes >= 1024 * 1024) {
-      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    }
-    return `${bytes} B`;
-  };
 
   const getDriveIcon = (type: DriveType, selected: boolean) => {
     const tone = (color: string) => (selected ? 'text-black' : color);
@@ -105,7 +93,7 @@ export const DriveBar: React.FC<DriveBarProps> = ({
                   soundManager.playDiskAccess();
                   onSelectDrive(drive.id);
                 }}
-                title={`${drive.letter} ${drive.name}${drive.fileSystem ? ` [${drive.fileSystem}]` : ''}${drive.driveKind ? ` (${drive.driveKind})` : ''} - ${offline ? 'not connected' : `${formatBytes(drive.freeBytes)} free`}`}
+                title={`${drive.letter} ${drive.name}${drive.fileSystem ? ` [${drive.fileSystem}]` : ''}${drive.driveKind ? ` (${drive.driveKind})` : ''} - ${offline ? 'not connected' : `${formatBytesWithTerabytes(drive.freeBytes)} free`}`}
                 className={`${offline ? 'opacity-60 border border-dashed border-white/30 ' : ''}px-[var(--space-2)] py-[var(--space-1)] text-xs font-bold transition-all rounded flex items-center gap-[var(--space-1)] shrink-0 cursor-pointer ${
                   isSelected
                     ? 'bg-amber-400 text-black shadow-inner font-extrabold ring-1 ring-amber-300'
@@ -129,7 +117,7 @@ export const DriveBar: React.FC<DriveBarProps> = ({
             />
           </div>
           <span className="tabular-nums font-bold">
-            {formatBytes(currentDrive.freeBytes)} <span className="opacity-60 text-[10px]">free</span>
+            {formatBytesWithTerabytes(currentDrive.freeBytes)} <span className="opacity-60 text-[10px]">free</span>
           </span>
         </div>
       )}
