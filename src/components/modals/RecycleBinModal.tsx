@@ -6,6 +6,7 @@ import { soundManager } from '../../services/soundEffects';
 import { fsEngine } from '../../services/fileSystem';
 
 import { getTranslations } from '../../i18n/translations';
+import { formatBytes } from '../../utils/formatBytes';
 import ModalShell from '../ModalShell';
 
 interface RecycleBinModalProps {
@@ -49,12 +50,6 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({ theme, lang, o
     fsEngine.emptyRecycleBin();
     soundManager.playKeyTick();
     refreshList();
-  };
-
-  const formatSize = (bytes: number) => {
-    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${bytes} B`;
   };
 
   return (
@@ -121,7 +116,7 @@ export const RecycleBinModal: React.FC<RecycleBinModalProps> = ({ theme, lang, o
                 </div>
 
                 <div className="flex items-center gap-[var(--space-4)] shrink-0 text-[var(--fs-sm)] tabular-nums">
-                  <span className="opacity-60">{formatSize(binItem.item.size)}</span>
+                  <span className="opacity-60">{formatBytes(binItem.item.size)}</span>
                   <span className="opacity-50 text-[var(--fs-8)] hidden sm:inline">{binItem.deletedAt}</span>
 
                   <div className="flex items-center gap-[var(--space-2)] ml-[var(--space-2)]">

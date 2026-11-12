@@ -84,6 +84,18 @@ beforeEach(() => {
 });
 
 describe('SyncFoldersModal diff', () => {
+  /**
+   * The diff compares folders, so an image or a virtual disk is a normal entry.
+   * The column stopped at megabytes, which printed a 2 GiB file as "2048.0 MB"
+   * while the panels showed it as "2.0 GB".
+   */
+  it('reads a file over a gigabyte in gigabytes, like the rest of the app', () => {
+    renderModal([file('disco.img', 2 * 1024 ** 3)], []);
+
+    expect(row('disco.img')?.textContent).toContain('2.0 GB');
+    expect(row('disco.img')?.textContent).not.toContain('2048.0 MB');
+  });
+
   it('classifies each name once, by size before date', () => {
     renderModal(
       [file('solo-izq', 10), file('distinto', 20), file('izq-nuevo', 50, '2026-03-01T10:00:00.000Z')],
