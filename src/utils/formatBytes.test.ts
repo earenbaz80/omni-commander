@@ -7,6 +7,7 @@ import {
   formatBytesRoundedWithWholeBytes,
   formatBytesTwoDecimals,
   formatBytesWithTerabytes,
+  formatBytesWithWholeKilobytes,
 } from './formatBytes';
 
 /**
@@ -111,6 +112,27 @@ describe('formatBytesTwoDecimals', () => {
     expect(formatBytesTwoDecimals(1024 * 1024 * 1024)).toBe('1.00 GB');
     expect(formatBytesTwoDecimals(2.5 * 1024 * 1024 * 1024)).toBe('2.50 GB');
     expect(formatBytesTwoDecimals(1024 * 1024 * 1024 * 1024)).toBe('1024.00 GB');
+  });
+});
+
+describe('formatBytesWithWholeKilobytes', () => {
+  it('counts whole bytes under a kilobyte', () => {
+    expect(formatBytesWithWholeKilobytes(0)).toBe('0 B');
+    expect(formatBytesWithWholeKilobytes(1)).toBe('1 B');
+    expect(formatBytesWithWholeKilobytes(1023)).toBe('1023 B');
+  });
+
+  it('rounds a kilobyte to a whole unit', () => {
+    expect(formatBytesWithWholeKilobytes(1024)).toBe('1 KB');
+    expect(formatBytesWithWholeKilobytes(1535)).toBe('1 KB');
+    expect(formatBytesWithWholeKilobytes(1536)).toBe('2 KB');
+    expect(formatBytesWithWholeKilobytes(1024 * 1024 - 1)).toBe('1024 KB');
+  });
+
+  it('keeps one decimal from a megabyte up and stops there', () => {
+    expect(formatBytesWithWholeKilobytes(1024 * 1024)).toBe('1.0 MB');
+    expect(formatBytesWithWholeKilobytes(2.5 * 1024 * 1024)).toBe('2.5 MB');
+    expect(formatBytesWithWholeKilobytes(1024 * 1024 * 1024)).toBe('1024.0 MB');
   });
 });
 

@@ -46,6 +46,19 @@ export function formatBytesTwoDecimals(bytes: number): string {
   return `${bytes} B`;
 }
 
+/**
+ * The map cache's form: megabytes with one decimal, a kilobyte rounded to a
+ * whole unit, and a raw byte count below that. A tile cache is measured in
+ * megabytes and reads as a rough figure there, so half a kilobyte of precision
+ * would be a claim the number does not back; gigabytes stay counted in
+ * megabytes because a cache that large means a setting was left alone.
+ */
+export function formatBytesWithWholeKilobytes(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${bytes} B`;
+}
+
 const ROUNDED_UNITS = ['B', 'KB', 'MB', 'GB', 'TB'];
 
 function splitRounded(bytes: number): { value: number; unit: number } {
