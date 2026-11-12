@@ -3,6 +3,7 @@ import { Activity, ChevronDown } from 'lucide-react';
 import { BackgroundTask, LanguageCode } from '../types';
 import { getTranslations } from '../i18n/translations';
 import { taskQueue } from '../services/taskQueueManager';
+import { formatSpeed } from '../utils/formatSpeed';
 import { soundManager } from '../services/soundEffects';
 import { ThemeConfig } from '../services/themeManager';
 import { RetroProgressBar } from './RetroProgressBar';
@@ -186,9 +187,9 @@ export const TaskQueueBar: React.FC<TaskQueueBarProps> = ({ onOpenTasksModal, la
                     className="bg-black text-cyan-300 border border-cyan-700 rounded px-[var(--space-1)] py-[var(--space-1)] font-mono cursor-pointer"
                   >
                     <option value={0}>{t.speedUnlimited}</option>
-                    <option value={1048576}>1 MB/s</option>
-                    <option value={5242880}>5 MB/s</option>
-                    <option value={20971520}>20 MB/s</option>
+                    <option value={1048576}>{formatSpeed(1048576)}</option>
+                    <option value={5242880}>{formatSpeed(5242880)}</option>
+                    <option value={20971520}>{formatSpeed(20971520)}</option>
                   </select>
                 </label>
               )}
