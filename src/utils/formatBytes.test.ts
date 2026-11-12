@@ -44,6 +44,12 @@ describe('formatBytesWithTerabytes', () => {
     expect(formatBytesWithTerabytes(1024 * 1024)).toBe('1.0 MB');
   });
 
+  it('agrees with the shared ladder from a megabyte up', () => {
+    for (const bytes of [1024 * 1024, 2.5 * 1024 * 1024, 1024 * 1024 * 1024, 2 * 1024 ** 4]) {
+      expect(formatBytesWithTerabytes(bytes)).toBe(formatBytes(bytes));
+    }
+  });
+
   it('gives the terabyte its own unit', () => {
     expect(formatBytesWithTerabytes(1024 * 1024 * 1024)).toBe('1.0 GB');
     expect(formatBytesWithTerabytes(1024 * 1024 * 1024 * 1024 - 1)).toBe('1024.0 GB');
