@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatBytes, formatBytesCompact, formatBytesWithTerabytes } from './formatBytes';
+import { formatBytes, formatBytesCompact, formatBytesRounded, formatBytesWithTerabytes } from './formatBytes';
 
 /**
  * Every boundary is checked on both sides: the last value of one unit and the
@@ -36,6 +36,28 @@ describe('formatBytesWithTerabytes', () => {
     expect(formatBytesWithTerabytes(1024 * 1024 * 1024 * 1024 - 1)).toBe('1024.0 GB');
     expect(formatBytesWithTerabytes(1024 * 1024 * 1024 * 1024)).toBe('1.0 TB');
     expect(formatBytesWithTerabytes(1.5 * 1024 * 1024 * 1024 * 1024)).toBe('1.5 TB');
+  });
+});
+
+describe('formatBytesRounded', () => {
+  it('keeps a decimal below ten and rounds from ten', () => {
+    expect(formatBytesRounded(0)).toBe('0.0 B');
+    expect(formatBytesRounded(6)).toBe('6.0 B');
+    expect(formatBytesRounded(1536)).toBe('1.5 KB');
+    // The switch is on the scaled value: 10239 bytes is 9.999 KB, which still
+    // takes the decimal, while 10240 is ten whole kilobytes and is rounded.
+    expect(formatBytesRounded(10239)).toBe('10.0 KB');
+    expect(formatBytesRounded(10240)).toBe('10 KB');
+    expect(formatBytesRounded(15872)).toBe('16 KB');
+  });
+
+  it('counts terabytes and caps the unit there', () => {
+    expect(formatBytesRounded(1024 * 1024 * 1024)).toBe('1.0 GB');
+    expect(formatBytesRounded(1024 * 1024 * 1024 * 1024)).toBe('1.0 TB');
+    expect(formatBytesRounded(2 * 1024 * 1024 * 1024 * 1024)).toBe('2.0 TB');
+    expect(formatBytesRounded(10 * 1024 * 1024 * 1024 * 1024)).toBe('10 TB');
+    // Nothing is larger than a terabyte to this formatter, so the number grows.
+    expect(formatBytesRounded(1024 * 1024 * 1024 * 1024 * 1024)).toBe('1024 TB');
   });
 });
 

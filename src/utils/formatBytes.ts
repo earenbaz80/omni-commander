@@ -20,6 +20,23 @@ export function formatBytesWithTerabytes(bytes: number): string {
 }
 
 /**
+ * The transfer prompts' form: below ten the value keeps one decimal, from ten it
+ * is rounded to a whole unit, and a terabyte is its own unit. The copy and
+ * conflict windows list a dozen sizes in a column, and the shorter the number
+ * the less the eye has to parse to compare two of them.
+ */
+export function formatBytesRounded(bytes: number): string {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
+}
+
+/**
  * The listing's size column: one letter, no space, and a bare number under a
  * kilobyte. The column repeats on every row of a narrow panel, so `1.5 G` is
  * both what fits and what that column has always shown.
