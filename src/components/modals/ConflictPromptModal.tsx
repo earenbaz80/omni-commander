@@ -3,6 +3,7 @@ import { TriangleAlert } from 'lucide-react';
 import { ConflictResolution, LanguageCode, PendingConflict } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
+import { formatBytesRounded } from '../../utils/formatBytes';
 
 import ModalShell from '../ModalShell';
 
@@ -17,17 +18,9 @@ interface ConflictPromptModalProps {
 /** Answers apply to one conflict unless the user opts into the always variant. */
 type AnswerScope = 'once' | 'always';
 
-function formatBytes(bytes: number | undefined): string {
-  if (bytes === undefined || bytes < 0) return '—';
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
-}
+/** A size the prompt was not given reads as a dash; the numbers are the shared formatter's. */
+const formatSize = (bytes: number | undefined): string =>
+  bytes === undefined || bytes < 0 ? '—' : formatBytesRounded(bytes);
 
 function formatWhen(ms: number | undefined): string {
   if (!ms) return '—';
@@ -67,7 +60,7 @@ export const ConflictPromptModal: React.FC<ConflictPromptModalProps> = ({
   // `role="dialog"` with the very same name inside the first one, and a screen
   // reader announced the prompt twice.
   const facts: Array<[string, string, string]> = [
-    [t.size, formatBytes(conflict.sourceSize), formatBytes(conflict.destinationSize)],
+    [t.size, formatSize(conflict.sourceSize), formatSize(conflict.destinationSize)],
     [t.diffModified, formatWhen(conflict.sourceModified), formatWhen(conflict.destinationModified)],
   ];
 

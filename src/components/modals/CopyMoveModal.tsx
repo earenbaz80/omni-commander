@@ -8,6 +8,7 @@ import { describeElevationFailure } from '../../services/elevation';
 import type { ElevationResult } from '../../types/electronBridge';
 import { readAfterFinishChoice, writeAfterFinishChoice, type AfterFinish } from '../../services/afterFinish';
 import { taskQueue } from '../../services/taskQueueManager';
+import { formatBytesRounded } from '../../utils/formatBytes';
 import { addEntriesToPlan, planFileBytes } from '../../services/transferPlanEdits';
 import { canPickPaths, pickPathsFromDisk, PickMode } from '../../services/nativePicker';
 import { fsEngine } from '../../services/fileSystem';
@@ -64,17 +65,11 @@ interface LogEntry {
   message: string;
 }
 
-function formatBytes(bytes: number): string {
-  if (!bytes || bytes < 0) return '�';
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  let i = 0;
-  let n = bytes;
-  while (n >= 1024 && i < units.length - 1) {
-    n /= 1024;
-    i++;
-  }
-  return `${n < 10 ? n.toFixed(1) : Math.round(n)} ${units[i]}`;
-}
+/**
+ * A size the window has not measured reads as a placeholder; the numbers
+ * themselves are the shared formatter's.
+ */
+const formatSize = (bytes: number): string => (!bytes || bytes < 0 ? '�' : formatBytesRounded(bytes));
 
 export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
   type,
@@ -502,7 +497,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                     <span className="truncate font-mono" title={entry.path}>
                       {entry.path}
                     </span>
-                    <span className="opacity-80">{formatBytes(entry.size)}</span>
+                    <span className="opacity-80">{formatSize(entry.size)}</span>
                     <span className="truncate font-mono opacity-80" title={active.plan!.targetDir}>
                       {active.plan!.targetDir}
                     </span>
