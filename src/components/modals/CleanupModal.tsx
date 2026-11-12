@@ -6,6 +6,7 @@ import { getTranslations, type TranslationKey } from '../../i18n/translations';
 import { fsEngine, CleanupRun, CleanupScan, CleanupTargetId } from '../../services/fileSystem';
 import { soundManager } from '../../services/soundEffects';
 import { cleanupTargetLabel } from '../../utils/cleanupTargets';
+import { formatBytes } from '../../utils/formatBytes';
 
 import ModalShell from '../ModalShell';
 
@@ -26,13 +27,6 @@ interface CleanupModalProps {
   target: CleanupTargetId;
   onClose: () => void;
 }
-
-const formatBytes = (bytes: number): string => {
-  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${bytes} B`;
-};
 
 /**
  * Empties one disposable folder. It always measures before it deletes, shows
