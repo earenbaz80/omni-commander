@@ -1,5 +1,6 @@
 import React from 'react';
 import { ThemeConfig } from '../services/themeManager';
+import { formatBytes } from '../utils/formatBytes';
 
 interface FileListStatusBarProps {
   theme: ThemeConfig;
@@ -45,7 +46,7 @@ export const FileListStatusBar: React.FC<FileListStatusBarProps> = ({
         <>
           <span className="opacity-50">|</span>
           <span className="font-extrabold text-amber-900 bg-amber-400 px-1 rounded-[2px]">
-            {selectedCount} {selectedCountLabel} ({Math.round(selectedBytes / 1024)} kB)
+            {selectedCount} {selectedCountLabel} ({formatBytes(selectedBytes)})
           </span>
         </>
       )}

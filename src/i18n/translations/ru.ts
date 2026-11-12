@@ -1194,7 +1194,7 @@ export const ru = {
   helpRunExampleWeb: 'Веб-адрес, с http:// или без него.',
 
   // Строка состояния, функциональные клавиши и консоль команд.
-  statusBarTotalSize: 'всего {size} kB',
+  statusBarTotalSize: 'всего {size}',
   fkeyAltDriveL: 'Диск L',
   fkeyAltDriveR: 'Диск R',
   fkeyAltHexView: 'Hex-просмотр',

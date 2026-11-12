@@ -1193,7 +1193,7 @@ export const pt = {
   helpRunExampleWeb: 'Um endereço web, com ou sem http://.',
 
   // Barra de status, teclas de função e console de comandos.
-  statusBarTotalSize: '{size} kB no total',
+  statusBarTotalSize: '{size} no total',
   fkeyAltDriveL: 'Unidade L',
   fkeyAltDriveR: 'Unidade R',
   fkeyAltHexView: 'Vista hex',

@@ -1219,7 +1219,7 @@ export const en = {
   helpRunExampleWeb: 'A web address, with or without http://.',
 
   // Status bar, function keys and command console.
-  statusBarTotalSize: '{size} kB total',
+  statusBarTotalSize: '{size} total',
   fkeyAltDriveL: 'Drive L',
   fkeyAltDriveR: 'Drive R',
   fkeyAltHexView: 'HexView',

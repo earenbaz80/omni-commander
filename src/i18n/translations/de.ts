@@ -1198,7 +1198,7 @@ export const de = {
   helpRunExampleWeb: 'Eine Webadresse, mit oder ohne http://.',
 
   // Statusleiste, Funktionstasten und Befehlsconsole.
-  statusBarTotalSize: '{size} kB gesamt',
+  statusBarTotalSize: '{size} gesamt',
   fkeyAltDriveL: 'Laufwerk L',
   fkeyAltDriveR: 'Laufwerk R',
   fkeyAltHexView: 'Hex-Ansicht',
