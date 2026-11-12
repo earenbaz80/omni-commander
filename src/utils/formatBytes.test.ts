@@ -72,6 +72,15 @@ describe('formatBytesDetailed', () => {
   it('rounds the last kilobyte up to the unit above', () => {
     expect(formatBytesDetailed(1024 * 1024 - 1)).toBe(`1024.00 KB (${(1024 * 1024 - 1).toLocaleString()} bytes)`);
   });
+
+  it('reads a terabyte in terabytes, keeping the exact count', () => {
+    expect(formatBytesDetailed(1024 * 1024 * 1024 * 1024 - 1)).toBe(
+      `1024.00 GB (${(1024 * 1024 * 1024 * 1024 - 1).toLocaleString()} bytes)`,
+    );
+    expect(formatBytesDetailed(1024 * 1024 * 1024 * 1024)).toBe(
+      `1.00 TB (${(1024 * 1024 * 1024 * 1024).toLocaleString()} bytes)`,
+    );
+  });
 });
 
 describe('formatBytesRounded', () => {
@@ -111,11 +120,13 @@ describe('formatBytesTwoDecimals', () => {
     expect(formatBytesTwoDecimals(1024 * 1024 - 1024)).toBe('1023.00 KB');
   });
 
-  it('keeps counting gigabytes past a terabyte', () => {
+  it('reads a terabyte in terabytes, not in thousands of gigabytes', () => {
     expect(formatBytesTwoDecimals(1024 * 1024 * 1024 - 1)).toBe('1024.00 MB');
     expect(formatBytesTwoDecimals(1024 * 1024 * 1024)).toBe('1.00 GB');
     expect(formatBytesTwoDecimals(2.5 * 1024 * 1024 * 1024)).toBe('2.50 GB');
-    expect(formatBytesTwoDecimals(1024 * 1024 * 1024 * 1024)).toBe('1024.00 GB');
+    expect(formatBytesTwoDecimals(1024 * 1024 * 1024 * 1024 - 1)).toBe('1024.00 GB');
+    expect(formatBytesTwoDecimals(1024 * 1024 * 1024 * 1024)).toBe('1.00 TB');
+    expect(formatBytesTwoDecimals(2.5 * 1024 * 1024 * 1024 * 1024)).toBe('2.50 TB');
   });
 });
 
