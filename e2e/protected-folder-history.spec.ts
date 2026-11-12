@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { SETTINGS_KEY } from '../src/services/storage';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -49,9 +50,12 @@ test.beforeEach(async ({ page }) => {
   await fs.writeFile(path.join(workspace, 'afuera.txt'), 'afuera\n', 'utf8');
 
   const settings = { language: 'es', protectedFolders: { [locked]: RECORD } };
-  await page.addInitScript((seed) => {
-    localStorage.setItem('nc_settings_v1', JSON.stringify(seed));
-  }, settings);
+  await page.addInitScript(
+    ({ key, seed }: { key: string; seed: unknown }) => {
+      localStorage.setItem(key, JSON.stringify(seed));
+    },
+    { key: SETTINGS_KEY, seed: settings },
+  );
 });
 
 test.afterEach(async () => {

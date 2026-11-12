@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { seedSettings } from './support/settings';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import { BOOT_TIMEOUT_MS } from './support/boot';
@@ -29,9 +30,7 @@ let rightDir = '';
 
 test.beforeEach(async ({ page }) => {
   // Pin the UI language: the tree's toggle carries a translated title.
-  await page.addInitScript(() => {
-    localStorage.setItem('nc_settings_v1', JSON.stringify({ language: 'es' }));
-  });
+  await seedSettings(page, { language: 'es' });
 
   leftDir = await fs.mkdtemp(path.join(os.tmpdir(), 'omni-e2e-tree-l-'));
   rightDir = await fs.mkdtemp(path.join(os.tmpdir(), 'omni-e2e-tree-r-'));

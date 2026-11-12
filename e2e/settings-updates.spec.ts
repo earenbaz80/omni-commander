@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { SETTINGS_KEY } from '../src/services/storage';
 import { BOOT_TIMEOUT_MS } from './support/boot';
 
 /**
@@ -18,9 +19,9 @@ import { BOOT_TIMEOUT_MS } from './support/boot';
  */
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
+  await page.addInitScript((key) => {
     // Other specs pin the language this way; the labels below are Spanish.
-    localStorage.setItem('nc_settings_v1', JSON.stringify({ language: 'es' }));
+    localStorage.setItem(key, JSON.stringify({ language: 'es' }));
 
     const snapshot = {
       status: 'up-to-date',
@@ -45,7 +46,7 @@ test.beforeEach(async ({ page }) => {
       setUpdateChannel: async (channel: string) => ({ ...snapshot, channel, status: 'idle' }),
       onUpdateState: () => () => {},
     };
-  });
+  }, SETTINGS_KEY);
 });
 
 test('the updates card offers the beta channel and asks for no credential', async ({ page }) => {

@@ -1,4 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
+import { SETTINGS_KEY } from '../src/services/storage';
+import { seedSettings } from './support/settings';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -16,7 +18,7 @@ import { BOOT_TIMEOUT_MS } from './support/boot';
  * and the removal that has to make the folder ordinary again.
  *
  * What is asserted about the record is the shape the app promises: a salt and a
- * PBKDF2 hash in `nc_settings_v1.protectedFolders`, with the typed password
+ * PBKDF2 hash in the stored settings' `protectedFolders`, with the typed password
  * nowhere in the stored JSON.
  */
 
@@ -40,9 +42,7 @@ test.beforeEach(async ({ page }) => {
   await fs.mkdir(locked);
   await fs.writeFile(path.join(locked, 'adentro.txt'), 'adentro\n', 'utf8');
 
-  await page.addInitScript(() => {
-    localStorage.setItem('nc_settings_v1', JSON.stringify({ language: 'es' }));
-  });
+  await seedSettings(page, { language: 'es' });
 });
 
 test.afterEach(async () => {
@@ -99,14 +99,14 @@ interface StoredSettings {
 }
 
 const storedSettings = (page: Page) =>
-  page.evaluate(() => {
-    const raw = localStorage.getItem('nc_settings_v1');
+  page.evaluate((key) => {
+    const raw = localStorage.getItem(key);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as { value?: StoredSettings };
     // Settings are written in a versioned envelope; a bare object is what a
     // build from before it left behind, and the reader accepts both.
     return parsed && typeof parsed === 'object' && 'value' in parsed ? parsed.value : (parsed as StoredSettings);
-  });
+  }, SETTINGS_KEY);
 
 /** The fields of the record stored for a folder, so a test can say what is there. */
 const recordFields = async (page: Page, folder: string) => {

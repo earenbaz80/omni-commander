@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
+import { seedSettings } from './support/settings';
 import { BOOT_TIMEOUT_MS } from './support/boot';
 
 /**
@@ -35,13 +36,6 @@ interface CleanupCall {
 interface Answer {
   status?: number;
   body: Record<string, unknown>;
-}
-
-/** Pins the language before the app loads, as the rest of the suite does. */
-async function seedSettings(page: Page) {
-  await page.addInitScript(() => {
-    localStorage.setItem('nc_settings_v1', JSON.stringify({ language: 'es' }));
-  });
 }
 
 /**
@@ -134,7 +128,7 @@ async function openCleanup(page: Page) {
 
 test('it measures first, asks once, and only the second press deletes', async ({ page }) => {
   test.setTimeout(120000);
-  await seedSettings(page);
+  await seedSettings(page, { language: 'es' });
   const calls = await stubCleanup(page, { scan: () => scanAnswer(), run: () => runAnswer() });
 
   await page.goto('/');
@@ -199,7 +193,7 @@ test('it measures first, asks once, and only the second press deletes', async ({
 
 test('the age filter measures the folder again instead of reusing the count', async ({ page }) => {
   test.setTimeout(120000);
-  await seedSettings(page);
+  await seedSettings(page, { language: 'es' });
   const calls = await stubCleanup(page, {
     scan: (body) =>
       body.minAgeDays === 7
@@ -227,7 +221,7 @@ test('the age filter measures the folder again instead of reusing the count', as
 
 test('a folder with nothing to offer cannot reach the point of deleting', async ({ page }) => {
   test.setTimeout(120000);
-  await seedSettings(page);
+  await seedSettings(page, { language: 'es' });
   const calls = await stubCleanup(page, {
     scan: () => scanAnswer({ files: 0, dirs: 0, bytes: 0, skipped: 0, largest: [] }),
     run: () => runAnswer(),
@@ -244,7 +238,7 @@ test('a folder with nothing to offer cannot reach the point of deleting', async 
 
 test('a folder the server cannot read says so and offers no action', async ({ page }) => {
   test.setTimeout(120000);
-  await seedSettings(page);
+  await seedSettings(page, { language: 'es' });
   await stubCleanup(page, {
     scan: () => ({ status: 500, body: { error: 'EACCES: permiso denegado' } }),
     run: () => runAnswer(),

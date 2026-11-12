@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { seedSettings } from './support/settings';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -40,9 +41,7 @@ let alfa = '';
 
 test.beforeEach(async ({ page }) => {
   // Pin the UI language: the labels read below are Spanish.
-  await page.addInitScript(() => {
-    localStorage.setItem('nc_settings_v1', JSON.stringify({ language: 'es' }));
-  });
+  await seedSettings(page, { language: 'es' });
 
   // A folder with one level under it, so `cd beta` and `cd ..` both land
   // somewhere that really exists and the panel has something to list.

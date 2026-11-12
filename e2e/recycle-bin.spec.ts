@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { SETTINGS_KEY } from '../src/services/storage';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -85,12 +86,12 @@ async function seedBin(page: Page, entries: Entry[], kept: Entry[] = []) {
   ];
 
   await page.addInitScript(
-    (payload: { bin: unknown[]; files: unknown[] }) => {
-      localStorage.setItem('nc_settings_v1', JSON.stringify({ language: 'es' }));
+    (payload: { bin: unknown[]; files: unknown[]; key: string }) => {
+      localStorage.setItem(payload.key, JSON.stringify({ language: 'es' }));
       localStorage.setItem('nc_recycle_bin_v1', JSON.stringify(payload.bin));
       localStorage.setItem('nc_filesystem_v1', JSON.stringify(payload.files));
     },
-    { bin, files },
+    { bin, files, key: SETTINGS_KEY },
   );
 }
 

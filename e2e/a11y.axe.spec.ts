@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { seedSettings } from './support/settings';
 import AxeBuilder from '@axe-core/playwright';
 import { BOOT_TIMEOUT_MS } from './support/boot';
 
@@ -18,9 +19,7 @@ import { BOOT_TIMEOUT_MS } from './support/boot';
  * pointer is involved and the audit describes the keyboard path.
  */
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem('nc_settings_v1', JSON.stringify({ language: 'es' }));
-  });
+  await seedSettings(page, { language: 'es' });
 });
 
 test('a window moved and sized by keyboard has no axe violations', async ({ page }) => {

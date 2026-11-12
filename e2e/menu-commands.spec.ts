@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { seedSettings } from './support/settings';
 import { BOOT_TIMEOUT_MS } from './support/boot';
 
 /**
@@ -19,9 +20,7 @@ import { BOOT_TIMEOUT_MS } from './support/boot';
 
 // Pin the UI language so the labels driven below don't move with the default.
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem('nc_settings_v1', JSON.stringify({ language: 'es' }));
-  });
+  await seedSettings(page, { language: 'es' });
 });
 
 /** Waits for the file lists, the structural signal that the app is interactive. */
