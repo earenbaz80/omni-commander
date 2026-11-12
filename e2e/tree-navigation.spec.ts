@@ -114,6 +114,11 @@ test('the status bar reads a two-terabyte total in terabytes', async ({ page }) 
   const panel = page.locator('[data-panel-side="left"]').first();
   await expect(panel).toContainText(`${formatBytes(twoTerabytes)} total`);
   await expect(panel).not.toContainText('2048.0 GB');
+
+  // The selected weight is the other figure the bar prints, and it sums a
+  // different field: a folder adds to the count but never to these bytes.
+  await page.locator('[data-name="disco.img"]').first().locator('button[aria-pressed]').click();
+  await expect(panel).toContainText(`1 seleccionados (${formatBytes(twoTerabytes)})`);
 });
 
 test('the folder tree navigates the panel the user is working in', async ({ page }) => {
