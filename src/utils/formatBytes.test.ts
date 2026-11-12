@@ -212,6 +212,11 @@ describe('formatBytesCompact', () => {
     expect(formatBytesCompact(1024 * 1024)).toBe('1.0 M');
     expect(formatBytesCompact(1024 * 1024 * 1024 - 1)).toBe('1024.0 M');
     expect(formatBytesCompact(1024 * 1024 * 1024)).toBe('1.0 G');
-    expect(formatBytesCompact(2 * 1024 * 1024 * 1024 * 1024)).toBe('2048.0 G');
+  });
+
+  it('switches to the terabyte on both sides of the boundary', () => {
+    expect(formatBytesCompact(1024 * 1024 * 1024 * 1024 - 1)).toBe('1024.0 G');
+    expect(formatBytesCompact(1024 * 1024 * 1024 * 1024)).toBe('1.0 T');
+    expect(formatBytesCompact(2 * 1024 * 1024 * 1024 * 1024)).toBe('2.0 T');
   });
 });

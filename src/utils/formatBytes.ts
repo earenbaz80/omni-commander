@@ -111,6 +111,7 @@ export function formatBytesRoundedWithWholeBytes(bytes: number): string {
  * both what fits and what that column has always shown.
  */
 export function formatBytesCompact(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024 * 1024)).toFixed(1)} T`;
   if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} G`;
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} M`;
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} k`;
