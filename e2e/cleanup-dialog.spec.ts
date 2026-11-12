@@ -1,6 +1,7 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { seedSettings } from './support/settings';
 import { BOOT_TIMEOUT_MS } from './support/boot';
+import { formatBytes } from '../src/utils/formatBytes';
 
 /**
  * The temporary-folder cleanup window, opened from the toolbar the way a user
@@ -68,6 +69,15 @@ async function stubCleanup(
 }
 
 /** What a measurement of the folder reports, before anything is removed. */
+/**
+ * What the stubbed scan reports, in bytes. The window's summary is computed from
+ * the value through the same `formatBytes` it prints with, so a change to the
+ * unit or the rounding is not a wall of stale expectations here.
+ */
+const SCAN_BYTES = 8192;
+/** The older-than-a-week scan, chosen so the two totals cannot be confused. */
+const FILTERED_BYTES = 2048;
+
 const scanAnswer = (overrides: Record<string, unknown> = {}): Answer => ({
   body: {
     target: 'user-temp',
@@ -75,7 +85,7 @@ const scanAnswer = (overrides: Record<string, unknown> = {}): Answer => ({
     minAgeDays: 0,
     files: 3,
     dirs: 2,
-    bytes: 8192,
+    bytes: SCAN_BYTES,
     skipped: 1,
     truncated: false,
     largest: [
@@ -92,7 +102,7 @@ const runAnswer = (overrides: Record<string, unknown> = {}): Answer => ({
     target: 'user-temp',
     path: REAL_PATH,
     minAgeDays: 0,
-    freedBytes: 8192,
+    freedBytes: SCAN_BYTES,
     deletedFiles: 3,
     deletedDirs: 2,
     failed: [{ path: 'C:\\Users\\prueba\\AppData\\Local\\Temp\\en-uso.log', message: 'EBUSY' }],
@@ -157,7 +167,7 @@ test('it measures first, asks once, and only the second press deletes', async ({
   // The measurement: what the folder holds and where the server resolved it,
   // before a single entry is touched.
   await expect(dialog).toContainText(REAL_PATH);
-  await expect(dialog).toContainText(/3 archivos · 2 carpetas · 8\.0 KB/);
+  await expect(dialog).toContainText(`3 archivos · 2 carpetas · ${formatBytes(SCAN_BYTES)}`);
   await expect(dialog).toContainText(/1 elementos omitidos/);
   await expect(dialog).toContainText('viejo-a.bin');
   await expect(dialog).toContainText('viejo-b.tmp');
@@ -181,7 +191,7 @@ test('it measures first, asks once, and only the second press deletes', async ({
   // The second press is the one that empties, and the result reports what went
   // and what another program held on to.
   await expect(dialog).toContainText('Limpieza terminada');
-  await expect(dialog).toContainText('Liberado 8.0 KB');
+  await expect(dialog).toContainText(`Liberado ${formatBytes(SCAN_BYTES)}`);
   await expect(dialog).toContainText('Borrados 3 archivos y 2 carpetas');
   await expect(dialog).toContainText(/No se pudieron borrar 1/);
   await expect(dialog).toContainText(/EBUSY/);
@@ -197,19 +207,19 @@ test('the age filter measures the folder again instead of reusing the count', as
   const calls = await stubCleanup(page, {
     scan: (body) =>
       body.minAgeDays === 7
-        ? scanAnswer({ minAgeDays: 7, files: 9, dirs: 0, bytes: 2048, skipped: 0, largest: [] })
+        ? scanAnswer({ minAgeDays: 7, files: 9, dirs: 0, bytes: FILTERED_BYTES, skipped: 0, largest: [] })
         : scanAnswer(),
     run: () => runAnswer(),
   });
 
   const dialog = await openCleanup(page);
-  await expect(dialog).toContainText(/3 archivos · 2 carpetas · 8\.0 KB/);
+  await expect(dialog).toContainText(`3 archivos · 2 carpetas · ${formatBytes(SCAN_BYTES)}`);
 
   await dialog.getByRole('button', { name: 'Más de una semana' }).click();
 
   // A stale summary here would be the worst kind: the user would confirm one
   // number and the server would delete another.
-  await expect(dialog).toContainText(/9 archivos · 0 carpetas · 2\.0 KB/);
+  await expect(dialog).toContainText(`9 archivos · 0 carpetas · ${formatBytes(FILTERED_BYTES)}`);
 
   const scans = calls.filter((call) => call.route === 'scan');
   // The dev server mounts the window twice, so the first measurement can appear
