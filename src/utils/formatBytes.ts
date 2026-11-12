@@ -8,16 +8,12 @@ export function formatBytes(bytes: number): string {
 }
 
 /**
- * The drive bar's form: a terabyte keeps its own unit instead of counting in
- * thousands of gigabytes, and anything under a megabyte stays a raw byte count,
- * because a free-space figure that small is a nearly full disk rather than a
- * size worth a unit.
+ * The drive bar's form: the same ladder as `formatBytes`, except that anything
+ * under a megabyte stays a raw byte count, because a free-space figure that
+ * small is a nearly full disk rather than a size worth a unit.
  */
 export function formatBytesWithTerabytes(bytes: number): string {
-  if (bytes >= 1024 * 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024 * 1024)).toFixed(1)} TB`;
-  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${bytes} B`;
+  return bytes >= 1024 * 1024 ? formatBytes(bytes) : `${bytes} B`;
 }
 
 /**
