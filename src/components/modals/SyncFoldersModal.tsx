@@ -5,6 +5,7 @@ import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { fsEngine } from '../../services/fileSystem';
 import { soundManager } from '../../services/soundEffects';
+import { formatBytes } from '../../utils/formatBytes';
 
 import ModalShell from '../ModalShell';
 
@@ -165,12 +166,6 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
   const countLtoR = diffItems.filter((i) => i.direction === 'L_TO_R').length;
   const countRtoL = diffItems.filter((i) => i.direction === 'R_TO_L').length;
   const countSkip = diffItems.filter((i) => i.direction === 'SKIP').length;
-
-  const formatSize = (bytes: number): string => {
-    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${bytes} B`;
-  };
 
   /**
    * Copies one entry to the other panel.
@@ -387,7 +382,7 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
 
                       {/* Left Side Info */}
                       <td className="p-[var(--space-2)] text-right font-mono text-[10px] text-sky-300">
-                        {item.leftItem ? formatSize(item.leftItem.size) : '-'}
+                        {item.leftItem ? formatBytes(item.leftItem.size) : '-'}
                       </td>
 
                       {/* Action Button Toggle */}
@@ -415,7 +410,7 @@ export const SyncFoldersModal: React.FC<SyncFoldersModalProps> = ({
 
                       {/* Right Side Info */}
                       <td className="p-[var(--space-2)] text-left font-mono text-[10px] text-emerald-300">
-                        {item.rightItem ? formatSize(item.rightItem.size) : '-'}
+                        {item.rightItem ? formatBytes(item.rightItem.size) : '-'}
                       </td>
 
                       {/* Status Badge */}
