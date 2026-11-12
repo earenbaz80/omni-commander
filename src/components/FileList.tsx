@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Check, Copy, Scissors } from 'lucide-react';
 import { FileTypeIcon, fileIconColor, fileIconKind } from './FileTypeIcon';
+import { bestInk, readableInk } from '../utils/contrast';
 import { FileItem, SortField, SortDirection, ViewMode, LanguageCode } from '../types';
 import { ThemeConfig } from '../services/themeManager';
 import { getTranslations } from '../i18n/translations';
@@ -86,6 +87,15 @@ interface FileListProps {
   onFilterChange?: (text: string) => void;
   onCloseFilterBar?: () => void;
 }
+
+/** The cursor block's hues, matching the names the settings offer. */
+const CURSOR_BLOCK_INK: Record<'amber' | 'cyan' | 'green' | 'red' | 'white', string> = {
+  amber: '#fcd34d',
+  cyan: '#67e8f9',
+  green: '#6ee7b7',
+  red: '#fca5a5',
+  white: '#ffffff',
+};
 
 const FileListComponent: React.FC<FileListProps> = ({
   theme,
@@ -732,7 +742,21 @@ const FileListComponent: React.FC<FileListProps> = ({
 
                     {isFocused && blinkingCursorEnabled && (
                       <span
-                        className={`nc-blink ${blinkingCursorColor === 'amber' ? 'text-amber-300' : blinkingCursorColor === 'green' ? 'text-emerald-300' : blinkingCursorColor === 'red' ? 'text-red-300' : blinkingCursorColor === 'white' ? 'text-white' : 'text-cyan-300'} font-bold shrink-0 font-mono text-[11px] select-none`}
+                        className="nc-blink font-bold shrink-0 font-mono text-[11px] select-none"
+                        // The row behind the block carries the user's selection
+                        // colour, so the block keeps its hue only while that hue
+                        // still reads against it.
+                        style={{
+                          color: readableInk(
+                            CURSOR_BLOCK_INK[blinkingCursorColor] ?? CURSOR_BLOCK_INK.cyan,
+                            theme.cursorBg,
+                            // A white row text on a bright selection colour is
+                            // no more readable than the block it hides, so the
+                            // block falls back to whichever of black or white
+                            // wins against that row.
+                            bestInk(theme.cursorBg),
+                          ),
+                        }}
                       >
                         █
                       </span>
