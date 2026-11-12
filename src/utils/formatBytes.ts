@@ -27,6 +27,8 @@ export function formatBytesWithTerabytes(bytes: number): string {
  * neither has to be guessed from the other.
  */
 export function formatBytesDetailed(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024 * 1024 * 1024)).toFixed(2)} TB (${bytes.toLocaleString()} bytes)`;
   if (bytes >= 1024 * 1024 * 1024)
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB (${bytes.toLocaleString()} bytes)`;
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB (${bytes.toLocaleString()} bytes)`;
@@ -35,12 +37,13 @@ export function formatBytesDetailed(bytes: number): string {
 }
 
 /**
- * The info drawer's form: two decimals up to gigabytes and no byte count after
+ * The info drawer's form: two decimals up to terabytes and no byte count after
  * the figure. The drawer prints several sizes side by side -- total, free, used
  * and the selection -- and the bracketed count that the properties window wants
  * would crowd those rows without adding anything to them.
  */
 export function formatBytesTwoDecimals(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024 * 1024)).toFixed(2)} TB`;
   if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(2)} KB`;
