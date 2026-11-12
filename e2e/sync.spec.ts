@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
+import { seedSettings } from './support/settings';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import { BOOT_TIMEOUT_MS } from './support/boot';
@@ -31,9 +32,7 @@ test.skip(
 
 // Pin the UI language so the labels read below don't move with the default.
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem('nc_settings_v1', JSON.stringify({ language: 'es' }));
-  });
+  await seedSettings(page, { language: 'es' });
 });
 
 const LEFT_ONLY = 'solo existe en la izquierda\n';

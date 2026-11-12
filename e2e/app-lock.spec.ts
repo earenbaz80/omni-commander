@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { SETTINGS_KEY } from '../src/services/storage';
 import crypto from 'node:crypto';
 import { BOOT_TIMEOUT_MS } from './support/boot';
 
@@ -30,7 +31,6 @@ import { BOOT_TIMEOUT_MS } from './support/boot';
 const PASSWORD = 'clave-e2e';
 const LOCK_TITLE = 'OmniCommander Pro - Bloqueo de Seguridad';
 const SETTINGS_TITLE = 'Configuración del Sistema';
-const SETTINGS_KEY = 'nc_settings_v1';
 
 interface StoredLockSettings {
   appLockEnabled?: boolean;
@@ -52,15 +52,14 @@ function passwordRecord(password: string) {
  * would arm it and disarm it in the same breath.
  */
 async function pinLanguage(page: Page) {
-  await page.addInitScript(() => {
-    const key = 'nc_settings_v1';
+  await page.addInitScript((key) => {
     const raw = localStorage.getItem(key);
     const parsed: unknown = raw ? JSON.parse(raw) : null;
     const isEnvelope = parsed !== null && typeof parsed === 'object' && 'value' in (parsed as Record<string, unknown>);
     const value = isEnvelope ? (parsed as { value: Record<string, unknown> }).value : parsed;
     const merged = { ...(value as Record<string, unknown> | null), language: 'es' };
     localStorage.setItem(key, JSON.stringify(isEnvelope ? { ...(parsed as object), value: merged } : merged));
-  });
+  }, SETTINGS_KEY);
 }
 
 /** Seeds a whole settings object, as a previous session of the app would leave it. */
@@ -73,12 +72,12 @@ async function seedSettings(page: Page, settings: StoredLockSettings) {
 
 /** The stored settings, unwrapped from the versioned envelope when there is one. */
 const storedSettings = (page: Page) =>
-  page.evaluate(() => {
-    const raw = localStorage.getItem('nc_settings_v1');
+  page.evaluate((key) => {
+    const raw = localStorage.getItem(key);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as StoredLockSettings & { value?: StoredLockSettings };
     return parsed && typeof parsed === 'object' && 'value' in parsed ? parsed.value : parsed;
-  });
+  }, SETTINGS_KEY);
 
 const lockScreen = (page: Page) => page.getByRole('dialog', { name: LOCK_TITLE });
 const settingsDialog = (page: Page) => page.getByRole('dialog', { name: SETTINGS_TITLE });

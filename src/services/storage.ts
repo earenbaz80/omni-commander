@@ -14,6 +14,9 @@
  * `migrate` function instead of a flag day in every component.
  */
 
+/** The one key the app's settings live under, envelope and all. */
+export const SETTINGS_KEY = 'nc_settings_v1';
+
 export interface StoredSpec<T> {
   /** Used when nothing valid is stored. */
   fallback: T;

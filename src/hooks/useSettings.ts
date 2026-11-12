@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { FolderPasswordRecord, UserSettings } from '../types';
 import { migrateThemeId } from '../services/themeManager';
-import { readStored, writeStored, type StoredSpec } from '../services/storage';
+import { readStored, writeStored, SETTINGS_KEY, type StoredSpec } from '../services/storage';
 
 /**
  * Reads the saved folder protections into the shape the app verifies against.
@@ -27,8 +27,6 @@ export function normalizeProtectedFolders(saved: unknown): Record<string, Folder
   }
   return records;
 }
-
-const SETTINGS_KEY = 'nc_settings_v1';
 
 type SavedSettings = Partial<UserSettings>;
 

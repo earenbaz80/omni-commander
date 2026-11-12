@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { SETTINGS_KEY } from '../src/services/storage';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -68,10 +69,10 @@ test.afterEach(async () => {
 /** Pins the language and, when a case needs it, the Recycle Bin setting. */
 async function seedSettings(page: Page, settings: Record<string, unknown> = {}) {
   await page.addInitScript(
-    (seed: Record<string, unknown>) => {
-      localStorage.setItem('nc_settings_v1', JSON.stringify(seed));
+    ({ key, seed }: { key: string; seed: Record<string, unknown> }) => {
+      localStorage.setItem(key, JSON.stringify(seed));
     },
-    { language: 'es', ...settings },
+    { key: SETTINGS_KEY, seed: { language: 'es', ...settings } },
   );
 }
 

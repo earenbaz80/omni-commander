@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { SETTINGS_KEY } from '../src/services/storage';
 import { BOOT_TIMEOUT_MS } from './support/boot';
 
 /**
@@ -25,12 +26,15 @@ const CACHED_DRIVE = {
 };
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript((drive) => {
-    localStorage.setItem('nc_settings_v1', JSON.stringify({ language: 'es' }));
-    // Written with the wrapper `nc_drives_v1` uses today, the way the storage
-    // spec does, so this reads as a list a previous run really left.
-    localStorage.setItem('nc_drives_v1', JSON.stringify({ version: 1, value: [drive] }));
-  }, CACHED_DRIVE);
+  await page.addInitScript(
+    ({ drive, key }: { drive: unknown; key: string }) => {
+      localStorage.setItem(key, JSON.stringify({ language: 'es' }));
+      // Written with the wrapper `nc_drives_v1` uses today, the way the storage
+      // spec does, so this reads as a list a previous run really left.
+      localStorage.setItem('nc_drives_v1', JSON.stringify({ version: 1, value: [drive] }));
+    },
+    { drive: CACHED_DRIVE, key: SETTINGS_KEY },
+  );
 });
 
 test('reports no drives when the drive probe never answers', async ({ page }) => {

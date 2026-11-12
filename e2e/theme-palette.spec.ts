@@ -1,11 +1,13 @@
 import { test, expect, type Page } from '@playwright/test';
+import { SETTINGS_KEY } from '../src/services/storage';
+import { seedSettings } from './support/settings';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { BOOT_TIMEOUT_MS } from './support/boot';
 import { removeWorkspace } from './support/tempWorkspaces';
 import { themes } from '../src/services/themeManager';
-import { fileIconColor, type FileIconKind } from '../src/components/FileTypeIcon';
+import { fileIconColor, fileIconKind, type FileIconKind } from '../src/components/FileTypeIcon';
 
 /**
  * The listing's glyphs are painted from the theme, and this is the case that
@@ -34,29 +36,37 @@ import { fileIconColor, type FileIconKind } from '../src/components/FileTypeIcon
 
 // Pin the UI language: the menu entry driven below is the Spanish one.
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem('nc_settings_v1', JSON.stringify({ language: 'es' }));
-  });
+  await seedSettings(page, { language: 'es' });
 });
 
 /**
  * Every glyph family, one file each. The names are the ones the fixture writes,
- * so the rows can be found by the name the listing shows; the kind is the
- * address into `fileIconColor`, which keeps the expected colour in one place.
+ * so the rows can be found by the name the listing shows. The kind is not
+ * written beside the name either: `fileIconKind` resolves the extension the way
+ * the listing does, and `fileIconColor` turns that kind into a colour, so a new
+ * extension or a new palette cannot leave this list quoting the old answer.
  */
-const GLYPHS: Array<{ name: string; kind: FileIconKind }> = [
-  { name: 'carpeta', kind: 'folder' },
-  { name: 'informe.pdf', kind: 'document' },
-  { name: 'notas.txt', kind: 'document' },
-  { name: 'programa.exe', kind: 'exec' },
-  { name: 'datos.zip', kind: 'archive' },
-  { name: 'disco.iso', kind: 'disk' },
-  { name: 'codigo.ts', kind: 'code' },
-  { name: 'foto.png', kind: 'image' },
-  { name: 'tono.mp3', kind: 'audio' },
-  { name: 'video.mp4', kind: 'video' },
-  { name: 'misterio.xyz', kind: 'file' },
+const GLYPHS = [
+  'carpeta',
+  'informe.pdf',
+  'notas.txt',
+  'programa.exe',
+  'datos.zip',
+  'disco.iso',
+  'codigo.ts',
+  'foto.png',
+  'tono.mp3',
+  'video.mp4',
+  'misterio.xyz',
 ];
+
+/** The glyph kind the app gives the fixture of that name. */
+function kindOf(name: string): FileIconKind {
+  const dot = name.lastIndexOf('.');
+  return dot === -1
+    ? fileIconKind({ isDirectory: true, ext: '' })
+    : fileIconKind({ isDirectory: false, ext: name.slice(dot + 1) });
+}
 
 /**
  * High red over high blue with almost no green: magenta, and its pale pink
@@ -75,7 +85,7 @@ test.beforeEach(async () => {
   workspace = await fs.mkdtemp(path.join(os.tmpdir(), 'omni-e2e-theme-'));
   await fs.mkdir(path.join(workspace, 'carpeta'));
   // One file per family; the bytes are irrelevant, the extension is not.
-  for (const { name } of GLYPHS) {
+  for (const name of GLYPHS) {
     if (name === 'carpeta') continue;
     await fs.writeFile(path.join(workspace, name), `fixture for ${name}\n`, 'utf8');
   }
@@ -115,10 +125,10 @@ test('the listing draws its glyphs in the colours of the active theme', async ({
   // The default theme is the DOS blue one. If this half failed, the second half
   // would prove nothing: the glyphs would be showing a palette of their own.
   const defaultTheme = themes.classic_blue;
-  for (const { name, kind } of GLYPHS) {
+  for (const name of GLYPHS) {
     await expect(glyphOf(page, name), `${name} ignores the default palette`).toHaveAttribute(
       'stroke',
-      fileIconColor(kind, defaultTheme),
+      fileIconColor(kindOf(name), defaultTheme),
     );
   }
 
@@ -126,11 +136,12 @@ test('the listing draws its glyphs in the colours of the active theme', async ({
 
   // The choice has to reach the settings, not just repaint this render.
   await expect
-    .poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('nc_settings_v1') || '{}').value?.theme))
+    .poll(() => page.evaluate((key) => JSON.parse(localStorage.getItem(key) || '{}').value?.theme, SETTINGS_KEY))
     .toBe('retro_futurist');
 
   const palette = themes.retro_futurist;
-  for (const { name, kind } of GLYPHS) {
+  for (const name of GLYPHS) {
+    const kind = kindOf(name);
     const glyph = glyphOf(page, name);
     await expect(glyph, `${name} is drawn with the wrong glyph`).toHaveAttribute('data-file-icon', kind);
     await expect(glyph, `${name} is drawn outside the palette`).toHaveAttribute('stroke', fileIconColor(kind, palette));

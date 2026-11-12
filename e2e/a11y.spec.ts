@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { seedSettings } from './support/settings';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import { removeWorkspace } from './support/tempWorkspaces';
@@ -7,9 +8,7 @@ import path from 'node:path';
 
 // Pin the UI language so the specs don't break if the app default changes.
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem('nc_settings_v1', JSON.stringify({ language: 'es' }));
-  });
+  await seedSettings(page, { language: 'es' });
 });
 
 /**
