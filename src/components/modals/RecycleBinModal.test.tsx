@@ -71,6 +71,12 @@ describe('RecycleBinModal sizes', () => {
     expect(screen.getByText('nota.txt')).toBeTruthy();
   });
 
+  it('reads a couple of megabytes in megabytes', () => {
+    renderModal([binItem('video.mp4', 2.5 * 1024 ** 2)]);
+
+    expect(screen.getByText('2.5 MB')).toBeTruthy();
+  });
+
   it('reads a file over a gigabyte in gigabytes, like the rest of the app', () => {
     renderModal([binItem('disco.img', 2 * 1024 ** 3)]);
 

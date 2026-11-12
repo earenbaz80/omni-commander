@@ -20,6 +20,20 @@ export function formatBytesWithTerabytes(bytes: number): string {
 }
 
 /**
+ * The properties and hover views' form: two decimals down to the byte, with the
+ * exact count in brackets behind it. They are the place a user checks a figure
+ * against another one, so the rounded size and the raw count sit together and
+ * neither has to be guessed from the other.
+ */
+export function formatBytesDetailed(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB (${bytes.toLocaleString()} bytes)`;
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB (${bytes.toLocaleString()} bytes)`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(2)} KB (${bytes.toLocaleString()} bytes)`;
+  return `${bytes} bytes`;
+}
+
+/**
  * The transfer prompts' form: below ten the value keeps one decimal, from ten it
  * is rounded to a whole unit, and a terabyte is its own unit. The copy and
  * conflict windows list a dozen sizes in a column, and the shorter the number
