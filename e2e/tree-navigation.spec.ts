@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { seedSettings } from './support/settings';
+import { formatBytes } from '../src/utils/formatBytes';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import { BOOT_TIMEOUT_MS } from './support/boot';
@@ -71,6 +72,49 @@ async function enterPath(page: Page, panel: 0 | 1, target: string) {
 
   await expect(bar).toContainText(folder);
 }
+
+/**
+ * The status bar's unit, measured on a size no workspace can hold.
+ *
+ * The unit test around `FileList` already proves the figure, but it feeds the
+ * panel its own array; this case goes through the real boot, the real `/api/list`
+ * call and the panel that turns the answer into a total. A two-terabyte file
+ * cannot be written to a scratch folder, so the answer is stubbed at that one
+ * boundary and everything above it stays real.
+ */
+test('the status bar reads a two-terabyte total in terabytes', async ({ page }) => {
+  test.setTimeout(120000);
+  const twoTerabytes = 2 * 1024 ** 4;
+
+  await page.route('**/api/list*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        {
+          name: 'disco',
+          ext: 'img',
+          isDirectory: false,
+          size: twoTerabytes,
+          modifiedAt: '2026-01-01 10:00',
+          createdAt: '2026-01-01 10:00',
+        },
+      ]),
+    });
+  });
+
+  await page.goto('/');
+  await expect(page.locator('[data-name="disco.img"]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
+
+  // The figure comes from the shared formatter, so the expectation does too: a
+  // change of unit in the ladder would otherwise leave this passing on a stale
+  // string, and the guard keeps the kilobytes-everywhere bar from coming back.
+  // The list scrolls on its own and the bar sits under it, so the assertion has
+  // to look at the whole panel rather than at the list element.
+  const panel = page.locator('[data-panel-side="left"]').first();
+  await expect(panel).toContainText(`${formatBytes(twoTerabytes)} total`);
+  await expect(panel).not.toContainText('2048.0 GB');
+});
 
 test('the folder tree navigates the panel the user is working in', async ({ page }) => {
   test.setTimeout(120000);
