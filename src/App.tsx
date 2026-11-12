@@ -10,7 +10,7 @@ import type { ElevationResult } from './types/electronBridge';
 // Components
 import { AppModalLayer } from './components/AppModalLayer';
 import { DualPaneView } from './components/DualPaneView';
-import { darken } from './utils/contrast';
+import { buildFileListTheme } from './services/fileListTheme';
 import { WindowChrome } from './components/WindowChrome';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useModalStack } from './hooks/useModalStack';
@@ -39,35 +39,7 @@ export default function App() {
   const { settings, setSettings } = useSettings();
 
   const currentTheme: ThemeConfig = themes[settings.theme] || themes.classic_blue;
-  const fileSelectorPalette: Record<string, { cursor: string; selected: string }> = {
-    blue: { cursor: '#00ffff', selected: '#0000aa' },
-    amber: { cursor: '#f59e0b', selected: '#b45309' },
-    cyan: { cursor: '#06b6d4', selected: '#155e75' },
-    green: { cursor: '#22c55e', selected: '#14532d' },
-    red: { cursor: '#ef4444', selected: '#7f1d1d' },
-    purple: { cursor: '#a855f7', selected: '#581c87' },
-  };
-  const selectedSelectorPalette = fileSelectorPalette[settings.fileSelectorColor || 'blue'] || fileSelectorPalette.blue;
-  const themeForFileList = {
-    ...currentTheme,
-    // The folder, text and selector colours are the three the user can pick
-    // apart from the theme; an empty setting leaves the theme in charge.
-    folderText: settings.customFolderColor || currentTheme.folderText,
-    cursorBg: settings.customSelectorColor || selectedSelectorPalette.cursor,
-    selectedBg: settings.customSelectorColor
-      ? darken(settings.customSelectorColor, 0.45)
-      : selectedSelectorPalette.selected,
-    ...(settings.customTextColor
-      ? {
-          itemText: settings.customTextColor,
-          dirText: settings.customTextColor,
-          exeText: settings.customTextColor,
-          zipText: settings.customTextColor,
-          docText: settings.customTextColor,
-          mediaText: settings.customTextColor,
-        }
-      : {}),
-  };
+  const themeForFileList = buildFileListTheme(currentTheme, settings);
   const lang: LanguageCode = settings.language;
   const t = getTranslations(lang);
 
