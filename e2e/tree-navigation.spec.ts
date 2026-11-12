@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { seedSettings } from './support/settings';
-import { formatBytes } from '../src/utils/formatBytes';
+import { formatBytes, formatBytesCompact } from '../src/utils/formatBytes';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import { BOOT_TIMEOUT_MS } from './support/boot';
@@ -104,7 +104,13 @@ test('the status bar reads a two-terabyte total in terabytes', async ({ page }) 
   });
 
   await page.goto('/');
-  await expect(page.locator('[data-name="disco.img"]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
+  const fileRow = page.locator('[data-name="disco.img"]').first();
+  await expect(fileRow).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
+
+  // The row prints its own column, which has a shape of its own: one letter and
+  // no space, so the unit and not only the figure has to match the ladder.
+  await expect(fileRow).toContainText(formatBytesCompact(twoTerabytes));
+  await expect(fileRow).not.toContainText('2048.0 G');
 
   // The figure comes from the shared formatter, so the expectation does too: a
   // change of unit in the ladder would otherwise leave this passing on a stale
@@ -117,7 +123,7 @@ test('the status bar reads a two-terabyte total in terabytes', async ({ page }) 
 
   // The selected weight is the other figure the bar prints, and it sums a
   // different field: a folder adds to the count but never to these bytes.
-  await page.locator('[data-name="disco.img"]').first().locator('button[aria-pressed]').click();
+  await fileRow.locator('button[aria-pressed]').click();
   await expect(panel).toContainText(`1 seleccionados (${formatBytes(twoTerabytes)})`);
 });
 
