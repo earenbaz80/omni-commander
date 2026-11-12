@@ -24,6 +24,7 @@ import { createSvgDataUrl } from '../../utils/svgPreview';
 import { MAX_TEXT_FILE_BYTES } from '../../utils/fileContent';
 import { useFileContent } from '../../hooks/useFileContent';
 import { mediaUrlFor } from '../../services/mediaUrl';
+import { formatBytes } from '../../utils/formatBytes';
 
 import ModalShell from '../ModalShell';
 
@@ -37,13 +38,6 @@ interface ViewerModalProps {
   /** "Abrir con" can ask for the media tab instead of the text one. */
   initialTab?: 'text' | 'hex' | 'csv' | 'preview';
 }
-
-const formatBytes = (bytes: number): string => {
-  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${bytes} B`;
-};
 
 export const ViewerModal: React.FC<ViewerModalProps> = ({ theme, lang, file, onClose, onEdit, onSave, initialTab }) => {
   const t = getTranslations(lang);
