@@ -9,6 +9,7 @@ import type { ElevationResult } from '../../types/electronBridge';
 import { readAfterFinishChoice, writeAfterFinishChoice, type AfterFinish } from '../../services/afterFinish';
 import { taskQueue } from '../../services/taskQueueManager';
 import { formatBytesRounded } from '../../utils/formatBytes';
+import { formatSpeed } from '../../utils/formatSpeed';
 import { addEntriesToPlan, planFileBytes } from '../../services/transferPlanEdits';
 import { canPickPaths, pickPathsFromDisk, PickMode } from '../../services/nativePicker';
 import { fsEngine } from '../../services/fileSystem';
@@ -161,7 +162,8 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
     transfers.find((t) => t.status === 'queued');
   // A task queued without a throttle has none recorded, not zero bytes: the
   // monitor shows 0 MB/s for both, so the fallback keeps the sum defined.
-  const currentSpeedMb = active ? Math.round((active.throttleBps ?? 0) / 1048576) : 0;
+  const currentSpeedBps = active?.throttleBps ?? 0;
+  const currentSpeedMb = Math.round(currentSpeedBps / 1048576);
   const canControl = !!active && (active.status === 'running' || active.status === 'paused');
 
   const applySpeed = (mb: number) => {
@@ -674,7 +676,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                   className="flex-1 cursor-pointer disabled:opacity-40"
                 />
                 <span className="shrink-0 tabular-nums text-[11px] opacity-80 w-16 text-right">
-                  {currentSpeedMb === 0 ? t.speedUnlimited : `${currentSpeedMb} MB/s`}
+                  {currentSpeedMb === 0 ? t.speedUnlimited : formatSpeed(currentSpeedBps)}
                 </span>
               </div>
             </div>
@@ -917,7 +919,7 @@ export const CopyMoveModal: React.FC<CopyMoveModalProps> = ({
                 <option value={0}>{t.speedUnlimited}</option>
                 {SPEED_OPTIONS_MB.map((mb) => (
                   <option key={mb} value={mb}>
-                    {mb} MB/s
+                    {formatSpeed(mb * 1024 * 1024)}
                   </option>
                 ))}
               </select>

@@ -15,6 +15,7 @@ import { fsEngine } from '../services/fileSystem';
 import { taskQueue } from '../services/taskQueueManager';
 import { getTranslations } from '../i18n/translations';
 import { parkTransferPlan, takeParkedTransferPlan } from '../services/pendingTransfer';
+import { formatSpeed } from '../utils/formatSpeed';
 
 /** A transfer that does not fit, held until the user decides. */
 export interface FreeSpacePrompt {
@@ -165,7 +166,7 @@ export function useTransferQueue({
       const elapsed = (Date.now() - startedAt) / 1000;
       const rate = elapsed > 0 ? done / elapsed : 0;
       taskQueue.updateTaskMeta(taskId, {
-        speed: rate > 0 ? `${(rate / (1024 * 1024)).toFixed(1)} MB/s` : undefined,
+        speed: rate > 0 ? formatSpeed(rate) : undefined,
         etaSeconds: rate > 0 && totalBytes > done ? Math.round((totalBytes - done) / rate) : 0,
         currentFile,
       });
@@ -422,7 +423,7 @@ export function useTransferQueue({
       const elapsed = (Date.now() - startedAt) / 1000;
       const rate = elapsed > 0 ? done / elapsed : 0;
       taskQueue.updateTaskMeta(taskId, {
-        speed: rate > 0 ? `${(rate / (1024 * 1024)).toFixed(1)} MB/s` : undefined,
+        speed: rate > 0 ? formatSpeed(rate) : undefined,
         etaSeconds: rate > 0 && totalBytes > done ? Math.round((totalBytes - done) / rate) : 0,
         currentFile,
       });
