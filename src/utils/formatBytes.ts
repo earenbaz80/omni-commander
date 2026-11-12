@@ -34,20 +34,51 @@ export function formatBytesDetailed(bytes: number): string {
 }
 
 /**
+ * The info drawer's form: two decimals up to gigabytes and no byte count after
+ * the figure. The drawer prints several sizes side by side -- total, free, used
+ * and the selection -- and the bracketed count that the properties window wants
+ * would crowd those rows without adding anything to them.
+ */
+export function formatBytesTwoDecimals(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+  return `${bytes} B`;
+}
+
+const ROUNDED_UNITS = ['B', 'KB', 'MB', 'GB', 'TB'];
+
+function splitRounded(bytes: number): { value: number; unit: number } {
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < ROUNDED_UNITS.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return { value, unit };
+}
+
+/**
  * The transfer prompts' form: below ten the value keeps one decimal, from ten it
  * is rounded to a whole unit, and a terabyte is its own unit. The copy and
  * conflict windows list a dozen sizes in a column, and the shorter the number
  * the less the eye has to parse to compare two of them.
  */
 export function formatBytesRounded(bytes: number): string {
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
+  const { value, unit } = splitRounded(bytes);
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${ROUNDED_UNITS[unit]}`;
+}
+
+/**
+ * The transfer window's form: the same rounded figure, except that a handful of
+ * bytes stays a whole number -- "5 B", not "5.0 B", since a decimal there
+ * claims a precision the progress bar does not have -- and a missing or negative
+ * size reads as nothing transferred rather than as a broken number.
+ */
+export function formatBytesRoundedWithWholeBytes(bytes: number): string {
+  if (!bytes || bytes < 0) return '0 B';
+  const { value, unit } = splitRounded(bytes);
+  return `${value < 10 && unit > 0 ? value.toFixed(1) : Math.round(value)} ${ROUNDED_UNITS[unit]}`;
 }
 
 /**

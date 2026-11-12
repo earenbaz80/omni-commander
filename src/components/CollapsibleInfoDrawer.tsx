@@ -16,6 +16,7 @@ import { ThemeConfig } from '../services/themeManager';
 import { FileItem, Drive, LanguageCode } from '../types';
 import { getTranslations } from '../i18n/translations';
 import { useSystemStats } from '../hooks/useSystemStats';
+import { formatBytesTwoDecimals } from '../utils/formatBytes';
 
 interface CollapsibleInfoDrawerProps {
   theme: ThemeConfig;
@@ -63,13 +64,6 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  const formatSize = (bytes: number): string => {
-    if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-    if (bytes >= 1024) return `${(bytes / 1024).toFixed(2)} KB`;
-    return `${bytes} B`;
-  };
-
   const usedBytes = activeDrive.totalBytes - activeDrive.freeBytes;
   const usedPercent = Math.min(100, Math.round((usedBytes / activeDrive.totalBytes) * 100));
 
@@ -83,7 +77,7 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
       : '—';
   const ramText =
     systemStats && systemStats.ramTotalBytes > 0
-      ? `${formatSize(systemStats.ramUsedBytes)} / ${formatSize(systemStats.ramTotalBytes)}`
+      ? `${formatBytesTwoDecimals(systemStats.ramUsedBytes)} / ${formatBytesTwoDecimals(systemStats.ramTotalBytes)}`
       : '—';
 
   return (
@@ -117,7 +111,7 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
             <HardDrive className="w-3 h-3 text-cyan-400 shrink-0" />
             <span className="font-bold">{activeDrive.letter}</span>
             <span className="opacity-80 font-mono">
-              {formatSize(activeDrive.freeBytes)} {t.freeLabel} ({100 - usedPercent}%)
+              {formatBytesTwoDecimals(activeDrive.freeBytes)} {t.freeLabel} ({100 - usedPercent}%)
             </span>
             <div className="w-16 h-2 bg-black/60 rounded-full overflow-hidden border border-white/20">
               <div
@@ -133,7 +127,7 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
           <span className="text-[10px] opacity-90 truncate">
             {selectedCount > 0 ? (
               <strong className="text-yellow-300">
-                {selectedCount} {t.selectedShort} ({formatSize(totalSelectedBytes)})
+                {selectedCount} {t.selectedShort} ({formatBytesTwoDecimals(totalSelectedBytes)})
               </strong>
             ) : (
               <span>
@@ -223,16 +217,16 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
             <div className="space-y-[var(--space-1)] text-[10px]">
               <div className="flex justify-between">
                 <span className="opacity-70">{t.spaceTotal}</span>
-                <span className="font-bold">{formatSize(activeDrive.totalBytes)}</span>
+                <span className="font-bold">{formatBytesTwoDecimals(activeDrive.totalBytes)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="opacity-70">{t.spaceAvailable}</span>
-                <span className="font-bold text-emerald-300">{formatSize(activeDrive.freeBytes)}</span>
+                <span className="font-bold text-emerald-300">{formatBytesTwoDecimals(activeDrive.freeBytes)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="opacity-70">{t.spaceUsed}</span>
                 <span className="font-bold text-amber-300">
-                  {formatSize(usedBytes)} ({usedPercent}%)
+                  {formatBytesTwoDecimals(usedBytes)} ({usedPercent}%)
                 </span>
               </div>
             </div>
@@ -253,7 +247,7 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
                   <span>
                     {t.typeLabel} {focusedItem.isDirectory ? t.folder : focusedItem.ext || t.file}
                   </span>
-                  <span>{focusedItem.isDirectory ? '-' : formatSize(focusedItem.size)}</span>
+                  <span>{focusedItem.isDirectory ? '-' : formatBytesTwoDecimals(focusedItem.size)}</span>
                 </div>
                 <div className="opacity-60 text-[9px]">
                   {t.modifiedLabel} {focusedItem.modifiedAt}

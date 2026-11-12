@@ -4,6 +4,7 @@ import { BackgroundTask, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
+import { formatBytesRoundedWithWholeBytes } from '../../utils/formatBytes';
 import { taskQueue } from '../../services/taskQueueManager';
 import { fsEngine } from '../../services/fileSystem';
 import { readAfterFinishChoice, writeAfterFinishChoice, type AfterFinish } from '../../services/afterFinish';
@@ -28,18 +29,6 @@ interface LogEntry {
   time: string;
   title: string;
   message: string;
-}
-
-function formatBytes(bytes: number): string {
-  if (!bytes || bytes < 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  return `${value < 10 && unit > 0 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
 }
 
 function TaskIcon({ type }: { type: BackgroundTask['type'] }) {
@@ -198,7 +187,7 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({ them
                         </span>
                       </span>
                       <span className="text-right tabular-nums opacity-80">
-                        {entry.totalBytes ? formatBytes(entry.totalBytes) : '—'}
+                        {entry.totalBytes ? formatBytesRoundedWithWholeBytes(entry.totalBytes) : '—'}
                       </span>
                       <span className="text-right uppercase opacity-70 text-[10px]">{entry.status}</span>
                       <span className="text-right tabular-nums font-bold">{entry.progress}%</span>
