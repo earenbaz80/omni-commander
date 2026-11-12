@@ -114,6 +114,14 @@ describe('FileList rows', () => {
     expect(container.textContent).toContain(`2 ${t.selectedCount} (${formatBytes(123456)})`);
   });
 
+  it('reads a two-terabyte total in terabytes, not in thousands of gigabytes', () => {
+    const twoTerabytes = 2 * 1024 ** 4;
+    const { container } = renderList({ items: [item({ id: 'disk', name: 'disco.img', size: twoTerabytes })] });
+
+    expect(container.textContent).toContain(t.statusBarTotalSize.replace('{size}', formatBytes(twoTerabytes)));
+    expect(container.textContent).not.toContain('2048.0 GB');
+  });
+
   it('marks the focused row and the caret, but only while the panel is active', () => {
     const { container, rerender } = renderList();
 
