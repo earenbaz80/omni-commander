@@ -376,6 +376,47 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
         {/* The form only omits the theme when the saved settings do, and the
             preview then shows the one the app is running. */}
         <ThemePreview themeId={formData.theme ?? theme.id} lang={lang} />
+
+        <div className="h-px bg-white/10 my-[var(--space-1)]"></div>
+
+        <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
+          <span className="opacity-70">{t.settingsSelectorColor}</span>
+          <select
+            value={formData.fileSelectorColor || 'blue'}
+            onChange={(e) => handleChange('fileSelectorColor', e.target.value)}
+            className="px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-amber-300 font-mono font-bold"
+          >
+            <option value="blue">{t.settingsColorBlue}</option>
+            <option value="amber">{t.settingsColorAmber}</option>
+            <option value="cyan">{t.settingsColorCyan}</option>
+            <option value="green">{t.settingsColorGreen}</option>
+            <option value="red">{t.settingsColorRed}</option>
+            <option value="purple">{t.settingsColorPurple}</option>
+          </select>
+        </label>
+
+        {[
+          { key: 'customFolderColor' as const, label: t.settingsFolderColor, value: theme.folderText ?? theme.accent },
+          { key: 'customTextColor' as const, label: t.settingsTextColor, value: theme.itemText },
+          { key: 'customSelectorColor' as const, label: t.settingsSelectorColorCustom, value: theme.cursorBg },
+        ].map((picker) => (
+          <label key={picker.key} className="flex items-center gap-[var(--space-2)] cursor-pointer">
+            <span className="opacity-70">{picker.label}</span>
+            <input
+              type="color"
+              value={formData[picker.key] || picker.value}
+              onChange={(e) => handleChange(picker.key, e.target.value)}
+              className="h-6 w-10 bg-transparent border border-white/20 rounded cursor-pointer"
+            />
+            <button
+              type="button"
+              onClick={() => handleChange(picker.key, '')}
+              className="text-[10px] underline opacity-70 hover:opacity-100"
+            >
+              {t.settingsColorFromTheme}
+            </button>
+          </label>
+        ))}
       </SectionCard>
     </div>
   );
@@ -483,45 +524,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
             <option value="white">{t.settingsColorWhite}</option>
           </select>
         </label>
-
-        <label className="flex items-center gap-[var(--space-2)] cursor-pointer">
-          <span className="opacity-70">{t.settingsSelectorColor}</span>
-          <select
-            value={formData.fileSelectorColor || 'blue'}
-            onChange={(e) => handleChange('fileSelectorColor', e.target.value)}
-            className="px-[var(--space-2)] py-[var(--space-1)] bg-black/70 border border-white/20 rounded text-xs text-amber-300 font-mono font-bold"
-          >
-            <option value="blue">{t.settingsColorBlue}</option>
-            <option value="amber">{t.settingsColorAmber}</option>
-            <option value="cyan">{t.settingsColorCyan}</option>
-            <option value="green">{t.settingsColorGreen}</option>
-            <option value="red">{t.settingsColorRed}</option>
-            <option value="purple">{t.settingsColorPurple}</option>
-          </select>
-        </label>
-
-        {[
-          { key: 'customFolderColor' as const, label: t.settingsFolderColor, value: theme.folderText ?? theme.accent },
-          { key: 'customTextColor' as const, label: t.settingsTextColor, value: theme.itemText },
-          { key: 'customSelectorColor' as const, label: t.settingsSelectorColorCustom, value: theme.cursorBg },
-        ].map((picker) => (
-          <label key={picker.key} className="flex items-center gap-[var(--space-2)] cursor-pointer">
-            <span className="opacity-70">{picker.label}</span>
-            <input
-              type="color"
-              value={formData[picker.key] || picker.value}
-              onChange={(e) => handleChange(picker.key, e.target.value)}
-              className="h-6 w-10 bg-transparent border border-white/20 rounded cursor-pointer"
-            />
-            <button
-              type="button"
-              onClick={() => handleChange(picker.key, '')}
-              className="text-[10px] underline opacity-70 hover:opacity-100"
-            >
-              {t.settingsColorFromTheme}
-            </button>
-          </label>
-        ))}
 
         <div className="h-px bg-white/10 my-[var(--space-1)]"></div>
 
