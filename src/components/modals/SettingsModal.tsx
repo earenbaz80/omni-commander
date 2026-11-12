@@ -338,6 +338,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
     setErrors({});
     onUpdateSettings(settingsToSave);
     soundManager.playSuccess();
+    // Saving ends the task: leaving the dialog open made a successful save look
+    // like nothing happened, and the only visible way out was "Cancel", which
+    // reads as undoing the change that had already been applied.
+    onClose();
   };
 
   const handleCancel = () => {
