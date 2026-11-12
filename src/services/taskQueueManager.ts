@@ -1,4 +1,5 @@
 import { BackgroundTask, FileProgressEntry, TransferPlan } from '../types';
+import { formatSpeed } from '../utils/formatSpeed';
 
 export interface OperationSignal {
   paused: boolean;
@@ -82,7 +83,7 @@ class TaskQueueManager {
       details,
       progress: 0,
       status: 'queued',
-      speed: '0 MB/s',
+      speed: formatSpeed(0),
       transferredBytes: 0,
       // Zero means "not measured yet", not one megabyte: the executor reports
       // the real total as soon as the server has it, and the bar stays at 0%
@@ -144,8 +145,7 @@ class TaskQueueManager {
             const now = Date.now();
             const elapsed = (now - lastTime) / 1000;
             if (elapsed > 0.1) {
-              const speed = ((transferred - lastTransferred) / elapsed / (1024 * 1024)).toFixed(1);
-              task.speed = speed + ' MB/s';
+              task.speed = formatSpeed((transferred - lastTransferred) / elapsed);
               lastTransferred = transferred;
               lastTime = now;
             }

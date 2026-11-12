@@ -5,6 +5,7 @@ import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 import { formatBytesRoundedWithWholeBytes } from '../../utils/formatBytes';
+import { formatSpeed } from '../../utils/formatSpeed';
 import { taskQueue } from '../../services/taskQueueManager';
 import { fsEngine } from '../../services/fileSystem';
 import { readAfterFinishChoice, writeAfterFinishChoice, type AfterFinish } from '../../services/afterFinish';
@@ -86,7 +87,8 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({ them
     transfers.find((entry) => entry.status === 'running') ||
     transfers.find((entry) => entry.status === 'paused') ||
     transfers.find((entry) => entry.status === 'queued');
-  const currentSpeedMb = active?.throttleBps ? Math.round(active.throttleBps / (1024 * 1024)) : 0;
+  const currentSpeedBps = active?.throttleBps ?? 0;
+  const currentSpeedMb = Math.round(currentSpeedBps / (1024 * 1024));
 
   const applySpeed = (mb: number) => {
     if (!active) return;
@@ -252,7 +254,7 @@ export const TransferMonitorModal: React.FC<TransferMonitorModalProps> = ({ them
                     >
                       {SPEED_OPTIONS_MB.map((mb) => (
                         <option key={mb} value={mb}>
-                          {mb === 0 ? t.speedUnlimited : `${mb} MB/s`}
+                          {mb === 0 ? t.speedUnlimited : formatSpeed(mb * (1024 * 1024))}
                         </option>
                       ))}
                     </select>
