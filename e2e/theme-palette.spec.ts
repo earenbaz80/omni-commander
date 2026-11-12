@@ -4,7 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { BOOT_TIMEOUT_MS } from './support/boot';
 import { removeWorkspace } from './support/tempWorkspaces';
-import { themes, type ThemeConfig } from '../src/services/themeManager';
+import { themes } from '../src/services/themeManager';
+import { fileIconColor, type FileIconKind } from '../src/components/FileTypeIcon';
 
 /**
  * The listing's glyphs are painted from the theme, and this is the case that
@@ -22,6 +23,13 @@ import { themes, type ThemeConfig } from '../src/services/themeManager';
  * after choosing Retro Futurista in the Opciones menu, every kind of glyph is
  * drawn in the colour that the palette gives it, and none of them is pink or
  * magenta — the one thing that palette is not allowed to contain.
+ *
+ * The expected colour is never written here: it is asked of `fileIconColor`, the
+ * same map the listing paints with, so a change of palette moves the expectation
+ * with the app instead of leaving a stale literal behind — the folder glyph
+ * spent a day expecting the old colour that way. That the map itself is right is
+ * what `FileTypeIcon.test.tsx` pins down; this case proves the app really uses
+ * it, in a running window.
  */
 
 // Pin the UI language: the menu entry driven below is the Spanish one.
@@ -32,33 +40,23 @@ test.beforeEach(async ({ page }) => {
 });
 
 /**
- * Every glyph family, one file each, and the `ThemeConfig` field the palette
- * says it must be drawn in. The names are the ones the fixture writes, so the
- * rows can be found by the name the listing shows.
+ * Every glyph family, one file each. The names are the ones the fixture writes,
+ * so the rows can be found by the name the listing shows; the kind is the
+ * address into `fileIconColor`, which keeps the expected colour in one place.
  */
-const GLYPHS: Array<{ name: string; kind: string; field: keyof typeof themes.retro_futurist }> = [
-  { name: 'carpeta', kind: 'folder', field: 'folderText' },
-  { name: 'informe.pdf', kind: 'document', field: 'docText' },
-  { name: 'notas.txt', kind: 'document', field: 'docText' },
-  { name: 'programa.exe', kind: 'exec', field: 'exeText' },
-  { name: 'datos.zip', kind: 'archive', field: 'zipText' },
-  { name: 'disco.iso', kind: 'disk', field: 'zipText' },
-  { name: 'codigo.ts', kind: 'code', field: 'accent' },
-  { name: 'foto.png', kind: 'image', field: 'mediaText' },
-  { name: 'tono.mp3', kind: 'audio', field: 'mediaText' },
-  { name: 'video.mp4', kind: 'video', field: 'mediaText' },
-  { name: 'misterio.xyz', kind: 'file', field: 'itemText' },
+const GLYPHS: Array<{ name: string; kind: FileIconKind }> = [
+  { name: 'carpeta', kind: 'folder' },
+  { name: 'informe.pdf', kind: 'document' },
+  { name: 'notas.txt', kind: 'document' },
+  { name: 'programa.exe', kind: 'exec' },
+  { name: 'datos.zip', kind: 'archive' },
+  { name: 'disco.iso', kind: 'disk' },
+  { name: 'codigo.ts', kind: 'code' },
+  { name: 'foto.png', kind: 'image' },
+  { name: 'tono.mp3', kind: 'audio' },
+  { name: 'video.mp4', kind: 'video' },
+  { name: 'misterio.xyz', kind: 'file' },
 ];
-
-/**
- * The colour a palette gives one glyph. Folders are the one family a theme may
- * leave unset: the icon then takes the theme's accent, the same fallback the
- * listing applies, so a directory never falls back to an unstyled default.
- */
-function glyphColour(theme: ThemeConfig, field: keyof ThemeConfig): string {
-  if (field === 'folderText') return theme.folderText ?? theme.accent;
-  return theme[field] as string;
-}
 
 /**
  * High red over high blue with almost no green: magenta, and its pale pink
@@ -117,10 +115,10 @@ test('the listing draws its glyphs in the colours of the active theme', async ({
   // The default theme is the DOS blue one. If this half failed, the second half
   // would prove nothing: the glyphs would be showing a palette of their own.
   const defaultTheme = themes.classic_blue;
-  for (const { name, field } of GLYPHS) {
+  for (const { name, kind } of GLYPHS) {
     await expect(glyphOf(page, name), `${name} ignores the default palette`).toHaveAttribute(
       'stroke',
-      glyphColour(defaultTheme, field),
+      fileIconColor(kind, defaultTheme),
     );
   }
 
@@ -132,16 +130,16 @@ test('the listing draws its glyphs in the colours of the active theme', async ({
     .toBe('retro_futurist');
 
   const palette = themes.retro_futurist;
-  for (const { name, kind, field } of GLYPHS) {
+  for (const { name, kind } of GLYPHS) {
     const glyph = glyphOf(page, name);
     await expect(glyph, `${name} is drawn with the wrong glyph`).toHaveAttribute('data-file-icon', kind);
-    await expect(glyph, `${name} is drawn outside the palette`).toHaveAttribute('stroke', glyphColour(palette, field));
+    await expect(glyph, `${name} is drawn outside the palette`).toHaveAttribute('stroke', fileIconColor(kind, palette));
   }
 
   // The folder body is filled with its own outline colour rather than a second
   // hue, which is what keeps the set to one ink per kind.
   const folderFill = page.locator('[data-name="carpeta"] svg[data-file-icon] path[fill]').first();
-  await expect(folderFill).toHaveAttribute('fill', glyphColour(palette, 'folderText'));
+  await expect(folderFill).toHaveAttribute('fill', fileIconColor('folder', palette));
 
   // And the rule the palette exists to keep: nothing warm-leaning went pink.
   const strokes: string[] = await page
