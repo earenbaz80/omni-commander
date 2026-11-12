@@ -22,6 +22,7 @@ import {
   type MapLayer,
   type MapView,
 } from '../../services/slippyMap';
+import { formatBytesWithWholeKilobytes } from '../../utils/formatBytes';
 
 import ModalShell from '../ModalShell';
 
@@ -133,13 +134,6 @@ const WORLD_MAX_LEVEL = 6;
  * what the batch size was protecting in the first place.
  */
 const WORLD_BATCH = 100;
-
-/** Bytes as a person reads them, because the cache is about disk space. */
-function formatCacheSize(bytes: number): string {
-  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${bytes} B`;
-}
 
 function midpoint(a: Point, b: Point): Point {
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
@@ -866,7 +860,7 @@ export const MapsModal: React.FC<MapsModalProps> = ({ theme, lang, onClose }) =>
         <div className="flex flex-wrap items-center gap-[var(--space-1)] text-[11px]">
           <span className="opacity-70">
             {cache && cache.tiles > 0
-              ? `${t.mapsCache}: ${cache.tiles} · ${formatCacheSize(cache.bytes)}`
+              ? `${t.mapsCache}: ${cache.tiles} · ${formatBytesWithWholeKilobytes(cache.bytes)}`
               : t.mapsCacheEmpty}
           </span>
           <button
