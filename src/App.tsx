@@ -10,6 +10,7 @@ import type { ElevationResult } from './types/electronBridge';
 // Components
 import { AppModalLayer } from './components/AppModalLayer';
 import { DualPaneView } from './components/DualPaneView';
+import { darken } from './utils/contrast';
 import { WindowChrome } from './components/WindowChrome';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useModalStack } from './hooks/useModalStack';
@@ -49,8 +50,23 @@ export default function App() {
   const selectedSelectorPalette = fileSelectorPalette[settings.fileSelectorColor || 'blue'] || fileSelectorPalette.blue;
   const themeForFileList = {
     ...currentTheme,
-    cursorBg: selectedSelectorPalette.cursor,
-    selectedBg: selectedSelectorPalette.selected,
+    // The folder, text and selector colours are the three the user can pick
+    // apart from the theme; an empty setting leaves the theme in charge.
+    folderText: settings.customFolderColor || currentTheme.folderText,
+    cursorBg: settings.customSelectorColor || selectedSelectorPalette.cursor,
+    selectedBg: settings.customSelectorColor
+      ? darken(settings.customSelectorColor, 0.45)
+      : selectedSelectorPalette.selected,
+    ...(settings.customTextColor
+      ? {
+          itemText: settings.customTextColor,
+          dirText: settings.customTextColor,
+          exeText: settings.customTextColor,
+          zipText: settings.customTextColor,
+          docText: settings.customTextColor,
+          mediaText: settings.customTextColor,
+        }
+      : {}),
   };
   const lang: LanguageCode = settings.language;
   const t = getTranslations(lang);

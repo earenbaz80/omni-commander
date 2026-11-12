@@ -14,7 +14,6 @@ const mockTheme: ThemeConfig = {
   headerText: '#000000',
   itemText: '#ffffff',
   dirText: '#55ffff',
-  folderText: '#ffd700',
   exeText: '#55ff55',
   zipText: '#ff55ff',
   docText: '#ffff55',

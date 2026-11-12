@@ -319,6 +319,10 @@ export interface UserSettings {
   blinkingCursorEnabled: boolean;
   cursorBlinkColor?: 'amber' | 'cyan' | 'green' | 'red' | 'white';
   fileSelectorColor?: 'blue' | 'amber' | 'cyan' | 'green' | 'red' | 'purple';
+  /** Individual overrides; an empty value keeps the theme's own colour. */
+  customFolderColor?: string;
+  customTextColor?: string;
+  customSelectorColor?: string;
   authorName: string;
   // Security & Password Protection
   appLockEnabled: boolean;
