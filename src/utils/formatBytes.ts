@@ -59,6 +59,17 @@ export function formatBytesWithWholeKilobytes(bytes: number): string {
   return `${bytes} B`;
 }
 
+/**
+ * The size ceiling in an error message: whole megabytes when the server picked a
+ * round limit, one decimal when it did not. A ceiling is a rule the user is
+ * being told about, not a measurement, so it keeps the unit the server states
+ * and never turns into "1.0 GB" for a limit written as `1024 MB`.
+ */
+export function formatBytesInMegabytes(bytes: number): string {
+  const megabytes = bytes / (1024 * 1024);
+  return `${Number.isInteger(megabytes) ? megabytes : megabytes.toFixed(1)} MB`;
+}
+
 const ROUNDED_UNITS = ['B', 'KB', 'MB', 'GB', 'TB'];
 
 function splitRounded(bytes: number): { value: number; unit: number } {
