@@ -1195,7 +1195,7 @@ export const it = {
   helpRunExampleWeb: 'Un indirizzo web, con o senza http://.',
 
   // Barra di stato, tasti funzione e console dei comandi.
-  statusBarTotalSize: '{size} kB totali',
+  statusBarTotalSize: '{size} totali',
   fkeyAltDriveL: 'Unità L',
   fkeyAltDriveR: 'Unità R',
   fkeyAltHexView: 'Vista hex',

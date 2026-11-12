@@ -1194,7 +1194,7 @@ export const ja = {
   helpRunExampleWeb: 'Web アドレス。http:// は省略できます。',
 
   // ステータスバー、ファンクションキー、コマンドコンソール。
-  statusBarTotalSize: '合計 {size} kB',
+  statusBarTotalSize: '合計 {size}',
   fkeyAltDriveL: 'ドライブ L',
   fkeyAltDriveR: 'ドライブ R',
   fkeyAltHexView: '16進表示',

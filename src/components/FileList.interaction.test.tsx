@@ -4,6 +4,7 @@ import { FileList } from './FileList';
 import { themes } from '../services/themeManager';
 import { translations } from '../i18n/translations';
 import { FileItem } from '../types';
+import { formatBytes } from '../utils/formatBytes';
 
 const t = translations.es;
 
@@ -108,8 +109,9 @@ describe('FileList rows', () => {
 
     expect(container.textContent).toContain(`2 ${t.filesCount}`);
     expect(container.textContent).toContain(`1 ${t.dirsCount}`);
-    // A folder adds to the count but not to the bytes.
-    expect(container.textContent).toContain(`2 ${t.selectedCount} (121 kB)`);
+    // A folder adds to the count but not to the bytes, and the weight picks its
+    // unit instead of counting kilobytes whatever the size.
+    expect(container.textContent).toContain(`2 ${t.selectedCount} (${formatBytes(123456)})`);
   });
 
   it('marks the focused row and the caret, but only while the panel is active', () => {

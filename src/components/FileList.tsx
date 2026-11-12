@@ -9,7 +9,7 @@ import { getTranslations } from '../i18n/translations';
 import { soundManager } from '../services/soundEffects';
 import { loadColumnWidths, saveColumnWidths, autoFitWidth, MIN_COLUMN_WIDTH } from '../utils/columnWidths';
 import { log } from '../utils/logger';
-import { formatBytesCompact } from '../utils/formatBytes';
+import { formatBytes, formatBytesCompact } from '../utils/formatBytes';
 import { FileListStatusBar } from './FileListStatusBar';
 import { isImageItem, mediaUrlFor } from '../services/mediaUrl';
 
@@ -1196,7 +1196,7 @@ const FileListComponent: React.FC<FileListProps> = ({
         filesCountLabel={t.filesCount}
         dirsCountLabel={t.dirsCount}
         selectedCountLabel={t.selectedCount}
-        totalLabel={t.statusBarTotalSize.replace('{size}', String(Math.round(stats.totalBytes / 1024)))}
+        totalLabel={t.statusBarTotalSize.replace('{size}', formatBytes(stats.totalBytes))}
       />
     </div>
   );

@@ -1202,7 +1202,7 @@ export const fr = {
   helpRunExampleWeb: 'Une adresse web, avec ou sans http://.',
 
   // Barre d'état, touches de fonction et console de commandes.
-  statusBarTotalSize: '{size} kB au total',
+  statusBarTotalSize: '{size} au total',
   fkeyAltDriveL: 'Lecteur L',
   fkeyAltDriveR: 'Lecteur R',
   fkeyAltHexView: 'Vue hex',
