@@ -4,6 +4,7 @@ import {
   formatBytesCompact,
   formatBytesDetailed,
   formatBytesRounded,
+  formatBytesInMegabytes,
   formatBytesRoundedWithWholeBytes,
   formatBytesTwoDecimals,
   formatBytesWithTerabytes,
@@ -112,6 +113,25 @@ describe('formatBytesTwoDecimals', () => {
     expect(formatBytesTwoDecimals(1024 * 1024 * 1024)).toBe('1.00 GB');
     expect(formatBytesTwoDecimals(2.5 * 1024 * 1024 * 1024)).toBe('2.50 GB');
     expect(formatBytesTwoDecimals(1024 * 1024 * 1024 * 1024)).toBe('1024.00 GB');
+  });
+});
+
+describe('formatBytesInMegabytes', () => {
+  it('keeps a round limit whole', () => {
+    expect(formatBytesInMegabytes(512 * 1024 * 1024)).toBe('512 MB');
+    expect(formatBytesInMegabytes(64 * 1024 * 1024)).toBe('64 MB');
+    expect(formatBytesInMegabytes(1024 * 1024 * 1024)).toBe('1024 MB');
+  });
+
+  it('gives one decimal to a limit that is not round', () => {
+    expect(formatBytesInMegabytes(512.5 * 1024 * 1024)).toBe('512.5 MB');
+    expect(formatBytesInMegabytes(1024 * 1024 + 1)).toBe('1.0 MB');
+  });
+
+  it('rounds towards the nearest tenth below a megabyte', () => {
+    expect(formatBytesInMegabytes(0)).toBe('0 MB');
+    expect(formatBytesInMegabytes(512 * 1024)).toBe('0.5 MB');
+    expect(formatBytesInMegabytes(1024)).toBe('0.0 MB');
   });
 });
 

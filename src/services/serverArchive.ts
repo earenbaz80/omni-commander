@@ -17,6 +17,7 @@
 import { fetchWithRetry } from '../utils/fetchWithRetry';
 import { tGlobal } from '../i18n/translations';
 import { log } from '../utils/logger';
+import { formatBytesInMegabytes } from '../utils/formatBytes';
 import { API_BASE } from './apiBase';
 import {
   ArchivePasswordError,
@@ -75,12 +76,6 @@ async function callServer(route: string, body: unknown, timeoutMs = 120000, sign
   });
 }
 
-/** Whole-megabyte ceiling as the message shows it, e.g. `512 MB`. */
-function describeLimit(limitBytes: number): string {
-  const megabytes = limitBytes / (1024 * 1024);
-  return `${Number.isInteger(megabytes) ? megabytes : megabytes.toFixed(1)} MB`;
-}
-
 /**
  * Maps a refusal onto the error the rest of the app already knows how to show:
  * a missing passphrase becomes the password prompt, an archive over the reader's
@@ -98,7 +93,9 @@ function failureFromPayload(payload: FailurePayload | null, fileName: string): E
   }
   if (payload?.code === 'too-large' && typeof payload.limitBytes === 'number') {
     return new Error(
-      tGlobal('zipErrTooLarge').replace('{name}', fileName).replace('{size}', describeLimit(payload.limitBytes)),
+      tGlobal('zipErrTooLarge')
+        .replace('{name}', fileName)
+        .replace('{size}', formatBytesInMegabytes(payload.limitBytes)),
     );
   }
   if (payload?.error) log.warn('Archive server refused the request', payload.code, payload.error);
