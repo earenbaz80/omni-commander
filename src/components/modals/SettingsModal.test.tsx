@@ -58,13 +58,15 @@ const settings: UserSettings = {
  */
 function setup() {
   const user = userEvent.setup();
+  const onUpdateSettings = vi.fn();
+  const onClose = vi.fn();
   const { container } = render(
     <SettingsModal
       theme={themes.classic_blue}
       lang="en"
       settings={settings}
-      onUpdateSettings={vi.fn()}
-      onClose={vi.fn()}
+      onUpdateSettings={onUpdateSettings}
+      onClose={onClose}
     />,
   );
 
@@ -74,7 +76,7 @@ function setup() {
   const selectorSelect = () =>
     [...container.querySelectorAll('select')].find((select) => select.querySelector('option[value="purple"]'));
 
-  return { user, pickers, selectorSelect };
+  return { user, pickers, selectorSelect, onUpdateSettings, onClose };
 }
 
 describe('SettingsModal colour controls', () => {
@@ -95,6 +97,17 @@ describe('SettingsModal colour controls', () => {
 
     expect(selectorSelect()).toBeDefined();
     expect(selectorSelect()?.value).toBe('blue');
+  });
+
+  it('closes the dialog once the settings are saved', async () => {
+    const { user, onUpdateSettings, onClose } = setup();
+
+    await user.click(screen.getByRole('button', { name: t.btnSave }));
+
+    expect(onUpdateSettings).toHaveBeenCalledTimes(1);
+    // A save that leaves the dialog open looks like it did nothing, and the
+    // remaining way out is "Cancel", which reads as undoing it.
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('leaves every colour control off the appearance tab', async () => {
