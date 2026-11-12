@@ -4,6 +4,8 @@ import {
   formatBytesCompact,
   formatBytesDetailed,
   formatBytesRounded,
+  formatBytesRoundedWithWholeBytes,
+  formatBytesTwoDecimals,
   formatBytesWithTerabytes,
 } from './formatBytes';
 
@@ -86,6 +88,52 @@ describe('formatBytesRounded', () => {
     expect(formatBytesRounded(10 * 1024 * 1024 * 1024 * 1024)).toBe('10 TB');
     // Nothing is larger than a terabyte to this formatter, so the number grows.
     expect(formatBytesRounded(1024 * 1024 * 1024 * 1024 * 1024)).toBe('1024 TB');
+  });
+});
+
+describe('formatBytesTwoDecimals', () => {
+  it('counts whole bytes under a kilobyte', () => {
+    expect(formatBytesTwoDecimals(0)).toBe('0 B');
+    expect(formatBytesTwoDecimals(512)).toBe('512 B');
+    expect(formatBytesTwoDecimals(1023)).toBe('1023 B');
+  });
+
+  it('switches unit at the kilobyte and the megabyte', () => {
+    expect(formatBytesTwoDecimals(1024)).toBe('1.00 KB');
+    expect(formatBytesTwoDecimals(1536)).toBe('1.50 KB');
+    expect(formatBytesTwoDecimals(1024 * 1024 - 1)).toBe('1024.00 KB');
+    expect(formatBytesTwoDecimals(1024 * 1024)).toBe('1.00 MB');
+    expect(formatBytesTwoDecimals(1024 * 1024 - 1024)).toBe('1023.00 KB');
+  });
+
+  it('keeps counting gigabytes past a terabyte', () => {
+    expect(formatBytesTwoDecimals(1024 * 1024 * 1024 - 1)).toBe('1024.00 MB');
+    expect(formatBytesTwoDecimals(1024 * 1024 * 1024)).toBe('1.00 GB');
+    expect(formatBytesTwoDecimals(2.5 * 1024 * 1024 * 1024)).toBe('2.50 GB');
+    expect(formatBytesTwoDecimals(1024 * 1024 * 1024 * 1024)).toBe('1024.00 GB');
+  });
+});
+
+describe('formatBytesRoundedWithWholeBytes', () => {
+  it('keeps a handful of bytes a whole number', () => {
+    expect(formatBytesRoundedWithWholeBytes(1)).toBe('1 B');
+    expect(formatBytesRoundedWithWholeBytes(5)).toBe('5 B');
+    expect(formatBytesRoundedWithWholeBytes(9)).toBe('9 B');
+    expect(formatBytesRoundedWithWholeBytes(10)).toBe('10 B');
+    expect(formatBytesRoundedWithWholeBytes(1023)).toBe('1023 B');
+  });
+
+  it('reads a missing or negative size as nothing transferred', () => {
+    expect(formatBytesRoundedWithWholeBytes(0)).toBe('0 B');
+    expect(formatBytesRoundedWithWholeBytes(-1)).toBe('0 B');
+    expect(formatBytesRoundedWithWholeBytes(Number.NaN)).toBe('0 B');
+  });
+
+  it('takes a decimal from a kilobyte up and a whole unit from ten', () => {
+    expect(formatBytesRoundedWithWholeBytes(1024)).toBe('1.0 KB');
+    expect(formatBytesRoundedWithWholeBytes(9.5 * 1024)).toBe('9.5 KB');
+    expect(formatBytesRoundedWithWholeBytes(10 * 1024)).toBe('10 KB');
+    expect(formatBytesRoundedWithWholeBytes(1024 * 1024 * 1024 * 1024)).toBe('1.0 TB');
   });
 });
 

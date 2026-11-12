@@ -4,6 +4,7 @@ import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { formatFromExtension, formatLabel, isOpenable } from '../../services/archiveBackend';
+import { formatBytes } from '../../utils/formatBytes';
 
 import ModalShell from '../ModalShell';
 
@@ -51,7 +52,7 @@ export const ArchiveInfoModal: React.FC<ArchiveInfoModalProps> = ({
           {/* Details */}
           <div className="grid grid-cols-[auto_1fr] gap-x-[var(--space-4)] gap-y-[var(--space-2)].5 text-xs opacity-80">
             <span>{t.sizeLabel}</span>
-            <span>{(fileSize / 1024 / 1024).toFixed(2)} MB</span>
+            <span>{formatBytes(fileSize)}</span>
 
             <span>{t.dateLabel}</span>
             <span>{fileDate.toLocaleString()}</span>
