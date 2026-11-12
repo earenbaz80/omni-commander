@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
 # Blocks a push that would fail the CI `verify` job: documentation links first,
-# then types, then the test suite. Formatting stays in pre-commit, which is
-# fast; this one is allowed to take a minute. `git push --no-verify` skips it when that is what you want.
+# then types, then the test suite, then a smoke subset of the e2e suite. Formatting
+# stays in pre-commit, which is fast; this one is allowed to take a minute and
+# change. `git push --no-verify` skips it when that is what you want.
 # A red run is not automatically a regression; the note at the end of this file
 # is how to tell one from a machine that had no CPU left to give.
 set -eo pipefail
@@ -145,7 +146,42 @@ echo "pre-push: running the test suite (npm test -- --maxWorkers=2)..."
 start_sampler
 run npm test -- --maxWorkers=2
 
-echo "pre-push: links, types and tests passed. (output: $log)"
+# The whole e2e suite is five minutes and has gone red on this machine from
+# contention, so it stays in `npm run test:e2e` and in the release CI. What runs
+# here is the smoke subset: it loads a window, opens the updates card and walks a
+# theme into the listing. That last case is the one that went stale for a day --
+# a folder colour changed and nothing before the push ran the spec that asserts
+# the glyphs.
+#
+# A clone without the browsers downloaded cannot run any of it, and a push is not
+# what should fail for that: the cache is checked first, the way the missing
+# dependencies above are, so the hook degrades to what it verified before.
+# Playwright keeps its browsers in a per-platform cache, not in node_modules: the
+# glob is what tells "installed" from "the package is there but nobody ran
+# `npx playwright install`". The paths are built from $HOME because the Windows
+# environment variables carry separators bash does not read as directories.
+playwright_cache=""
+for dir in "$HOME/AppData/Local/ms-playwright" "$HOME/Library/Caches/ms-playwright" "$HOME/.cache/ms-playwright"; do
+  if compgen -G "$dir/chromium-*" >/dev/null; then
+    playwright_cache="$dir"
+    break
+  fi
+done
+
+smoke_ran=false
+if [ -f node_modules/@playwright/test/package.json ] && [ -n "$playwright_cache" ]; then
+  echo "pre-push: running the e2e smoke subset (npm run test:e2e:smoke)..."
+  run npm run --silent test:e2e:smoke
+  smoke_ran=true
+else
+  echo "pre-push: Playwright or its chromium is not installed, skipping the e2e smoke subset"
+fi
+
+if [ "$smoke_ran" = true ]; then
+  echo "pre-push: links, types, tests and the e2e smoke subset passed. (output: $log)"
+else
+  echo "pre-push: links, types and tests passed. (output: $log)"
+fi
 
 # When this hook goes red, the log says which test and does not say why.
 # Contention is one of the answers, and it has been the true one: the same tree
