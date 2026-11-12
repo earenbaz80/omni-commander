@@ -9,6 +9,7 @@ import { getTranslations } from '../i18n/translations';
 import { soundManager } from '../services/soundEffects';
 import { loadColumnWidths, saveColumnWidths, autoFitWidth, MIN_COLUMN_WIDTH } from '../utils/columnWidths';
 import { log } from '../utils/logger';
+import { formatBytesCompact } from '../utils/formatBytes';
 import { FileListStatusBar } from './FileListStatusBar';
 import { isImageItem, mediaUrlFor } from '../services/mediaUrl';
 
@@ -273,20 +274,9 @@ const FileListComponent: React.FC<FileListProps> = ({
 
   const formatSize = (item: FileItem): string => {
     if (item.isDirectory) {
-      if (item.size && item.size > 0) {
-        const bytes = item.size;
-        if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} G`;
-        if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} M`;
-        if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} k`;
-        return `${bytes}`;
-      }
-      return t.directory;
+      return item.size && item.size > 0 ? formatBytesCompact(item.size) : t.directory;
     }
-    const bytes = item.size;
-    if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} G`;
-    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} M`;
-    if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} k`;
-    return `${bytes}`;
+    return formatBytesCompact(item.size);
   };
 
   /**
