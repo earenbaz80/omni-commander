@@ -43,4 +43,6 @@ for (const hook of readdirSync(hooksDir)) {
   }
 }
 
-console.log('Git hooks enabled: commits format what they touch, pushes check documentation links, types and tests.');
+console.log(
+  'Git hooks enabled: commits format what they touch, pushes check documentation links, types, tests and the e2e smoke subset.',
+);

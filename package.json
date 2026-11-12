@@ -55,6 +55,7 @@
     "electron:build": "npm run build:electron && electron-builder",
     "build:electron": "vite build --mode electron",
     "test:e2e": "playwright test",
+    "test:e2e:smoke": "playwright test e2e/smoke.spec.ts e2e/theme-palette.spec.ts e2e/settings-updates.spec.ts",
     "server": "node --env-file-if-exists=.env server.cjs",
     "build": "vite build",
     "preview": "vite preview",
