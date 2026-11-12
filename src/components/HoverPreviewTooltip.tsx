@@ -5,6 +5,7 @@ import { Image as ImageIcon, Calendar, HardDrive, Shield } from 'lucide-react';
 import { createSvgDataUrl } from '../utils/svgPreview';
 import { mediaUrlFor } from '../services/mediaUrl';
 import { getTranslations } from '../i18n/translations';
+import { formatBytesDetailed } from '../utils/formatBytes';
 
 /**
  * The real picture when the local server can serve it, the old placeholder when
@@ -39,14 +40,7 @@ export const HoverPreviewTooltip: React.FC<HoverPreviewTooltipProps> = ({ theme,
   const ext = item.ext.toUpperCase();
   const isImage = ['PNG', 'JPG', 'JPEG', 'SVG', 'WEBP', 'GIF', 'BMP', 'ICO'].includes(ext);
 
-  const formatSize = (bytes: number): string => {
-    if (item.isDirectory) return t.markerDirectory;
-    if (bytes >= 1024 * 1024 * 1024)
-      return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB (${bytes.toLocaleString()} bytes)`;
-    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB (${bytes.toLocaleString()} bytes)`;
-    if (bytes >= 1024) return `${(bytes / 1024).toFixed(2)} KB (${bytes.toLocaleString()} bytes)`;
-    return `${bytes} bytes`;
-  };
+  const formatSize = (bytes: number): string => (item.isDirectory ? t.markerDirectory : formatBytesDetailed(bytes));
 
   // Adjust coordinates to avoid overflowing the viewport
   const tooltipWidth = isImage && showThumbnail ? 260 : 240;

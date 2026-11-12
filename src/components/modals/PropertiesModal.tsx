@@ -4,6 +4,7 @@ import { FileItem, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
+import { formatBytesDetailed } from '../../utils/formatBytes';
 
 import ModalShell from '../ModalShell';
 
@@ -30,13 +31,9 @@ export const PropertiesModal: React.FC<PropertiesModalProps> = ({ theme, lang, f
     onUpdateAttributes(file.id, updated);
   };
 
-  const formatBytes = (bytes: number): string => {
-    if (bytes >= 1024 * 1024 * 1024)
-      return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB (${bytes.toLocaleString()} bytes)`;
-    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB (${bytes.toLocaleString()} bytes)`;
-    if (bytes >= 1024) return `${(bytes / 1024).toFixed(2)} KB (${bytes.toLocaleString()} bytes)`;
-    return `${bytes.toLocaleString()} bytes`;
-  };
+  /** The shared form down to the byte; a small file gets a grouped count instead. */
+  const formatBytes = (bytes: number): string =>
+    bytes >= 1024 ? formatBytesDetailed(bytes) : `${bytes.toLocaleString()} bytes`;
 
   return (
     <ModalShell

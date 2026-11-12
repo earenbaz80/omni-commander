@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { formatBytes, formatBytesCompact, formatBytesRounded, formatBytesWithTerabytes } from './formatBytes';
+import {
+  formatBytes,
+  formatBytesCompact,
+  formatBytesDetailed,
+  formatBytesRounded,
+  formatBytesWithTerabytes,
+} from './formatBytes';
 
 /**
  * Every boundary is checked on both sides: the last value of one unit and the
@@ -36,6 +42,28 @@ describe('formatBytesWithTerabytes', () => {
     expect(formatBytesWithTerabytes(1024 * 1024 * 1024 * 1024 - 1)).toBe('1024.0 GB');
     expect(formatBytesWithTerabytes(1024 * 1024 * 1024 * 1024)).toBe('1.0 TB');
     expect(formatBytesWithTerabytes(1.5 * 1024 * 1024 * 1024 * 1024)).toBe('1.5 TB');
+  });
+});
+
+describe('formatBytesDetailed', () => {
+  it('counts plain bytes under a kilobyte', () => {
+    expect(formatBytesDetailed(0)).toBe('0 bytes');
+    expect(formatBytesDetailed(512)).toBe('512 bytes');
+    expect(formatBytesDetailed(1023)).toBe('1023 bytes');
+  });
+
+  it('gives two decimals and the exact count from a kilobyte up', () => {
+    // The count is grouped by the platform's locale, so the assertion asks for
+    // the same grouping rather than hard-coding a separator.
+    expect(formatBytesDetailed(1024)).toBe(`1.00 KB (${(1024).toLocaleString()} bytes)`);
+    expect(formatBytesDetailed(1536)).toBe(`1.50 KB (${(1536).toLocaleString()} bytes)`);
+    expect(formatBytesDetailed(1024 * 1024)).toBe(`1.00 MB (${(1024 * 1024).toLocaleString()} bytes)`);
+    expect(formatBytesDetailed(2.5 * 1024 * 1024)).toBe(`2.50 MB (${(2.5 * 1024 * 1024).toLocaleString()} bytes)`);
+    expect(formatBytesDetailed(1024 * 1024 * 1024)).toBe(`1.00 GB (${(1024 * 1024 * 1024).toLocaleString()} bytes)`);
+  });
+
+  it('rounds the last kilobyte up to the unit above', () => {
+    expect(formatBytesDetailed(1024 * 1024 - 1)).toBe(`1024.00 KB (${(1024 * 1024 - 1).toLocaleString()} bytes)`);
   });
 });
 
