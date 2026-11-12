@@ -500,6 +500,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
           </select>
         </label>
 
+        {[
+          { key: 'customFolderColor' as const, label: t.settingsFolderColor, value: theme.folderText ?? theme.accent },
+          { key: 'customTextColor' as const, label: t.settingsTextColor, value: theme.itemText },
+          { key: 'customSelectorColor' as const, label: t.settingsSelectorColorCustom, value: theme.cursorBg },
+        ].map((picker) => (
+          <label key={picker.key} className="flex items-center gap-[var(--space-2)] cursor-pointer">
+            <span className="opacity-70">{picker.label}</span>
+            <input
+              type="color"
+              value={formData[picker.key] || picker.value}
+              onChange={(e) => handleChange(picker.key, e.target.value)}
+              className="h-6 w-10 bg-transparent border border-white/20 rounded cursor-pointer"
+            />
+            <button
+              type="button"
+              onClick={() => handleChange(picker.key, '')}
+              className="text-[10px] underline opacity-70 hover:opacity-100"
+            >
+              {t.settingsColorFromTheme}
+            </button>
+          </label>
+        ))}
+
         <div className="h-px bg-white/10 my-[var(--space-1)]"></div>
 
         <label className="flex items-center gap-[var(--space-2)] cursor-pointer font-bold text-amber-300">

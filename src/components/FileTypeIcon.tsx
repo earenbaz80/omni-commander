@@ -13,10 +13,9 @@ import type { ThemeConfig } from '../services/themeManager';
  * curves. Their colour comes from the active ThemeConfig, because a file's icon
  * and the name printed next to it should never disagree.
  *
- * Folders are the exception in kind, not in source: `folderText` is the one
- * entry a theme tunes to keep a directory looking like one — amber in the
- * warm palettes, lime in Matrix, Solarized's yellow in Solarized — while the
- * name beside it keeps the theme's directory colour.
+ * Folders use the theme's own folder colour when it has one — Classic keeps the
+ * DOS yellow — and the accent otherwise, so a directory belongs to its panel
+ * without wearing the same colour as every other label on the row.
  */
 export type FileIconKind =
   'folder' | 'exec' | 'archive' | 'disk' | 'document' | 'code' | 'image' | 'audio' | 'video' | 'file';
@@ -53,7 +52,7 @@ export function fileIconKind(item: Pick<FileItem, 'isDirectory' | 'ext'>): FileI
 export function fileIconColor(kind: FileIconKind, theme: ThemeConfig): string {
   switch (kind) {
     case 'folder':
-      return theme.folderText;
+      return theme.folderText ?? theme.accent;
     case 'exec':
       return theme.exeText;
     case 'archive':
