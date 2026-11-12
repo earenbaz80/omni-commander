@@ -26,10 +26,13 @@ describe('formatBytes', () => {
     expect(formatBytes(1024 * 1024)).toBe('1.0 MB');
   });
 
-  it('keeps counting gigabytes past a terabyte', () => {
+  it('reads a terabyte in terabytes, not in thousands of gigabytes', () => {
     expect(formatBytes(1024 * 1024 * 1024 - 1)).toBe('1024.0 MB');
     expect(formatBytes(1024 * 1024 * 1024)).toBe('1.0 GB');
-    expect(formatBytes(1024 * 1024 * 1024 * 1024)).toBe('1024.0 GB');
+    expect(formatBytes(1024 * 1024 * 1024 * 1024 - 1)).toBe('1024.0 GB');
+    expect(formatBytes(1024 * 1024 * 1024 * 1024)).toBe('1.0 TB');
+    // A two-terabyte drive, the figure the status bar shows for it.
+    expect(formatBytes(2 * 1024 * 1024 * 1024 * 1024)).toBe('2.0 TB');
   });
 });
 
