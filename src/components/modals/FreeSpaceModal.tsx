@@ -5,6 +5,7 @@ import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 
 import { useModalDialog } from '../../hooks/useModalDialog';
+import { formatBytes } from '../../utils/formatBytes';
 
 interface FreeSpaceModalProps {
   volumes: FreeSpaceVolume[];
@@ -15,13 +16,9 @@ interface FreeSpaceModalProps {
   onCancel: () => void;
 }
 
-function formatBytes(bytes: number | null | undefined): string {
-  if (bytes === null || bytes === undefined) return '—';
-  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${bytes} B`;
-}
+/** A missing figure reads as a dash; the sizes themselves are the shared formatter's. */
+const formatSize = (bytes: number | null | undefined): string =>
+  bytes === null || bytes === undefined ? '—' : formatBytes(bytes);
 
 /**
  * Last stop before a transfer that does not fit. The numbers come from the
@@ -92,16 +89,16 @@ export const FreeSpaceModal: React.FC<FreeSpaceModalProps> = ({ volumes, theme, 
                     {/* A pre-flight that stopped early only proves a lower bound;
                         promising an exact size there would be a lie. */}
                     {volume.complete === false ? '\u2265 ' : ''}
-                    {formatBytes(volume.size)}
+                    {formatSize(volume.size)}
                   </td>
                   <td className="px-[var(--space-2)] py-[var(--space-1)] text-right tabular-nums">
-                    {formatBytes(volume.free)}
+                    {formatSize(volume.free)}
                   </td>
                   <td
                     className={`px-[var(--space-2)] py-[var(--space-1)] text-right tabular-nums font-bold ${volume.lacking > 0 ? 'opacity-50' : ''}`}
                   >
                     <span style={{ color: volume.lacking > 0 ? theme.accentDanger : 'inherit' }}>
-                      {volume.lacking > 0 ? formatBytes(volume.lacking) : '0 B'}
+                      {volume.lacking > 0 ? formatSize(volume.lacking) : '0 B'}
                     </span>
                   </td>
                 </tr>
