@@ -32,6 +32,15 @@ describe('the state the tray mirrors', () => {
     expect(normalizeTrayState({}).labels.waiting).toBe('Waiting for your answer');
   });
 
+  it('offers the repeat row only for an explicit true', () => {
+    // The renderer decides; this side must not turn a truthy string into a row that
+    // repeats a transfer nobody stopped.
+    expect(normalizeTrayState({ canRepeat: true }).canRepeat).toBe(true);
+    expect(normalizeTrayState({ canRepeat: 'yes' }).canRepeat).toBe(false);
+    expect(normalizeTrayState({}).canRepeat).toBe(false);
+    expect(normalizeTrayState({}).labels.repeat).toBe('Repeat last cancelled');
+  });
+
   it('cuts a label too long for a menu row without losing the entry', () => {
     const state = normalizeTrayState({ labels: { dashboard: 'd'.repeat(80) } });
     expect(state.labels.dashboard).toHaveLength(32);

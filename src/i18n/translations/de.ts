@@ -762,6 +762,7 @@ export const de = {
   bgTasksResume: 'Fortsetzen',
   trayDashboard: 'Transfer-Dashboard öffnen',
   trayWaiting: 'Wartet auf deine Antwort',
+  trayRepeat: 'Letzten abgebrochenen wiederholen',
   bgTasksEmpty: 'Keine Hintergrundaufgaben in der Warteschlange',
   diskUsageModalTitle: 'Datenträgernutzung',
   diskConnectedDrives: 'Verbundene Laufwerke und Speicher',

@@ -3,6 +3,7 @@ import { Play, Pause, XCircle, Trash2, Save, FolderOpen, RotateCcw } from 'lucid
 import { BackgroundTask, LanguageCode, TransferPlan } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { taskQueue } from '../../services/taskQueueManager';
+import { repeatPlanOf } from '../../services/taskRepeat';
 import { fsEngine } from '../../services/fileSystem';
 import { soundManager } from '../../services/soundEffects';
 
@@ -140,6 +141,7 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({ them
             const isRunning = task.status === 'running';
             const isPaused = task.status === 'paused';
             const isCompleted = task.status === 'completed';
+            const repeatPlan = repeatPlanOf(task);
 
             return (
               <div
@@ -264,9 +266,9 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({ them
                         <span>{t.bgTasksResume}</span>
                       </button>
                     )}
-                    {task.status === 'cancelled' && task.plan && (
+                    {repeatPlan && (
                       <button
-                        onClick={() => handleRepeat(task.plan!)}
+                        onClick={() => handleRepeat(repeatPlan)}
                         className="px-[var(--space-2)] py-[var(--space-1)] bg-cyan-950/60 hover:bg-cyan-900/70 text-cyan-300 rounded flex items-center gap-[var(--space-1)] cursor-pointer"
                       >
                         <RotateCcw className="w-2.5 h-2.5" />

@@ -37,13 +37,26 @@ describe('the background tasks queue', () => {
   });
 
   it('repeats a cancelled transfer from the plan it kept', () => {
-    const id = taskQueue.addTask('copy', 'Copy 2 items', 'C:\\dest', 10, () => new Promise<void>(() => {}), plan);
+    let finish = () => {};
+    const id = taskQueue.addTask(
+      'copy',
+      'Copy 2 items',
+      'C:\\dest',
+      10,
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+      plan,
+    );
     taskQueue.cancelTask(id);
     const { onRunCopyList } = renderModal();
 
     fireEvent.click(screen.getByRole('button', { name: 'Repeat' }));
 
     expect(onRunCopyList).toHaveBeenCalledWith([plan]);
+    // The queue runs one transfer at a time; this executor is what holds it.
+    finish();
   });
 
   it('offers nothing to repeat when the transfer left no plan behind', () => {

@@ -765,6 +765,7 @@ export const fr = {
   bgTasksResume: 'Reprendre',
   trayDashboard: 'Ouvrir le tableau des transferts',
   trayWaiting: 'En attente de votre réponse',
+  trayRepeat: 'Répéter le dernier annulé',
   bgTasksEmpty: "Aucune tâche d'arrière-plan dans la file d'attente",
   diskUsageModalTitle: 'Utilisation du disque',
   diskConnectedDrives: 'Lecteurs et stockage connectés',

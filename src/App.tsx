@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { FileItem, CommandHistoryItem, FolderPasswordRecord, LanguageCode } from './types';
+import { FileItem, CommandHistoryItem, FolderPasswordRecord, LanguageCode, TransferPlan } from './types';
 import { CleanupTargetId, fsEngine } from './services/fileSystem';
 import { themes, ThemeConfig } from './services/themeManager';
 import { createPasswordRecord } from './services/appLock';
@@ -283,11 +283,6 @@ export default function App() {
     });
   }, []);
 
-  // The tray mirrors the live transfer and turns its menu picks into the same
-  // pause/resume/cancel the in-window bar calls. Restarting on a language change
-  // relabels the menu; the subscription itself is cheap either way.
-  useEffect(() => startTrayBridge(lang), [lang]);
-
   // One-time migration: replace any legacy plaintext password with a salted
   // PBKDF2 hash so it is never persisted in clear. The removed `admin123`
   // default is dropped outright: it was a public master key, so hashing it
@@ -365,6 +360,16 @@ export default function App() {
     currentInactiveTab,
     setFsTick,
   });
+
+  // The tray mirrors the live transfer and turns its menu picks into the same
+  // pause/resume/cancel the in-window bar calls, plus a repeat of the last stopped
+  // one. The ref keeps the queue callback current without re-subscribing the menu
+  // on every render; restarting on a language change only relabels it.
+  const repeatFromTray = useRef<(plan: TransferPlan) => void>(() => {});
+  repeatFromTray.current = (plan) => {
+    void transferQueue.handleRunCopyList([plan]);
+  };
+  useEffect(() => startTrayBridge(lang, (plan) => repeatFromTray.current(plan)), [lang]);
 
   const handleClipboardPaste = () => {
     if (!fileClipboard || fileClipboard.items.length === 0) return;

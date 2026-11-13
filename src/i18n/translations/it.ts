@@ -759,6 +759,7 @@ export const it = {
   bgTasksResume: 'Riprendi',
   trayDashboard: 'Apri il pannello dei trasferimenti',
   trayWaiting: 'In attesa della tua risposta',
+  trayRepeat: "Ripeti l'ultimo annullato",
   bgTasksEmpty: 'Nessuna attività in background nella coda',
   diskUsageModalTitle: 'Utilizzo del disco',
   diskConnectedDrives: 'Unità e archiviazione connesse',
