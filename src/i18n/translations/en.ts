@@ -783,6 +783,7 @@ export const en = {
   bgTasksProgress: '{n}% complete',
   bgTasksPause: 'Pause',
   bgTasksResume: 'Resume',
+  trayDashboard: 'Open transfer dashboard',
   bgTasksEmpty: 'No background tasks in the queue',
   diskUsageModalTitle: 'Disk Usage',
   diskConnectedDrives: 'Connected Drives and Storage',

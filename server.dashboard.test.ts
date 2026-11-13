@@ -36,7 +36,13 @@ describe('the transfer dashboard page', () => {
     const eslint = new ESLint({
       overrideConfig: {
         languageOptions: {
-          globals: { document: 'readonly', fetch: 'readonly', setInterval: 'readonly' },
+          globals: {
+            document: 'readonly',
+            fetch: 'readonly',
+            setInterval: 'readonly',
+            location: 'readonly',
+            URLSearchParams: 'readonly',
+          },
         },
       },
     });
@@ -75,9 +81,9 @@ async function renderJobs(jobs: unknown[]): Promise<string> {
   // Four values that cannot be confused on sight, so a swapped assignment is
   // visible rather than rendering a plausible number in the wrong slot.
   const meta = { port: 8787, platform: 'win32', uptimeSeconds: 3660, activeCount: 3 };
-  const calls: string[] = [];
-  const fetch = async (url: string, init?: { method?: string }) => {
-    calls.push(`${init?.method ?? 'GET'} ${url}`);
+  const calls: Array<{ request: string; token?: string }> = [];
+  const fetch = async (url: string, init?: { method?: string; headers?: Record<string, string> }) => {
+    calls.push({ request: `${init?.method ?? 'GET'} ${url}`, token: init?.headers?.['x-omni-token'] });
     if (url === '/api/fs/jobs') return { json: async () => jobs };
     if (url === '/api/fs/dashboard') return { json: async () => meta };
     // A route the page made up rejects, and the slot check below then fails.
@@ -86,7 +92,16 @@ async function renderJobs(jobs: unknown[]): Promise<string> {
   // The page polls forever; the first pass is all this test needs.
   const setInterval = () => 0;
 
-  new Function('document', 'fetch', 'setInterval', pageScript())(document, fetch, setInterval);
+  // The page is opened with its token in the URL, the one place a navigation can
+  // carry it; everything it calls afterwards has to prove itself with a header.
+  const location = { search: '?t=page-token' };
+  new Function('document', 'fetch', 'setInterval', 'location', 'URLSearchParams', pageScript())(
+    document,
+    fetch,
+    setInterval,
+    location,
+    URLSearchParams,
+  );
   // The row is written from the promise the first `tick` started.
   for (let turn = 0; turn < 4; turn += 1) await Promise.resolve();
 
@@ -105,7 +120,9 @@ async function renderJobs(jobs: unknown[]): Promise<string> {
   expect(clicks).toHaveLength(1);
   const button = { getAttribute: (name: string) => (name === 'data-act' ? 'pause' : 'job-1') };
   clicks[0]({ target: { closest: () => button } });
-  expect(calls).toContain('POST /api/fs/job/job-1/pause');
+  expect(calls.map((call) => call.request)).toContain('POST /api/fs/job/job-1/pause');
+  // Every request carries the token as a header, never as part of its URL.
+  expect(calls.every((call) => call.token === 'page-token')).toBe(true);
 
   return host.innerHTML;
 }

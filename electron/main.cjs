@@ -408,6 +408,14 @@ function refreshTrayMenu() {
       enabled: status === 'running' || status === 'paused' || status === 'queued',
       click: () => sendTrayCommand('cancel'),
     },
+    {
+      // The engine page is a browser tab, and a navigation cannot send the
+      // token header, so the URL carries it once and the page keeps it for the
+      // requests it makes. This process is where the port and the token meet.
+      label: labels.dashboard,
+      enabled: apiPort != null,
+      click: () => shell.openExternal(`http://127.0.0.1:${apiPort}/__jobs?t=${sessionToken}`),
+    },
     { type: 'separator' },
     {
       label: labels.quit,

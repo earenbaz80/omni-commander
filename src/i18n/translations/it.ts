@@ -756,6 +756,7 @@ export const it = {
   bgTasksProgress: '{n}% completato',
   bgTasksPause: 'Pausa',
   bgTasksResume: 'Riprendi',
+  trayDashboard: 'Apri il pannello dei trasferimenti',
   bgTasksEmpty: 'Nessuna attività in background nella coda',
   diskUsageModalTitle: 'Utilizzo del disco',
   diskConnectedDrives: 'Unità e archiviazione connesse',
