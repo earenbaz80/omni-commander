@@ -8,7 +8,9 @@
  */
 const TRAY_LABEL_LIMIT = 32;
 const TRAY_TITLE_LIMIT = 60;
-const LIVE_STATUSES = ['running', 'paused', 'queued'];
+// `waiting` is a transfer the engine is holding open until someone answers a
+// conflict: it is live work, not a finished one that can be dropped from the tray.
+const LIVE_STATUSES = ['running', 'paused', 'queued', 'waiting'];
 
 /** Cuts a string to a length that still fits a tray tooltip or a menu row. */
 function clampText(value, limit) {
@@ -41,6 +43,7 @@ function normalizeTrayState(payload) {
       pause: clampText(rawLabels.pause, TRAY_LABEL_LIMIT) || 'Pause',
       cancel: clampText(rawLabels.cancel, TRAY_LABEL_LIMIT) || 'Cancel',
       dashboard: clampText(rawLabels.dashboard, TRAY_LABEL_LIMIT) || 'Open transfer dashboard',
+      waiting: clampText(rawLabels.waiting, TRAY_LABEL_LIMIT) || 'Waiting for your answer',
       quit: clampText(rawLabels.quit, TRAY_LABEL_LIMIT) || 'Quit',
     },
   };

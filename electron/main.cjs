@@ -25,7 +25,8 @@ const { canReloadRenderer, rendererGoneLine } = require('./rendererRecovery.cjs'
 const { isTransientUpdateError, nextRetryDelay } = require('./updateRetry.cjs');
 const { normalizeBrowserUrl } = require('./browserUrl.cjs');
 const { dashboardUrl } = require('./dashboardUrl.cjs');
-const { clampText, normalizeTrayState } = require('./trayState.cjs');
+const { normalizeTrayState } = require('./trayState.cjs');
+const { trayMenuTemplate, trayTooltip } = require('./trayMenu.cjs');
 const { jobNotice } = require('./jobNotices.cjs');
 
 // Windows groups a toast by this id and may drop one that has none; it is the id
@@ -292,8 +293,6 @@ function setupUpdater() {
 // main process that waits is not.
 // ---------------------------------------------------------------------------
 
-const TRAY_TOOLTIP_LIMIT = 120;
-
 let tray = null;
 let trayMenu = null;
 // Real quitting must be distinguishable from closing the window, otherwise the
@@ -373,51 +372,23 @@ function notifyJobEnded(job) {
  */
 function refreshTrayMenu() {
   if (!tray || tray.isDestroyed()) return;
-  const { task, activeCount, labels } = trayState;
-  const status = task ? task.status : null;
-  const summary = task ? `${task.title}${task.progress > 0 ? ` — ${task.progress}%` : ''}` : '';
-
-  tray.setToolTip(clampText(summary ? `OmniCommander Pro · ${summary}` : 'OmniCommander Pro', TRAY_TOOLTIP_LIMIT));
-
-  const header = activeCount > 1 ? `OmniCommander Pro (${activeCount})` : 'OmniCommander Pro';
-  trayMenu = Menu.buildFromTemplate([
-    { label: header, click: showMainWindow },
-    { type: 'separator' },
-    { label: summary || '—', enabled: false },
-    {
-      label: labels.resume,
-      enabled: status === 'paused',
-      click: () => sendTrayCommand('resume'),
-    },
-    {
-      label: labels.pause,
-      enabled: status === 'running',
-      click: () => sendTrayCommand('pause'),
-    },
-    {
-      label: labels.cancel,
-      enabled: status === 'running' || status === 'paused' || status === 'queued',
-      click: () => sendTrayCommand('cancel'),
-    },
-    {
-      // The engine page is a browser tab, and a navigation cannot send the
-      // token header, so the URL carries it once and the page keeps it for the
-      // requests it makes. This process is where the port and the token meet.
-      // The helper is the one place that decides whether a page can be addressed
-      // at all; the item is enabled exactly when it answers with a URL.
-      label: labels.dashboard,
-      enabled: dashboardUrl(apiPort, sessionToken) !== null,
-      click: openDashboard,
-    },
-    { type: 'separator' },
-    {
-      label: labels.quit,
-      click: () => {
+  tray.setToolTip(trayTooltip(trayState));
+  trayMenu = Menu.buildFromTemplate(
+    trayMenuTemplate(trayState, {
+      showWindow: showMainWindow,
+      command: sendTrayCommand,
+      openDashboard,
+      // The engine page is a browser tab, and a navigation cannot send the token
+      // header, so the URL carries it once and the page keeps it for the requests
+      // it makes. This process is where the port and the token meet, and the row
+      // is enabled exactly when a page can be addressed at all.
+      dashboardReady: dashboardUrl(apiPort, sessionToken) !== null,
+      quit: () => {
         quitting = true;
         app.quit();
       },
-    },
-  ]);
+    }),
+  );
 
   // Windows shows a context menu on left click as well when one is attached, and
   // a left click must restore the window instead. Right click owns the menu

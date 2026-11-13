@@ -758,6 +758,7 @@ export const ja = {
   bgTasksPause: '一時停止',
   bgTasksResume: '再開',
   trayDashboard: '転送ダッシュボードを開く',
+  trayWaiting: '回答待ち',
   bgTasksEmpty: 'バックグラウンドタスクはありません',
   diskUsageModalTitle: 'ディスク使用量',
   diskConnectedDrives: '接続中のドライブとストレージ',

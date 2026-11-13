@@ -758,6 +758,7 @@ export const ru = {
   bgTasksPause: 'Приостановить',
   bgTasksResume: 'Возобновить',
   trayDashboard: 'Открыть панель передач',
+  trayWaiting: 'Ожидает вашего ответа',
   bgTasksEmpty: 'В очереди нет фоновых задач',
   diskUsageModalTitle: 'Использование диска',
   diskConnectedDrives: 'Подключённые диски и хранилища',

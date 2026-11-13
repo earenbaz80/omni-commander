@@ -760,6 +760,7 @@ export const de = {
   bgTasksPause: 'Pausieren',
   bgTasksResume: 'Fortsetzen',
   trayDashboard: 'Transfer-Dashboard öffnen',
+  trayWaiting: 'Wartet auf deine Antwort',
   bgTasksEmpty: 'Keine Hintergrundaufgaben in der Warteschlange',
   diskUsageModalTitle: 'Datenträgernutzung',
   diskConnectedDrives: 'Verbundene Laufwerke und Speicher',

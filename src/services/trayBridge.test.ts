@@ -110,4 +110,26 @@ describe('tray bridge', () => {
     stop();
     expect(handler).toBeUndefined();
   });
+
+  // Last in the file: it leaves a transfer parked in the queue, and the queue runs
+  // one task at a time, so a later test would find its own task still queued.
+  it('says a parked transfer is waiting for an answer, and goes back when it moves', () => {
+    const snapshots: TraySnapshot[] = [];
+    electron.electronAPI = { updateTrayState: (snapshot: TraySnapshot) => snapshots.push(snapshot) };
+    runningId = taskQueue.addTask('copy', 'Copy 2 items', 'C:\\dest', 2048, () => new Promise<void>(() => {}));
+    taskQueue.updateTaskMeta(runningId, { serverJobId: 'job_9' });
+    stopBridge = startTrayBridge('es');
+
+    // Whether this task is running or still queued behind the previous one is the
+    // queue's business; the flag is what the tray has to respect.
+    const ownStatus = taskQueue.getTasks().find((t) => t.id === runningId)?.status;
+
+    taskQueue.setWaitingForAnswer('job_9', true);
+    const parked = snapshots[snapshots.length - 1];
+    expect(parked.task?.status).toBe('waiting');
+    expect(parked.labels.waiting).toBe(getTranslations('es').trayWaiting);
+
+    taskQueue.setWaitingForAnswer('job_9', false);
+    expect(snapshots[snapshots.length - 1].task?.status).toBe(ownStatus);
+  });
 });

@@ -164,6 +164,8 @@ export interface BackgroundTask {
   plan?: TransferPlan;
   /** Server-side job this task drives, needed to retune it while it runs. */
   serverJobId?: string;
+  /** Set while the engine is parked on a conflict the window is asking about. */
+  waitingForAnswer?: boolean;
   /** Speed limit in bytes per second currently applied to the server job. 0 means unlimited. */
   throttleBps?: number;
 }
