@@ -178,6 +178,7 @@ describe('the dashboard row', () => {
     const row = await renderJobs([
       job({
         copiedBytes: 'muchos',
+        errors: [{ path: '<ruta>', message: 'no "pudo" & <leer>' }],
         recentFiles: [
           { name: 'uno', size: 100, copied: 'x', status: 'pending' },
           { name: 'dos', size: 100, copied: 100, status: 'skipped' },
@@ -197,21 +198,25 @@ describe('the dashboard row', () => {
     expect(row).toContain('<span class="fp">skip</span>');
     expect(row).toContain('<span class="fp">fail</span>');
 
+    // A failed job lists what went wrong, with the path and the message escaped.
+    expect(row).toContain(
+      '<div class="errs"><div>&lt;ruta&gt; &mdash; no &quot;pudo&quot; &amp; &lt;leer&gt;</div></div>',
+    );
+
     // A job that reports no size is no progress either, not a full bar.
     const noTotal = await renderJobs([job({ totalBytes: 0 })]);
     expect(noTotal).toContain('progress <b>0%</b>');
   });
 
-  it('keeps the speed in megabytes per second past a gigabyte a second', async () => {
-    const row = await renderJobs([job({ speedBps: 1.5 * 1024 * 1024 * 1024, etaSeconds: 3660 })]);
+  it('prints the speed in megabytes per second, whole or not', async () => {
+    // Past a gigabyte a second it still counts in megabytes, which is the unit the
+    // window prints; a whole figure loses its trailing zero and the rest keeps it.
+    const big = await renderJobs([job({ speedBps: 1.5 * 1024 * 1024 * 1024, etaSeconds: 3660 })]);
+    expect(big).toContain('<b>1536 MB/s</b>');
+    expect(big).toContain('eta <b>1h 1m</b>');
+    expect(big).not.toContain('GB/s');
+    expect(big).not.toContain('KB/s');
 
-    expect(row).toContain('<b>1536 MB/s</b>');
-    expect(row).toContain('eta <b>1h 1m</b>');
-    expect(row).not.toContain('GB/s');
-    expect(row).not.toContain('KB/s');
-  });
-
-  it('drops the trailing zero of a whole speed and keeps the decimal of the rest', async () => {
     const whole = await renderJobs([job({ speedBps: 1024 * 1024, etaSeconds: 90 })]);
     expect(whole).toContain('<b>1 MB/s</b>');
     expect(whole).toContain('eta <b>1m 30s</b>');
