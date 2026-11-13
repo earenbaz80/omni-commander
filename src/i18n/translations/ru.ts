@@ -205,6 +205,7 @@ export const ru = {
   bgTasksTitle: 'Очередь фоновых задач',
   bgTasksRunning: 'активных выполняемых задач',
   bgTasksClearCompleted: 'Очистить завершённые',
+  bgTasksRepeat: 'Повторить',
   bgTasksNote: 'Передачи и сжатия выполняются асинхронно',
   bgTasksFiles: 'Файлы',
   copyListSave: 'Сохранить список',

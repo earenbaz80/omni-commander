@@ -231,6 +231,7 @@ export const es = {
   bgTasksTitle: 'Cola de Tareas en Segundo Plano (Background Task Queue)',
   bgTasksRunning: 'tareas en ejecución activa',
   bgTasksClearCompleted: 'Limpiar Completadas',
+  bgTasksRepeat: 'Repetir',
   bgTasksNote: 'Las transferencias y compresiones se ejecutan asíncronamente',
   bgTasksFiles: 'Archivos',
   copyListSave: 'Guardar lista',

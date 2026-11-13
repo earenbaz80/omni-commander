@@ -205,6 +205,7 @@ export const pt = {
   bgTasksTitle: 'Fila de Tarefas em Segundo Plano',
   bgTasksRunning: 'tarefas em execução ativa',
   bgTasksClearCompleted: 'Limpar Concluídas',
+  bgTasksRepeat: 'Repetir',
   bgTasksNote: 'Transferências e compactações são executadas de forma assíncrona',
   bgTasksFiles: 'Arquivos',
   copyListSave: 'Salvar lista',

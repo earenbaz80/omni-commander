@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, XCircle, Trash2, Save, FolderOpen } from 'lucide-react';
+import { Play, Pause, XCircle, Trash2, Save, FolderOpen, RotateCcw } from 'lucide-react';
 import { BackgroundTask, LanguageCode, TransferPlan } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { taskQueue } from '../../services/taskQueueManager';
@@ -72,6 +72,13 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({ them
 
   const handleCancel = (id: string) => {
     taskQueue.cancelTask(id);
+    soundManager.playKeyTick();
+  };
+
+  // Cancelling stops the transfer but keeps the plan it was built from, so the
+  // same batch can be queued again without rebuilding the selection.
+  const handleRepeat = (plan: TransferPlan) => {
+    onRunCopyList([plan]);
     soundManager.playKeyTick();
   };
 
@@ -255,6 +262,15 @@ export const BackgroundTasksModal: React.FC<BackgroundTasksModalProps> = ({ them
                       >
                         <Play className="w-2.5 h-2.5" />
                         <span>{t.bgTasksResume}</span>
+                      </button>
+                    )}
+                    {task.status === 'cancelled' && task.plan && (
+                      <button
+                        onClick={() => handleRepeat(task.plan!)}
+                        className="px-[var(--space-2)] py-[var(--space-1)] bg-cyan-950/60 hover:bg-cyan-900/70 text-cyan-300 rounded flex items-center gap-[var(--space-1)] cursor-pointer"
+                      >
+                        <RotateCcw className="w-2.5 h-2.5" />
+                        <span>{t.bgTasksRepeat}</span>
                       </button>
                     )}
                     {(isRunning || isPaused) && (

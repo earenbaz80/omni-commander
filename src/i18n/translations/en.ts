@@ -230,6 +230,7 @@ export const en = {
   bgTasksTitle: 'Background Task Queue',
   bgTasksRunning: 'active running tasks',
   bgTasksClearCompleted: 'Clear Completed',
+  bgTasksRepeat: 'Repeat',
   bgTasksNote: 'Transfers and compressions run asynchronously',
   bgTasksFiles: 'Files',
   copyListSave: 'Save list',

@@ -206,6 +206,7 @@ export const fr = {
   bgTasksTitle: "File d'attente des tâches en arrière-plan",
   bgTasksRunning: "tâches en cours d'exécution",
   bgTasksClearCompleted: 'Effacer les terminées',
+  bgTasksRepeat: 'Répéter',
   bgTasksNote: "Les transferts et compressions s'exécutent en arrière-plan",
   bgTasksFiles: 'Fichiers',
   copyListSave: 'Enregistrer la liste',
