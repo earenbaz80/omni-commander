@@ -142,16 +142,15 @@ describe('taskQueue and a conflict left unanswered', () => {
   // transfer parked on a prompt looks like from the queue's side.
   const hold = () => {
     let release = () => {};
-    return {
-      run: () => new Promise<void>((resolve) => (release = resolve)),
-      release: () => release(),
-    };
+    const promise = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return { run: () => promise, release: () => release() };
   };
 
   it('keeps waiting while the transfer is still alive', async () => {
-    // The flag is what the tray reads instead of "running", so a notify that
-    // cleared it unconditionally would take the prompt off the tray while the
-    // engine is still parked on it.
+    // The tray reads this flag instead of "running", so a sweep that cleared it
+    // unconditionally would take the prompt off the tray while the engine waits.
     const gate = hold();
     const id = parked('job_live', gate.run);
 
