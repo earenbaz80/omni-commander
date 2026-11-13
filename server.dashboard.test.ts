@@ -108,6 +108,14 @@ describe('the dashboard row', () => {
     }
   });
 
+  it('reads a size that is not a number as nothing copied', async () => {
+    // The row prints whatever the job reports, and a field that never arrived
+    // must not reach the operator as "NaN B".
+    const row = await renderJobs([job({ copiedBytes: 'muchos', totalBytes: null })]);
+
+    expect(sizes(row)).toEqual(['0 B', '0 B']);
+  });
+
   it('keeps the speed in megabytes per second past a gigabyte a second', async () => {
     const row = await renderJobs([job({ speedBps: 1.5 * 1024 * 1024 * 1024 })]);
 
