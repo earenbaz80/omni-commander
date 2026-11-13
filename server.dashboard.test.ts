@@ -116,6 +116,18 @@ describe('the dashboard row', () => {
     expect(sizes(row)).toEqual(['0 B', '0 B']);
   });
 
+  it('shows no progress when the copied count is not a number', async () => {
+    // The bar is built from two fields; the row and its current file both used
+    // to divide whatever arrived, which painted "NaN%" over a running job.
+    const row = await renderJobs([
+      job({ copiedBytes: 'muchos', recentFiles: [{ name: 'a', size: 100, copied: 'x', status: 'pending' }] }),
+    ]);
+
+    expect(row).toContain('progress <b>0%</b>');
+    expect(row).toContain('<span class="fp">0%</span>');
+    expect(row).not.toContain('NaN');
+  });
+
   it('keeps the speed in megabytes per second past a gigabyte a second', async () => {
     const row = await renderJobs([job({ speedBps: 1.5 * 1024 * 1024 * 1024 })]);
 

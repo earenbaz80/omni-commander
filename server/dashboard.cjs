@@ -98,6 +98,13 @@ function dashboardHtml() {
     var t=((Number(bps)||0)/MB).toFixed(1);
     return (t.slice(-2)==='.0'?t.slice(0,-2):t)+' MB/s';
   }
+  // The percentage both bars divide out of two reported counts. Coercing first
+  // is what keeps a count that never arrived from reaching the page as "NaN%",
+  // and the cap stops a copied total that overtook its size from overflowing.
+  function pctOf(copied, total){
+    var c=Number(copied)||0, t=Number(total)||0;
+    return t>0?Math.min(100, Math.round(c/t*100)):0;
+  }
   function dur(s){
     s=Math.round(Number(s)||0);
     if(s<=0) return '-';
@@ -120,7 +127,7 @@ function dashboardHtml() {
       return d!==0?d:(b.startedAt||0)-(a.startedAt||0);
     });
     host.innerHTML=list.map(function(j){
-      var pct=j.totalBytes>0?Math.min(100,Math.round(j.copiedBytes/j.totalBytes*100)):0;
+      var pct=pctOf(j.copiedBytes, j.totalBytes);
       var cls=j.status==='done'?'done':(j.status==='paused'?'paused':(j.status==='done-with-errors'||j.status==='error'?'done-with-errors':''));
       var fillCls=j.status==='paused'?'warn':((j.status==='done-with-errors'||j.status==='error')?'bad':'');
       var canAct=j.status==='running'||j.status==='paused'||j.status==='waiting';
@@ -135,7 +142,7 @@ function dashboardHtml() {
       // Newest rows first: the file being written right now is always on top.
       var recent=(j.recentFiles||[]).slice(-6).reverse();
       var files=recent.length?('<div class="files">'+recent.map(function(f){
-        var fp=f.size>0?Math.min(100,Math.round(f.copied/f.size*100)):0;
+        var fp=pctOf(f.copied, f.size);
         var right=f.status==='skipped'?'skip':(f.status==='error'?'fail':fp+'%');
         return '<div class="frow '+esc(f.status)+'"><span class="fn">'+esc(f.name)+'</span>'+
           '<span class="fb"><i style="width:'+fp+'%"></i></span>'+
