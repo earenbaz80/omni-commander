@@ -67,6 +67,12 @@ function dashboardHtml() {
   .empty { border:1px dashed #1e293b; border-radius:10px; padding:26px; text-align:center; color:#475569; }
   #link { flex:1 1 100%; background:#3b0d0d; border:1px solid #7f1d1d; color:#fecaca; border-radius:6px; padding:6px 10px; font-size:12px; }
   #link:empty { display:none; }
+  .conflict { margin-top:10px; border:1px solid #7f1d1d; background:#1a0d0d; border-radius:8px; padding:10px 12px; display:grid; gap:6px; }
+  .conflict b { color:#fecaca; }
+  .cpaths { font:11px/1.5 ui-monospace,Consolas,monospace; color:#94a3b8; word-break:break-all; }
+  .cmeta { font-size:11px; color:#94a3b8; }
+  .cacts { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .capply { display:flex; align-items:center; gap:6px; font-size:11px; color:#cbd5e1; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -98,9 +104,28 @@ function dashboardHtml() {
   }
   function api(url, init){
     init=init||{};
-    if(token) init.headers={'x-omni-token':token};
+    init.headers=Object.assign({}, init.headers, token?{'x-omni-token':token}:null);
     return fetch(url, init);
   }
+  // "Apply to all" lives here, not in the checkbox: the list is rebuilt every
+  // poll, and a tick would otherwise clear an answer the user already chose.
+  var applyAll={};
+  document.addEventListener('change', function(ev){
+    var box=ev.target.closest('input[data-all]');
+    if(box) applyAll[box.dataset.all]=box.checked;
+  });
+  function answer(ev){
+    var btn=ev.target.closest('button[data-resolve]');
+    if(!btn) return;
+    var id=btn.dataset.id;
+    api('/api/fs/job/'+encodeURIComponent(id)+'/resolve', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ decision:btn.dataset.resolve, applyToAll:!!applyAll[id] }),
+    }).catch(function(){});
+  }
+  document.addEventListener('pointerdown', answer);
+  document.addEventListener('click', function(ev){ if(!ev.detail) answer(ev); });
   var KB=1024, MB=KB*1024, GB=MB*1024;
   // One decimal for every unit, the same precision the app prints: a figure
   // here is a transfer the user started in the window, and the two must not
@@ -142,6 +167,25 @@ function dashboardHtml() {
     });
   }
   var ORDER={running:0,waiting:0,paused:1,'done-with-errors':2,error:2,cancelled:3,done:4};
+  // The prompt for a job the engine parked. Without it a transfer waiting on a
+  // collision could only be answered with the window open, which is the one thing
+  // this page exists to avoid.
+  function conflict(j){
+    var c=j.pendingConflict;
+    if(!c) return '';
+    return '<div class="conflict">'+
+      '<div>Destination already exists. Answer it here to let the transfer go on:</div>'+
+      '<div class="cpaths">'+esc(c.source)+' &rarr; '+esc(c.destination)+'</div>'+
+      '<div class="cmeta">'+bytes(c.sourceSize)+' / '+bytes(c.destinationSize)+
+        (c.identical?' &middot; identical':'')+'</div>'+
+      '<div class="cacts">'+
+        '<button data-resolve="overwrite" data-id="'+esc(j.id)+'">Overwrite</button>'+
+        '<button data-resolve="skip" data-id="'+esc(j.id)+'">Skip</button>'+
+        '<button data-resolve="rename" data-id="'+esc(j.id)+'">Rename</button>'+
+        '<label class="capply"><input type="checkbox" data-all="'+esc(j.id)+'"'+
+          (applyAll[j.id]?' checked':'')+'> Apply to all</label>'+
+      '</div></div>';
+  }
   function render(list){
     var host=document.getElementById('jobs');
     // The rebuild replaces every button, so the one the keyboard sits on would
@@ -161,7 +205,9 @@ function dashboardHtml() {
       var btns=canAct?('<div class="acts">'+
           (j.status==='paused'
             ? '<button data-act="resume" data-id="'+esc(j.id)+'">Resume</button>'
-            : '<button data-act="pause" data-id="'+esc(j.id)+'">Pause</button>')+
+            : (j.status==='running'
+              ? '<button data-act="pause" data-id="'+esc(j.id)+'">Pause</button>'
+              : ''))+
           '<button data-act="cancel" data-id="'+esc(j.id)+'">Cancel</button></div>'):'';
       var errs=(j.errors&&j.errors.length)?('<div class="errs">'+j.errors.map(function(e){
         return '<div>'+esc(e.path||'(job)')+' &mdash; '+esc(e.message)+'</div>';
@@ -189,7 +235,7 @@ function dashboardHtml() {
         '</div>'+
         (j.currentFile?'<div class="file">'+esc(j.currentFile)+'</div>':'')+
         files+
-        (j.pendingConflict?('<div class="file">waiting for answer: '+esc(j.pendingConflict.destination)+'</div>'):'')+
+        conflict(j)+
         errs+
       '</section>';
     }).join('');

@@ -124,9 +124,10 @@ async function renderJobs(jobs: unknown[]): Promise<string> {
   }
 
   // Clicking a row's button posts the action to the job it belongs to.
-  expect(clicks).toHaveLength(1);
+  expect(clicks.length).toBeGreaterThan(0);
   const button = { dataset: { id: 'job-1', act: 'pause' } };
-  clicks[0]({ target: { closest: () => button } });
+  for (const click of clicks)
+    click({ target: { closest: (selector: string) => (selector.includes('data-act') ? button : null) } });
   expect(calls.map((call) => call.request)).toContain('POST /api/fs/job/job-1/pause');
   // Every request carries the token as a header, never as part of its URL.
   expect(calls.every((call) => call.token === 'page-token')).toBe(true);
@@ -268,9 +269,11 @@ describe('the dashboard row', () => {
     let poll = () => {};
     let started = 0;
     const posts: string[] = [];
+    const bodies: Array<{ url: string; body?: string }> = [];
     const headers: Array<Record<string, string> | undefined> = [];
-    const fetch = async (url: string, init?: { method?: string; headers?: Record<string, string> }) => {
+    const fetch = async (url: string, init?: { method?: string; headers?: Record<string, string>; body?: string }) => {
       if (init?.method === 'POST') posts.push(url);
+      if (init?.body) bodies.push({ url, body: init.body });
       headers.push(init?.headers);
       if (url === '/api/fs/jobs') return jobsAnswer ? jobsAnswer() : { ok: true, json: async () => [job()] };
       return { ok: true, json: async () => meta };
@@ -293,7 +296,7 @@ describe('the dashboard row', () => {
     });
     const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
     await settle();
-    return { window, poll: () => poll(), posts, headers, settle, startedPolls: () => started };
+    return { window, poll: () => poll(), posts, bodies, headers, settle, startedPolls: () => started };
   }
 
   it('acts on the press, so a poll between press and release cannot swallow it', async () => {
@@ -387,6 +390,72 @@ describe('the dashboard row', () => {
     await settle();
     expect(startedPolls()).toBe(polls + 1);
     cleared.mockRestore();
+  });
+
+  it('shows the conflict prompt with the answers the engine accepts', async () => {
+    const row = await renderJobs([
+      job({
+        status: 'waiting',
+        pendingConflict: {
+          source: 'C:\\copias\\foto.jpg',
+          destination: 'D:\\respaldo\\foto.jpg',
+          sourceSize: 1536,
+          destinationSize: 512,
+          identical: false,
+        },
+      }),
+    ]);
+
+    expect(row).toContain('Destination already exists');
+    // Both sides of the collision, which the prompt has to name to be answerable.
+    expect(row).toContain('C:\\copias\\foto.jpg');
+    expect(row).toContain('D:\\respaldo\\foto.jpg');
+    for (const decision of ['overwrite', 'skip', 'rename']) {
+      expect(row).toContain(`data-resolve="${decision}" data-id="job-1"`);
+    }
+    // Both sizes are shown, so a stale copy is not guessed at from the name alone.
+    expect(row).toContain('1.5 KB / 512 B');
+    // A parked transfer can be cancelled; pausing it would mean nothing.
+    expect(row).toContain('Cancel');
+    expect(row).not.toContain('data-act="pause"');
+  });
+
+  it('answers a conflict from the page instead of waiting for the window', async () => {
+    const { window, bodies, settle } = await mountPage(async () => ({
+      ok: true,
+      json: async () => [job({ status: 'waiting', pendingConflict: { destination: 'D:\\respaldo\\foto.jpg' } })],
+    }));
+
+    window.document
+      .querySelector('button[data-resolve="skip"]')
+      ?.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true }));
+    await settle();
+
+    expect(bodies).toEqual([
+      { url: '/api/fs/job/job-1/resolve', body: JSON.stringify({ decision: 'skip', applyToAll: false }) },
+    ]);
+  });
+
+  it('keeps an apply-to-all choice across the repaints before the answer', async () => {
+    // The row is rebuilt every poll, so a checkbox that lived only in the DOM
+    // would be cleared before the user could press the answer it belongs to.
+    const { window, poll, bodies, settle } = await mountPage(async () => ({
+      ok: true,
+      json: async () => [job({ status: 'waiting', pendingConflict: { destination: 'D:\\respaldo\\foto.jpg' } })],
+    }));
+    const all = () => window.document.querySelector('input[data-all="job-1"]') as HTMLInputElement;
+    all().checked = true;
+    all().dispatchEvent(new window.Event('change', { bubbles: true }));
+
+    poll();
+    await settle();
+    expect(all().checked).toBe(true);
+
+    window.document
+      .querySelector('button[data-resolve="overwrite"]')
+      ?.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true }));
+    await settle();
+    expect(bodies.map((sent) => JSON.parse(String(sent.body)))).toEqual([{ decision: 'overwrite', applyToAll: true }]);
   });
 
   it('shows no speed for a job that is not running', async () => {
