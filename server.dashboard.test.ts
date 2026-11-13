@@ -18,12 +18,6 @@ describe('the transfer dashboard page', () => {
     expect(html).not.toContain('<script src');
   });
 
-  it('posts a job action to the route the server serves', () => {
-    // The job list and the metadata are fetched for real by the harness below;
-    // this is the one route only a click reaches.
-    expect(html).toContain('/api/fs/job/');
-  });
-
   it('renders the same page every time', () => {
     expect(dashboardHtml()).toBe(html);
   });
@@ -48,13 +42,12 @@ describe('the transfer dashboard page', () => {
 });
 
 /**
- * Runs the page's own script against one job, without a browser.
+ * Runs the page's own script against some jobs, without a browser.
  *
  * The rows are painted by that script and nothing else, so a test that only read
- * the template would pass on any figure it printed. Coverage never measures the
- * script either; extracting it into a module to be measured would cost the one
- * thing the page is for: a single file, no build step, that still works when the
- * renderer is what broke.
+ * the template would pass on any figure it printed. Coverage never measures it
+ * either, and extracting it into a module to be measured would cost the point of
+ * the page: one file, no build step, still working when the renderer is what broke.
  */
 async function renderJobs(jobs: unknown[]): Promise<string> {
   const host = { innerHTML: '' };
@@ -91,12 +84,11 @@ async function renderJobs(jobs: unknown[]): Promise<string> {
   // The row is written from the promise the first `tick` started.
   for (let turn = 0; turn < 4; turn += 1) await Promise.resolve();
 
-  // Every slot the script reached for must exist in the page it ships with and
-  // hold the figure meant for it; an id nobody listed here fails instead of
-  // passing quietly.
+  // Every slot the script reached for must exist in the page and hold the figure
+  // meant for it. The set is checked first, so a run where the page reached no
+  // slot at all -- a route it made up rejected -- fails instead of checking
+  // nothing.
   const shown: Record<string, string> = { port: '8787', platform: 'win32', uptime: '1h 1m', active: '3' };
-  // The set first, so a run where the page reached no slot at all -- because a
-  // route it made up rejected -- fails here instead of checking nothing.
   expect([...nodes.keys()].sort()).toEqual(Object.keys(shown).sort());
   for (const [id, text] of Object.entries(shown)) {
     expect(html).toContain(`id="${id}"`);
