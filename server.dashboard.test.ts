@@ -18,6 +18,12 @@ describe('the transfer dashboard page', () => {
     expect(html).not.toContain('<script src');
   });
 
+  it('says which process the uptime pill counts', () => {
+    // The figure is `process.uptime()` of whatever serves the page, so the label
+    // cannot promise the machine's uptime or the transfer engine's own.
+    expect(html).toContain('process up <b id="uptime">');
+  });
+
   it('renders the same page every time', () => {
     expect(dashboardHtml()).toBe(html);
   });

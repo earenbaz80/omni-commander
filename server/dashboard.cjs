@@ -72,7 +72,7 @@ function dashboardHtml() {
   <h1>OmniCommander Pro &middot; Transfer Engine</h1>
   <span class="pill">port <b id="port">-</b></span>
   <span class="pill">platform <b id="platform">-</b></span>
-  <span class="pill">uptime <b id="uptime">-</b></span>
+  <span class="pill">process up <b id="uptime">-</b></span>
   <span class="pill">active <b id="active">0</b></span>
 </header>
 <main id="jobs"><div class="empty">Loading jobs...</div></main>

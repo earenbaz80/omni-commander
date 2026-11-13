@@ -59,7 +59,8 @@ describe('routes de trabajos', () => {
   it('informa del puerto que el servidor tiene de verdad, no del preferido', async () => {
     const answer = await (await fetch(`${origin}/api/fs/dashboard`)).json();
     expect(answer.port).toBe(4321);
-    expect(answer.totalCount).toBe(1);
+    // The running job is the one the page counts as active.
+    expect(answer.activeCount).toBe(1);
   });
 
   it('no inventa un trabajo que no existe', async () => {

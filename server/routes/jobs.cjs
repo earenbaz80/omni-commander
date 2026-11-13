@@ -19,9 +19,10 @@ function registerJobRoutes(app, deps) {
     res.json({
       port: getActivePort() ?? preferredPort,
       platform: process.platform,
+      // The process that serves this page, which is the app itself when the
+      // packaged build requires the server in; the page labels it as such.
       uptimeSeconds: Math.round(process.uptime()),
       activeCount: all.filter((j) => j.status === 'running' || j.status === 'paused').length,
-      totalCount: all.length,
     });
   });
 
