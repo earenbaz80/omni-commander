@@ -32,6 +32,7 @@ const SIZES = [
   1024 * 1024 * 1024 * 1024 - 1,
   1024 * 1024 * 1024 * 1024,
   2 * 1024 * 1024 * 1024 * 1024,
+  10 * 1024 * 1024 * 1024 * 1024,
   1024 * 1024 * 1024 * 1024 * 1024,
 ];
 
@@ -46,6 +47,20 @@ describe('the server size ladders', () => {
     for (const bytes of SIZES) {
       expect(serverFormatBytesRounded(bytes), `${bytes} bytes`).toBe(formatBytesRoundedWithWholeBytes(bytes));
     }
+  });
+
+  it('reads a terabyte in terabytes in both shapes', () => {
+    // Named here as well as compared above: the parity cases would catch a
+    // mirror that drifted, but not a unit the app itself stopped printing.
+    expect(serverFormatBytes(1024 * 1024 * 1024 * 1024 - 1)).toBe('1024.0 GB');
+    expect(serverFormatBytes(1024 * 1024 * 1024 * 1024)).toBe('1.0 TB');
+    expect(serverFormatBytes(2 * 1024 * 1024 * 1024 * 1024)).toBe('2.0 TB');
+
+    expect(serverFormatBytesRounded(1024 * 1024 * 1024 * 1024)).toBe('1.0 TB');
+    expect(serverFormatBytesRounded(2 * 1024 * 1024 * 1024 * 1024)).toBe('2.0 TB');
+    expect(serverFormatBytesRounded(10 * 1024 * 1024 * 1024 * 1024)).toBe('10 TB');
+    // The ladder stops at the terabyte, so a thousand of them keep counting.
+    expect(serverFormatBytesRounded(1024 * 1024 * 1024 * 1024 * 1024)).toBe('1024 TB');
   });
 
   it('leaves an unreadable size to the caller', () => {
