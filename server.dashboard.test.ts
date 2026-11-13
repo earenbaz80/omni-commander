@@ -42,3 +42,93 @@ describe('the transfer dashboard page', () => {
     expect(dashboardHtml()).toBe(html);
   });
 });
+
+/**
+ * Runs the page's own script against one job, without a browser.
+ *
+ * The sizes and the speed are painted by that script and nothing else, so a test
+ * that only read the template would pass on any unit it printed. Here the script
+ * is taken as it ships, given a fake document and a fake `fetch`, and the row it
+ * wrote is what gets read.
+ */
+async function renderJobs(jobs: unknown[]): Promise<string> {
+  const script = /<script>([\s\S]*?)<\/script>/.exec(html);
+  expect(script).not.toBeNull();
+
+  const host = { innerHTML: '' };
+  const idle = { textContent: '' };
+  const document = {
+    getElementById: (id: string) => (id === 'jobs' ? host : idle),
+    addEventListener: () => {},
+  };
+  const fetch = async (url: string) => ({
+    json: async () => (url === '/api/fs/jobs' ? jobs : { port: 1, platform: 'test', uptimeSeconds: 0, activeCount: 0 }),
+  });
+  // The page polls forever; the first pass is all this test needs.
+  const setInterval = () => 0;
+
+  new Function('document', 'fetch', 'setInterval', script![1])(document, fetch, setInterval);
+  // The row is written from the promise the first `tick` started.
+  for (let turn = 0; turn < 4; turn += 1) await Promise.resolve();
+
+  return host.innerHTML;
+}
+
+describe('the dashboard row', () => {
+  const job = (overrides: Record<string, unknown> = {}) => ({
+    id: 'job-1',
+    status: 'running',
+    op: 'copy',
+    label: 'respaldo',
+    copiedBytes: 512 * 1024 * 1024,
+    totalBytes: 1024 * 1024 * 1024,
+    speedBps: 512 * 1024 * 1024,
+    etaSeconds: 30,
+    itemsDone: 1,
+    itemsTotal: 2,
+    ...overrides,
+  });
+
+  /** The "copied X / Y" pair, read back out of the row the script wrote. */
+  const sizes = (row: string) => /copied <b>(.*?)<\/b> \/ (.*?)<\/span>/.exec(row)?.slice(1) ?? [];
+
+  it('prints every size in its own unit', async () => {
+    const cases: Array<[number, string]> = [
+      [0, '0 B'],
+      [512, '512 B'],
+      [1536, '1.5 KB'],
+      [512 * 1024 * 1024, '512.0 MB'],
+      [1024 * 1024 * 1024, '1.0 GB'],
+      [2.5 * 1024 * 1024 * 1024, '2.5 GB'],
+    ];
+
+    for (const [bytes, expected] of cases) {
+      const row = await renderJobs([job({ copiedBytes: bytes, totalBytes: bytes })]);
+      expect(sizes(row), `${bytes} bytes`).toEqual([expected, expected]);
+    }
+  });
+
+  it('keeps the speed in megabytes per second past a gigabyte a second', async () => {
+    const row = await renderJobs([job({ speedBps: 1.5 * 1024 * 1024 * 1024 })]);
+
+    expect(row).toContain('<b>1536 MB/s</b>');
+    expect(row).not.toContain('GB/s');
+    expect(row).not.toContain('KB/s');
+  });
+
+  it('drops the trailing zero of a whole speed and keeps the decimal of the rest', async () => {
+    const whole = await renderJobs([job({ speedBps: 1024 * 1024 })]);
+    expect(whole).toContain('<b>1 MB/s</b>');
+
+    const fractional = await renderJobs([job({ speedBps: 1.5 * 1024 * 1024 })]);
+    expect(fractional).toContain('<b>1.5 MB/s</b>');
+  });
+
+  it('shows no speed for a job that is not running', async () => {
+    const paused = await renderJobs([job({ status: 'paused' })]);
+    expect(paused).toContain('speed <b>-</b>');
+
+    const stopped = await renderJobs([job({ speedBps: 0 })]);
+    expect(stopped).toContain('speed <b>-</b>');
+  });
+});

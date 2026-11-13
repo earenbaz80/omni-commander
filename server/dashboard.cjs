@@ -4,6 +4,13 @@
  * It stays plain HTML with its own embedded script on purpose: it is the one
  * surface that has to work when the renderer is the thing that broke, so it
  * shares nothing with the rest of the server and needs no build step.
+ *
+ * That independence stops at the figures. This is an operator's view of the
+ * engine -- English labels, its own layout -- but every size and speed it prints
+ * describes a transfer the user started in the window, so the units and the
+ * precision follow the app's: one decimal per unit, and megabytes per second.
+ * The formatters live in the embedded script only because it cannot import
+ * anything; `server.dashboard.test.ts` runs that script and pins what it prints.
  */
 
 // Zero-build monitoring page for the real filesystem engine. It is served
@@ -72,12 +79,24 @@ function dashboardHtml() {
 <script>
 (function(){
   var KB=1024, MB=KB*1024, GB=MB*1024;
+  // One decimal for every unit, the same precision the app prints: a figure
+  // here is a transfer the user started in the window, and the two must not
+  // disagree on how exact the same number is. This page keeps its own copy of
+  // the ladder rather than sharing the app's module because it ships as one
+  // self-contained document with no build step (see the header of this file).
   function bytes(n){
     n=Number(n)||0;
-    if(n>=GB) return (n/GB).toFixed(2)+' GB';
+    if(n>=GB) return (n/GB).toFixed(1)+' GB';
     if(n>=MB) return (n/MB).toFixed(1)+' MB';
     if(n>=KB) return (n/KB).toFixed(1)+' KB';
     return n+' B';
+  }
+  // Megabytes per second, one decimal, and no trailing zero on a whole figure:
+  // the same shape the app shows, so a job read here and the same job read in
+  // the window cannot name its speed in units the other never prints.
+  function speed(bps){
+    var t=((Number(bps)||0)/MB).toFixed(1);
+    return (t.slice(-2)==='.0'?t.slice(0,-2):t)+' MB/s';
   }
   function dur(s){
     s=Math.round(Number(s)||0);
@@ -129,7 +148,7 @@ function dashboardHtml() {
         '<div class="stats">'+
           '<span>progress <b>'+pct+'%</b></span>'+
           '<span>copied <b>'+bytes(j.copiedBytes)+'</b> / '+bytes(j.totalBytes)+'</span>'+
-          '<span>speed <b>'+(j.status==='running'&&j.speedBps>0?bytes(j.speedBps)+'/s':'-')+'</b></span>'+
+          '<span>speed <b>'+(j.status==='running'&&j.speedBps>0?speed(j.speedBps):'-')+'</b></span>'+
           '<span>eta <b>'+dur(j.etaSeconds)+'</b></span>'+
           '<span>items <b>'+(j.itemsDone||0)+'</b> / '+(j.itemsTotal||0)+'</span>'+
           (j.itemsSkipped?'<span>skipped <b>'+j.itemsSkipped+'</b></span>':'')+
