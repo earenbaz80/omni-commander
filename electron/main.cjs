@@ -23,6 +23,7 @@ const { nextStateForOffer } = require('./updateOffer.cjs');
 const { canReloadRenderer, rendererGoneLine } = require('./rendererRecovery.cjs');
 const { isTransientUpdateError, nextRetryDelay } = require('./updateRetry.cjs');
 const { normalizeBrowserUrl } = require('./browserUrl.cjs');
+const { dashboardUrl } = require('./dashboardUrl.cjs');
 
 // Per-launch session token. It is the shared secret between this process, the
 // embedded API server and the renderer: every mutating request, and every GET
@@ -412,9 +413,11 @@ function refreshTrayMenu() {
       // The engine page is a browser tab, and a navigation cannot send the
       // token header, so the URL carries it once and the page keeps it for the
       // requests it makes. This process is where the port and the token meet.
+      // The helper is the one place that decides whether a page can be addressed
+      // at all; the item is enabled exactly when it answers with a URL.
       label: labels.dashboard,
-      enabled: apiPort != null,
-      click: () => shell.openExternal(`http://127.0.0.1:${apiPort}/__jobs?t=${sessionToken}`),
+      enabled: dashboardUrl(apiPort, sessionToken) !== null,
+      click: () => shell.openExternal(dashboardUrl(apiPort, sessionToken)),
     },
     { type: 'separator' },
     {
