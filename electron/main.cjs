@@ -299,18 +299,10 @@ let trayMenu = null;
 // close handler below would hide the window during `app.quit()` and the process
 // would never exit.
 let quitting = false;
-let trayState = {
-  hasLiveWork: false,
-  activeCount: 0,
-  task: null,
-  labels: {
-    resume: 'Resume',
-    pause: 'Pause',
-    cancel: 'Cancel',
-    dashboard: 'Open transfer dashboard',
-    quit: 'Quit',
-  },
-};
+// The empty snapshot comes from the same normalizer the renderer's snapshots go
+// through, so a label added there cannot be missing from the menu before the first
+// one arrives -- it was, and the row was drawn with no text at all.
+let trayState = normalizeTrayState({});
 
 /**
  * The tray uses a 32px PNG derived from the installer icon: Windows scales it
