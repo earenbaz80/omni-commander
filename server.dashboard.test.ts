@@ -166,9 +166,10 @@ describe('the dashboard row', () => {
       job({ label: 'en curso nuevo', status: 'running', startedAt: 400 }),
     ]);
     const at = (label: string) => ordered.indexOf(`class="name">${label}<`);
-    expect(at('en curso nuevo')).toBeLessThan(at('en curso viejo'));
-    expect(at('en curso viejo')).toBeLessThan(at('pausado'));
-    expect(at('pausado')).toBeLessThan(at('terminado'));
+    const order = ['en curso nuevo', 'en curso viejo', 'pausado', 'terminado'].map(at);
+    // A name that never rendered would come back as -1 and sort first.
+    expect(Math.min(...order)).toBeGreaterThanOrEqual(0);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
 
   it('reads a size that is not a number as nothing copied', async () => {
