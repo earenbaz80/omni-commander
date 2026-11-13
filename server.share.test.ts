@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { formatBytesRoundedWithWholeBytes } from './src/utils/formatBytes';
 
 /**
  * The network share is a second listener that hands a whole folder to anyone who
@@ -27,8 +28,9 @@ interface ShareService {
   status(): ShareStatus;
 }
 
-const { createShareService } = require('./server/share.cjs') as {
+const { createShareService, formatSize } = require('./server/share.cjs') as {
   createShareService: (options?: { logDebug?: (...args: unknown[]) => void }) => ShareService;
+  formatSize: (bytes: number) => string;
 };
 
 const windowsOnly = describe.skipIf(process.platform !== 'win32');
@@ -105,5 +107,47 @@ windowsOnly('the network share', () => {
     service.stop();
     expect(service.status().active).toBe(false);
     await expect(fetch(address)).rejects.toThrow();
+  });
+});
+
+/**
+ * The page's size column, held to the app's ladder.
+ *
+ * The share is served by plain CommonJS, which cannot import the TypeScript
+ * module, so its formatter mirrors that ladder. This is what keeps the mirror
+ * honest: every unit, both sides of each boundary, and the byte count that never
+ * reaches a decimal. The empty string below zero stays this page's own rule and
+ * is checked apart.
+ */
+describe('the share page size', () => {
+  it('prints nothing for an entry it could not size', () => {
+    expect(formatSize(0)).toBe('');
+    expect(formatSize(-1)).toBe('');
+    expect(formatSize(Number.NaN)).toBe('');
+  });
+
+  it('agrees with the shared formatter above zero', () => {
+    const sizes = [
+      1,
+      5,
+      9,
+      10,
+      512,
+      1023,
+      1024,
+      1536,
+      9.5 * 1024,
+      10 * 1024,
+      1024 * 1024,
+      2.5 * 1024 * 1024,
+      1024 * 1024 * 1024,
+      1024 * 1024 * 1024 * 1024,
+      2 * 1024 * 1024 * 1024 * 1024,
+      1024 * 1024 * 1024 * 1024 * 1024,
+    ];
+
+    for (const bytes of sizes) {
+      expect(formatSize(bytes), `${bytes} bytes`).toBe(formatBytesRoundedWithWholeBytes(bytes));
+    }
   });
 });
