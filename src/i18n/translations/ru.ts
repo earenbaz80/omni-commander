@@ -760,7 +760,7 @@ export const ru = {
   bgTasksResume: 'Возобновить',
   trayDashboard: 'Открыть панель передач',
   trayWaiting: 'Ожидает вашего ответа',
-  trayRepeat: 'Повторить последнюю отмену',
+  trayRepeat: 'Повторить последнюю отмену или сбой',
   bgTasksEmpty: 'В очереди нет фоновых задач',
   diskUsageModalTitle: 'Использование диска',
   diskConnectedDrives: 'Подключённые диски и хранилища',

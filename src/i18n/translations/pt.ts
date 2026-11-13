@@ -758,7 +758,7 @@ export const pt = {
   bgTasksResume: 'Retomar',
   trayDashboard: 'Abrir painel de transferências',
   trayWaiting: 'Aguardando sua resposta',
-  trayRepeat: 'Repetir o último cancelado',
+  trayRepeat: 'Repetir o último cancelado ou falhado',
   bgTasksEmpty: 'Não há tarefas em segundo plano na fila',
   diskUsageModalTitle: 'Uso do disco',
   diskConnectedDrives: 'Unidades e Armazenamento Conectado',
