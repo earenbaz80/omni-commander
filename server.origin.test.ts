@@ -43,6 +43,41 @@ describe('the origin gate', () => {
     expect(await statusOf(`/api/maps/cache?t=${TOKEN}`, { headers: { Origin: 'http://localhost:3000' } })).toBe(200);
   });
 
+  it('accepts the dashboard’s origin, which is this listener, and nothing more', async () => {
+    // The page at /__jobs is served by the API itself; its buttons post from that
+    // same origin, and refusing it made every control on the page a 403. The
+    // write still has to prove itself: being our own page skips the origin gate,
+    // not the token.
+    const own = new URL(server.url('')).origin;
+    expect(
+      await statusOf('/api/maps/offline', {
+        method: 'POST',
+        headers: { Origin: own, 'Content-Type': 'application/json' },
+        body: '{}',
+      }),
+    ).toBe(403);
+
+    expect(
+      await statusOf('/api/maps/offline', {
+        method: 'POST',
+        headers: { Origin: own, 'Content-Type': 'application/json', 'x-omni-token': TOKEN },
+        body: '{}',
+      }),
+    ).toBe(400); // past the gate and the token, refused for the empty body
+  });
+
+  it('still refuses another port on loopback', async () => {
+    const own = new URL(server.url(''));
+    const other = `http://127.0.0.1:${Number(own.port) + 1}`;
+    expect(
+      await statusOf('/api/maps/offline', {
+        method: 'POST',
+        headers: { Origin: other, 'Content-Type': 'application/json', 'x-omni-token': TOKEN },
+        body: '{}',
+      }),
+    ).toBe(403);
+  });
+
   it('still demands the header for a write', async () => {
     const empty = JSON.stringify({});
     // A query token can load a picture; it cannot change the disk.
