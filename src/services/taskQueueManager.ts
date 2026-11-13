@@ -6,7 +6,7 @@ export interface OperationSignal {
   cancelled: boolean;
 }
 
-/** The statuses a task is still alive in, and so can still be given an answer under. */
+/** The statuses a task is still alive in. */
 const LIVE_STATUSES = new Set<BackgroundTask['status']>(['queued', 'running', 'paused']);
 
 export type ProgressCallback = (transferred: number, total: number) => void;
