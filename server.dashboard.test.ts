@@ -25,12 +25,6 @@ describe('the transfer dashboard page', () => {
     expect(html).not.toContain('<script src');
   });
 
-  it('names the slots its script fills in', () => {
-    for (const id of ['port', 'platform', 'uptime', 'active', 'jobs']) {
-      expect(html).toContain(`id="${id}"`);
-    }
-  });
-
   it('reaches the endpoints the page cannot work without', () => {
     // The job list is pinned by the rows the harness renders; these two are the
     // metadata counters and the action a button posts to.
@@ -76,13 +70,25 @@ describe('the transfer dashboard page', () => {
  */
 async function renderJobs(jobs: unknown[]): Promise<string> {
   const host = { innerHTML: '' };
-  const idle = { textContent: '' };
+  // One node per id, not a shared stand-in: a write aimed at the wrong slot has
+  // to land somewhere the real page does not have, and be noticed below.
+  const nodes = new Map<string, { textContent: string }>();
+  const asked = new Set<string>();
   const document = {
-    getElementById: (id: string) => (id === 'jobs' ? host : idle),
+    getElementById: (id: string) => {
+      if (id === 'jobs') return host;
+      asked.add(id);
+      const node = nodes.get(id) ?? { textContent: '' };
+      nodes.set(id, node);
+      return node;
+    },
     addEventListener: () => {},
   };
+  // Four values that cannot be confused on sight, so a swapped assignment is
+  // visible rather than rendering a plausible number in the wrong slot.
+  const meta = { port: 8787, platform: 'win32', uptimeSeconds: 3660, activeCount: 3 };
   const fetch = async (url: string) => ({
-    json: async () => (url === '/api/fs/jobs' ? jobs : { port: 1, platform: 'test', uptimeSeconds: 0, activeCount: 0 }),
+    json: async () => (url === '/api/fs/jobs' ? jobs : meta),
   });
   // The page polls forever; the first pass is all this test needs.
   const setInterval = () => 0;
@@ -90,6 +96,14 @@ async function renderJobs(jobs: unknown[]): Promise<string> {
   new Function('document', 'fetch', 'setInterval', pageScript())(document, fetch, setInterval);
   // The row is written from the promise the first `tick` started.
   for (let turn = 0; turn < 4; turn += 1) await Promise.resolve();
+
+  // Every slot the script reached for has to exist in the page it ships with,
+  // and hold the figure meant for it.
+  for (const id of asked) expect(html).toContain(`id="${id}"`);
+  const shown: Record<string, string> = { port: '8787', platform: 'win32', uptime: '1h 1m', active: '3' };
+  for (const [id, text] of Object.entries(shown)) {
+    expect(String(nodes.get(id)?.textContent), id).toBe(text);
+  }
 
   return host.innerHTML;
 }
@@ -136,6 +150,8 @@ describe('the dashboard row', () => {
     expect(row).toContain('width:100%');
     expect(row).toContain('eta <b>30s</b>');
     expect(row).toContain('Pause');
+    expect(row).toContain('Cancel');
+    expect(row).toContain('items <b>1</b> / 2');
   });
 
   it('reads a size that is not a number as nothing copied', async () => {
@@ -150,12 +166,26 @@ describe('the dashboard row', () => {
     // The bar is built from two fields; the row and its current file both used
     // to divide whatever arrived, which painted "NaN%" over a running job.
     const row = await renderJobs([
-      job({ copiedBytes: 'muchos', recentFiles: [{ name: 'a', size: 100, copied: 'x', status: 'pending' }] }),
+      job({
+        copiedBytes: 'muchos',
+        recentFiles: [
+          { name: 'uno', size: 100, copied: 'x', status: 'pending' },
+          { name: 'dos', size: 100, copied: 100, status: 'skipped' },
+          { name: 'tres', size: 100, copied: 0, status: 'error' },
+        ],
+      }),
     ]);
 
     expect(row).toContain('progress <b>0%</b>');
-    expect(row).toContain('<span class="fp">0%</span>');
     expect(row).not.toContain('NaN');
+
+    // Each file row carries its name, its own bar and what happened to it: a
+    // percentage while it is under way, a word once it was skipped or failed.
+    expect(row).toContain('<span class="fn">uno</span>');
+    expect(row).toContain('<span class="fb"><i style="width:0%"></i></span>');
+    expect(row).toContain('<span class="fp">0%</span>');
+    expect(row).toContain('<span class="fp">skip</span>');
+    expect(row).toContain('<span class="fp">fail</span>');
 
     // A job that reports no size is no progress either, not a full bar.
     const noTotal = await renderJobs([job({ totalBytes: 0 })]);
