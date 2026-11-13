@@ -206,6 +206,7 @@ export const ja = {
   bgTasksTitle: 'バックグラウンドタスクキュー',
   bgTasksRunning: '実行中のタスク',
   bgTasksClearCompleted: '完了済みを消去',
+  bgTasksRepeat: '再実行',
   bgTasksNote: '転送と圧縮は非同期で実行されます',
   bgTasksFiles: 'ファイル',
   copyListSave: 'リストを保存',

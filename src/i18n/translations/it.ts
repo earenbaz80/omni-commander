@@ -205,6 +205,7 @@ export const it = {
   bgTasksTitle: 'Coda attività in background',
   bgTasksRunning: 'attività in esecuzione',
   bgTasksClearCompleted: 'Cancella completate',
+  bgTasksRepeat: 'Ripeti',
   bgTasksNote: 'Trasferimenti e compressioni vengono eseguiti in modo asincrono',
   bgTasksFiles: 'File',
   copyListSave: 'Salva elenco',

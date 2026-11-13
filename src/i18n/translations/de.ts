@@ -207,6 +207,7 @@ export const de = {
   bgTasksTitle: 'Hintergrund-Aufgabenwarteschlange',
   bgTasksRunning: 'aktive laufende Aufgaben',
   bgTasksClearCompleted: 'Abgeschlossene löschen',
+  bgTasksRepeat: 'Wiederholen',
   bgTasksNote: 'Übertragungen und Komprimierungen laufen asynchron',
   bgTasksFiles: 'Dateien',
   copyListSave: 'Liste speichern',
