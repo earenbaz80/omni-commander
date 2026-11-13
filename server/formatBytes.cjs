@@ -6,6 +6,24 @@
  * ladders here, in one file, means the server has a single copy instead of one
  * per caller, and `server.formatBytes.test.ts` holds each of them to its
  * counterpart in `src/utils/formatBytes.ts`.
+ *
+ * That is the cheaper side of the trade. Several server modules print a size, so
+ * a copy per caller would multiply the places that can drift from the app, and
+ * giving this side a build step to share the TypeScript module outright would
+ * break the one property the server has kept: it runs as it is checked in. The
+ * seam each caller sees is tested too -- `server.share.test.ts` holds the share's
+ * rows to `formatBytesRoundedWithWholeBytes`, including the sizes it prints as
+ * nothing.
+ *
+ * Two modules print sizes and do not change:
+ *
+ * - The dashboard keeps its own ladder inside the script embedded in the page.
+ *   The page has to be one document with no build step and no imports, so it
+ *   cannot reach this module; `server.dashboard.test.ts` runs that script and
+ *   pins every figure it writes, which is where a drifted copy shows up.
+ * - `fileOps.cjs` prints one size, the shortfall of a transfer that cannot start,
+ *   and it already asks this module for it: there is no ladder of its own to
+ *   unify.
  */
 
 /**
