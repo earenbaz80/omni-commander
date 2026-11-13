@@ -37,6 +37,9 @@ function normalizeTrayState(payload) {
   return {
     hasLiveWork: activeCount > 0 || !!task,
     activeCount,
+    // Only an explicit true enables the row: a renderer that sent nothing, or a
+    // truthy string, must not offer a repeat there is no plan for.
+    canRepeat: source.canRepeat === true,
     task,
     labels: {
       resume: clampText(rawLabels.resume, TRAY_LABEL_LIMIT) || 'Resume',
@@ -44,6 +47,7 @@ function normalizeTrayState(payload) {
       cancel: clampText(rawLabels.cancel, TRAY_LABEL_LIMIT) || 'Cancel',
       dashboard: clampText(rawLabels.dashboard, TRAY_LABEL_LIMIT) || 'Open transfer dashboard',
       waiting: clampText(rawLabels.waiting, TRAY_LABEL_LIMIT) || 'Waiting for your answer',
+      repeat: clampText(rawLabels.repeat, TRAY_LABEL_LIMIT) || 'Repeat last cancelled',
       quit: clampText(rawLabels.quit, TRAY_LABEL_LIMIT) || 'Quit',
     },
   };

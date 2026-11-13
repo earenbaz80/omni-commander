@@ -1,5 +1,5 @@
 import { describe, expect, it, afterEach } from 'vitest';
-import { BackgroundTask } from '../types';
+import { BackgroundTask, TransferPlan } from '../types';
 import { getTranslations } from '../i18n/translations';
 import { taskQueue } from './taskQueueManager';
 import { resolveTrayAction, selectTrayTask, startTrayBridge, TrayCommand, TraySnapshot } from './trayBridge';
@@ -109,6 +109,54 @@ describe('tray bridge', () => {
 
     stop();
     expect(handler).toBeUndefined();
+  });
+
+  it('offers the last stopped transfer for a repeat and hands its plan back', () => {
+    const snapshots: TraySnapshot[] = [];
+    let handler: ((command: TrayCommand) => void) | undefined;
+    const repeated: TransferPlan[] = [];
+    electron.electronAPI = {
+      updateTrayState: (snapshot: TraySnapshot) => snapshots.push(snapshot),
+      onTrayCommand: (callback: (command: TrayCommand) => void) => {
+        handler = callback;
+        return () => {
+          handler = undefined;
+        };
+      },
+    };
+    const plan: TransferPlan = {
+      op: 'copy',
+      sourceDriveId: 'real_C',
+      targetDriveId: 'real_C',
+      targetDir: 'C:\\dest',
+      overwrite: false,
+      collision: 'ask',
+      throttleBps: 0,
+      entries: [{ path: 'C:\\a.txt', name: 'a.txt', isDirectory: false, size: 10 }],
+    };
+    let finish = () => {};
+    runningId = taskQueue.addTask(
+      'copy',
+      'Copy 2 items',
+      'C:\\dest',
+      10,
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+      plan,
+    );
+    taskQueue.cancelTask(runningId);
+    stopBridge = startTrayBridge('es', (next) => repeated.push(next));
+
+    const last = snapshots[snapshots.length - 1];
+    expect(last.canRepeat).toBe(true);
+    expect(last.labels.repeat).toBe(getTranslations('es').trayRepeat);
+
+    handler?.('repeat');
+    expect(repeated).toEqual([plan]);
+    // The queue runs one transfer at a time; this executor is what holds it.
+    finish();
   });
 
   // Last in the file: it leaves a transfer parked in the queue, and the queue runs

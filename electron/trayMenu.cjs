@@ -38,6 +38,7 @@ function trayMenuTemplate(state, actions) {
     { label: labels.pause, enabled: status === 'running', click: () => actions.command('pause') },
     // The live statuses are exactly the ones a cancel still has something to stop.
     { label: labels.cancel, enabled: LIVE_STATUSES.includes(status), click: () => actions.command('cancel') },
+    { label: labels.repeat, enabled: state.canRepeat, click: () => actions.command('repeat') },
     { label: labels.dashboard, enabled: actions.dashboardReady, click: actions.openDashboard },
     { type: 'separator' },
     { label: labels.quit, click: actions.quit },

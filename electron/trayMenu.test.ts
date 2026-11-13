@@ -7,6 +7,7 @@ const { trayTooltip, trayMenuTemplate } = require('./trayMenu.cjs');
 type State = {
   hasLiveWork: boolean;
   activeCount: number;
+  canRepeat: boolean;
   task: { id: string; title: string; status: string; progress: number } | null;
   labels: Record<string, string>;
 };
@@ -14,6 +15,7 @@ type State = {
 const state = (overrides: Partial<State> = {}): State => ({
   hasLiveWork: true,
   activeCount: 1,
+  canRepeat: false,
   task: { id: 'job_1', title: 'Copy 2 items', status: 'running', progress: 40 },
   labels: {
     resume: 'Reanudar',
@@ -21,6 +23,7 @@ const state = (overrides: Partial<State> = {}): State => ({
     cancel: 'Cancelar',
     dashboard: 'Abrir panel de transferencias',
     waiting: 'Esperando tu respuesta',
+    repeat: 'Repetir el último cancelado',
     quit: 'Salir',
   },
   ...overrides,
@@ -68,6 +71,16 @@ describe('the tray menu', () => {
     expect(row(idle, 'Pausar')?.enabled).toBe(false);
     expect(row(idle, 'Cancelar')?.enabled).toBe(false);
     expect(trayTooltip(state({ task: null }))).toBe('OmniCommander Pro');
+  });
+
+  it('offers a repeat only when a stopped transfer left a plan', () => {
+    const handlers = actions();
+    const offered = trayMenuTemplate(state({ canRepeat: true }), handlers);
+    row(offered, 'Repetir el último cancelado')?.click?.();
+    expect(handlers.command.mock.calls).toEqual([['repeat']]);
+
+    const idle = trayMenuTemplate(state(), actions());
+    expect(row(idle, 'Repetir el último cancelado')?.enabled).toBe(false);
   });
 
   it('counts the transfers that are in flight in the header', () => {
