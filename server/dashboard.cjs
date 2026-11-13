@@ -130,6 +130,10 @@ function dashboardHtml() {
   var ORDER={running:0,waiting:0,paused:1,'done-with-errors':2,error:2,cancelled:3,done:4};
   function render(list){
     var host=document.getElementById('jobs');
+    // The rebuild replaces every button, so the one the keyboard sits on would
+    // take the focus with it; what can be found again is the action it stands for.
+    var on=document.activeElement;
+    var focused=on && on.dataset && on.dataset.act ? on.dataset.id+'/'+on.dataset.act : null;
     if(!list.length){ host.innerHTML='<div class="empty">No transfer jobs yet. Start a copy or move in the app.</div>'; return; }
     list.sort(function(a,b){
       var d=(ORDER[a.status]==null?9:ORDER[a.status])-(ORDER[b.status]==null?9:ORDER[b.status]);
@@ -175,11 +179,17 @@ function dashboardHtml() {
         errs+
       '</section>';
     }).join('');
+    if(focused){
+      var drawn=host.querySelectorAll('button[data-act]');
+      for(var f=0;f<drawn.length;f+=1){
+        if(drawn[f].dataset.id+'/'+drawn[f].dataset.act===focused){ drawn[f].focus({preventScroll:true}); break; }
+      }
+    }
   }
   // A browser drops the click when the pressed button is replaced before the
-  // release -- it still delivers pointerdown and pointerup, and then no click at
-  // all -- and this list is rebuilt every 600 ms. So the press is what the page
-  // acts on; a keyboard activation arrives as a click with no pointer detail.
+  // release, and this list is rebuilt every 600 ms; the press also names the job
+  // under the cursor, which a release after a reorder would not. Keyboard
+  // activation is a click with no pointer detail.
   function act(ev){
     var btn=ev.target.closest('button[data-act]');
     if(!btn) return;
