@@ -6,6 +6,9 @@ export interface OperationSignal {
   cancelled: boolean;
 }
 
+/** The statuses a transfer can still be given an answer under. */
+const LIVE_STATUSES = new Set<BackgroundTask['status']>(['queued', 'running', 'paused']);
+
 export type ProgressCallback = (transferred: number, total: number) => void;
 export type OperationExecutor = (onProgress: ProgressCallback, signal: OperationSignal) => Promise<void>;
 
@@ -64,6 +67,13 @@ class TaskQueueManager {
   }
 
   private notify() {
+    // A transfer that ends while its conflict prompt is still open cannot keep
+    // waiting for an answer: cancelling from the tray or the engine giving up ends
+    // it without one. Dropping the flag here covers every way a task reaches a
+    // terminal status, instead of each of them remembering to.
+    for (const task of this.tasks) {
+      if (task.waitingForAnswer && !LIVE_STATUSES.has(task.status)) task.waitingForAnswer = false;
+    }
     this.listeners.forEach((l) => l());
   }
 

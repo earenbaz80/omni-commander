@@ -120,3 +120,78 @@ describe('taskQueue per-file progress', () => {
     expect(taskQueue.getPlan('task_missing')).toBeUndefined();
   });
 });
+
+/**
+ * A transfer parked on a conflict can end without that conflict ever being
+ * answered: the user cancels it elsewhere, or the engine gives up on it. The task
+ * keeps the plan for a repeat, but it must not keep waiting for an answer nobody
+ * is going to give -- a finished row that still claims to be parked says the tray
+ * has work to offer that no click can reach.
+ */
+describe('taskQueue and a conflict left unanswered', () => {
+  beforeEach(() => {
+    for (const task of taskQueue.getTasks()) taskQueue.cancelTask(task.id);
+    taskQueue.clearCompleted();
+  });
+
+  const parked = (jobId: string, executor: () => Promise<void>) => {
+    const id = taskQueue.addTask('copy', 'Copy 2 items', 'T:\\dest', 10, executor);
+    taskQueue.updateTaskMeta(id, { serverJobId: jobId });
+    taskQueue.setWaitingForAnswer(jobId, true);
+    return id;
+  };
+
+  const until = async (done: () => boolean) => {
+    for (let attempt = 0; attempt < 100 && !done(); attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  };
+
+  it('stops waiting when the transfer is cancelled from somewhere else', async () => {
+    let finish = () => {};
+    const id = parked(
+      'job_cancel',
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    expect(taskById(id).waitingForAnswer).toBe(true);
+
+    taskQueue.cancelTask(id);
+
+    expect(taskById(id).status).toBe('cancelled');
+    expect(taskById(id).waitingForAnswer).toBe(false);
+
+    // The queue runs one transfer at a time and this executor is what holds it.
+    finish();
+    await until(() => taskById(id).status === 'cancelled');
+  });
+
+  it('stops waiting when the engine gives up and the transfer fails', async () => {
+    const id = parked('job_fail', async () => {
+      throw new Error('conflict left unanswered');
+    });
+
+    await until(() => taskById(id).status === 'failed');
+
+    expect(taskById(id).status).toBe('failed');
+    expect(taskById(id).waitingForAnswer).toBe(false);
+  });
+
+  it('stops waiting when the transfer completes with the prompt still open', async () => {
+    let finish = () => {};
+    const id = parked(
+      'job_done',
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+
+    finish();
+    await until(() => taskById(id).status === 'completed');
+
+    expect(taskById(id).waitingForAnswer).toBe(false);
+  });
+});
