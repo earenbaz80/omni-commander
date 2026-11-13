@@ -250,6 +250,21 @@ const MAX_PORT_ATTEMPTS = 25;
 
 let activePort = null;
 const portReadyListeners = [];
+const jobFinishedListeners = [];
+
+/**
+ * Runs `listener` for every job that reaches a final state. The host application
+ * uses it to announce a transfer that ended with nobody looking at the window.
+ */
+function onJobFinished(listener) {
+  jobFinishedListeners.push(listener);
+}
+
+function announceJobFinished(job) {
+  // The engine already keeps a throwing listener from failing the transfer; this
+  // only has to reach every subscriber.
+  for (const listener of jobFinishedListeners) listener(job);
+}
 
 /** Runs `listener` as soon as the server is listening, or immediately if it already is. */
 function onPortReady(listener) {
@@ -356,6 +371,7 @@ const {
   conflictAnswerMs: CONFLICT_ANSWER_MS,
 } = createJobEngine({
   invalidateListings,
+  onJobFinished: announceJobFinished,
   jobTickMs: JOB_TICK_MS,
 });
 
@@ -599,4 +615,4 @@ listenOn(PREFERRED_PORT, 0).catch((error) => {
   console.error('Local drive server failed to start:', error);
 });
 
-module.exports = { onPortReady, getPort: () => activePort, PREFERRED_PORT };
+module.exports = { onPortReady, onJobFinished, getPort: () => activePort, PREFERRED_PORT };

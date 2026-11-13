@@ -11,7 +11,7 @@
 const path = require('path');
 
 function createJobEngine(deps = {}) {
-  const { invalidateListings = () => {}, jobTickMs = 120 } = deps;
+  const { invalidateListings = () => {}, onJobFinished = () => {}, jobTickMs = 120 } = deps;
   // Kept under its old name so the moved code reads exactly as it did.
   const JOB_TICK_MS = jobTickMs;
 
@@ -151,6 +151,13 @@ function createJobEngine(deps = {}) {
     else if (job.errors.length) job.status = 'done-with-errors';
     else job.status = 'done';
     invalidateListings();
+    // A watcher that throws must not turn a finished transfer into a failed one;
+    // the work is on disk and nothing here can undo it.
+    try {
+      onJobFinished(job);
+    } catch (error) {
+      console.error('Job finished listener failed:', error);
+    }
   }
 
   async function waitWhilePaused(job) {

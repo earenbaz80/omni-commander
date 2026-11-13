@@ -105,6 +105,27 @@ describe('createJobEngine', () => {
     expect(entry.status).toBe('copying');
   });
 
+  it('tells the caller which job ended, and survives a listener that throws', () => {
+    const ended: string[] = [];
+    const watched = createJobEngine({
+      onJobFinished: (job: { status: string }) => ended.push(job.status),
+      jobTickMs: 1,
+    });
+    watched.finishJob(watched.makeJob('copy', 'Copy'));
+    expect(ended).toEqual(['done']);
+
+    // A watcher is not allowed to turn a finished transfer into a failed one.
+    const broken = createJobEngine({
+      onJobFinished: () => {
+        throw new Error('listener');
+      },
+      jobTickMs: 1,
+    });
+    const job = broken.makeJob('copy', 'Copy');
+    expect(() => broken.finishJob(job)).not.toThrow();
+    expect(job.status).toBe('done');
+  });
+
   it('ends a clean job as done and tells the caller its listings are stale', () => {
     const { makeJob, finishJob, jobSnapshot, invalidateListings } = engine();
     const job = makeJob('copy', 'Copy');
