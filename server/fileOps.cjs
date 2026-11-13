@@ -18,6 +18,7 @@ const { promisify } = require('util');
 const { once } = require('events');
 
 const { assertSafePath, isDriveRoot } = require('./pathSafety.cjs');
+const { formatBytes } = require('./formatBytes.cjs');
 const { renameWithRetry } = require('./fsRetry.cjs');
 const { appendLog, scratchFile } = require('./scratch.cjs');
 
@@ -918,8 +919,7 @@ function createFileOps(deps = {}) {
         free = 0;
       }
       if (free > 0 && job.totalBytes > free) {
-        const gb = (n) => `${(n / 1024 / 1024 / 1024).toFixed(1)} GB`;
-        const message = `Not enough space on the target: ${gb(job.totalBytes)} needed, ${gb(free)} free`;
+        const message = `Not enough space on the target: ${formatBytes(job.totalBytes)} needed, ${formatBytes(free)} free`;
         if (job.force) {
           // The user saw these same numbers and chose to proceed. The disk stays
           // the final authority: an ENOSPC still fails the job, but this guard
