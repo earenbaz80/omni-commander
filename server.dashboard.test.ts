@@ -66,7 +66,7 @@ describe('the transfer dashboard page', () => {
 
     const [result] = await eslint.lintText(pageScript(), { filePath: 'server/dashboard.script.js' });
 
-    expect(result.messages.map((m) => `${m.line}:${m.column} ${m.ruleId}: ${m.message}`)).toEqual([]);
+    expect(result.messages).toEqual([]);
   });
 });
 
