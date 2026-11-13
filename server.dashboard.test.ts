@@ -73,11 +73,9 @@ async function renderJobs(jobs: unknown[]): Promise<string> {
   // One node per id, not a shared stand-in: a write aimed at the wrong slot has
   // to land somewhere the real page does not have, and be noticed below.
   const nodes = new Map<string, { textContent: string }>();
-  const asked = new Set<string>();
   const document = {
     getElementById: (id: string) => {
       if (id === 'jobs') return host;
-      asked.add(id);
       const node = nodes.get(id) ?? { textContent: '' };
       nodes.set(id, node);
       return node;
@@ -97,12 +95,13 @@ async function renderJobs(jobs: unknown[]): Promise<string> {
   // The row is written from the promise the first `tick` started.
   for (let turn = 0; turn < 4; turn += 1) await Promise.resolve();
 
-  // Every slot the script reached for has to exist in the page it ships with,
-  // and hold the figure meant for it.
-  for (const id of asked) expect(html).toContain(`id="${id}"`);
+  // Every slot the script reached for must exist in the page it ships with and
+  // hold the figure meant for it; an id nobody listed here fails instead of
+  // passing quietly.
   const shown: Record<string, string> = { port: '8787', platform: 'win32', uptime: '1h 1m', active: '3' };
-  for (const [id, text] of Object.entries(shown)) {
-    expect(String(nodes.get(id)?.textContent), id).toBe(text);
+  for (const [id, node] of nodes) {
+    expect(html).toContain(`id="${id}"`);
+    expect(String(node.textContent), id).toBe(shown[id]);
   }
 
   return host.innerHTML;
