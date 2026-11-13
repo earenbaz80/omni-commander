@@ -123,7 +123,13 @@ export function useTransferQueue({
   // An answer can come from the tray or the dashboard, so the prompt closing here is
   // not the only way a job stops being parked; the job's own poll reports that, and
   // the flag has to follow it instead of waiting for the transfer to end.
-  const stopWaiting = (jobId: string) => taskQueue.setWaitingForAnswer(jobId, false);
+  const stopWaiting = (jobId: string) => {
+    taskQueue.setWaitingForAnswer(jobId, false);
+    // The job is moving again, so its prompt is answered or gone. Leaving it up
+    // offers an answer the server refuses now, and the answer could land on the
+    // next conflict of the same transfer instead of the one on screen.
+    setConflictPrompt((current) => (current && current.jobId === jobId ? null : current));
+  };
 
   // A transfer plan is what a saved copy list is made of. Only real-drive
   // sources can be replayed in a later session, because a replay addresses the
