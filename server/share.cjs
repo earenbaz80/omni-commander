@@ -16,6 +16,7 @@ const http = require('http');
 const os = require('os');
 const path = require('path');
 const { assertSafePath } = require('./pathSafety.cjs');
+const { formatBytesRounded } = require('./formatBytes.cjs');
 
 /** Where the share goes unless the user asked for another port. */
 const DEFAULT_PORT = 8090;
@@ -67,16 +68,9 @@ function escapeHtml(value) {
   );
 }
 
+/** A listing row prints nothing for an entry it could not size, not "0 B". */
 function formatSize(bytes) {
-  if (!Number.isFinite(bytes) || bytes <= 0) return '';
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  return `${value < 10 && unit > 0 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
+  return formatBytesRounded(bytes);
 }
 
 function formatDate(value) {
@@ -423,4 +417,4 @@ function createShareService({ logDebug = () => {} } = {}) {
   return { start, stop, status, lanAddresses };
 }
 
-module.exports = { createShareService, lanAddresses, resolveWithin, isWithin };
+module.exports = { createShareService, lanAddresses, resolveWithin, isWithin, formatSize };
