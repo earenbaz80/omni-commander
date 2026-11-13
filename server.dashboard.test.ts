@@ -251,11 +251,11 @@ describe('the dashboard row', () => {
     expect(fractional).toContain('<b>1.5 MB/s</b>');
   });
 
-  it('acts on the press, so a poll between press and release cannot swallow it', async () => {
-    // Chromium drops the click when the pressed button is replaced before the
-    // release: it delivers pointerdown and pointerup to the same node and then no
-    // click at all, so listening for click lost the action whenever the 600 ms
-    // poll repainted the row under the cursor. The press is acted on instead.
+  /**
+   * Runs the page as a browser would, with the poll timer handed back so a test
+   * can step it: the page keeps its own nodes and listeners this way.
+   */
+  async function mountPage() {
     const { window } = new JSDOM(html, { url: 'http://127.0.0.1:9999/__jobs?t=page-token' });
     const meta = { port: 8787, platform: 'win32', uptimeSeconds: 3660, activeCount: 1 };
     let poll = () => {};
@@ -276,6 +276,14 @@ describe('the dashboard row', () => {
     );
     const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
     await settle();
+    return { window, poll: () => poll(), posts, settle };
+  }
+
+  it('acts on the press, so a poll between press and release cannot swallow it', async () => {
+    // Chromium drops the click when the pressed button is replaced before the
+    // release, though pointerdown and pointerup both arrive: a click listener
+    // lost the action whenever the poll repainted the row under the cursor.
+    const { window, poll, posts, settle } = await mountPage();
 
     const pressed = window.document.querySelector('button[data-act]');
     pressed?.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true }));
@@ -290,9 +298,24 @@ describe('the dashboard row', () => {
     expect(posts).toEqual(['/api/fs/job/job-1/pause']);
 
     // Nothing was pressed here: this is the click a keyboard produces.
-    const keyed = window.document.querySelector('button[data-act]');
-    keyed?.dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 0 }));
+    released?.dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 0 }));
     expect(posts).toEqual(['/api/fs/job/job-1/pause', '/api/fs/job/job-1/pause']);
+  });
+
+  it('puts the focus back on the same action after a rebuild', async () => {
+    // A row is replaced every 600 ms, and the focused button goes with it: a
+    // keyboard user tabbed onto Pause would fall back to the top of the page
+    // before they could press it.
+    const { window, poll, settle } = await mountPage();
+    const first = window.document.querySelector('button[data-act="pause"]') as HTMLElement;
+    first.focus();
+
+    poll();
+    await settle();
+
+    const again = window.document.querySelector('button[data-act="pause"]') as HTMLElement;
+    expect(again).not.toBe(first);
+    expect(window.document.activeElement).toBe(again);
   });
 
   it('shows no speed for a job that is not running', async () => {
