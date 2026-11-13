@@ -92,6 +92,32 @@ describe('fileTransfer', () => {
     }
   });
 
+  it('reports the prompt gone once the job is no longer parked', async () => {
+    const previous = { ...lostJobRetryPolicy };
+    lostJobRetryPolicy.pollDelayMs = 1;
+    try {
+      // Answered elsewhere -- from the tray or the dashboard -- so nothing local
+      // closed the prompt: the poll is the only place that sees the job move on,
+      // and the transfer keeps running after the answer.
+      const conflict = { source: 'C:\\a', destination: 'C:\\b\\a' };
+      fetchWithRetry
+        .mockResolvedValueOnce(answer({ status: 'waiting', pendingConflict: conflict }))
+        .mockResolvedValueOnce(answer({ status: 'waiting', pendingConflict: conflict }))
+        .mockResolvedValueOnce(answer({ status: 'running' }))
+        .mockResolvedValue(answer({ status: 'done' }));
+
+      const onConflict = vi.fn();
+      const onConflictEnd = vi.fn();
+      await harness().awaitServerJob('job-1', undefined, undefined, undefined, onConflict, onConflictEnd);
+
+      expect(onConflict).toHaveBeenCalledTimes(1);
+      // Once per prompt, not once per poll that finds the job unparked.
+      expect(onConflictEnd.mock.calls).toEqual([['job-1']]);
+    } finally {
+      Object.assign(lostJobRetryPolicy, previous);
+    }
+  });
+
   it('declares a transfer lost when the server stops answering, instead of a success', async () => {
     const previous = { ...lostJobRetryPolicy };
     lostJobRetryPolicy.maxPolls = 1;

@@ -77,6 +77,7 @@ export interface TransferOps {
     signal?: { paused: boolean; cancelled: boolean },
     onJob?: (job: RealFsJob) => void,
     onConflict?: (conflict: PendingConflict) => void,
+    onConflictEnd?: (jobId: string) => void,
   ): Promise<RealFsJob | null>;
   resolveConflict(jobId: string, action: ConflictResolution, applyToAll: boolean): Promise<void>;
   cancelJob(jobId: string): Promise<void>;
@@ -93,6 +94,7 @@ export interface TransferOps {
     onConflict?: (conflict: PendingConflict) => void,
     onFiles?: (files: FileProgressEntry[]) => void,
     onStart?: (info: { totalBytes: number; itemsTotal: number; jobId: string }) => void,
+    onConflictEnd?: (jobId: string) => void,
   ): Promise<void>;
   realCopyOrMove(
     file: FileItem,
@@ -105,6 +107,7 @@ export interface TransferOps {
     options?: TransferOptions,
     onConflict?: (conflict: PendingConflict) => void,
     onFiles?: (files: FileProgressEntry[]) => void,
+    onConflictEnd?: (jobId: string) => void,
   ): Promise<FileItem | undefined>;
 }
 
@@ -144,6 +147,7 @@ export function createTransferOps(deps: TransferOpsDeps): TransferOps {
     signal?: { paused: boolean; cancelled: boolean },
     onJob?: (job: RealFsJob) => void,
     onConflict?: (conflict: PendingConflict) => void,
+    onConflictEnd?: (jobId: string) => void,
   ): Promise<RealFsJob | null> {
     let lastPaused = false;
     let lastCancelled = false;
@@ -202,8 +206,13 @@ export function createTransferOps(deps: TransferOpsDeps): TransferOps {
             identical: job.pendingConflict.identical,
           });
         }
-      } else {
+      } else if (promptedConflict) {
+        // The prompt is gone: the job was answered -- from the window, the tray or
+        // the dashboard -- or it ended. Either way it is no longer parked, and the
+        // surface that showed it waiting has to hear that without waiting for the
+        // transfer to end.
         promptedConflict = '';
+        onConflictEnd?.(job.id);
       }
 
       if (signal) {
@@ -284,6 +293,7 @@ export function createTransferOps(deps: TransferOpsDeps): TransferOps {
     onConflict?: (conflict: PendingConflict) => void,
     onFiles?: (files: FileProgressEntry[]) => void,
     onStart?: (info: { totalBytes: number; itemsTotal: number; jobId: string }) => void,
+    onConflictEnd?: (jobId: string) => void,
   ): Promise<void> {
     const started = await callServer<{ jobId?: string; totalBytes?: number; itemsTotal?: number }>(op, {
       sources,
@@ -326,6 +336,7 @@ export function createTransferOps(deps: TransferOpsDeps): TransferOps {
       signal,
       onFiles ? (snapshot) => onFiles(snapshot.recentFiles || []) : undefined,
       onConflict,
+      onConflictEnd,
     );
     if (job && job.status === 'done-with-errors') {
       throw new Error(job.errors[0]?.message || 'Operation failed');
@@ -343,6 +354,7 @@ export function createTransferOps(deps: TransferOpsDeps): TransferOps {
     options?: TransferOptions,
     onConflict?: (conflict: PendingConflict) => void,
     onFiles?: (files: FileProgressEntry[]) => void,
+    onConflictEnd?: (jobId: string) => void,
   ): Promise<FileItem | undefined> {
     await transferPaths(
       op,
@@ -354,6 +366,8 @@ export function createTransferOps(deps: TransferOpsDeps): TransferOps {
       options,
       onConflict,
       onFiles,
+      undefined,
+      onConflictEnd,
     );
 
     const sourceDriveId = file.driveId;
