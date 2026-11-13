@@ -1,13 +1,14 @@
-import { renderHook } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useTransferQueue } from './useTransferQueue';
 import type { FileItem, PanelTab, TransferPlan } from '../types';
 
-const { addTask, parked, parkPlan, takePlan } = vi.hoisted(() => ({
+const { addTask, parked, parkPlan, takePlan, transferPaths } = vi.hoisted(() => ({
   addTask: vi.fn(() => 'task-1'),
   parked: { current: null as TransferPlan | null },
   parkPlan: vi.fn(),
   takePlan: vi.fn(() => parked.current),
+  transferPaths: vi.fn(),
 }));
 
 vi.mock('../services/pendingTransfer', () => ({
@@ -22,6 +23,11 @@ vi.mock('../services/fileSystem', () => ({
     isSystemDrive: () => true,
     absolutePathOf: (item: FileItem) => `C:\\${item.name}`,
     checkFreeSpace: async () => null,
+    // The executor's work, replaced per case: only the conflict and the cancel
+    // signal matter to the prompt.
+    transferPaths,
+    loadSystemDriveDirectory: async () => {},
+    getParentPath: () => 'C:\\',
   },
 }));
 
@@ -31,6 +37,7 @@ vi.mock('../services/taskQueueManager', () => ({
     getPlan: () => undefined,
     updateTaskMeta: vi.fn(),
     updateTaskFiles: vi.fn(),
+    setWaitingForAnswer: vi.fn(),
   },
 }));
 
@@ -62,6 +69,7 @@ beforeEach(() => {
   addTask.mockClear();
   parkPlan.mockClear();
   takePlan.mockClear();
+  transferPaths.mockReset();
   parked.current = null;
 });
 
@@ -200,6 +208,54 @@ describe('useTransferQueue', () => {
 
     expect(answer).toEqual({ ok: false, reason: 'ipc closed' });
     expect(takePlan).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * The prompt belongs to a job, and the task behind it can be stopped from the
+   * tray or the queue bar while the prompt is on screen. Nothing else would take it
+   * down: the user would be answering a question for a transfer that already ended,
+   * and the engine job would stay parked holding a slot.
+   */
+  it('takes the conflict prompt down when the transfer is cancelled from elsewhere', async () => {
+    let runExecutor:
+      ((onProgress: unknown, signal: { paused: boolean; cancelled: boolean }) => Promise<void>) | undefined;
+    addTask.mockImplementation((...args: unknown[]) => {
+      runExecutor = args[4] as typeof runExecutor;
+      return 'task-1';
+    });
+    const signal = { paused: false, cancelled: false };
+    // A parked job is polled until the cancel reaches the server; this is the poll
+    // that only ends once the queue's signal says so.
+    let release = () => {};
+    const parked = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    transferPaths.mockImplementation(async (...args: unknown[]) => {
+      (args[7] as (conflict: unknown) => void)({
+        jobId: 'job_9',
+        source: 'C:\\a.txt',
+        destination: 'D:\\a.txt',
+        name: 'a.txt',
+        sourceSize: 3,
+        destinationSize: 4,
+        sourceModified: 1,
+        destinationModified: 2,
+        identical: false,
+      });
+      await parked;
+    });
+
+    const { result } = renderHook(() => useTransferQueue(deps()));
+    await result.current.handleRunCopyList([plan]);
+    const run = runExecutor!((): void => {}, signal);
+    await waitFor(() => expect(result.current.conflictPrompt).not.toBeNull());
+
+    // What the tray's cancel does to the task it mirrors.
+    signal.cancelled = true;
+    release();
+    await run;
+
+    await waitFor(() => expect(result.current.conflictPrompt).toBeNull());
   });
 
   it('parks nothing and says so when there is no bridge to restart through', async () => {
