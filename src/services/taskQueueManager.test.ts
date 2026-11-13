@@ -145,7 +145,9 @@ describe('taskQueue and a conflict left unanswered', () => {
     const promise = new Promise<void>((resolve) => {
       release = resolve;
     });
-    return { run: () => promise, release: () => release() };
+    // `release` already holds the resolver: the promise is built before it is
+    // returned, so nothing has to look the current value up again.
+    return { run: () => promise, release };
   };
 
   it('keeps waiting while the transfer is still alive', async () => {
