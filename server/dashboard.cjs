@@ -82,22 +82,19 @@ function dashboardHtml() {
 <script>
 (function(){
   // The page is opened by a navigation, which cannot send a header, so the token
-  // arrives in the URL once and is sent as a header from then on. It is kept for
-  // this tab so a reload still works, and the address bar is put back to the plain
-  // page: what stays there ends up in the history and in every screenshot of it.
+  // arrives in the URL once and is sent as a header from then on. The address bar is
+  // put back to the plain page -- what stays there ends up in the history and in
+  // every screenshot of it -- and the cookie the first visit left covers a reload.
   var token='';
   try{
     token=new URLSearchParams(location.search).get('t')||'';
     if(!token){
-      // The visit that carried the token left a cookie; a reload arrives without it.
       var kept=/(?:^|;\s*)omni-page=([^;]+)/.exec(document.cookie||'');
       if(kept) token=decodeURIComponent(kept[1]);
     }
-    if(!token) token=sessionStorage.getItem('omni-page-token')||'';
-    if(token) sessionStorage.setItem('omni-page-token',token);
     if(location.search) history.replaceState(null,'',location.pathname);
   }catch{
-    /* A browser that refuses the storage or the rewrite keeps working from the URL. */
+    /* A browser that refuses the rewrite still has the token from this load. */
   }
   function api(url, init){
     init=init||{};

@@ -49,4 +49,4 @@ function normalizeTrayState(payload) {
   };
 }
 
-module.exports = { clampText, normalizeTrayState };
+module.exports = { clampText, LIVE_STATUSES, normalizeTrayState };

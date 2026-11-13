@@ -5,12 +5,10 @@
  * function of the mirrored snapshot a test can say what the menu offers for a
  * running, a paused or a parked transfer, and which row a click reaches.
  */
-const { clampText } = require('./trayState.cjs');
+const { clampText, LIVE_STATUSES } = require('./trayState.cjs');
 
 const APP_NAME = 'OmniCommander Pro';
 const TOOLTIP_LIMIT = 120;
-/** Statuses a cancel is valid for: the transfer still has something to stop. */
-const CANCELLABLE = new Set(['running', 'paused', 'queued', 'waiting']);
 
 /** The line that describes the selected transfer. */
 function summaryOf(state) {
@@ -31,18 +29,19 @@ function trayTooltip(state) {
  */
 function trayMenuTemplate(state, actions) {
   const { activeCount, labels } = state;
-  const status = state.task ? state.task.status : null;
+  const status = state.task?.status ?? null;
   return [
     { label: activeCount > 1 ? `${APP_NAME} (${activeCount})` : APP_NAME, click: actions.showWindow },
     { type: 'separator' },
     { label: summaryOf(state) || '—', enabled: false },
     { label: labels.resume, enabled: status === 'paused', click: () => actions.command('resume') },
     { label: labels.pause, enabled: status === 'running', click: () => actions.command('pause') },
-    { label: labels.cancel, enabled: CANCELLABLE.has(status), click: () => actions.command('cancel') },
+    // The live statuses are exactly the ones a cancel still has something to stop.
+    { label: labels.cancel, enabled: LIVE_STATUSES.includes(status), click: () => actions.command('cancel') },
     { label: labels.dashboard, enabled: actions.dashboardReady, click: actions.openDashboard },
     { type: 'separator' },
     { label: labels.quit, click: actions.quit },
   ];
 }
 
-module.exports = { summaryOf, trayTooltip, trayMenuTemplate };
+module.exports = { trayTooltip, trayMenuTemplate };
