@@ -1,6 +1,7 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useTransferQueue } from './useTransferQueue';
+import { taskQueue } from '../services/taskQueueManager';
 import type { FileItem, PanelTab, TransferPlan } from '../types';
 
 const { addTask, parked, parkPlan, takePlan, transferPaths } = vi.hoisted(() => ({
@@ -256,6 +257,37 @@ describe('useTransferQueue', () => {
     await run;
 
     await waitFor(() => expect(result.current.conflictPrompt).toBeNull());
+  });
+
+  it('stops calling a transfer waiting once its job is answered elsewhere', async () => {
+    // The dashboard answers the same job without going through this window, so the
+    // prompt here never closes: the job's own poll is what says it is moving again.
+    vi.mocked(taskQueue.setWaitingForAnswer).mockClear();
+    let runExecutor:
+      ((onProgress: unknown, signal: { paused: boolean; cancelled: boolean }) => Promise<void>) | undefined;
+    addTask.mockImplementation((...args: unknown[]) => {
+      runExecutor = args[4] as typeof runExecutor;
+      return 'task-1';
+    });
+    transferPaths.mockImplementation(async (...args: unknown[]) => {
+      (args[7] as (conflict: unknown) => void)({
+        jobId: 'job_9',
+        source: 'C:\\a.txt',
+        destination: 'D:\\a.txt',
+        name: 'a.txt',
+      });
+      // What the job's poll reports once the answer released it.
+      (args[10] as (jobId: string) => void)('job_9');
+    });
+
+    const { result } = renderHook(() => useTransferQueue(deps()));
+    await result.current.handleRunCopyList([plan]);
+    await runExecutor!(() => {}, { paused: false, cancelled: false });
+
+    expect(vi.mocked(taskQueue.setWaitingForAnswer).mock.calls).toEqual([
+      ['job_9', true],
+      ['job_9', false],
+    ]);
   });
 
   it('parks nothing and says so when there is no bridge to restart through', async () => {

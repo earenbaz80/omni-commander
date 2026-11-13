@@ -323,6 +323,7 @@ class FileSystemEngine {
     onConflict?: (conflict: PendingConflict) => void,
     onFiles?: (files: FileProgressEntry[]) => void,
     onStart?: (info: { totalBytes: number; itemsTotal: number; jobId: string }) => void,
+    onConflictEnd?: (jobId: string) => void,
   ): Promise<void> {
     return this.transferOps.transferPaths(
       op,
@@ -335,6 +336,7 @@ class FileSystemEngine {
       onConflict,
       onFiles,
       onStart,
+      onConflictEnd,
     );
   }
 

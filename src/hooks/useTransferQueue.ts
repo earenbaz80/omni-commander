@@ -120,6 +120,11 @@ export function useTransferQueue({
     }
   };
 
+  // An answer can come from the tray or the dashboard, so the prompt closing here is
+  // not the only way a job stops being parked; the job's own poll reports that, and
+  // the flag has to follow it instead of waiting for the transfer to end.
+  const stopWaiting = (jobId: string) => taskQueue.setWaitingForAnswer(jobId, false);
+
   // A transfer plan is what a saved copy list is made of. Only real-drive
   // sources can be replayed in a later session, because a replay addresses the
   // disk directly instead of going through the in-memory catalogue.
@@ -265,6 +270,7 @@ export function useTransferQueue({
                 // the speed limit while the transfer is still running.
                 taskQueue.updateTaskMeta(taskId, { serverJobId: info.jobId });
               },
+              stopWaiting,
             );
           } catch (e) {
             console.error(`${replay ? 'Queued transfer' : failureLabel} failed for`, entry.name, e);
