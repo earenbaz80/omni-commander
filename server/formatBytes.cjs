@@ -5,25 +5,19 @@
  * the app's module is TypeScript, so there is no way to require it. Keeping both
  * ladders here, in one file, means the server has a single copy instead of one
  * per caller, and `server.formatBytes.test.ts` holds each of them to its
- * counterpart in `src/utils/formatBytes.ts`.
+ * counterpart in `src/utils/formatBytes.ts`; `server.share.test.ts` holds the
+ * share's `formatSize` to the same ladder.
  *
- * That is the cheaper side of the trade. Several server modules print a size, so
- * a copy per caller would multiply the places that can drift from the app, and
- * giving this side a build step to share the TypeScript module outright would
- * break the one property the server has kept: it runs as it is checked in. The
- * seam each caller sees is tested too -- `server.share.test.ts` holds the share's
- * rows to `formatBytesRoundedWithWholeBytes`, including the sizes it prints as
- * nothing.
+ * A build step on this side could share the TypeScript module outright, but it
+ * would cost the property the server has kept: it runs as it is checked in.
  *
- * Two modules print sizes and do not change:
+ * Two places print sizes and stay as they are:
  *
- * - The dashboard keeps its own ladder inside the script embedded in the page.
- *   The page has to be one document with no build step and no imports, so it
- *   cannot reach this module; `server.dashboard.test.ts` runs that script and
- *   pins every figure it writes, which is where a drifted copy shows up.
- * - `fileOps.cjs` prints one size, the shortfall of a transfer that cannot start,
- *   and it already asks this module for it: there is no ladder of its own to
- *   unify.
+ * - The dashboard's ladder lives in the script embedded in the page, which has to
+ *   be one document with no imports; `server.dashboard.test.ts` runs that script
+ *   and reads the rows it writes.
+ * - `fileOps.cjs` already calls `formatBytes` here for the one figure it prints,
+ *   the shortfall of a transfer that cannot start: it has no ladder to unify.
  */
 
 /**
