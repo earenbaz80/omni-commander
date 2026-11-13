@@ -50,6 +50,14 @@ describe('the transfer dashboard page', () => {
  * that only read the template would pass on any unit it printed. Here the script
  * is taken as it ships, given a fake document and a fake `fetch`, and the row it
  * wrote is what gets read.
+ *
+ * Coverage tooling reports `server/dashboard.cjs` as 0 %, because it is this
+ * string that runs and V8 does not instrument evaluated code. Moving the script
+ * into a module would buy that number back at the cost of the property the page
+ * exists for -- one file served with no build step, which survives the renderer
+ * breaking -- and a module the page could not inline without other machinery.
+ * The rows read below are the guarantee that matters: they fail when a figure
+ * changes, which is what a coverage percentage would only hint at.
  */
 async function renderJobs(jobs: unknown[]): Promise<string> {
   const script = /<script>([\s\S]*?)<\/script>/.exec(html);
