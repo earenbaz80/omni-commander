@@ -135,6 +135,13 @@ function dashboardHtml() {
       var d=(ORDER[a.status]==null?9:ORDER[a.status])-(ORDER[b.status]==null?9:ORDER[b.status]);
       return d!==0?d:(b.startedAt||0)-(a.startedAt||0);
     });
+    // The buttons carry the click: a press that lands just before a rebuild is
+    // released on a node that no longer exists, and the browser sends that click
+    // to the row. Keeping the live buttons and putting them back keeps it.
+    var slot=function(b){return b.getAttribute('data-id')+'/'+b.getAttribute('data-act');};
+    var live={};
+    var old=host.querySelectorAll('button[data-act]');
+    for(var i=0;i<old.length;i+=1) live[slot(old[i])]=old[i];
     host.innerHTML=list.map(function(j){
       var pct=pctOf(j.copiedBytes, j.totalBytes);
       var cls=j.status==='done'?'done':(j.status==='paused'?'paused':(j.status==='done-with-errors'||j.status==='error'?'done-with-errors':''));
@@ -175,6 +182,11 @@ function dashboardHtml() {
         errs+
       '</section>';
     }).join('');
+    var drawn=host.querySelectorAll('button[data-act]');
+    for(var k=0;k<drawn.length;k+=1){
+      var kept=live[slot(drawn[k])];
+      if(kept) drawn[k].parentNode.replaceChild(kept, drawn[k]);
+    }
   }
   document.addEventListener('click', function(ev){
     var btn=ev.target.closest('button[data-act]');

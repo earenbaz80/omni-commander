@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { ESLint } from 'eslint';
+import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 import { dashboardHtml } from './server/dashboard.cjs';
 
@@ -62,7 +63,9 @@ describe('the transfer dashboard page', () => {
  * the page: one file, no build step, still working when the renderer is what broke.
  */
 async function renderJobs(jobs: unknown[]): Promise<string> {
-  const host = { innerHTML: '' };
+  // No tree behind this host: the rows are read as text. The one behaviour that
+  // needs real nodes -- a press surviving a rebuild -- is checked in jsdom below.
+  const host = { innerHTML: '', querySelectorAll: () => [] as never[] };
   // One node per id, not a shared stand-in: a write aimed at the wrong slot has
   // to land somewhere the real page does not have, and be noticed below.
   const nodes = new Map<string, { textContent: string }>();
@@ -246,6 +249,45 @@ describe('the dashboard row', () => {
 
     const fractional = await renderJobs([job({ speedBps: 1.5 * 1024 * 1024 })]);
     expect(fractional).toContain('<b>1.5 MB/s</b>');
+  });
+
+  it('keeps the button a press landed on when the next poll rebuilds the row', async () => {
+    // The browser sends a click to the nearest node both the press and the
+    // release touched. Rebuilding the list between them used to leave the press
+    // on a detached node, so the click landed on the row and the button did
+    // nothing. Here a poll runs between the two, as the 600 ms timer does.
+    const { window } = new JSDOM(html, { url: 'http://127.0.0.1:9999/__jobs?t=page-token' });
+    const meta = { port: 8787, platform: 'win32', uptimeSeconds: 3660, activeCount: 1 };
+    let poll = () => {};
+    const posts: string[] = [];
+    const fetch = async (url: string, init?: { method?: string }) => {
+      if (init?.method === 'POST') posts.push(url);
+      return { json: async () => (url === '/api/fs/jobs' ? [job()] : meta) };
+    };
+    new Function('document', 'fetch', 'setInterval', 'location', 'URLSearchParams', pageScript())(
+      window.document,
+      fetch,
+      (callback: () => void) => {
+        poll = callback;
+        return 0;
+      },
+      window.location,
+      window.URLSearchParams,
+    );
+    const flush = async () => {
+      for (let turn = 0; turn < 4; turn += 1) await Promise.resolve();
+    };
+    await flush();
+
+    const pressed = window.document.querySelector('button[data-act]');
+    pressed?.dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true }));
+    poll();
+    await flush();
+
+    const released = window.document.querySelector('button[data-act]');
+    expect(released).toBe(pressed);
+    released?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    expect(posts).toEqual(['/api/fs/job/job-1/pause']);
   });
 
   it('shows no speed for a job that is not running', async () => {
