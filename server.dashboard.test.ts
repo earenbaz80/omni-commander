@@ -63,8 +63,8 @@ describe('the transfer dashboard page', () => {
  * the page: one file, no build step, still working when the renderer is what broke.
  */
 async function renderJobs(jobs: unknown[]): Promise<string> {
-  // No tree behind this host: the rows are read as text. The one behaviour that
-  // needs real nodes -- a press surviving a rebuild -- is checked in jsdom below.
+  // No tree behind this host: the rows are read as text. The behaviour that needs
+  // real nodes -- a press, a rebuild, then the release -- is checked in jsdom below.
   const host = { innerHTML: '', querySelectorAll: () => [] as never[] };
   // One node per id, not a shared stand-in: a write aimed at the wrong slot has
   // to land somewhere the real page does not have, and be noticed below.
@@ -121,7 +121,7 @@ async function renderJobs(jobs: unknown[]): Promise<string> {
 
   // Clicking a row's button posts the action to the job it belongs to.
   expect(clicks).toHaveLength(1);
-  const button = { getAttribute: (name: string) => (name === 'data-act' ? 'pause' : 'job-1') };
+  const button = { dataset: { id: 'job-1', act: 'pause' } };
   clicks[0]({ target: { closest: () => button } });
   expect(calls.map((call) => call.request)).toContain('POST /api/fs/job/job-1/pause');
   // Every request carries the token as a header, never as part of its URL.
@@ -251,11 +251,11 @@ describe('the dashboard row', () => {
     expect(fractional).toContain('<b>1.5 MB/s</b>');
   });
 
-  it('keeps the button a press landed on when the next poll rebuilds the row', async () => {
-    // The browser sends a click to the nearest node both the press and the
-    // release touched. Rebuilding the list between them used to leave the press
-    // on a detached node, so the click landed on the row and the button did
-    // nothing. Here a poll runs between the two, as the 600 ms timer does.
+  it('acts on the press, so a poll between press and release cannot swallow it', async () => {
+    // Chromium drops the click when the pressed button is replaced before the
+    // release: it delivers pointerdown and pointerup to the same node and then no
+    // click at all, so listening for click lost the action whenever the 600 ms
+    // poll repainted the row under the cursor. The press is acted on instead.
     const { window } = new JSDOM(html, { url: 'http://127.0.0.1:9999/__jobs?t=page-token' });
     const meta = { port: 8787, platform: 'win32', uptimeSeconds: 3660, activeCount: 1 };
     let poll = () => {};
@@ -274,20 +274,25 @@ describe('the dashboard row', () => {
       window.location,
       window.URLSearchParams,
     );
-    const flush = async () => {
-      for (let turn = 0; turn < 4; turn += 1) await Promise.resolve();
-    };
-    await flush();
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+    await settle();
 
     const pressed = window.document.querySelector('button[data-act]');
-    pressed?.dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true }));
-    poll();
-    await flush();
-
-    const released = window.document.querySelector('button[data-act]');
-    expect(released).toBe(pressed);
-    released?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    pressed?.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true }));
     expect(posts).toEqual(['/api/fs/job/job-1/pause']);
+
+    poll();
+    await settle();
+    const released = window.document.querySelector('button[data-act]');
+    released?.dispatchEvent(new window.MouseEvent('pointerup', { bubbles: true }));
+    // A pointer-born click must not repeat what the press already did.
+    released?.dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 1 }));
+    expect(posts).toEqual(['/api/fs/job/job-1/pause']);
+
+    // Nothing was pressed here: this is the click a keyboard produces.
+    const keyed = window.document.querySelector('button[data-act]');
+    keyed?.dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 0 }));
+    expect(posts).toEqual(['/api/fs/job/job-1/pause', '/api/fs/job/job-1/pause']);
   });
 
   it('shows no speed for a job that is not running', async () => {
