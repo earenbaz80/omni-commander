@@ -760,7 +760,7 @@ export const ja = {
   bgTasksResume: '再開',
   trayDashboard: '転送ダッシュボードを開く',
   trayWaiting: '回答待ち',
-  trayRepeat: '最後のキャンセルを再実行',
+  trayRepeat: '最後のキャンセルまたは失敗を再実行',
   bgTasksEmpty: 'バックグラウンドタスクはありません',
   diskUsageModalTitle: 'ディスク使用量',
   diskConnectedDrives: '接続中のドライブとストレージ',

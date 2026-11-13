@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BackgroundTasksModal } from './BackgroundTasksModal';
 import { themes } from '../../services/themeManager';
 import { taskQueue } from '../../services/taskQueueManager';
@@ -57,6 +57,25 @@ describe('the background tasks queue', () => {
     expect(onRunCopyList).toHaveBeenCalledWith([plan]);
     // The queue runs one transfer at a time; this executor is what holds it.
     finish();
+  });
+
+  it('repeats a transfer that failed with the plan it kept', async () => {
+    const id = taskQueue.addTask(
+      'copy',
+      'Copy 2 items',
+      'C:\\dest',
+      10,
+      async () => {
+        throw new Error('EPERM: operation not permitted');
+      },
+      plan,
+    );
+    await waitFor(() => expect(taskQueue.getTasks().find((entry) => entry.id === id)?.status).toBe('failed'));
+    const { onRunCopyList } = renderModal();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Repeat' }));
+
+    expect(onRunCopyList).toHaveBeenCalledWith([plan]);
   });
 
   it('offers nothing to repeat when the transfer left no plan behind', () => {
