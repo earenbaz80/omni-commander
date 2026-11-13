@@ -3,13 +3,6 @@ import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
 import { dashboardHtml } from './server/dashboard.cjs';
 
-/**
- * The monitoring page is a template with no interpolated values, so nothing it
- * renders can be wrong per request. What it can get wrong is drifting away from
- * the endpoints its own script calls, which is what these assertions pin down
- * without needing a browser.
- */
-
 const html = dashboardHtml();
 
 /** The page's own script, taken from the page as it ships. */
@@ -25,10 +18,9 @@ describe('the transfer dashboard page', () => {
     expect(html).not.toContain('<script src');
   });
 
-  it('reaches the endpoints the page cannot work without', () => {
-    // The job list is pinned by the rows the harness renders; these two are the
-    // metadata counters and the action a button posts to.
-    expect(html).toContain('/api/fs/dashboard');
+  it('posts a job action to the route the server serves', () => {
+    // The job list and the metadata are fetched for real by the harness below;
+    // this is the one route only a click reaches.
     expect(html).toContain('/api/fs/job/');
   });
 
@@ -58,13 +50,9 @@ describe('the transfer dashboard page', () => {
 /**
  * Runs the page's own script against one job, without a browser.
  *
- * The sizes and the speed are painted by that script and nothing else, so a test
- * that only read the template would pass on any unit it printed. Here the script
- * is taken as it ships, given a fake document and a fake `fetch`, and the row it
- * wrote is what gets read.
- *
- * Coverage never measures this script, so the rows read below are the only check
- * on its figures. Extracting it into a module to be measured would cost the one
+ * The rows are painted by that script and nothing else, so a test that only read
+ * the template would pass on any figure it printed. Coverage never measures the
+ * script either; extracting it into a module to be measured would cost the one
  * thing the page is for: a single file, no build step, that still works when the
  * renderer is what broke.
  */
@@ -73,6 +61,7 @@ async function renderJobs(jobs: unknown[]): Promise<string> {
   // One node per id, not a shared stand-in: a write aimed at the wrong slot has
   // to land somewhere the real page does not have, and be noticed below.
   const nodes = new Map<string, { textContent: string }>();
+  const clicks: Array<(event: any) => void> = [];
   const document = {
     getElementById: (id: string) => {
       if (id === 'jobs') return host;
@@ -80,14 +69,21 @@ async function renderJobs(jobs: unknown[]): Promise<string> {
       nodes.set(id, node);
       return node;
     },
-    addEventListener: () => {},
+    addEventListener: (type: string, handler: (event: any) => void) => {
+      if (type === 'click') clicks.push(handler);
+    },
   };
   // Four values that cannot be confused on sight, so a swapped assignment is
   // visible rather than rendering a plausible number in the wrong slot.
   const meta = { port: 8787, platform: 'win32', uptimeSeconds: 3660, activeCount: 3 };
-  const fetch = async (url: string) => ({
-    json: async () => (url === '/api/fs/jobs' ? jobs : meta),
-  });
+  const calls: string[] = [];
+  const fetch = async (url: string, init?: { method?: string }) => {
+    calls.push(`${init?.method ?? 'GET'} ${url}`);
+    if (url === '/api/fs/jobs') return { json: async () => jobs };
+    if (url === '/api/fs/dashboard') return { json: async () => meta };
+    // A route the page made up rejects, and the slot check below then fails.
+    throw new Error(`unexpected ${url}`);
+  };
   // The page polls forever; the first pass is all this test needs.
   const setInterval = () => 0;
 
@@ -99,10 +95,19 @@ async function renderJobs(jobs: unknown[]): Promise<string> {
   // hold the figure meant for it; an id nobody listed here fails instead of
   // passing quietly.
   const shown: Record<string, string> = { port: '8787', platform: 'win32', uptime: '1h 1m', active: '3' };
-  for (const [id, node] of nodes) {
+  // The set first, so a run where the page reached no slot at all -- because a
+  // route it made up rejected -- fails here instead of checking nothing.
+  expect([...nodes.keys()].sort()).toEqual(Object.keys(shown).sort());
+  for (const [id, text] of Object.entries(shown)) {
     expect(html).toContain(`id="${id}"`);
-    expect(String(node.textContent), id).toBe(shown[id]);
+    expect(String(nodes.get(id)?.textContent), id).toBe(text);
   }
+
+  // Clicking a row's button posts the action to the job it belongs to.
+  expect(clicks).toHaveLength(1);
+  const button = { getAttribute: (name: string) => (name === 'data-act' ? 'pause' : 'job-1') };
+  clicks[0]({ target: { closest: () => button } });
+  expect(calls).toContain('POST /api/fs/job/job-1/pause');
 
   return host.innerHTML;
 }
@@ -141,7 +146,7 @@ describe('the dashboard row', () => {
     }
   });
 
-  it('never lets a copied total push the bar past its end', async () => {
+  it('keeps the bar inside its lane and the rows in the order it sorts them', async () => {
     // A total the job restated can leave more copied than the new size; the cap
     // is what keeps the fill inside the bar instead of overflowing it.
     const row = await renderJobs([job({ copiedBytes: 2 * 1024 * 1024 * 1024, totalBytes: 1024 * 1024 * 1024 })]);
@@ -151,6 +156,19 @@ describe('the dashboard row', () => {
     expect(row).toContain('Pause');
     expect(row).toContain('Cancel');
     expect(row).toContain('items <b>1</b> / 2');
+
+    // The engine sends the list in whatever order it likes: work still moving
+    // goes on top, and the newest of a status above the older ones.
+    const ordered = await renderJobs([
+      job({ label: 'terminado', status: 'done', startedAt: 300 }),
+      job({ label: 'en curso viejo', status: 'running', startedAt: 100 }),
+      job({ label: 'pausado', status: 'paused', startedAt: 200 }),
+      job({ label: 'en curso nuevo', status: 'running', startedAt: 400 }),
+    ]);
+    const at = (label: string) => ordered.indexOf(`class="name">${label}<`);
+    expect(at('en curso nuevo')).toBeLessThan(at('en curso viejo'));
+    expect(at('en curso viejo')).toBeLessThan(at('pausado'));
+    expect(at('pausado')).toBeLessThan(at('terminado'));
   });
 
   it('reads a size that is not a number as nothing copied', async () => {
