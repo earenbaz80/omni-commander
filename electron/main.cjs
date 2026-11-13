@@ -9,6 +9,7 @@ const {
   dialog,
   shell,
   session,
+  Notification,
 } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
@@ -25,6 +26,11 @@ const { isTransientUpdateError, nextRetryDelay } = require('./updateRetry.cjs');
 const { normalizeBrowserUrl } = require('./browserUrl.cjs');
 const { dashboardUrl } = require('./dashboardUrl.cjs');
 const { clampText, normalizeTrayState } = require('./trayState.cjs');
+const { jobNotice } = require('./jobNotices.cjs');
+
+// Windows groups a toast by this id and may drop one that has none; it is the id
+// the installer registers, so the notification is attributed to this app.
+if (process.platform === 'win32') app.setAppUserModelId('com.omnicmd.desktop');
 
 // Per-launch session token. It is the shared secret between this process, the
 // embedded API server and the renderer: every mutating request, and every GET
@@ -56,6 +62,8 @@ try {
   serverApi.onPortReady((port) => {
     apiPort = port;
   });
+  // A transfer can end with the window closed; the toast is the only way back to it.
+  serverApi.onJobFinished(notifyJobEnded);
 } catch (error) {
   console.error('Unable to start local drive server:', error);
 }
@@ -338,6 +346,28 @@ function sendTrayCommand(command) {
 }
 
 /**
+ * The engine page in a browser. The tray item and a finished transfer's toast both
+ * lead here, and the helper is what decides whether there is a page to open at all.
+ */
+function openDashboard() {
+  const url = dashboardUrl(apiPort, sessionToken);
+  if (url) void shell.openExternal(url);
+}
+
+/**
+ * Announces a transfer that reached a final state. The rules for when that is
+ * worth a toast live in the module; here it is only shown, and clicking it goes to
+ * the page where the rest of the story is.
+ */
+function notifyJobEnded(job) {
+  const notice = jobNotice(job);
+  if (!notice || !Notification.isSupported()) return;
+  const toast = new Notification({ title: notice.title, body: notice.body });
+  toast.on('click', openDashboard);
+  toast.show();
+}
+
+/**
  * Rebuilds the menu from the mirrored snapshot. Resume and Pause are mutually
  * exclusive so the menu always states what a click will actually do.
  */
@@ -377,7 +407,7 @@ function refreshTrayMenu() {
       // at all; the item is enabled exactly when it answers with a URL.
       label: labels.dashboard,
       enabled: dashboardUrl(apiPort, sessionToken) !== null,
-      click: () => shell.openExternal(dashboardUrl(apiPort, sessionToken)),
+      click: openDashboard,
     },
     { type: 'separator' },
     {
