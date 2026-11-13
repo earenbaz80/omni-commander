@@ -259,9 +259,10 @@ describe('useTransferQueue', () => {
     await waitFor(() => expect(result.current.conflictPrompt).toBeNull());
   });
 
-  it('stops calling a transfer waiting once its job is answered elsewhere', async () => {
+  it('takes the prompt down when its job is answered somewhere else', async () => {
     // The dashboard answers the same job without going through this window, so the
-    // prompt here never closes: the job's own poll is what says it is moving again.
+    // prompt here would stay on screen and send its answer to a job that is no
+    // longer parked: the job's own poll is what says it is moving again.
     vi.mocked(taskQueue.setWaitingForAnswer).mockClear();
     let runExecutor:
       ((onProgress: unknown, signal: { paused: boolean; cancelled: boolean }) => Promise<void>) | undefined;
@@ -269,6 +270,8 @@ describe('useTransferQueue', () => {
       runExecutor = args[4] as typeof runExecutor;
       return 'task-1';
     });
+    let unparked: (jobId: string) => void = () => {};
+    let release = () => {};
     transferPaths.mockImplementation(async (...args: unknown[]) => {
       (args[7] as (conflict: unknown) => void)({
         jobId: 'job_9',
@@ -276,18 +279,27 @@ describe('useTransferQueue', () => {
         destination: 'D:\\a.txt',
         name: 'a.txt',
       });
-      // What the job's poll reports once the answer released it.
-      (args[10] as (jobId: string) => void)('job_9');
+      unparked = args[10] as typeof unparked;
+      // Still parked until the test says otherwise, so nothing below can be the
+      // executor's own cleanup at the end of the transfer.
+      await new Promise<void>((resolve) => (release = resolve));
     });
 
     const { result } = renderHook(() => useTransferQueue(deps()));
     await result.current.handleRunCopyList([plan]);
-    await runExecutor!(() => {}, { paused: false, cancelled: false });
+    const run = runExecutor!(() => {}, { paused: false, cancelled: false });
+    await waitFor(() => expect(result.current.conflictPrompt).not.toBeNull());
 
+    unparked('job_9');
+
+    await waitFor(() => expect(result.current.conflictPrompt).toBeNull());
     expect(vi.mocked(taskQueue.setWaitingForAnswer).mock.calls).toEqual([
       ['job_9', true],
       ['job_9', false],
     ]);
+
+    release();
+    await run;
   });
 
   it('parks nothing and says so when there is no bridge to restart through', async () => {
