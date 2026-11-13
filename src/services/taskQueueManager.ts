@@ -67,10 +67,8 @@ class TaskQueueManager {
   }
 
   private notify() {
-    // A transfer that ends while its conflict prompt is still open cannot keep
-    // waiting for an answer: cancelling from the tray or the engine giving up ends
-    // it without one. Dropping the flag here covers every way a task reaches a
-    // terminal status, instead of each of them remembering to.
+    // A transfer that ended while its prompt was open cannot still be waiting for an
+    // answer; dropping the flag here covers every path to a terminal status at once.
     for (const task of this.tasks) {
       if (task.waitingForAnswer && !LIVE_STATUSES.has(task.status)) task.waitingForAnswer = false;
     }

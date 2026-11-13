@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { taskQueue } from './taskQueueManager';
 import { FileProgressEntry, TransferPlan } from '../types';
 
@@ -122,11 +122,8 @@ describe('taskQueue per-file progress', () => {
 });
 
 /**
- * A transfer parked on a conflict can end without that conflict ever being
- * answered: the user cancels it elsewhere, or the engine gives up on it. The task
- * keeps the plan for a repeat, but it must not keep waiting for an answer nobody
- * is going to give -- a finished row that still claims to be parked says the tray
- * has work to offer that no click can reach.
+ * A transfer parked on a conflict can end unanswered: cancelled elsewhere, or the
+ * engine giving up. The plan stays for a repeat; waiting for an answer must not.
  */
 describe('taskQueue and a conflict left unanswered', () => {
   beforeEach(() => {
@@ -139,12 +136,6 @@ describe('taskQueue and a conflict left unanswered', () => {
     taskQueue.updateTaskMeta(id, { serverJobId: jobId });
     taskQueue.setWaitingForAnswer(jobId, true);
     return id;
-  };
-
-  const until = async (done: () => boolean) => {
-    for (let attempt = 0; attempt < 100 && !done(); attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    }
   };
 
   it('stops waiting when the transfer is cancelled from somewhere else', async () => {
@@ -165,7 +156,6 @@ describe('taskQueue and a conflict left unanswered', () => {
 
     // The queue runs one transfer at a time and this executor is what holds it.
     finish();
-    await until(() => taskById(id).status === 'cancelled');
   });
 
   it('stops waiting when the engine gives up and the transfer fails', async () => {
@@ -173,9 +163,7 @@ describe('taskQueue and a conflict left unanswered', () => {
       throw new Error('conflict left unanswered');
     });
 
-    await until(() => taskById(id).status === 'failed');
-
-    expect(taskById(id).status).toBe('failed');
+    await vi.waitFor(() => expect(taskById(id).status).toBe('failed'));
     expect(taskById(id).waitingForAnswer).toBe(false);
   });
 
@@ -190,8 +178,7 @@ describe('taskQueue and a conflict left unanswered', () => {
     );
 
     finish();
-    await until(() => taskById(id).status === 'completed');
-
+    await vi.waitFor(() => expect(taskById(id).status).toBe('completed'));
     expect(taskById(id).waitingForAnswer).toBe(false);
   });
 });
