@@ -24,6 +24,7 @@ const { canReloadRenderer, rendererGoneLine } = require('./rendererRecovery.cjs'
 const { isTransientUpdateError, nextRetryDelay } = require('./updateRetry.cjs');
 const { normalizeBrowserUrl } = require('./browserUrl.cjs');
 const { dashboardUrl } = require('./dashboardUrl.cjs');
+const { clampText, normalizeTrayState } = require('./trayState.cjs');
 
 // Per-launch session token. It is the shared secret between this process, the
 // embedded API server and the renderer: every mutating request, and every GET
@@ -283,10 +284,7 @@ function setupUpdater() {
 // main process that waits is not.
 // ---------------------------------------------------------------------------
 
-const TRAY_LABEL_LIMIT = 32;
-const TRAY_TITLE_LIMIT = 60;
 const TRAY_TOOLTIP_LIMIT = 120;
-const LIVE_STATUSES = ['running', 'paused', 'queued'];
 
 let tray = null;
 let trayMenu = null;
@@ -302,48 +300,10 @@ let trayState = {
     resume: 'Resume',
     pause: 'Pause',
     cancel: 'Cancel',
+    dashboard: 'Open transfer dashboard',
     quit: 'Quit',
   },
 };
-
-/** Cuts a string to a length that still fits a tray tooltip or a menu row. */
-function clampText(value, limit) {
-  const text = typeof value === 'string' ? value.trim() : '';
-  return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
-}
-
-/**
- * The renderer is the only writer, but it is still a web page: treat everything
- * it sends as untrusted input and rebuild a fresh object with known field types.
- */
-function normalizeTrayState(payload) {
-  const source = payload && typeof payload === 'object' ? payload : {};
-  const rawTask = source.task && typeof source.task === 'object' ? source.task : null;
-  const status = rawTask && LIVE_STATUSES.includes(rawTask.status) ? rawTask.status : null;
-  const task = status
-    ? {
-        id: clampText(rawTask.id, TRAY_TITLE_LIMIT),
-        title: clampText(rawTask.title, TRAY_TITLE_LIMIT) || 'Transfer',
-        status,
-        progress: Number.isFinite(rawTask.progress) ? Math.min(100, Math.max(0, Math.round(rawTask.progress))) : 0,
-      }
-    : null;
-  const rawCount = Number(source.activeCount);
-  const activeCount = Number.isFinite(rawCount) ? Math.min(99, Math.max(0, Math.trunc(rawCount))) : task ? 1 : 0;
-  const rawLabels = source.labels && typeof source.labels === 'object' ? source.labels : {};
-
-  return {
-    hasLiveWork: activeCount > 0 || !!task,
-    activeCount,
-    task,
-    labels: {
-      resume: clampText(rawLabels.resume, TRAY_LABEL_LIMIT) || 'Resume',
-      pause: clampText(rawLabels.pause, TRAY_LABEL_LIMIT) || 'Pause',
-      cancel: clampText(rawLabels.cancel, TRAY_LABEL_LIMIT) || 'Cancel',
-      quit: clampText(rawLabels.quit, TRAY_LABEL_LIMIT) || 'Quit',
-    },
-  };
-}
 
 /**
  * The tray uses a 32px PNG derived from the installer icon: Windows scales it
