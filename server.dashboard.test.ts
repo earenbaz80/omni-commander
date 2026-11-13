@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { ESLint } from 'eslint';
 import { JSDOM } from 'jsdom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { dashboardHtml } from './server/dashboard.cjs';
 
 const html = dashboardHtml();
@@ -41,6 +41,7 @@ describe('the transfer dashboard page', () => {
             document: 'readonly',
             fetch: 'readonly',
             setInterval: 'readonly',
+            clearInterval: 'readonly',
             location: 'readonly',
             URLSearchParams: 'readonly',
           },
@@ -87,13 +88,15 @@ async function renderJobs(jobs: unknown[]): Promise<string> {
   const calls: Array<{ request: string; token?: string }> = [];
   const fetch = async (url: string, init?: { method?: string; headers?: Record<string, string> }) => {
     calls.push({ request: `${init?.method ?? 'GET'} ${url}`, token: init?.headers?.['x-omni-token'] });
-    if (url === '/api/fs/jobs') return { json: async () => jobs };
-    if (url === '/api/fs/dashboard') return { json: async () => meta };
+    if (url === '/api/fs/jobs') return { ok: true, json: async () => jobs };
+    if (url === '/api/fs/dashboard') return { ok: true, json: async () => meta };
     // A route the page made up rejects, and the slot check below then fails.
     throw new Error(`unexpected ${url}`);
   };
   // The page polls forever; the first pass is all this test needs.
-  const setInterval = () => 0;
+  // A browser hands back a positive id; a stub returning 0 would look like
+  // "no timer" to the page's own stop/start bookkeeping.
+  const setInterval = () => 1;
 
   // The page is opened with its token in the URL, the one place a navigation can
   // carry it; everything it calls afterwards has to prove itself with a header.
@@ -255,28 +258,31 @@ describe('the dashboard row', () => {
    * Runs the page as a browser would, with the poll timer handed back so a test
    * can step it: the page keeps its own nodes and listeners this way.
    */
-  async function mountPage() {
+  async function mountPage(jobsAnswer?: () => Promise<{ ok?: boolean; json: () => Promise<unknown> }>) {
     const { window } = new JSDOM(html, { url: 'http://127.0.0.1:9999/__jobs?t=page-token' });
     const meta = { port: 8787, platform: 'win32', uptimeSeconds: 3660, activeCount: 1 };
     let poll = () => {};
+    let started = 0;
     const posts: string[] = [];
     const fetch = async (url: string, init?: { method?: string }) => {
       if (init?.method === 'POST') posts.push(url);
-      return { json: async () => (url === '/api/fs/jobs' ? [job()] : meta) };
+      if (url === '/api/fs/jobs') return jobsAnswer ? jobsAnswer() : { ok: true, json: async () => [job()] };
+      return { ok: true, json: async () => meta };
     };
     new Function('document', 'fetch', 'setInterval', 'location', 'URLSearchParams', pageScript())(
       window.document,
       fetch,
       (callback: () => void) => {
         poll = callback;
-        return 0;
+        started += 1;
+        return started;
       },
       window.location,
       window.URLSearchParams,
     );
     const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
     await settle();
-    return { window, poll: () => poll(), posts, settle };
+    return { window, poll: () => poll(), posts, settle, startedPolls: () => started };
   }
 
   it('acts on the press, so a poll between press and release cannot swallow it', async () => {
@@ -316,6 +322,45 @@ describe('the dashboard row', () => {
     const again = window.document.querySelector('button[data-act="pause"]') as HTMLElement;
     expect(again).not.toBe(first);
     expect(window.document.activeElement).toBe(again);
+  });
+
+  it('says the engine is unreachable instead of leaving stale rows looking current', async () => {
+    // A restart binds another port and mints another token, so a page left open
+    // starts failing every request while its rows keep their old progress.
+    let down = true;
+    const { window, poll, settle } = await mountPage(async () =>
+      down ? { ok: false, json: async () => ({}) } : { ok: true, json: async () => [job({ label: 'Recovered' })] },
+    );
+    const link = window.document.getElementById('link') as HTMLElement;
+    expect(link.textContent).toContain('Engine unreachable');
+    // Nothing from the failed answer reached the list.
+    expect(window.document.getElementById('jobs')?.textContent).toContain('Loading jobs');
+
+    down = false;
+    poll();
+    await settle();
+    expect(link.textContent).toBe('');
+    expect(window.document.getElementById('jobs')?.textContent).toContain('Recovered');
+  });
+
+  it('stops the timer while the tab is hidden and catches up when it returns', async () => {
+    const { window, settle, startedPolls } = await mountPage();
+    const cleared = vi.spyOn(globalThis, 'clearInterval');
+    const visibility = (hidden: boolean) => {
+      Object.defineProperty(window.document, 'hidden', { configurable: true, get: () => hidden });
+      window.document.dispatchEvent(new window.Event('visibilitychange'));
+    };
+    const polls = startedPolls();
+
+    visibility(true);
+    expect(cleared).toHaveBeenCalled();
+    expect(startedPolls()).toBe(polls);
+
+    // Coming back polls at once instead of waiting out the next tick.
+    visibility(false);
+    await settle();
+    expect(startedPolls()).toBe(polls + 1);
+    cleared.mockRestore();
   });
 
   it('shows no speed for a job that is not running', async () => {

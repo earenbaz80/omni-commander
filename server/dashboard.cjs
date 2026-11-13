@@ -65,6 +65,8 @@ function dashboardHtml() {
   button { background:#111c30; color:#cbd5e1; border:1px solid #1e293b; border-radius:6px; padding:4px 10px; font-size:11px; cursor:pointer; }
   button:hover { border-color:#22d3ee; color:#67e8f9; }
   .empty { border:1px dashed #1e293b; border-radius:10px; padding:26px; text-align:center; color:#475569; }
+  #link { flex:1 1 100%; background:#3b0d0d; border:1px solid #7f1d1d; color:#fecaca; border-radius:6px; padding:6px 10px; font-size:12px; }
+  #link:empty { display:none; }
 </style>
 </head>
 <body>
@@ -74,6 +76,7 @@ function dashboardHtml() {
   <span class="pill">platform <b id="platform">-</b></span>
   <span class="pill">process up <b id="uptime">-</b></span>
   <span class="pill">active <b id="active">0</b></span>
+  <div id="link"></div>
 </header>
 <main id="jobs"><div class="empty">Loading jobs...</div></main>
 <script>
@@ -198,8 +201,20 @@ function dashboardHtml() {
   document.addEventListener('pointerdown', act);
   document.addEventListener('click', function(ev){ if(!ev.detail) act(ev); });
   var lastMeta=0;
+  // A page left open outlives the engine: a restart binds another port and mints
+  // another token, so every request starts failing while the rows from the last
+  // answer stay on screen looking current. The banner is what says they are not.
+  var offline=false;
+  function linkState(lost){
+    if(lost===offline) return;
+    offline=lost;
+    document.getElementById('link').textContent=lost?'Engine unreachable — what is left below is the last it reported.':'';
+  }
   function tick(){
-    api('/api/fs/jobs').then(function(r){return r.json();}).then(render).catch(function(){});
+    api('/api/fs/jobs').then(function(r){
+      if(!r.ok) throw new Error('status '+r.status);
+      return r.json();
+    }).then(function(list){ linkState(false); render(list); }).catch(function(){ linkState(true); });
     var now=Date.now();
     if(now-lastMeta>2000){
       lastMeta=now;
@@ -211,8 +226,22 @@ function dashboardHtml() {
       }).catch(function(){});
     }
   }
-  tick();
-  setInterval(tick,600);
+  var timer=null;
+  function start(){
+    if(timer) return;
+    tick();
+    timer=setInterval(tick,600);
+  }
+  function stop(){
+    if(!timer) return;
+    clearInterval(timer);
+    timer=null;
+  }
+  // A hidden tab has nothing to show and no reason to keep the engine working.
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden) stop(); else start();
+  });
+  start();
 })();
 </script>
 </body>
