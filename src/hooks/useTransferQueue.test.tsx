@@ -71,6 +71,7 @@ beforeEach(() => {
   parkPlan.mockClear();
   takePlan.mockClear();
   transferPaths.mockReset();
+  vi.mocked(taskQueue.setWaitingForAnswer).mockClear();
   parked.current = null;
 });
 
@@ -217,6 +218,19 @@ describe('useTransferQueue', () => {
    * down: the user would be answering a question for a transfer that already ended,
    * and the engine job would stay parked holding a slot.
    */
+  // A job parked on a destination that already exists, as the poll reports it.
+  const conflictFor = (jobId: string) => ({
+    jobId,
+    source: 'C:\\a.txt',
+    destination: 'D:\\a.txt',
+    name: 'a.txt',
+    sourceSize: 3,
+    destinationSize: 4,
+    sourceModified: 1,
+    destinationModified: 2,
+    identical: false,
+  });
+
   it('takes the conflict prompt down when the transfer is cancelled from elsewhere', async () => {
     let runExecutor:
       ((onProgress: unknown, signal: { paused: boolean; cancelled: boolean }) => Promise<void>) | undefined;
@@ -232,17 +246,7 @@ describe('useTransferQueue', () => {
       release = resolve;
     });
     transferPaths.mockImplementation(async (...args: unknown[]) => {
-      (args[7] as (conflict: unknown) => void)({
-        jobId: 'job_9',
-        source: 'C:\\a.txt',
-        destination: 'D:\\a.txt',
-        name: 'a.txt',
-        sourceSize: 3,
-        destinationSize: 4,
-        sourceModified: 1,
-        destinationModified: 2,
-        identical: false,
-      });
+      (args[7] as (conflict: unknown) => void)(conflictFor('job_9'));
       await parked;
     });
 
@@ -260,10 +264,8 @@ describe('useTransferQueue', () => {
   });
 
   it('takes the prompt down when its job is answered somewhere else', async () => {
-    // The dashboard answers the same job without going through this window, so the
-    // prompt here would stay on screen and send its answer to a job that is no
-    // longer parked: the job's own poll is what says it is moving again.
-    vi.mocked(taskQueue.setWaitingForAnswer).mockClear();
+    // The dashboard answers this job without going through this window, so its prompt
+    // has to come down as soon as the job's poll says it is moving again.
     let runExecutor:
       ((onProgress: unknown, signal: { paused: boolean; cancelled: boolean }) => Promise<void>) | undefined;
     addTask.mockImplementation((...args: unknown[]) => {
@@ -273,12 +275,7 @@ describe('useTransferQueue', () => {
     let unparked: (jobId: string) => void = () => {};
     let release = () => {};
     transferPaths.mockImplementation(async (...args: unknown[]) => {
-      (args[7] as (conflict: unknown) => void)({
-        jobId: 'job_9',
-        source: 'C:\\a.txt',
-        destination: 'D:\\a.txt',
-        name: 'a.txt',
-      });
+      (args[7] as (conflict: unknown) => void)(conflictFor('job_9'));
       unparked = args[10] as typeof unparked;
       // Still parked until the test says otherwise, so nothing below can be the
       // executor's own cleanup at the end of the transfer.
