@@ -42,6 +42,8 @@ describe('the transfer dashboard page', () => {
             fetch: 'readonly',
             setInterval: 'readonly',
             clearInterval: 'readonly',
+            sessionStorage: 'readonly',
+            history: 'readonly',
             location: 'readonly',
             URLSearchParams: 'readonly',
           },
@@ -258,31 +260,42 @@ describe('the dashboard row', () => {
    * Runs the page as a browser would, with the poll timer handed back so a test
    * can step it: the page keeps its own nodes and listeners this way.
    */
-  async function mountPage(jobsAnswer?: () => Promise<{ ok?: boolean; json: () => Promise<unknown> }>) {
-    const { window } = new JSDOM(html, { url: 'http://127.0.0.1:9999/__jobs?t=page-token' });
+  async function mountPage(
+    jobsAnswer?: () => Promise<{ ok?: boolean; json: () => Promise<unknown> }>,
+    start: { search?: string; token?: string; cookie?: string } = {},
+  ) {
+    const search = start.search ?? '?t=page-token';
     const meta = { port: 8787, platform: 'win32', uptimeSeconds: 3660, activeCount: 1 };
     let poll = () => {};
     let started = 0;
     const posts: string[] = [];
-    const fetch = async (url: string, init?: { method?: string }) => {
+    const headers: Array<Record<string, string> | undefined> = [];
+    const fetch = async (url: string, init?: { method?: string; headers?: Record<string, string> }) => {
       if (init?.method === 'POST') posts.push(url);
+      headers.push(init?.headers);
       if (url === '/api/fs/jobs') return jobsAnswer ? jobsAnswer() : { ok: true, json: async () => [job()] };
       return { ok: true, json: async () => meta };
     };
-    new Function('document', 'fetch', 'setInterval', 'location', 'URLSearchParams', pageScript())(
-      window.document,
-      fetch,
-      (callback: () => void) => {
-        poll = callback;
-        started += 1;
-        return started;
+    // The page runs inside the window, not in a function called by the test: its
+    // globals are the window's, which is the only way to see it rewrite the address
+    // bar or keep the token in the tab's storage.
+    const { window } = new JSDOM(html, {
+      url: `http://127.0.0.1:9999/__jobs${search}`,
+      runScripts: 'dangerously',
+      beforeParse(win: any) {
+        win.fetch = fetch;
+        win.setInterval = (callback: () => void) => {
+          poll = callback;
+          started += 1;
+          return started;
+        };
+        if (start.token) win.sessionStorage.setItem('omni-page-token', start.token);
+        if (start.cookie) win.document.cookie = `omni-page=${encodeURIComponent(start.cookie)}`;
       },
-      window.location,
-      window.URLSearchParams,
-    );
+    });
     const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
     await settle();
-    return { window, poll: () => poll(), posts, settle, startedPolls: () => started };
+    return { window, poll: () => poll(), posts, headers, settle, startedPolls: () => started };
   }
 
   it('acts on the press, so a poll between press and release cannot swallow it', async () => {
@@ -324,6 +337,22 @@ describe('the dashboard row', () => {
     expect(window.document.activeElement).toBe(again);
   });
 
+  it('keeps the token in the tab and out of the address bar', async () => {
+    // The URL is the only thing a navigation can carry, but leaving the secret there
+    // puts it in the history and in any screenshot of the window.
+    const { window, headers } = await mountPage();
+    expect(window.location.search).toBe('');
+    expect(window.sessionStorage.getItem('omni-page-token')).toBe('page-token');
+    expect(headers.some((sent) => sent?.['x-omni-token'] === 'page-token')).toBe(true);
+  });
+
+  it('polls with the token the visit left in a cookie when the URL has none', async () => {
+    // The reload arrives with the address bar already rewritten by the first visit.
+    const { window, headers } = await mountPage(undefined, { search: '', cookie: 'kept-token' });
+    expect(window.location.search).toBe('');
+    expect(headers.some((sent) => sent?.['x-omni-token'] === 'kept-token')).toBe(true);
+  });
+
   it('says the engine is unreachable instead of leaving stale rows looking current', async () => {
     // A restart binds another port and mints another token, so a page left open
     // starts failing every request while its rows keep their old progress.
@@ -345,7 +374,7 @@ describe('the dashboard row', () => {
 
   it('stops the timer while the tab is hidden and catches up when it returns', async () => {
     const { window, settle, startedPolls } = await mountPage();
-    const cleared = vi.spyOn(globalThis, 'clearInterval');
+    const cleared = vi.spyOn(window, 'clearInterval');
     const visibility = (hidden: boolean) => {
       Object.defineProperty(window.document, 'hidden', { configurable: true, get: () => hidden });
       window.document.dispatchEvent(new window.Event('visibilitychange'));

@@ -175,6 +175,28 @@ function isTokenValid(req) {
  * origin gate, not for the token requirement: a mutation still has to send the
  * header, so a token that ends up in a URL can never authorise a write.
  */
+/**
+ * The proof the dashboard page leaves behind once it has been opened.
+ *
+ * The page takes the token out of its own address bar, so a reload arrives with
+ * nothing in the URL; the cookie is what lets that reload through, and it can only
+ * open the page, never authorise a write.
+ */
+const PAGE_COOKIE = 'omni-page';
+const PAGE_COOKIE_MAX_AGE = 12 * 60 * 60;
+
+function hasPageCookie(req) {
+  if (!SESSION_TOKEN) return true;
+  if (typeof req.headers.cookie !== 'string') return false;
+  const match = new RegExp(`(?:^|;\\s*)${PAGE_COOKIE}=([^;]+)`).exec(req.headers.cookie);
+  if (!match) return false;
+  try {
+    return decodeURIComponent(match[1]) === SESSION_TOKEN;
+  } catch {
+    return false;
+  }
+}
+
 function hasQueryToken(req) {
   if (!SESSION_TOKEN) return true;
   const fromQuery = req.query && typeof req.query.t === 'string' ? req.query.t : '';
@@ -210,7 +232,7 @@ app.use((req, res, next) => {
   }
   // A write, and any read of the disk, still has to prove itself with the header:
   // the query token is only good enough to load a picture, or the dashboard page.
-  const pageTokenValid = QUERY_TOKEN_ROUTES.has(req.path) && hasQueryToken(req);
+  const pageTokenValid = QUERY_TOKEN_ROUTES.has(req.path) && (hasQueryToken(req) || hasPageCookie(req));
   if (requiresSessionToken(req) && !headerTokenValid && !pageTokenValid) {
     res.status(403).json({ error: 'Missing or invalid session token' });
     return;
@@ -452,7 +474,15 @@ function registerFsRoutes() {
   });
 
   // Live monitoring surface for the transfer engine.
-  app.get('/__jobs', (_req, res) => {
+  app.get('/__jobs', (req, res) => {
+    // The page strips the token from its own URL, so the visit that carried it
+    // leaves the proof in a same-site cookie for the reload to use.
+    if (hasQueryToken(req)) {
+      res.setHeader(
+        'Set-Cookie',
+        `${PAGE_COOKIE}=${encodeURIComponent(SESSION_TOKEN)}; Path=/; Max-Age=${PAGE_COOKIE_MAX_AGE}; SameSite=Strict`,
+      );
+    }
     res.type('html').send(dashboardHtml());
   });
 

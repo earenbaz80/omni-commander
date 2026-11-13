@@ -81,10 +81,24 @@ function dashboardHtml() {
 <main id="jobs"><div class="empty">Loading jobs...</div></main>
 <script>
 (function(){
-  // The page is opened by a navigation, which cannot send a header, so it takes
-  // the token from its own URL once and sends it as a header from then on. Every
-  // request below goes through here: the token never rides in their URLs.
-  var token=new URLSearchParams(location.search).get('t')||'';
+  // The page is opened by a navigation, which cannot send a header, so the token
+  // arrives in the URL once and is sent as a header from then on. It is kept for
+  // this tab so a reload still works, and the address bar is put back to the plain
+  // page: what stays there ends up in the history and in every screenshot of it.
+  var token='';
+  try{
+    token=new URLSearchParams(location.search).get('t')||'';
+    if(!token){
+      // The visit that carried the token left a cookie; a reload arrives without it.
+      var kept=/(?:^|;\s*)omni-page=([^;]+)/.exec(document.cookie||'');
+      if(kept) token=decodeURIComponent(kept[1]);
+    }
+    if(!token) token=sessionStorage.getItem('omni-page-token')||'';
+    if(token) sessionStorage.setItem('omni-page-token',token);
+    if(location.search) history.replaceState(null,'',location.pathname);
+  }catch{
+    /* A browser that refuses the storage or the rewrite keeps working from the URL. */
+  }
   function api(url, init){
     init=init||{};
     if(token) init.headers={'x-omni-token':token};
