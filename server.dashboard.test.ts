@@ -42,7 +42,6 @@ describe('the transfer dashboard page', () => {
             fetch: 'readonly',
             setInterval: 'readonly',
             clearInterval: 'readonly',
-            sessionStorage: 'readonly',
             history: 'readonly',
             location: 'readonly',
             URLSearchParams: 'readonly',
@@ -262,7 +261,7 @@ describe('the dashboard row', () => {
    */
   async function mountPage(
     jobsAnswer?: () => Promise<{ ok?: boolean; json: () => Promise<unknown> }>,
-    start: { search?: string; token?: string; cookie?: string } = {},
+    start: { search?: string; cookie?: string } = {},
   ) {
     const search = start.search ?? '?t=page-token';
     const meta = { port: 8787, platform: 'win32', uptimeSeconds: 3660, activeCount: 1 };
@@ -289,7 +288,6 @@ describe('the dashboard row', () => {
           started += 1;
           return started;
         };
-        if (start.token) win.sessionStorage.setItem('omni-page-token', start.token);
         if (start.cookie) win.document.cookie = `omni-page=${encodeURIComponent(start.cookie)}`;
       },
     });
@@ -337,12 +335,11 @@ describe('the dashboard row', () => {
     expect(window.document.activeElement).toBe(again);
   });
 
-  it('keeps the token in the tab and out of the address bar', async () => {
+  it('takes the token out of the address bar and keeps polling with it', async () => {
     // The URL is the only thing a navigation can carry, but leaving the secret there
     // puts it in the history and in any screenshot of the window.
     const { window, headers } = await mountPage();
     expect(window.location.search).toBe('');
-    expect(window.sessionStorage.getItem('omni-page-token')).toBe('page-token');
     expect(headers.some((sent) => sent?.['x-omni-token'] === 'page-token')).toBe(true);
   });
 

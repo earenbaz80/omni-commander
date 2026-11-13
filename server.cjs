@@ -175,6 +175,19 @@ function isTokenValid(req) {
  * origin gate, not for the token requirement: a mutation still has to send the
  * header, so a token that ends up in a URL can never authorise a write.
  */
+function hasQueryToken(req) {
+  if (!SESSION_TOKEN) return true;
+  const fromQuery = req.query && typeof req.query.t === 'string' ? req.query.t : '';
+  if (fromQuery) return fromQuery === SESSION_TOKEN;
+  try {
+    // Middleware can run before the query parser has filled `req.query` in.
+    const parsed = new URL(String(req.originalUrl || req.url || ''), 'http://127.0.0.1');
+    return String(parsed.searchParams.get('t') || '') === SESSION_TOKEN;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * The proof the dashboard page leaves behind once it has been opened.
  *
@@ -187,27 +200,10 @@ const PAGE_COOKIE_MAX_AGE = 12 * 60 * 60;
 
 function hasPageCookie(req) {
   if (!SESSION_TOKEN) return true;
-  if (typeof req.headers.cookie !== 'string') return false;
-  const match = new RegExp(`(?:^|;\\s*)${PAGE_COOKIE}=([^;]+)`).exec(req.headers.cookie);
-  if (!match) return false;
-  try {
-    return decodeURIComponent(match[1]) === SESSION_TOKEN;
-  } catch {
-    return false;
-  }
-}
-
-function hasQueryToken(req) {
-  if (!SESSION_TOKEN) return true;
-  const fromQuery = req.query && typeof req.query.t === 'string' ? req.query.t : '';
-  if (fromQuery) return fromQuery === SESSION_TOKEN;
-  try {
-    // Middleware can run before the query parser has filled `req.query` in.
-    const parsed = new URL(String(req.originalUrl || req.url || ''), 'http://127.0.0.1');
-    return String(parsed.searchParams.get('t') || '') === SESSION_TOKEN;
-  } catch {
-    return false;
-  }
+  // Compared as it was written: the token is encoded on the way out, so a broken
+  // value from a client is simply a value that does not match.
+  const match = new RegExp(`(?:^|;\\s*)${PAGE_COOKIE}=([^;]+)`).exec(req.headers.cookie || '');
+  return Boolean(match) && match[1] === encodeURIComponent(SESSION_TOKEN);
 }
 
 app.use((req, res, next) => {
@@ -477,7 +473,7 @@ function registerFsRoutes() {
   app.get('/__jobs', (req, res) => {
     // The page strips the token from its own URL, so the visit that carried it
     // leaves the proof in a same-site cookie for the reload to use.
-    if (hasQueryToken(req)) {
+    if (SESSION_TOKEN && hasQueryToken(req)) {
       res.setHeader(
         'Set-Cookie',
         `${PAGE_COOKIE}=${encodeURIComponent(SESSION_TOKEN)}; Path=/; Max-Age=${PAGE_COOKIE_MAX_AGE}; SameSite=Strict`,

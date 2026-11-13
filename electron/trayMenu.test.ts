@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { summaryOf, trayTooltip, trayMenuTemplate } = require('./trayMenu.cjs');
+const { trayTooltip, trayMenuTemplate } = require('./trayMenu.cjs');
 
 type State = {
   hasLiveWork: boolean;
@@ -52,18 +52,20 @@ describe('the tray menu', () => {
 
   it('says a transfer is waiting for an answer, and still lets it be cancelled', () => {
     const waiting = state({ task: { ...state().task!, status: 'waiting', progress: 0 } });
-    expect(summaryOf(waiting)).toBe('Copy 2 items — Esperando tu respuesta');
     expect(trayTooltip(waiting)).toBe('OmniCommander Pro · Copy 2 items — Esperando tu respuesta');
 
     const template = trayMenuTemplate(waiting, actions());
+    expect(row(template, 'Copy 2 items — Esperando tu respuesta')?.enabled).toBe(false);
     expect(row(template, 'Cancelar')?.enabled).toBe(true);
     expect(row(template, 'Pausar')?.enabled).toBe(false);
     expect(row(template, 'Reanudar')?.enabled).toBe(false);
   });
 
-  it('leaves a row with nothing to say empty of controls', () => {
+  it('leaves a transfer with nothing to say without controls', () => {
     const idle = trayMenuTemplate(state({ task: null, hasLiveWork: false, activeCount: 0 }), actions());
-    expect(idle.find((entry) => entry.enabled === false && entry.label !== '—')?.label).toBe('Reanudar');
+    expect(row(idle, '—')).toBeTruthy();
+    expect(row(idle, 'Reanudar')?.enabled).toBe(false);
+    expect(row(idle, 'Pausar')?.enabled).toBe(false);
     expect(row(idle, 'Cancelar')?.enabled).toBe(false);
     expect(trayTooltip(state({ task: null }))).toBe('OmniCommander Pro');
   });
