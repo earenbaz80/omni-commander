@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
 import { dashboardHtml } from './server/dashboard.cjs';
 
@@ -10,6 +11,13 @@ import { dashboardHtml } from './server/dashboard.cjs';
  */
 
 const html = dashboardHtml();
+
+/** The page's own script, taken from the page as it ships. */
+function pageScript(): string {
+  const match = /<script>([\s\S]*?)<\/script>/.exec(html);
+  expect(match).not.toBeNull();
+  return match![1];
+}
 
 describe('the transfer dashboard page', () => {
   it('is a self-contained page that needs no build step', () => {
@@ -41,6 +49,25 @@ describe('the transfer dashboard page', () => {
   it('renders the same page every time', () => {
     expect(dashboardHtml()).toBe(html);
   });
+
+  it('lints the script it carries as source', async () => {
+    // The script lives in a template string, so it reaches the browser without
+    // passing through the linter. Here it is linted as the file it would be, with
+    // the browser globals it calls, so an unused name or an undeclared global is
+    // caught by the suite instead of by the operator reading the page.
+    const eslint = new ESLint({
+      overrideConfig: {
+        files: ['**/*.js'],
+        languageOptions: {
+          globals: { document: 'readonly', fetch: 'readonly', setInterval: 'readonly' },
+        },
+      },
+    });
+
+    const [result] = await eslint.lintText(pageScript(), { filePath: 'server/dashboard.script.js' });
+
+    expect(result.messages.map((m) => `${m.line}:${m.column} ${m.ruleId}: ${m.message}`)).toEqual([]);
+  });
 });
 
 /**
@@ -51,18 +78,15 @@ describe('the transfer dashboard page', () => {
  * is taken as it ships, given a fake document and a fake `fetch`, and the row it
  * wrote is what gets read.
  *
- * Coverage tooling reports `server/dashboard.cjs` as 0 %, because it is this
- * string that runs and V8 does not instrument evaluated code. Moving the script
- * into a module would buy that number back at the cost of the property the page
- * exists for -- one file served with no build step, which survives the renderer
- * breaking -- and a module the page could not inline without other machinery.
- * The rows read below are the guarantee that matters: they fail when a figure
- * changes, which is what a coverage percentage would only hint at.
+ * Coverage stops at `src/**`, so no server CommonJS file is measured at all, and
+ * the script here would stay unattributed even if one were: what runs is this
+ * evaluated string, not a line `dashboard.cjs` can be credited for. Extracting it
+ * into a module to be measured would cost the property the page exists for -- one
+ * file served with no build step, which survives the renderer breaking -- in
+ * exchange for a number that says less than the rows read below, which fail on
+ * any figure that changes.
  */
 async function renderJobs(jobs: unknown[]): Promise<string> {
-  const script = /<script>([\s\S]*?)<\/script>/.exec(html);
-  expect(script).not.toBeNull();
-
   const host = { innerHTML: '' };
   const idle = { textContent: '' };
   const document = {
@@ -75,7 +99,7 @@ async function renderJobs(jobs: unknown[]): Promise<string> {
   // The page polls forever; the first pass is all this test needs.
   const setInterval = () => 0;
 
-  new Function('document', 'fetch', 'setInterval', script![1])(document, fetch, setInterval);
+  new Function('document', 'fetch', 'setInterval', pageScript())(document, fetch, setInterval);
   // The row is written from the promise the first `tick` started.
   for (let turn = 0; turn < 4; turn += 1) await Promise.resolve();
 
