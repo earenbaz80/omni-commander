@@ -49,6 +49,23 @@ describe('el panel del motor', () => {
     expect(await statusOf(`/__jobs?t=${TOKEN}`)).toBe(200);
   });
 
+  it('deja el secreto en una cookie para que la recarga no lo lleve en la URL', async () => {
+    const response = await fetch(server.url(`/__jobs?t=${TOKEN}`));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('set-cookie')).toContain(`omni-page=${TOKEN}`);
+  });
+
+  it('la recarga sin token entra con esa cookie, y con una falsa no', async () => {
+    expect(await statusOf('/__jobs', { headers: { cookie: `omni-page=${TOKEN}` } })).toBe(200);
+    expect(await statusOf('/__jobs', { headers: { cookie: 'omni-page=nope' } })).toBe(403);
+    // The cookie opens the page and nothing else.
+    const pause = await fetch(server.url('/api/fs/job/job-1/pause'), {
+      method: 'POST',
+      headers: { cookie: `omni-page=${TOKEN}` },
+    });
+    expect(pause.status).toBe(403);
+  });
+
   it('pero esa URL no lee los trabajos ni los ordena', async () => {
     expect(await statusOf(`/api/fs/jobs?t=${TOKEN}`)).toBe(403);
     expect(await statusOf(`/api/fs/dashboard?t=${TOKEN}`)).toBe(403);
