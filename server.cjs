@@ -65,13 +65,13 @@ if (process.env.SERVER_COVERAGE_SHUTDOWN === '1') {
 //
 // A loopback host is not enough on its own: another dev server, a local tool's
 // web UI or a page served by any other process on 127.0.0.1 used to pass, and
-// the whole point is that only the app talks to this API. The port has to be the
-// app's own, so the check compares the origin, port included. The Vite proxy
-// presents that canonical origin for the dev UI whatever port it was started on.
+// the whole point is that only the app talks to this API. The port has to be
+// one of the app's two: 3000, where the Vite proxy presents the dev UI, or the
+// port this listener bound, where the dashboard is served.
 const DEV_UI_PORT = 3000;
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 
-function isAllowedOrigin(origin, tokenValid) {
+function isAllowedOrigin(origin, tokenValid, ownPort) {
   if (!origin) return true; // same-origin or non-browser client
   if (origin === 'null') return tokenValid; // packaged file:// renderer only
   try {
@@ -84,7 +84,10 @@ function isAllowedOrigin(origin, tokenValid) {
     const url = new URL(origin);
     const host = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
     const port = Number(url.port || (url.protocol === 'https:' ? 443 : 80));
-    return url.protocol === 'http:' && LOOPBACK_HOSTS.has(host) && port === DEV_UI_PORT;
+    if (url.protocol !== 'http:' || !LOOPBACK_HOSTS.has(host)) return false;
+    // Its own port is the dashboard talking to itself; before listening it is
+    // null, which allows nothing extra.
+    return port === DEV_UI_PORT || (ownPort != null && port === ownPort);
   } catch {
     return false;
   }
@@ -201,7 +204,7 @@ app.use((req, res, next) => {
   // Refusing here (rather than leaving it to the browser) matters: a
   // cross-origin "simple" request would otherwise still reach the handler and
   // mutate the disk, even though the browser hides the response.
-  if (!isAllowedOrigin(origin, tokenValid)) {
+  if (!isAllowedOrigin(origin, tokenValid, activePort)) {
     res.status(403).json({ error: 'Origin not allowed' });
     return;
   }
