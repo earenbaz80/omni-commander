@@ -273,6 +273,18 @@ class TaskQueueManager {
     this.notify();
   }
 
+  /**
+   * Marks the task whose transfer is parked on a conflict prompt. The tray reads
+   * this instead of "running": the engine is waiting for an answer, not copying,
+   * and a frozen progress bar with no explanation is what that used to look like.
+   */
+  public setWaitingForAnswer(jobId: string, waiting: boolean): void {
+    const task = this.tasks.find((t) => t.serverJobId === jobId);
+    if (!task || Boolean(task.waitingForAnswer) === waiting) return;
+    task.waitingForAnswer = waiting;
+    this.notify();
+  }
+
   public clearCompleted() {
     this.tasks = this.tasks.filter((t) => t.status === 'running' || t.status === 'queued' || t.status === 'paused');
     this.notify();

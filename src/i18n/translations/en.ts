@@ -784,6 +784,7 @@ export const en = {
   bgTasksPause: 'Pause',
   bgTasksResume: 'Resume',
   trayDashboard: 'Open transfer dashboard',
+  trayWaiting: 'Waiting for your answer',
   bgTasksEmpty: 'No background tasks in the queue',
   diskUsageModalTitle: 'Disk Usage',
   diskConnectedDrives: 'Connected Drives and Storage',

@@ -4,7 +4,7 @@ import { taskQueue } from './taskQueueManager';
 
 export type TrayCommand = 'resume' | 'pause' | 'cancel';
 export type TrayAction = 'pause' | 'resume' | 'cancel';
-export type TrayTaskStatus = 'running' | 'paused' | 'queued';
+export type TrayTaskStatus = 'running' | 'paused' | 'queued' | 'waiting';
 
 /** The bounded snapshot the tray is allowed to know about. */
 export interface TraySnapshot {
@@ -21,6 +21,7 @@ export interface TraySnapshot {
     pause: string;
     cancel: string;
     dashboard: string;
+    waiting: string;
     quit: string;
   };
 }
@@ -34,7 +35,7 @@ interface ElectronTrayBridge {
  * Statuses the tray can act on. A failed or finished transfer has no control
  * worth offering, so it stays out of the tray entirely.
  */
-const LIVE_STATUSES: ReadonlySet<string> = new Set(['running', 'paused', 'queued']);
+const LIVE_STATUSES: ReadonlySet<string> = new Set(['running', 'paused', 'queued', 'waiting']);
 
 export function isLiveTask(task: BackgroundTask): boolean {
   return LIVE_STATUSES.has(task.status);
@@ -98,7 +99,9 @@ export function startTrayBridge(lang: LanguageCode): () => void {
           ? {
               id: task.id,
               title: task.title,
-              status: task.status as TrayTaskStatus,
+              // A parked transfer is still `running` in the queue: the engine, not
+              // the queue, is the one waiting for an answer.
+              status: (task.waitingForAnswer ? 'waiting' : task.status) as TrayTaskStatus,
               progress: task.progress,
             }
           : null,
@@ -109,6 +112,7 @@ export function startTrayBridge(lang: LanguageCode): () => void {
         // The tray is the one place the main process can hand over the engine
         // page's URL: it holds both the port and the token there.
         dashboard: t.trayDashboard,
+        waiting: t.trayWaiting,
         quit: t.quitDialogLabel,
       },
     });

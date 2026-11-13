@@ -19,6 +19,19 @@ describe('the state the tray mirrors', () => {
     expect(normalizeTrayState({ labels: { dashboard: 42 } }).labels.dashboard).toBe('Open transfer dashboard');
   });
 
+  it('keeps a transfer the engine parked on a conflict', () => {
+    // `waiting` is live work: dropping it from the snapshot made a transfer that
+    // needed an answer vanish from the tray.
+    const state = normalizeTrayState({
+      task: { id: 'job_1', title: 'Copy 2 items', status: 'waiting', progress: 0 },
+      labels: { waiting: 'Esperando tu respuesta' },
+    });
+    expect(state.task?.status).toBe('waiting');
+    expect(state.hasLiveWork).toBe(true);
+    expect(state.labels.waiting).toBe('Esperando tu respuesta');
+    expect(normalizeTrayState({}).labels.waiting).toBe('Waiting for your answer');
+  });
+
   it('cuts a label too long for a menu row without losing the entry', () => {
     const state = normalizeTrayState({ labels: { dashboard: 'd'.repeat(80) } });
     expect(state.labels.dashboard).toHaveLength(32);

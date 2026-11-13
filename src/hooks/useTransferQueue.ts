@@ -100,7 +100,10 @@ export function useTransferQueue({
     const conflict = conflictPrompt;
     conflictSignalRef.current = null;
     setConflictPrompt(null);
-    if (conflict) void fsEngine.resolveConflict(conflict.jobId, action, applyToAll);
+    if (conflict) {
+      taskQueue.setWaitingForAnswer(conflict.jobId, false);
+      void fsEngine.resolveConflict(conflict.jobId, action, applyToAll);
+    }
   };
 
   // Backing out of a prompt cannot simply close it: the transfer would stay
@@ -111,7 +114,10 @@ export function useTransferQueue({
     conflictSignalRef.current = null;
     setConflictPrompt(null);
     if (signal) signal.cancelled = true;
-    if (conflict) void fsEngine.cancelJob(conflict.jobId);
+    if (conflict) {
+      taskQueue.setWaitingForAnswer(conflict.jobId, false);
+      void fsEngine.cancelJob(conflict.jobId);
+    }
   };
 
   // A transfer plan is what a saved copy list is made of. Only real-drive
@@ -185,6 +191,9 @@ export function useTransferQueue({
       let firstFailure: Error | undefined;
       const askConflict = (conflict: PendingConflict) => {
         promptedJobId = conflict.jobId;
+        // The engine parks the job; the queue keeps saying `running`, so the flag
+        // is what lets the tray say the transfer is waiting for an answer.
+        taskQueue.setWaitingForAnswer(conflict.jobId, true);
         handleConflictPrompt(conflict, signal);
       };
       try {
@@ -437,6 +446,9 @@ export function useTransferQueue({
       let promptedJobId = '';
       const askConflict = (conflict: PendingConflict) => {
         promptedJobId = conflict.jobId;
+        // The engine parks the job; the queue keeps saying `running`, so the flag
+        // is what lets the tray say the transfer is waiting for an answer.
+        taskQueue.setWaitingForAnswer(conflict.jobId, true);
         handleConflictPrompt(conflict, signal);
       };
       const failureLabel = op === 'move' ? 'Move' : 'Copy';

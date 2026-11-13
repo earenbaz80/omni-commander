@@ -141,7 +141,9 @@ describe('createJobEngine', () => {
   it('separates a cancelled job from one that failed on some files', () => {
     const { makeJob, finishJob } = engine();
     const failed = makeJob('copy', 'Copy');
-    failed.errors.push('C:/a.txt: EACCES');
+    // The shape the engine really records; a string here described an error the
+    // producers never send, so the notice's formatter was never exercised.
+    failed.errors.push({ path: 'C:/a.txt', message: 'EACCES' });
     finishJob(failed);
     expect(failed.status).toBe('done-with-errors');
 
