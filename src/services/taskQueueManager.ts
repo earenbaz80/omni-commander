@@ -6,7 +6,7 @@ export interface OperationSignal {
   cancelled: boolean;
 }
 
-/** The statuses a transfer can still be given an answer under. */
+/** The statuses a task is still alive in, and so can still be given an answer under. */
 const LIVE_STATUSES = new Set<BackgroundTask['status']>(['queued', 'running', 'paused']);
 
 export type ProgressCallback = (transferred: number, total: number) => void;
@@ -294,7 +294,7 @@ class TaskQueueManager {
   }
 
   public clearCompleted() {
-    this.tasks = this.tasks.filter((t) => t.status === 'running' || t.status === 'queued' || t.status === 'paused');
+    this.tasks = this.tasks.filter((t) => LIVE_STATUSES.has(t.status));
     this.notify();
   }
 }
