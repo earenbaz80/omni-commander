@@ -36,3 +36,6 @@ blob-report/
 
 server-coverage/
 server-coverage-raw/
+
+# Unpacked build kept beside the checkout for manual checks (never shipped)
+toast-check/
