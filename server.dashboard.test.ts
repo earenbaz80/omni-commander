@@ -108,6 +108,14 @@ describe('the dashboard row', () => {
     }
   });
 
+  it('never lets a copied total push the bar past its end', async () => {
+    // A total the job restated can leave more copied than the new size; the cap
+    // is what keeps the fill inside the bar instead of overflowing it.
+    const row = await renderJobs([job({ copiedBytes: 2 * 1024 * 1024 * 1024, totalBytes: 1024 * 1024 * 1024 })]);
+
+    expect(row).toContain('width:100%');
+  });
+
   it('reads a size that is not a number as nothing copied', async () => {
     // The row prints whatever the job reports, and a field that never arrived
     // must not reach the operator as "NaN B".
@@ -116,7 +124,7 @@ describe('the dashboard row', () => {
     expect(sizes(row)).toEqual(['0 B', '0 B']);
   });
 
-  it('shows no progress when the copied count is not a number', async () => {
+  it('shows no progress when a count cannot be read', async () => {
     // The bar is built from two fields; the row and its current file both used
     // to divide whatever arrived, which painted "NaN%" over a running job.
     const row = await renderJobs([
@@ -126,6 +134,10 @@ describe('the dashboard row', () => {
     expect(row).toContain('progress <b>0%</b>');
     expect(row).toContain('<span class="fp">0%</span>');
     expect(row).not.toContain('NaN');
+
+    // A job that reports no size is no progress either, not a full bar.
+    const noTotal = await renderJobs([job({ totalBytes: 0 })]);
+    expect(noTotal).toContain('progress <b>0%</b>');
   });
 
   it('keeps the speed in megabytes per second past a gigabyte a second', async () => {
