@@ -140,6 +140,14 @@ const SENSITIVE_GET_ROUTES = new Set([
   '/api/share',
 ]);
 
+/**
+ * The one page a browser is meant to open by navigation, which cannot send a
+ * header. Its URL carries the token (`?t=`), and that proof covers the HTML only:
+ * everything the page then reads or orders sends the header, so a token in an
+ * address bar can never read the jobs or steer them by itself.
+ */
+const QUERY_TOKEN_ROUTES = new Set(['/__jobs']);
+
 /** Mutations, and the GETs that describe the disk, need the per-launch token. */
 function requiresSessionToken(req) {
   if (MUTATING_METHODS.has(req.method)) return true;
@@ -197,9 +205,10 @@ app.use((req, res, next) => {
     res.status(403).json({ error: 'Origin not allowed' });
     return;
   }
-  // A write still has to prove itself with the header: the query token is only
-  // good enough to load a picture.
-  if (requiresSessionToken(req) && !headerTokenValid) {
+  // A write, and any read of the disk, still has to prove itself with the header:
+  // the query token is only good enough to load a picture, or the dashboard page.
+  const pageTokenValid = QUERY_TOKEN_ROUTES.has(req.path) && hasQueryToken(req);
+  if (requiresSessionToken(req) && !headerTokenValid && !pageTokenValid) {
     res.status(403).json({ error: 'Missing or invalid session token' });
     return;
   }

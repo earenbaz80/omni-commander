@@ -759,6 +759,7 @@ export const de = {
   bgTasksProgress: '{n}% abgeschlossen',
   bgTasksPause: 'Pausieren',
   bgTasksResume: 'Fortsetzen',
+  trayDashboard: 'Transfer-Dashboard öffnen',
   bgTasksEmpty: 'Keine Hintergrundaufgaben in der Warteschlange',
   diskUsageModalTitle: 'Datenträgernutzung',
   diskConnectedDrives: 'Verbundene Laufwerke und Speicher',

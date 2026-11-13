@@ -98,6 +98,7 @@ describe('tray bridge', () => {
     expect(first.task?.title).toBe('Copy 2 items');
     expect(first.labels.pause).toBe(es.bgTasksPause);
     expect(first.labels.cancel).toBe(es.btnCancel);
+    expect(first.labels.dashboard).toBe(es.trayDashboard);
 
     handler?.('pause');
     expect(taskQueue.getTasks().find((t) => t.id === runningId)?.status).toBe('paused');

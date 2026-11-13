@@ -20,6 +20,7 @@ export interface TraySnapshot {
     resume: string;
     pause: string;
     cancel: string;
+    dashboard: string;
     quit: string;
   };
 }
@@ -105,6 +106,9 @@ export function startTrayBridge(lang: LanguageCode): () => void {
         resume: t.bgTasksResume,
         pause: t.bgTasksPause,
         cancel: t.btnCancel,
+        // The tray is the one place the main process can hand over the engine
+        // page's URL: it holds both the port and the token there.
+        dashboard: t.trayDashboard,
         quit: t.quitDialogLabel,
       },
     });

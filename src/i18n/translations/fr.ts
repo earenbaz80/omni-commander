@@ -762,6 +762,7 @@ export const fr = {
   bgTasksProgress: '{n} % terminé',
   bgTasksPause: 'Pause',
   bgTasksResume: 'Reprendre',
+  trayDashboard: 'Ouvrir le tableau des transferts',
   bgTasksEmpty: "Aucune tâche d'arrière-plan dans la file d'attente",
   diskUsageModalTitle: 'Utilisation du disque',
   diskConnectedDrives: 'Lecteurs et stockage connectés',

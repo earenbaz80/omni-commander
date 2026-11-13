@@ -16,8 +16,8 @@
  * - The dashboard's ladder lives in the script embedded in the page, which has to
  *   be one document with no imports; `server.dashboard.test.ts` runs that script
  *   and reads the rows it writes.
- * - `fileOps.cjs` already calls `formatBytes` here for the one figure it prints,
- *   the shortfall of a transfer that cannot start: it has no ladder to unify.
+ * - `fileOps.cjs` already calls `formatBytes` here for the two numbers of the
+ *   shortfall that stops a transfer: it has no ladder to unify.
  */
 
 /**

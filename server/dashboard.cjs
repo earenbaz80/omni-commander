@@ -78,6 +78,15 @@ function dashboardHtml() {
 <main id="jobs"><div class="empty">Loading jobs...</div></main>
 <script>
 (function(){
+  // The page is opened by a navigation, which cannot send a header, so it takes
+  // the token from its own URL once and sends it as a header from then on. Every
+  // request below goes through here: the token never rides in their URLs.
+  var token=new URLSearchParams(location.search).get('t')||'';
+  function api(url, init){
+    init=init||{};
+    if(token) init.headers={'x-omni-token':token};
+    return fetch(url, init);
+  }
   var KB=1024, MB=KB*1024, GB=MB*1024;
   // One decimal for every unit, the same precision the app prints: a figure
   // here is a transfer the user started in the window, and the two must not
@@ -170,15 +179,15 @@ function dashboardHtml() {
   document.addEventListener('click', function(ev){
     var btn=ev.target.closest('button[data-act]');
     if(!btn) return;
-    fetch('/api/fs/job/'+encodeURIComponent(btn.getAttribute('data-id'))+'/'+btn.getAttribute('data-act'), { method:'POST' }).catch(function(){});
+    api('/api/fs/job/'+encodeURIComponent(btn.getAttribute('data-id'))+'/'+btn.getAttribute('data-act'), { method:'POST' }).catch(function(){});
   });
   var lastMeta=0;
   function tick(){
-    fetch('/api/fs/jobs').then(function(r){return r.json();}).then(render).catch(function(){});
+    api('/api/fs/jobs').then(function(r){return r.json();}).then(render).catch(function(){});
     var now=Date.now();
     if(now-lastMeta>2000){
       lastMeta=now;
-      fetch('/api/fs/dashboard').then(function(r){return r.json();}).then(function(m){
+      api('/api/fs/dashboard').then(function(r){return r.json();}).then(function(m){
         document.getElementById('port').textContent=m.port;
         document.getElementById('platform').textContent=m.platform;
         document.getElementById('uptime').textContent=dur(m.uptimeSeconds);

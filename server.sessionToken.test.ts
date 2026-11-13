@@ -41,6 +41,22 @@ describe('lecturas que describen el disco', () => {
   });
 });
 
+describe('el panel del motor', () => {
+  // A browser opens the page by navigating, which cannot send a header, so the
+  // token arrives in the URL. That proof covers the HTML and nothing else.
+  it('se abre por navegación, con el token en la URL', async () => {
+    expect(await statusOf('/__jobs')).toBe(403);
+    expect(await statusOf(`/__jobs?t=${TOKEN}`)).toBe(200);
+  });
+
+  it('pero esa URL no lee los trabajos ni los ordena', async () => {
+    expect(await statusOf(`/api/fs/jobs?t=${TOKEN}`)).toBe(403);
+    expect(await statusOf(`/api/fs/dashboard?t=${TOKEN}`)).toBe(403);
+    const pause = await fetch(server.url(`/api/fs/job/job-1/pause?t=${TOKEN}`), { method: 'POST' });
+    expect(pause.status).toBe(403);
+  });
+});
+
 describe('lecturas que describen la máquina', () => {
   const token = { headers: { 'x-omni-token': TOKEN } };
 
