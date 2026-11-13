@@ -138,15 +138,39 @@ describe('taskQueue and a conflict left unanswered', () => {
     return id;
   };
 
+  // An executor that holds the queue until the test lets it go, which is what a
+  // transfer parked on a prompt looks like from the queue's side.
+  const hold = () => {
+    let release = () => {};
+    return {
+      run: () => new Promise<void>((resolve) => (release = resolve)),
+      release: () => release(),
+    };
+  };
+
+  it('keeps waiting while the transfer is still alive', async () => {
+    // The flag is what the tray reads instead of "running", so a notify that
+    // cleared it unconditionally would take the prompt off the tray while the
+    // engine is still parked on it.
+    const gate = hold();
+    const id = parked('job_live', gate.run);
+
+    taskQueue.updateTaskMeta(id, { speed: '1.0 MB/s' });
+    expect(taskById(id).waitingForAnswer).toBe(true);
+
+    taskQueue.pauseTask(id);
+    taskQueue.updateTaskMeta(id, { speed: '1.0 MB/s' });
+    expect(taskById(id).status).toBe('paused');
+    expect(taskById(id).waitingForAnswer).toBe(true);
+
+    // A paused executor never finishes on its own, so the queue would keep it.
+    taskQueue.resumeTask(id);
+    gate.release();
+  });
+
   it('stops waiting when the transfer is cancelled from somewhere else', async () => {
-    let finish = () => {};
-    const id = parked(
-      'job_cancel',
-      () =>
-        new Promise<void>((resolve) => {
-          finish = resolve;
-        }),
-    );
+    const gate = hold();
+    const id = parked('job_cancel', gate.run);
     expect(taskById(id).waitingForAnswer).toBe(true);
 
     taskQueue.cancelTask(id);
@@ -155,7 +179,7 @@ describe('taskQueue and a conflict left unanswered', () => {
     expect(taskById(id).waitingForAnswer).toBe(false);
 
     // The queue runs one transfer at a time and this executor is what holds it.
-    finish();
+    gate.release();
   });
 
   it('stops waiting when the engine gives up and the transfer fails', async () => {
@@ -168,16 +192,12 @@ describe('taskQueue and a conflict left unanswered', () => {
   });
 
   it('stops waiting when the transfer completes with the prompt still open', async () => {
-    let finish = () => {};
-    const id = parked(
-      'job_done',
-      () =>
-        new Promise<void>((resolve) => {
-          finish = resolve;
-        }),
-    );
+    // A conflict answered from the dashboard never passes through the renderer
+    // that closes the prompt, so the flag can outlive the job it belonged to.
+    const gate = hold();
+    const id = parked('job_done', gate.run);
 
-    finish();
+    gate.release();
     await vi.waitFor(() => expect(taskById(id).status).toBe('completed'));
     expect(taskById(id).waitingForAnswer).toBe(false);
   });
