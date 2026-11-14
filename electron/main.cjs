@@ -27,7 +27,7 @@ const { normalizeBrowserUrl } = require('./browserUrl.cjs');
 const { dashboardUrl } = require('./dashboardUrl.cjs');
 const { normalizeTrayState } = require('./trayState.cjs');
 const { trayMenuTemplate, trayTooltip } = require('./trayMenu.cjs');
-const { conflictNotice, jobNotice } = require('./jobNotices.cjs');
+const { createJobToasts } = require('./jobToasts.cjs');
 
 // Windows groups a toast by this id and may drop one that has none; it is the id
 // the installer registers, so the notification is attributed to this app.
@@ -301,9 +301,6 @@ let trayMenu = null;
 // close handler below would hide the window during `app.quit()` and the process
 // would never exit.
 let quitting = false;
-// Transfers already announced as waiting; cleared when the job ends, so the next one
-// in the queue gets its own nudge.
-const notifiedWaiting = new Set();
 // The empty snapshot comes from the same normalizer the renderer's snapshots go
 // through, so a label added there cannot be missing from the menu before the first
 // one arrives -- it was, and the row was drawn with no text at all.
@@ -355,36 +352,27 @@ function openDashboard(jobId) {
 }
 
 /**
- * Announces a transfer that reached a final state. The rules for when that is
- * worth a toast live in the module; here it is only shown, and clicking it goes to
- * the page where the rest of the story is.
+ * The rules for when a transfer is worth a toast live in `jobToasts`; this only
+ * supplies what the platform owns -- how to show one, when the window already has
+ * the user's attention, and where a click leads.
  */
+const jobToasts = createJobToasts({
+  Notification,
+  isSupported: () => Notification.isSupported(),
+  // Whoever has the window in front of them is looking at the prompt already.
+  inFront: () => Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible() && mainWindow.isFocused()),
+  openDashboard,
+  schedule: (callback, delay) => setTimeout(callback, delay),
+  cancel: (timer) => clearTimeout(timer),
+});
+
+/** A transfer that reached a final state, or one parked on a conflict. */
 function notifyJobEnded(job) {
-  notifiedWaiting.delete(job.id);
-  const notice = jobNotice(job);
-  if (!notice || !Notification.isSupported()) return;
-  const toast = new Notification({ title: notice.title, body: notice.body });
-  // The event Electron passes to the handler is not a job id: the toast points at the
-  // transfer it announced, and only that one.
-  toast.on('click', () => openDashboard(job.id));
-  toast.show();
+  jobToasts.finished(job);
 }
 
-/**
- * Announces a transfer the engine parked on a conflict. One nudge per transfer: a
- * large copy can collide once per file, and a toast for each would train the user to
- * ignore them. Clicking it lands on that job's row, where the answer is.
- */
 function notifyJobWaiting(job) {
-  if (!job || notifiedWaiting.has(job.id)) return;
-  // Whoever has the window in front of them is looking at the prompt already.
-  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible() && mainWindow.isFocused()) return;
-  const notice = conflictNotice(job);
-  if (!notice || !Notification.isSupported()) return;
-  notifiedWaiting.add(job.id);
-  const toast = new Notification({ title: notice.title, body: notice.body });
-  toast.on('click', () => openDashboard(job.id));
-  toast.show();
+  jobToasts.waiting(job);
 }
 
 /**
