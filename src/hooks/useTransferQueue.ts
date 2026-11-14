@@ -213,6 +213,7 @@ export function useTransferQueue({
         taskQueue.setWaitingForAnswer(conflict.jobId, true, {
           source: conflict.source,
           destination: conflict.destination,
+          expiresInMs: conflict.expiresInMs,
         });
         handleConflictPrompt(conflict, signal);
       };
@@ -472,6 +473,7 @@ export function useTransferQueue({
         taskQueue.setWaitingForAnswer(conflict.jobId, true, {
           source: conflict.source,
           destination: conflict.destination,
+          expiresInMs: conflict.expiresInMs,
         });
         handleConflictPrompt(conflict, signal);
       };

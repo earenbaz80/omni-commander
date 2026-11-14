@@ -296,7 +296,7 @@ class TaskQueueManager {
   public setWaitingForAnswer(
     jobId: string,
     waiting: boolean,
-    conflict?: { source: string; destination: string },
+    conflict?: { source: string; destination: string; expiresInMs?: number },
   ): void {
     const task = this.tasks.find((t) => t.serverJobId === jobId);
     if (!task) return;

@@ -13,9 +13,11 @@ const { conflictNotice } = require('./jobNotices.cjs');
  */
 describe('the toast for a parked transfer', () => {
   it('names the transfer and the file it stopped on', () => {
+    // The shape the server really announces: the engine holds a job that is still
+    // `running`, and `waiting` is only what the snapshot derives from the conflict.
     const notice = conflictNotice({
       id: 'job-1',
-      status: 'waiting',
+      status: 'running',
       label: 'respaldo',
       pendingConflict: { source: 'C:\\copias\\foto.jpg', destination: 'D:\\respaldo\\foto.jpg' },
     });
@@ -26,14 +28,25 @@ describe('the toast for a parked transfer', () => {
   it('has nothing to say about work that is not parked', () => {
     const conflict = { destination: 'D:\\respaldo\\foto.jpg' };
 
-    expect(conflictNotice({ status: 'running', label: 'respaldo', pendingConflict: conflict })).toBeNull();
+    expect(conflictNotice({ status: 'running', label: 'respaldo' })).toBeNull();
     expect(conflictNotice({ status: 'done', label: 'respaldo' })).toBeNull();
-    expect(conflictNotice({ status: 'waiting', label: 'respaldo' })).toBeNull();
+    // A finished job that still carried a conflict is a late snapshot, not a wait.
+    expect(conflictNotice({ status: 'done-with-errors', label: 'respaldo', pendingConflict: conflict })).toBeNull();
     expect(conflictNotice(null)).toBeNull();
   });
 
+  it('says how long is left before the engine gives up', () => {
+    const notice = conflictNotice({
+      status: 'running',
+      label: 'respaldo',
+      pendingConflict: { destination: 'D:\\a.txt', expiresInMs: 90 * 1000 },
+    });
+
+    expect(notice?.body).toBe('⏸ D:\\a.txt · 1:30');
+  });
+
   it('still speaks up when the renderer sent no label', () => {
-    const notice = conflictNotice({ status: 'waiting', pendingConflict: { destination: 'D:\\a.txt' } });
+    const notice = conflictNotice({ status: 'running', pendingConflict: { destination: 'D:\\a.txt' } });
 
     expect(notice?.title).toBe('Transfer');
     expect(notice?.body).toBe('⏸ D:\\a.txt');

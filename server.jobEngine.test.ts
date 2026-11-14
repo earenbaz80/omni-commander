@@ -58,7 +58,11 @@ describe('createJobEngine', () => {
     job.pendingConflict = { path: 'C:/a.txt', reason: 'exists' };
     // A parked job is waiting for a human, not paused: that is what the UI polls for.
     expect(jobSnapshot(job).status).toBe('waiting');
-    expect(jobSnapshot(job).pendingConflict).toEqual({ path: 'C:/a.txt', reason: 'exists' });
+    // A job parked without a deadline reports no time left, and one with a deadline
+    // reports the wait that is left: that is what the tray counts down.
+    expect(jobSnapshot(job).pendingConflict).toEqual({ path: 'C:/a.txt', reason: 'exists', expiresInMs: 0 });
+    job.conflictDeadline = Date.now() + 90_000;
+    expect(jobSnapshot(job).pendingConflict?.expiresInMs).toBeGreaterThan(80_000);
   });
 
   it('estimates speed and remaining time from the elapsed clock', () => {

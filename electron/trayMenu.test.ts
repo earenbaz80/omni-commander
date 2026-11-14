@@ -15,9 +15,14 @@ type State = {
     id: string;
     jobId: string;
     title: string;
-    conflict: { source: string; destination: string } | null;
+    conflict: { source: string; destination: string; expiresInMs?: number } | null;
   } | null;
-  task: { id: string; title: string; status: string; progress: number } | null;
+  task: {
+    id: string;
+    title: string;
+    status: string;
+    progress: number;
+  } | null;
   labels: Record<string, string>;
 };
 
@@ -102,14 +107,15 @@ describe('the tray menu', () => {
         id: 'task_1',
         jobId: 'job_9',
         title: 'Move 5 items',
-        conflict: { source: 'C:\\a.txt', destination: 'D:\\a.txt' },
+        conflict: { source: 'C:\\a.txt', destination: 'D:\\a.txt', expiresInMs: 4 * 60 * 1000 },
       },
     });
     const answer = row(trayMenuTemplate(parked, handlers), 'Responder en el panel');
 
     expect(answer?.submenu?.map((entry) => entry.label ?? entry.type)).toEqual([
-      // The file first: the answers below it are answers about this destination.
-      'D:\\a.txt',
+      // The file first, with the wait it has left: the answers below are about this
+      // destination, and the deadline is what makes them urgent.
+      'D:\\a.txt · 4:00',
       'separator',
       'Sobrescribir',
       'Omitir',
@@ -117,11 +123,9 @@ describe('the tray menu', () => {
       'separator',
       'Siempre…',
     ]);
-    expect(answer?.submenu?.[0]).toMatchObject({ label: 'D:\\a.txt', enabled: false });
+    expect(answer?.submenu?.[0]).toMatchObject({ label: 'D:\\a.txt · 4:00', enabled: false });
     answer?.submenu?.[4].click?.();
     expect(handlers.command.mock.calls).toEqual([[{ resolve: 'rename', jobId: 'job_9', applyToAll: false }]]);
-    // The row answers the conflict; it no longer needs to send anyone to the page.
-    expect(handlers.openDashboard).not.toHaveBeenCalled();
 
     answer?.submenu?.[6].click?.();
     expect(handlers.toggleApplyToAll).toHaveBeenCalledTimes(1);
@@ -151,7 +155,14 @@ describe('the tray menu', () => {
       }
     }
 
-    const parked = normalizeTrayState({ waiting: { id: 'task_1', jobId: 'job_9', title: 'Move 5 items' } });
+    const parked = normalizeTrayState({
+      waiting: {
+        id: 'task_1',
+        jobId: 'job_9',
+        title: 'Move 5 items',
+        conflict: { source: 'C:\\a.txt', destination: 'D:\\a.txt' },
+      },
+    });
     expect(row(trayMenuTemplate(parked, actions()), getTranslations('en').trayAnswer)?.enabled).toBe(true);
   });
 
@@ -161,7 +172,11 @@ describe('the tray menu', () => {
         id: 'task_1',
         jobId: 'job_9',
         title: 'Move 5 items',
-        conflict: { source: 'C:\\origen\\respaldo.zip', destination: 'D:\\destino\\respaldo.zip' },
+        conflict: {
+          source: 'C:\\origen\\respaldo.zip',
+          destination: 'D:\\destino\\respaldo.zip',
+          expiresInMs: 4 * 60 * 1000,
+        },
       },
     });
 
@@ -170,8 +185,9 @@ describe('the tray menu', () => {
     expect(
       row(trayMenuTemplate(parked, actions()), 'Move 5 items — Esperando tu respuesta — respaldo.zip')?.enabled,
     ).toBe(false);
+    // The tooltip has room for the wait left, which is what makes the stop urgent.
     expect(trayTooltip(parked)).toBe(
-      'OmniCommander Pro · Move 5 items — Esperando tu respuesta — D:\\destino\\respaldo.zip',
+      'OmniCommander Pro · Move 5 items — Esperando tu respuesta — D:\\destino\\respaldo.zip · 4:00',
     );
   });
 

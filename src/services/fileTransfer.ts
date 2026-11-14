@@ -36,6 +36,8 @@ export interface RealFsJob {
     sourceModified?: number;
     destinationModified?: number;
     identical?: boolean;
+    /** Milliseconds left before the engine gives up and fails the job. */
+    expiresInMs?: number;
   } | null;
   /** Tail of the files this job touched, newest last. Bounded by the server. */
   recentFiles: FileProgressEntry[];
@@ -204,6 +206,7 @@ export function createTransferOps(deps: TransferOpsDeps): TransferOps {
             sourceModified: job.pendingConflict.sourceModified,
             destinationModified: job.pendingConflict.destinationModified,
             identical: job.pendingConflict.identical,
+            expiresInMs: job.pendingConflict.expiresInMs,
           });
         }
       } else if (promptedConflict) {

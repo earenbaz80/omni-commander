@@ -45,7 +45,11 @@ function createJobEngine(deps = {}) {
       itemsDone: job.itemsDone,
       itemsSkipped: job.itemsSkipped,
       currentFile: job.currentFile,
-      pendingConflict: job.pendingConflict ? { ...job.pendingConflict } : null,
+      // How long the parked job has left before it fails, so a surface can show the
+      // clock running instead of a wait with no end.
+      pendingConflict: job.pendingConflict
+        ? { ...job.pendingConflict, expiresInMs: Math.max(0, (job.conflictDeadline || 0) - Date.now()) }
+        : null,
       recentFiles: (job.recentFiles || []).map((f) => ({
         path: f.path,
         name: f.name,

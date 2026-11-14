@@ -6,31 +6,22 @@
  * running, a paused or a parked transfer, and which row a click reaches.
  */
 const path = require('node:path');
+const { clockOf } = require('./clock.cjs');
 const { clampText, LIVE_STATUSES } = require('./trayState.cjs');
 
 const APP_NAME = 'OmniCommander Pro';
 const TOOLTIP_LIMIT = 120;
 
 /**
- * The file a parked conflict is about. The destination is the one that decides it --
- * "replace this?" -- so it names the conflict, with the source as the fallback for a
- * snapshot that arrived without it. Both are paths the menu can show: the row uses the
- * file name, the tooltip and the submenu the whole path.
+ * The file a parked conflict is about: its destination, the one being decided about,
+ * falling back to the source for a snapshot that arrived without one.
  */
 function conflictOf(state) {
-  const conflict = state.waiting && state.waiting.conflict;
-  if (!conflict) return null;
-  const destination = conflict.destination || conflict.source;
-  if (!destination) return null;
-  return { name: path.win32.basename(destination), path: destination };
+  const conflict = state.waiting?.conflict;
+  const destination = conflict && (conflict.destination || conflict.source);
+  return destination ? { name: path.win32.basename(destination), path: destination } : null;
 }
 
-/**
- * The line that describes the transfer the tray is about. A job the engine parked is
- * what the user has to act on, so it names the line even when the controls are on
- * another task -- and names the file it stopped on, since "a transfer is waiting"
- * says nothing about which of its files needs an answer.
- */
 /** The one line naming what is waiting, with the file when there is one. */
 function waitingLine(state, subject) {
   return `${state.waiting.title} — ${state.labels.waiting}${subject ? ` — ${subject}` : ''}`;
@@ -43,12 +34,19 @@ function summaryOf(state) {
   return `${task.title}${task.progress > 0 ? ` — ${task.progress}%` : ''}`;
 }
 
+/** The wait left before the engine fails the job, when the snapshot said. */
+function conflictClock(state) {
+  const conflict = state.waiting && state.waiting.conflict;
+  return conflict ? clockOf(conflict.expiresInMs) : '';
+}
+
 function trayTooltip(state) {
   // The tooltip has room the row does not: the whole path instead of the file name,
-  // because two copies can stop on the same name.
+  // because two copies can stop on the same name, plus the clock the wait runs on.
   const file = conflictOf(state);
   const summary = file ? waitingLine(state, file.path) : summaryOf(state);
-  return clampText(summary ? `${APP_NAME} · ${summary}` : APP_NAME, TOOLTIP_LIMIT);
+  const clock = file ? conflictClock(state) : '';
+  return clampText([APP_NAME, summary, clock].filter(Boolean).join(' · '), TOOLTIP_LIMIT);
 }
 
 /**
@@ -59,6 +57,7 @@ function trayTooltip(state) {
 function conflictSubmenu(state, actions) {
   const { labels, waiting } = state;
   const file = conflictOf(state);
+  const clock = conflictClock(state);
   const applyAll = actions.applyToAll === true;
   const answer = (decision) => ({
     label: labels[decision],
@@ -66,8 +65,9 @@ function conflictSubmenu(state, actions) {
   });
   return [
     // The conflict is named before the answers: the same batch can stop on one file per
-    // conflict, and the answer applies to the file the user is looking at.
-    ...(file ? [{ label: file.path, enabled: false }, { type: 'separator' }] : []),
+    // conflict, and the answer applies to the file the user is looking at. The clock is
+    // the wait left before the engine fails the job, which is what makes it urgent.
+    ...(file ? [{ label: clock ? `${file.path} · ${clock}` : file.path, enabled: false }, { type: 'separator' }] : []),
     answer('overwrite'),
     answer('skip'),
     answer('rename'),

@@ -49,6 +49,11 @@ function normalizeTrayState(payload) {
           ? {
               source: clampText(rawConflict.source, TRAY_TITLE_LIMIT),
               destination: clampText(rawConflict.destination, TRAY_TITLE_LIMIT),
+              // Milliseconds left before the engine gives up; 0 means the snapshot did
+              // not say, and the menu then shows no clock at all.
+              expiresInMs: Number.isFinite(rawConflict.expiresInMs)
+                ? Math.max(0, Math.trunc(rawConflict.expiresInMs))
+                : 0,
             }
           : null,
       }

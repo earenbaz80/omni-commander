@@ -30,7 +30,7 @@ export interface TraySnapshot {
     /** The server job the answer has to reach. */
     jobId: string;
     title: string;
-    conflict: { source: string; destination: string } | null;
+    conflict: { source: string; destination: string; expiresInMs?: number } | null;
   } | null;
   task: {
     id: string;
