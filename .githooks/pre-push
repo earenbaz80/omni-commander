@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
 # Blocks a push that would fail the CI `verify` job: documentation links first,
-# then types, then the test suite, then a smoke subset of the e2e suite. Formatting
+# then types, then the stricter set of types, then the test suite, then a smoke
+# subset of the e2e suite. Formatting
 # stays in pre-commit, which is fast; this one is allowed to take a minute and
 # change. `git push --no-verify` skips it when that is what you want.
 # A red run is not automatically a regression; the note at the end of this file
@@ -134,6 +135,13 @@ run npm run --silent check:links
 echo "pre-push: typechecking (npm run lint)..."
 run npm run --silent lint
 
+# `lint` compiles with the project's own settings and the CI runs a second pass
+# with `strict`, `noUnusedLocals` and friends on top. It was that second pass, not
+# this one, that went red on a test importing `jsdom` without its declarations, so
+# a push that stopped at `lint` could not see what the branch would be judged by.
+echo "pre-push: strict typechecking (npm run typecheck:strict)..."
+run npm run --silent typecheck:strict
+
 # The worker count is pinned here for the reason CI pins it: the default opens
 # one worker per core, and with four of them on this four-core machine the suite
 # has gone red with nothing broken (odd/tasks records the rule: always pass
@@ -178,9 +186,9 @@ else
 fi
 
 if [ "$smoke_ran" = true ]; then
-  echo "pre-push: links, types, tests and the e2e smoke subset passed. (output: $log)"
+  echo "pre-push: links, types, strict types, tests and the e2e smoke subset passed. (output: $log)"
 else
-  echo "pre-push: links, types and tests passed. (output: $log)"
+  echo "pre-push: links, types, strict types and tests passed. (output: $log)"
 fi
 
 # When this hook goes red, the log says which test and does not say why.
