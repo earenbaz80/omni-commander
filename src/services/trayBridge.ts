@@ -13,6 +13,18 @@ export interface TraySnapshot {
   activeCount: number;
   /** A stopped transfer kept its plan, so the tray can queue it again. */
   canRepeat: boolean;
+  /**
+   * The transfer the engine is holding open for an answer. It is not always the
+   * selected one -- that is chosen for the controls -- but it is the only one the
+   * user has to act on.
+   */
+  waiting: {
+    id: string;
+    /** The server job the answer has to reach. */
+    jobId: string;
+    title: string;
+    conflict: { source: string; destination: string } | null;
+  } | null;
   task: {
     id: string;
     title: string;
@@ -25,6 +37,7 @@ export interface TraySnapshot {
     cancel: string;
     dashboard: string;
     waiting: string;
+    answer: string;
     repeat: string;
     quit: string;
   };
@@ -95,18 +108,28 @@ export function startTrayBridge(lang: LanguageCode, onRepeat?: (plan: TransferPl
     const tasks = taskQueue.getTasks();
     const liveTasks = tasks.filter(isLiveTask);
     const task = selectTrayTask(tasks);
+    const waiting = tasks.find((entry) => entry.waitingForAnswer && isLiveTask(entry));
     updateTrayState({
       hasLiveWork: liveTasks.length > 0,
       activeCount: liveTasks.length,
       canRepeat: lastRepeatablePlan(tasks) !== undefined,
+      waiting: waiting
+        ? {
+            id: waiting.id,
+            jobId: waiting.serverJobId ?? '',
+            title: waiting.title,
+            conflict: waiting.pendingConflict ?? null,
+          }
+        : null,
       task:
         task && isLiveTask(task)
           ? {
               id: task.id,
               title: task.title,
               // A parked transfer is still `running` in the queue: the engine, not
-              // the queue, is the one waiting for an answer.
-              status: (task.waitingForAnswer ? 'waiting' : task.status) as TrayTaskStatus,
+              // the queue, is the one waiting for an answer. The wait found above is
+              // what says so, so the flag is not read a second time here.
+              status: (waiting?.id === task.id ? 'waiting' : task.status) as TrayTaskStatus,
               progress: task.progress,
             }
           : null,
@@ -118,6 +141,7 @@ export function startTrayBridge(lang: LanguageCode, onRepeat?: (plan: TransferPl
         // page's URL: it holds both the port and the token there.
         dashboard: t.trayDashboard,
         waiting: t.trayWaiting,
+        answer: t.trayAnswer,
         repeat: t.trayRepeat,
         quit: t.quitDialogLabel,
       },

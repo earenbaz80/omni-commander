@@ -37,6 +37,7 @@ function dashboardHtml() {
   .job.paused { border-color:#a16207; }
   .job.done { border-color:#14532d; opacity:.72; }
   .job.done-with-errors { border-color:#7f1d1d; }
+  .job.focus { border-color:#22d3ee; box-shadow:0 0 0 1px #22d3ee inset; }
   .row { display:flex; align-items:center; gap:10px; justify-content:space-between; flex-wrap:wrap; }
   .name { font-weight:600; }
   .badge { font-size:10px; text-transform:uppercase; letter-spacing:.6px; border-radius:4px; padding:2px 7px; border:1px solid currentColor; }
@@ -92,8 +93,13 @@ function dashboardHtml() {
   // put back to the plain page -- what stays there ends up in the history and in
   // every screenshot of it -- and the cookie the first visit left covers a reload.
   var token='';
+  // The job the tray pointed at, when the page was opened from its row.
+  var focusJob='';
+  var focusShown=false;
   try{
-    token=new URLSearchParams(location.search).get('t')||'';
+    var params=new URLSearchParams(location.search);
+    token=params.get('t')||'';
+    focusJob=params.get('job')||'';
     if(!token){
       var kept=/(?:^|;\s*)omni-page=([^;]+)/.exec(document.cookie||'');
       if(kept) token=decodeURIComponent(kept[1]);
@@ -221,7 +227,7 @@ function dashboardHtml() {
           '<span class="fb"><i style="width:'+fp+'%"></i></span>'+
           '<span class="fp">'+right+'</span></div>';
       }).join('')+'</div>'):'';
-      return '<section class="job '+cls+'">'+
+      return '<section class="job '+cls+(j.id===focusJob?' focus':'')+'">'+
         '<div class="row"><div><span class="badge s-'+esc(j.status)+'">'+esc(j.status)+'</span> '+
         '<span class="name">'+esc(j.label)+'</span> <span class="pill">'+esc(j.op)+'</span></div>'+btns+'</div>'+
         '<div class="bar"><div class="fill '+fillCls+'" style="width:'+pct+'%"></div></div>'+
@@ -244,6 +250,13 @@ function dashboardHtml() {
       for(var f=0;f<drawn.length;f+=1){
         if(drawn[f].dataset.id+'/'+drawn[f].dataset.act===focused){ drawn[f].focus({preventScroll:true}); break; }
       }
+    }
+    // Dragged into view once, not on every poll: the list is rebuilt every 600 ms, and
+    // a page that kept jumping back would fight whoever scrolled away.
+    if(focusJob && !focusShown){
+      focusShown=true;
+      var target=host.querySelector('section.focus');
+      if(target && target.scrollIntoView) target.scrollIntoView({block:'center'});
     }
   }
   // A browser drops the click when the pressed button is replaced before the

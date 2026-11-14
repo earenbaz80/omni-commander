@@ -18,6 +18,13 @@ describe('the dashboard URL the tray opens', () => {
     expect(new URL(dashboardUrl(3001, 'a b&c') as string).searchParams.get('t')).toBe('a b&c');
   });
 
+  it('opens the page on the job it was pointed at', () => {
+    expect(dashboardUrl(62412, 'abc123', 'job-7')).toBe('http://127.0.0.1:62412/__jobs?t=abc123&job=job-7');
+    expect(new URL(dashboardUrl(3001, 'a b', 'job 7') as string).searchParams.get('job')).toBe('job 7');
+    // Nothing to point at is the plain page, not an empty row to look for.
+    expect(dashboardUrl(62412, 'abc123', '')).toBe('http://127.0.0.1:62412/__jobs?t=abc123');
+  });
+
   it('has no URL before the port is known', () => {
     expect(dashboardUrl(null, 'abc123')).toBeNull();
     expect(dashboardUrl(undefined, 'abc123')).toBeNull();

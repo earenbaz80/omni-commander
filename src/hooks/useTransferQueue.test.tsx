@@ -291,7 +291,7 @@ describe('useTransferQueue', () => {
 
     await waitFor(() => expect(result.current.conflictPrompt).toBeNull());
     expect(vi.mocked(taskQueue.setWaitingForAnswer).mock.calls).toEqual([
-      ['job_9', true],
+      ['job_9', true, { source: 'C:\\a.txt', destination: 'D:\\a.txt' }],
       ['job_9', false],
     ]);
 

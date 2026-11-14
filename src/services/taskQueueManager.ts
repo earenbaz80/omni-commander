@@ -286,10 +286,18 @@ class TaskQueueManager {
    * this instead of "running": the engine is waiting for an answer, not copying,
    * and a frozen progress bar with no explanation is what that used to look like.
    */
-  public setWaitingForAnswer(jobId: string, waiting: boolean): void {
+  public setWaitingForAnswer(
+    jobId: string,
+    waiting: boolean,
+    conflict?: { source: string; destination: string },
+  ): void {
     const task = this.tasks.find((t) => t.serverJobId === jobId);
-    if (!task || Boolean(task.waitingForAnswer) === waiting) return;
+    if (!task) return;
+    // A second conflict of the same job arrives while the flag is already up: it still
+    // has to replace the one the tray is holding, or the menu would answer the old one.
+    if (Boolean(task.waitingForAnswer) === waiting && (!waiting || !conflict)) return;
     task.waitingForAnswer = waiting;
+    task.pendingConflict = waiting ? (conflict ?? null) : null;
     this.notify();
   }
 

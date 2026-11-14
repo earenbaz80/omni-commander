@@ -8,6 +8,12 @@ type State = {
   hasLiveWork: boolean;
   activeCount: number;
   canRepeat: boolean;
+  waiting: {
+    id: string;
+    jobId: string;
+    title: string;
+    conflict: { source: string; destination: string } | null;
+  } | null;
   task: { id: string; title: string; status: string; progress: number } | null;
   labels: Record<string, string>;
 };
@@ -16,6 +22,7 @@ const state = (overrides: Partial<State> = {}): State => ({
   hasLiveWork: true,
   activeCount: 1,
   canRepeat: false,
+  waiting: null,
   task: { id: 'job_1', title: 'Copy 2 items', status: 'running', progress: 40 },
   labels: {
     resume: 'Reanudar',
@@ -23,6 +30,7 @@ const state = (overrides: Partial<State> = {}): State => ({
     cancel: 'Cancelar',
     dashboard: 'Abrir panel de transferencias',
     waiting: 'Esperando tu respuesta',
+    answer: 'Responder en el panel',
     repeat: 'Repetir el último cancelado',
     quit: 'Salir',
   },
@@ -54,7 +62,10 @@ describe('the tray menu', () => {
   });
 
   it('says a transfer is waiting for an answer, and still lets it be cancelled', () => {
-    const waiting = state({ task: { ...state().task!, status: 'waiting', progress: 0 } });
+    const waiting = state({
+      task: { ...state().task!, status: 'waiting', progress: 0 },
+      waiting: { id: 'job_1', jobId: 'job_1', title: 'Copy 2 items', conflict: null },
+    });
     expect(trayTooltip(waiting)).toBe('OmniCommander Pro · Copy 2 items — Esperando tu respuesta');
 
     const template = trayMenuTemplate(waiting, actions());
@@ -62,6 +73,39 @@ describe('the tray menu', () => {
     expect(row(template, 'Cancelar')?.enabled).toBe(true);
     expect(row(template, 'Pausar')?.enabled).toBe(false);
     expect(row(template, 'Reanudar')?.enabled).toBe(false);
+  });
+
+  it('names the transfer waiting on an answer even when the controls are elsewhere', () => {
+    // The selected transfer is what Pause and Cancel act on; the parked one is what
+    // the user has to do something about, so it is the one the title names.
+    const parked = state({ waiting: { id: 'job_2', jobId: 'job_9', title: 'Move 5 items', conflict: null } });
+
+    expect(trayTooltip(parked)).toBe('OmniCommander Pro · Move 5 items — Esperando tu respuesta');
+    const template = trayMenuTemplate(parked, actions());
+    expect(row(template, 'Move 5 items — Esperando tu respuesta')?.enabled).toBe(false);
+    expect(row(template, 'Pausar')?.enabled).toBe(true);
+  });
+
+  it('opens the dashboard on the waiting row, and only when one is waiting', () => {
+    const handlers = actions();
+    const template = trayMenuTemplate(
+      state({ waiting: { id: 'job_2', jobId: 'job_9', title: 'Move 5 items', conflict: null } }),
+      handlers,
+    );
+
+    expect(row(template, 'Responder en el panel')?.enabled).toBe(true);
+    row(template, 'Responder en el panel')?.click?.();
+    expect(handlers.openDashboard.mock.calls).toEqual([['job_2']]);
+
+    expect(row(trayMenuTemplate(state(), actions()), 'Responder en el panel')?.enabled).toBe(false);
+    const noPage = trayMenuTemplate(
+      state({ waiting: { id: 'job_2', jobId: 'job_9', title: 'Move 5 items', conflict: null } }),
+      {
+        ...actions(),
+        dashboardReady: false,
+      },
+    );
+    expect(row(noPage, 'Responder en el panel')?.enabled).toBe(false);
   });
 
   it('leaves a transfer with nothing to say without controls', () => {

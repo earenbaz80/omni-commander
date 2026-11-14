@@ -269,6 +269,7 @@ const MAX_PORT_ATTEMPTS = 25;
 let activePort = null;
 const portReadyListeners = [];
 const jobFinishedListeners = [];
+const jobWaitingListeners = [];
 
 /**
  * Runs `listener` for every job that reaches a final state. The host application
@@ -282,6 +283,19 @@ function announceJobFinished(job) {
   // The engine already keeps a throwing listener from failing the transfer; this
   // only has to reach every subscriber.
   for (const listener of jobFinishedListeners) listener(job);
+}
+
+/**
+ * Runs `listener` when a job parks waiting for an answer. The window may be behind
+ * something else, and the wait expires into a failed transfer, so the host needs to
+ * hear about it while there is still time to answer.
+ */
+function onJobWaiting(listener) {
+  jobWaitingListeners.push(listener);
+}
+
+function announceJobWaiting(job) {
+  for (const listener of jobWaitingListeners) listener(job);
 }
 
 /** Runs `listener` as soon as the server is listening, or immediately if it already is. */
@@ -428,6 +442,7 @@ const {
   waitWhilePaused,
   sleep,
   finishJob,
+  onJobWaiting: announceJobWaiting,
   jobTickMs: JOB_TICK_MS,
   conflictAnswerMs: CONFLICT_ANSWER_MS,
   powershellTimeoutMs: POWERSHELL_TIMEOUT_MS,
@@ -641,4 +656,4 @@ listenOn(PREFERRED_PORT, 0).catch((error) => {
   console.error('Local drive server failed to start:', error);
 });
 
-module.exports = { onPortReady, onJobFinished, getPort: () => activePort, PREFERRED_PORT };
+module.exports = { onPortReady, onJobFinished, onJobWaiting, getPort: () => activePort, PREFERRED_PORT };

@@ -201,7 +201,10 @@ export function useTransferQueue({
         promptedJobId = conflict.jobId;
         // The engine parks the job; the queue keeps saying `running`, so the flag
         // is what lets the tray say the transfer is waiting for an answer.
-        taskQueue.setWaitingForAnswer(conflict.jobId, true);
+        taskQueue.setWaitingForAnswer(conflict.jobId, true, {
+          source: conflict.source,
+          destination: conflict.destination,
+        });
         handleConflictPrompt(conflict, signal);
       };
       try {
@@ -457,7 +460,10 @@ export function useTransferQueue({
         promptedJobId = conflict.jobId;
         // The engine parks the job; the queue keeps saying `running`, so the flag
         // is what lets the tray say the transfer is waiting for an answer.
-        taskQueue.setWaitingForAnswer(conflict.jobId, true);
+        taskQueue.setWaitingForAnswer(conflict.jobId, true, {
+          source: conflict.source,
+          destination: conflict.destination,
+        });
         handleConflictPrompt(conflict, signal);
       };
       const failureLabel = op === 'move' ? 'Move' : 'Copy';

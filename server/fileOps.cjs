@@ -28,6 +28,7 @@ function createFileOps(deps = {}) {
     waitWhilePaused,
     sleep,
     finishJob,
+    onJobWaiting = () => {},
     jobTickMs = 120,
     conflictAnswerMs = 5 * 60 * 1000,
     writeStallMs = 60000,
@@ -355,6 +356,14 @@ function createFileOps(deps = {}) {
         sourceFact.size === destinationFact.size &&
         sourceFact.modifiedMs === destinationFact.modifiedMs,
     };
+    // Announced before parking: the wait is bounded, and a window behind something
+    // else is exactly the case a notice exists for. A listener that throws must not
+    // fail a transfer that is only waiting for a human.
+    try {
+      onJobWaiting(job);
+    } catch (error) {
+      console.error('Job waiting listener failed:', error);
+    }
     const deadline = Date.now() + CONFLICT_ANSWER_MS;
     // A UI that died, crashed or simply walked away must not park this job for the
     // life of the process: the wait is bounded and expiry fails the transfer.
