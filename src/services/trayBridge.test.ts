@@ -176,8 +176,13 @@ describe('tray bridge', () => {
     const parked = snapshots[snapshots.length - 1];
     expect(parked.task?.status).toBe('waiting');
     expect(parked.labels.waiting).toBe(getTranslations('es').trayWaiting);
+    // The tray names the job that needs the user on its own field, so the menu row
+    // can lead to it without guessing from the selection.
+    expect(parked.waiting).toEqual({ id: runningId, jobId: 'job_9', title: 'Copy 2 items', conflict: null });
+    expect(parked.labels.answer).toBe(getTranslations('es').trayAnswer);
 
     taskQueue.setWaitingForAnswer('job_9', false);
     expect(snapshots[snapshots.length - 1].task?.status).toBe(ownStatus);
+    expect(snapshots[snapshots.length - 1].waiting).toBeNull();
   });
 });

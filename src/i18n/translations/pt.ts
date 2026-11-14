@@ -758,6 +758,7 @@ export const pt = {
   bgTasksResume: 'Retomar',
   trayDashboard: 'Abrir painel de transferências',
   trayWaiting: 'Aguardando sua resposta',
+  trayAnswer: 'Responder ao conflito',
   trayRepeat: 'Repetir o último cancelado ou falhado',
   bgTasksEmpty: 'Não há tarefas em segundo plano na fila',
   diskUsageModalTitle: 'Uso do disco',

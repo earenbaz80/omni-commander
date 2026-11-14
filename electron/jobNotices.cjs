@@ -37,4 +37,20 @@ function jobNotice(job, now = Date.now()) {
   return { title: label, body: `${failed ? '⚠' : '✓'} ${size}${first ? ` — ${first}` : ''}` };
 }
 
-module.exports = { jobNotice };
+/**
+ * A transfer parked on a conflict. Unlike the notices above, this one is raised while
+ * the work is still alive: the wait is bounded, and a job that expires fails without
+ * the user ever having seen the prompt. The title names the transfer, the mark says
+ * why, and the body names the file it stopped on -- the process has no translations
+ * of its own, so the state is a mark rather than an English word.
+ */
+function conflictNotice(job) {
+  if (!job || typeof job !== 'object' || job.status !== 'waiting') return null;
+  const conflict = job.pendingConflict;
+  if (!conflict || typeof conflict !== 'object') return null;
+  const label = (typeof job.label === 'string' && job.label.trim()) || 'Transfer';
+  const destination = typeof conflict.destination === 'string' ? conflict.destination : '';
+  return { title: label, body: `⏸ ${destination}`.trim() };
+}
+
+module.exports = { conflictNotice, jobNotice };

@@ -299,6 +299,22 @@ describe('the dashboard row', () => {
     return { window, poll: () => poll(), posts, bodies, headers, settle, startedPolls: () => started };
   }
 
+  it('opens on the row the tray pointed at', async () => {
+    // A tray row carries the job id; the page has to show which row that is instead
+    // of dropping the operator at the top of a list that may be long.
+    const { window } = await mountPage(undefined, { search: '?t=page-token&job=job-1' });
+    const marked = window.document.querySelectorAll('section.focus');
+
+    expect(marked).toHaveLength(1);
+    expect(marked[0].textContent).toContain('respaldo');
+  });
+
+  it('marks no row when it was opened without a job', async () => {
+    const { window } = await mountPage();
+
+    expect(window.document.querySelectorAll('section.focus')).toHaveLength(0);
+  });
+
   it('acts on the press, so a poll between press and release cannot swallow it', async () => {
     // Chromium drops the click when the pressed button is replaced before the
     // release, though pointerdown and pointerup both arrive: a click listener

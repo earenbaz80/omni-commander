@@ -27,7 +27,7 @@ const { normalizeBrowserUrl } = require('./browserUrl.cjs');
 const { dashboardUrl } = require('./dashboardUrl.cjs');
 const { normalizeTrayState } = require('./trayState.cjs');
 const { trayMenuTemplate, trayTooltip } = require('./trayMenu.cjs');
-const { jobNotice } = require('./jobNotices.cjs');
+const { conflictNotice, jobNotice } = require('./jobNotices.cjs');
 
 // Windows groups a toast by this id and may drop one that has none; it is the id
 // the installer registers, so the notification is attributed to this app.
@@ -65,6 +65,8 @@ try {
   });
   // A transfer can end with the window closed; the toast is the only way back to it.
   serverApi.onJobFinished(notifyJobEnded);
+  // A parked transfer is still alive: it hears about it while there is time to answer.
+  serverApi.onJobWaiting(notifyJobWaiting);
 } catch (error) {
   console.error('Unable to start local drive server:', error);
 }
@@ -299,6 +301,9 @@ let trayMenu = null;
 // close handler below would hide the window during `app.quit()` and the process
 // would never exit.
 let quitting = false;
+// Transfers already announced as waiting; cleared when the job ends, so the next one
+// in the queue gets its own nudge.
+const notifiedWaiting = new Set();
 // The empty snapshot comes from the same normalizer the renderer's snapshots go
 // through, so a label added there cannot be missing from the menu before the first
 // one arrives -- it was, and the row was drawn with no text at all.
@@ -340,8 +345,8 @@ function sendTrayCommand(command) {
  * The engine page in a browser. The tray item and a finished transfer's toast both
  * lead here, and the helper is what decides whether there is a page to open at all.
  */
-function openDashboard() {
-  const url = dashboardUrl(apiPort, sessionToken);
+function openDashboard(jobId) {
+  const url = dashboardUrl(apiPort, sessionToken, jobId);
   if (url) void shell.openExternal(url);
 }
 
@@ -351,10 +356,30 @@ function openDashboard() {
  * the page where the rest of the story is.
  */
 function notifyJobEnded(job) {
+  notifiedWaiting.delete(job.id);
   const notice = jobNotice(job);
   if (!notice || !Notification.isSupported()) return;
   const toast = new Notification({ title: notice.title, body: notice.body });
-  toast.on('click', openDashboard);
+  // The event Electron passes to the handler is not a job id: the toast points at the
+  // transfer it announced, and only that one.
+  toast.on('click', () => openDashboard(job.id));
+  toast.show();
+}
+
+/**
+ * Announces a transfer the engine parked on a conflict. One nudge per transfer: a
+ * large copy can collide once per file, and a toast for each would train the user to
+ * ignore them. Clicking it lands on that job's row, where the answer is.
+ */
+function notifyJobWaiting(job) {
+  if (!job || notifiedWaiting.has(job.id)) return;
+  // Whoever has the window in front of them is looking at the prompt already.
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible() && mainWindow.isFocused()) return;
+  const notice = conflictNotice(job);
+  if (!notice || !Notification.isSupported()) return;
+  notifiedWaiting.add(job.id);
+  const toast = new Notification({ title: notice.title, body: notice.body });
+  toast.on('click', () => openDashboard(job.id));
   toast.show();
 }
 

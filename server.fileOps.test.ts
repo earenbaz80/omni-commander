@@ -32,6 +32,11 @@ interface Entry {
 interface Job {
   id: string;
   op: string;
+  collision?: string;
+  status?: string;
+  paused?: boolean;
+  cancelled?: boolean;
+  pendingConflict?: { destination?: string } | null;
   items: Entry[];
   errors: { path: string; message: string }[];
   copiedBytes: number;
@@ -67,7 +72,7 @@ afterEach(() => {
   }
 });
 
-function makeOps(): FileOps {
+function makeOps(extra: Record<string, unknown> = {}): FileOps {
   return createFileOps({
     noteFile: (job: Job, target: string, size: number) => {
       const entry: Entry = { path: target, size, copied: 0, status: 'pending' };
@@ -77,7 +82,8 @@ function makeOps(): FileOps {
     waitWhilePaused: async () => undefined,
     sleep: async () => undefined,
     finishJob: () => undefined,
-  });
+    ...extra,
+  }) as FileOps;
 }
 
 function makeJob(): Job {
@@ -233,5 +239,38 @@ describe('moving a folder whose rename is refused for a moment', () => {
     expect(job.errors).toEqual([]);
     expect(fs.existsSync(source)).toBe(false);
     expect(fs.readFileSync(path.join(target, path.basename(source), 'nota.txt'), 'utf8')).toBe('hola\n');
+  });
+});
+
+/**
+ * A parked conflict is the one moment the transfer needs the user, and the wait it
+ * sits on is bounded: the host has to hear about it while there is still time to
+ * answer, not when the timeout has already failed the job.
+ */
+describe('a transfer parked on a conflict', () => {
+  it('announces the wait before the answer is due, naming the file', async () => {
+    const source = scratch('omni-wait-src-');
+    const target = scratch('omni-wait-dst-');
+    fs.writeFileSync(path.join(source, 'nota.txt'), 'hola\n', 'utf8');
+    fs.writeFileSync(path.join(target, 'nota.txt'), 'otra\n', 'utf8');
+
+    const announced: Array<{ id: string; destination?: string }> = [];
+    const job: Job = { ...makeJob(), collision: 'ask', status: 'running', paused: false, cancelled: false };
+    // A zero wait expires at once, which keeps the case short: the announcement has
+    // to have happened before the job could fail on the deadline.
+    const ops = makeOps({
+      conflictAnswerMs: 0,
+      onJobWaiting: (waiting: Job) =>
+        announced.push({ id: waiting.id, destination: waiting.pendingConflict?.destination }),
+    });
+
+    // The file itself, not its folder: a folder copy would land in a subdirectory
+    // that does not exist yet and never collide. The expiry fails the job, and the
+    // announcement has to have happened before it.
+    await expect(ops.runTransferJob(job, [path.join(source, 'nota.txt')], target)).rejects.toThrow(
+      /No answer for the conflict/,
+    );
+
+    expect(announced).toEqual([{ id: 'job-root-test', destination: path.join(target, 'nota.txt') }]);
   });
 });

@@ -32,6 +32,43 @@ describe('the state the tray mirrors', () => {
     expect(normalizeTrayState({}).labels.waiting).toBe('Waiting for your answer');
   });
 
+  it('keeps the job waiting on an answer apart from the selected one', () => {
+    // The selected transfer is what the tray's controls act on, and it is not always
+    // the parked one: the title and the answer row have to name the parked one, with
+    // the conflict it is parked on and the job the answer has to reach.
+    const state = normalizeTrayState({
+      task: { id: 'job_1', title: 'Copy 2 items', status: 'running', progress: 40 },
+      waiting: {
+        id: 'task_2',
+        jobId: 'job_9',
+        title: 'Move 5 items',
+        conflict: { source: 'C:\\a.txt', destination: 'D:\\a.txt' },
+      },
+    });
+
+    expect(state.task?.id).toBe('job_1');
+    expect(state.waiting).toEqual({
+      id: 'task_2',
+      jobId: 'job_9',
+      title: 'Move 5 items',
+      conflict: { source: 'C:\\a.txt', destination: 'D:\\a.txt' },
+    });
+  });
+
+  it('drops a waiting entry it cannot address, and names a nameless one', () => {
+    expect(normalizeTrayState({ waiting: { title: 'Move 5 items' } }).waiting).toBeNull();
+    expect(normalizeTrayState({ waiting: { id: 'job_2' } }).waiting).toEqual({
+      id: 'job_2',
+      jobId: '',
+      title: 'Transfer',
+      conflict: null,
+    });
+    expect(normalizeTrayState({}).waiting).toBeNull();
+    // No conflict means nothing to answer: the row still leads to the page instead.
+    expect(normalizeTrayState({ waiting: { id: 'task_1', jobId: 'job_9' } }).waiting?.conflict).toBeNull();
+    expect(normalizeTrayState({}).labels.answer).toBe('Answer the conflict');
+  });
+
   it('offers the repeat row only for an explicit true', () => {
     // The renderer decides; this side must not turn a truthy string into a row that
     // repeats a transfer nobody stopped.

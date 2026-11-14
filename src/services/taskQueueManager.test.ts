@@ -150,6 +150,20 @@ describe('taskQueue and a conflict left unanswered', () => {
     return { run: () => promise, release };
   };
 
+  it('holds the conflict the tray is answering until the flag comes down', async () => {
+    const gate = hold();
+    const id = parked('job_conflict', gate.run);
+
+    taskQueue.setWaitingForAnswer('job_conflict', true, { source: 'C:\\a.txt', destination: 'D:\\a.txt' });
+    expect(taskById(id).pendingConflict).toEqual({ source: 'C:\\a.txt', destination: 'D:\\a.txt' });
+
+    taskQueue.setWaitingForAnswer('job_conflict', false);
+    expect(taskById(id).pendingConflict).toBeNull();
+
+    gate.release();
+    await vi.waitFor(() => expect(taskById(id).status).toBe('completed'));
+  });
+
   it('keeps waiting while the transfer is still alive', async () => {
     // The tray reads this flag instead of "running", so a sweep that cleared it
     // unconditionally would take the prompt off the tray while the engine waits.

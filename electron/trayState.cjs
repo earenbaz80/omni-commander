@@ -32,6 +32,27 @@ function normalizeTrayState(payload) {
     : null;
   const rawCount = Number(source.activeCount);
   const activeCount = Number.isFinite(rawCount) ? Math.min(99, Math.max(0, Math.trunc(rawCount))) : task ? 1 : 0;
+  // The transfer waiting on an answer travels on its own, because the selected one
+  // is chosen for the controls and may be a different task.
+  const rawWaiting = source.waiting && typeof source.waiting === 'object' ? source.waiting : null;
+  const waitingId = rawWaiting ? clampText(rawWaiting.id, TRAY_TITLE_LIMIT) : '';
+  const rawConflict =
+    rawWaiting && rawWaiting.conflict && typeof rawWaiting.conflict === 'object' ? rawWaiting.conflict : null;
+  const waiting = waitingId
+    ? {
+        id: waitingId,
+        jobId: clampText(rawWaiting.jobId, TRAY_TITLE_LIMIT),
+        title: clampText(rawWaiting.title, TRAY_TITLE_LIMIT) || 'Transfer',
+        // The two sides are only used to know a conflict is on screen; kept apart
+        // from the title so a path cannot end up in a menu label.
+        conflict: rawConflict
+          ? {
+              source: clampText(rawConflict.source, TRAY_TITLE_LIMIT),
+              destination: clampText(rawConflict.destination, TRAY_TITLE_LIMIT),
+            }
+          : null,
+      }
+    : null;
   const rawLabels = source.labels && typeof source.labels === 'object' ? source.labels : {};
 
   return {
@@ -40,6 +61,7 @@ function normalizeTrayState(payload) {
     // Only an explicit true enables the row: a renderer that sent nothing, or a
     // truthy string, must not offer a repeat there is no plan for.
     canRepeat: source.canRepeat === true,
+    waiting,
     task,
     labels: {
       resume: clampText(rawLabels.resume, TRAY_LABEL_LIMIT) || 'Resume',
@@ -47,10 +69,11 @@ function normalizeTrayState(payload) {
       cancel: clampText(rawLabels.cancel, TRAY_LABEL_LIMIT) || 'Cancel',
       dashboard: clampText(rawLabels.dashboard, TRAY_LABEL_LIMIT) || 'Open transfer dashboard',
       waiting: clampText(rawLabels.waiting, TRAY_LABEL_LIMIT) || 'Waiting for your answer',
+      answer: clampText(rawLabels.answer, TRAY_LABEL_LIMIT) || 'Answer the conflict',
       repeat: clampText(rawLabels.repeat, TRAY_LABEL_LIMIT) || 'Repeat last cancelled',
       quit: clampText(rawLabels.quit, TRAY_LABEL_LIMIT) || 'Quit',
     },
   };
 }
 
-module.exports = { clampText, LIVE_STATUSES, normalizeTrayState };
+module.exports = { clampText, LIVE_STATUSES, TRAY_LABEL_LIMIT, normalizeTrayState };
