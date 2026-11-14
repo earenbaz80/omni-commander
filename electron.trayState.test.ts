@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { normalizeTrayState } from './electron/trayState.cjs';
+import { normalizeTrayState, TRAY_TITLE_LIMIT } from './electron/trayState.cjs';
 
 /**
  * The tray entry that opens the dashboard is labelled by the renderer, which
@@ -73,13 +73,27 @@ describe('the state the tray mirrors', () => {
     expect(normalizeTrayState({}).labels.overwrite).toBe('Overwrite');
   });
 
+  it('keeps both sides of a conflict, inside the width a menu row has', () => {
+    // The menu names the file the conflict is about, so the path has to survive this
+    // side in one piece -- long enough to tell two folders apart, short enough that the
+    // tray still draws the entry.
+    const long = `D:\\${'carpeta\\'.repeat(20)}archivo.txt`;
+    const state = normalizeTrayState({
+      waiting: { id: 'task_1', jobId: 'job_9', conflict: { source: 'C:\\a.txt', destination: long } },
+    });
+
+    expect(state.waiting?.conflict?.source).toBe('C:\\a.txt');
+    expect(state.waiting?.conflict?.destination).toHaveLength(TRAY_TITLE_LIMIT);
+    expect(state.waiting?.conflict?.destination.startsWith('D:\\carpeta\\')).toBe(true);
+  });
+
   it('offers the repeat row only for an explicit true', () => {
     // The renderer decides; this side must not turn a truthy string into a row that
     // repeats a transfer nobody stopped.
     expect(normalizeTrayState({ canRepeat: true }).canRepeat).toBe(true);
     expect(normalizeTrayState({ canRepeat: 'yes' }).canRepeat).toBe(false);
     expect(normalizeTrayState({}).canRepeat).toBe(false);
-    expect(normalizeTrayState({}).labels.repeat).toBe('Repeat last cancelled');
+    expect(normalizeTrayState({}).labels.repeat).toBe('Repeat last cancelled or failed');
   });
 
   it('cuts a label too long for a menu row without losing the entry', () => {

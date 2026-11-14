@@ -74,10 +74,10 @@ function normalizeTrayState(payload) {
       skip: clampText(rawLabels.skip, TRAY_LABEL_LIMIT) || 'Skip',
       rename: clampText(rawLabels.rename, TRAY_LABEL_LIMIT) || 'Keep both',
       applyAll: clampText(rawLabels.applyAll, TRAY_LABEL_LIMIT) || 'Always…',
-      repeat: clampText(rawLabels.repeat, TRAY_LABEL_LIMIT) || 'Repeat last cancelled',
+      repeat: clampText(rawLabels.repeat, TRAY_LABEL_LIMIT) || 'Repeat last cancelled or failed',
       quit: clampText(rawLabels.quit, TRAY_LABEL_LIMIT) || 'Quit',
     },
   };
 }
 
-module.exports = { clampText, LIVE_STATUSES, TRAY_LABEL_LIMIT, normalizeTrayState };
+module.exports = { clampText, LIVE_STATUSES, TRAY_LABEL_LIMIT, TRAY_TITLE_LIMIT, normalizeTrayState };
