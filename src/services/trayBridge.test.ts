@@ -159,6 +159,50 @@ describe('tray bridge', () => {
     finish();
   });
 
+  it('carries the parked conflict and answers it by job id', () => {
+    const snapshots: TraySnapshot[] = [];
+    let handler: ((command: TrayCommand) => void) | undefined;
+    const answers: Array<[string, string, boolean]> = [];
+    electron.electronAPI = {
+      updateTrayState: (snapshot: TraySnapshot) => snapshots.push(snapshot),
+      onTrayCommand: (callback: (command: TrayCommand) => void) => {
+        handler = callback;
+        return () => {
+          handler = undefined;
+        };
+      },
+    };
+    runningId = taskQueue.addTask('copy', 'Copy 2 items', 'C:\\dest', 10, () => new Promise<void>(() => {}));
+    taskQueue.updateTaskMeta(runningId, { serverJobId: 'job_9' });
+    taskQueue.setWaitingForAnswer('job_9', true, { source: 'C:\\a.txt', destination: 'D:\\dest\\a.txt' });
+    stopBridge = startTrayBridge('es', undefined, (jobId, decision, applyToAll) =>
+      answers.push([jobId, decision, applyToAll]),
+    );
+
+    const parked = snapshots[snapshots.length - 1];
+    expect(parked.waiting).toEqual({
+      id: runningId,
+      jobId: 'job_9',
+      title: 'Copy 2 items',
+      conflict: { source: 'C:\\a.txt', destination: 'D:\\dest\\a.txt' },
+    });
+    // The decisions are the ones the window's prompt shows for the same answers, not
+    // a second set of words for the same thing.
+    const es = getTranslations('es');
+    expect(parked.labels.overwrite).toBe(es.collisionOverwrite);
+    expect(parked.labels.skip).toBe(es.collisionSkip);
+    expect(parked.labels.rename).toBe(es.collisionRename);
+    expect(parked.labels.applyAll).toBe(es.conflictAlwaysMode);
+
+    handler?.({ resolve: 'skip', jobId: 'job_9', applyToAll: true });
+    expect(answers).toEqual([['job_9', 'skip', true]]);
+
+    // A menu left open while that job moved on answers nothing at all.
+    taskQueue.setWaitingForAnswer('job_9', false);
+    handler?.({ resolve: 'skip', jobId: 'job_9', applyToAll: false });
+    expect(answers).toHaveLength(1);
+  });
+
   // Last in the file: it leaves a transfer parked in the queue, and the queue runs
   // one task at a time, so a later test would find its own task still queued.
   it('says a parked transfer is waiting for an answer, and goes back when it moves', () => {

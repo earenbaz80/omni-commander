@@ -41,6 +41,8 @@ export interface TransferQueue {
   /** Closes the prompt without copying: the user changed their mind. */
   dismissFreeSpacePrompt: () => void;
   handleResolveConflict: (action: ConflictResolution, applyToAll: boolean) => void;
+  /** Answers a conflict by job id, for the tray, which keeps no prompt of its own. */
+  answerConflictFromTray: (jobId: string, action: ConflictResolution, applyToAll: boolean) => void;
   handleAbortConflict: () => void;
   handleForceTransfer: () => void;
   handleRunCopyList: (plans: TransferPlan[]) => Promise<void>;
@@ -126,6 +128,13 @@ export function useTransferQueue({
   const stopWaiting = (jobId: string) => {
     taskQueue.setWaitingForAnswer(jobId, false);
     setConflictPrompt((current) => (current && current.jobId === jobId ? null : current));
+  };
+
+  // The tray answers with the job it was showing: the window's prompt may already be
+  // closed by an answer from the dashboard, or never drawn at all.
+  const answerConflictFromTray = (jobId: string, action: ConflictResolution, applyToAll: boolean) => {
+    stopWaiting(jobId);
+    void fsEngine.resolveConflict(jobId, action, applyToAll);
   };
 
   // A transfer plan is what a saved copy list is made of. Only real-drive
@@ -567,6 +576,7 @@ export function useTransferQueue({
     freeSpacePrompt,
     dismissFreeSpacePrompt,
     handleResolveConflict,
+    answerConflictFromTray,
     handleAbortConflict,
     handleForceTransfer,
     handleRunCopyList,

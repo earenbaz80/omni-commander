@@ -28,12 +28,34 @@ function trayTooltip(state) {
 }
 
 /**
- * The row that leads to the transfer waiting for an answer. The dashboard is where the
- * conflict is answered and where the rest of the batch is once it is settled.
+ * The answers the tray can give to a parked conflict, laid out like the window's
+ * prompt: one decision per item, and apply-to-all as a checkbox main keeps across
+ * the rebuilds the queue triggers.
+ */
+function conflictSubmenu(state, actions) {
+  const { labels, waiting } = state;
+  const applyAll = actions.applyToAll === true;
+  const answer = (decision) => ({
+    label: labels[decision],
+    click: () => actions.command({ resolve: decision, jobId: waiting.jobId, applyToAll: applyAll }),
+  });
+  return [
+    answer('overwrite'),
+    answer('skip'),
+    answer('rename'),
+    { type: 'separator' },
+    { label: labels.applyAll, type: 'checkbox', checked: applyAll, click: actions.toggleApplyToAll },
+  ];
+}
+
+/**
+ * The row that answers a parked conflict, or leads to the job's own page when there is
+ * no conflict to answer -- a transfer can be waiting without the details having arrived.
  */
 function answerRow(state, actions) {
   const { labels, waiting } = state;
   if (!waiting) return { label: labels.answer, enabled: false };
+  if (waiting.conflict) return { label: labels.answer, enabled: true, submenu: conflictSubmenu(state, actions) };
   return { label: labels.answer, enabled: actions.dashboardReady, click: () => actions.openDashboard(waiting.id) };
 }
 

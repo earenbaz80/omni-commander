@@ -44,6 +44,7 @@ describe('the state the tray mirrors', () => {
         title: 'Move 5 items',
         conflict: { source: 'C:\\a.txt', destination: 'D:\\a.txt' },
       },
+      labels: { overwrite: 'Sobrescribir', applyAll: 'Aplicar a todos' },
     });
 
     expect(state.task?.id).toBe('job_1');
@@ -53,6 +54,8 @@ describe('the state the tray mirrors', () => {
       title: 'Move 5 items',
       conflict: { source: 'C:\\a.txt', destination: 'D:\\a.txt' },
     });
+    expect(state.labels.overwrite).toBe('Sobrescribir');
+    expect(state.labels.applyAll).toBe('Aplicar a todos');
   });
 
   it('drops a waiting entry it cannot address, and names a nameless one', () => {
@@ -67,6 +70,7 @@ describe('the state the tray mirrors', () => {
     // No conflict means nothing to answer: the row still leads to the page instead.
     expect(normalizeTrayState({ waiting: { id: 'task_1', jobId: 'job_9' } }).waiting?.conflict).toBeNull();
     expect(normalizeTrayState({}).labels.answer).toBe('Answer the conflict');
+    expect(normalizeTrayState({}).labels.overwrite).toBe('Overwrite');
   });
 
   it('offers the repeat row only for an explicit true', () => {
