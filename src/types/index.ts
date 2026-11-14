@@ -167,7 +167,7 @@ export interface BackgroundTask {
   /** Set while the engine is parked on a conflict the window is asking about. */
   waitingForAnswer?: boolean;
   /** The destination the engine parked on, as reported in the job snapshot. */
-  pendingConflict?: { source: string; destination: string } | null;
+  pendingConflict?: { source: string; destination: string; expiresInMs?: number } | null;
   /** Speed limit in bytes per second currently applied to the server job. 0 means unlimited. */
   throttleBps?: number;
 }
@@ -225,6 +225,8 @@ export interface PendingConflict {
   isDirectory?: boolean;
   /** Same size and same timestamp, so overwriting would change nothing. */
   identical?: boolean;
+  /** Milliseconds left before the engine fails the job. */
+  expiresInMs?: number;
 }
 
 /** User-chosen knobs for a real copy/move operation. */

@@ -384,19 +384,25 @@ function createFileOps(deps = {}) {
         sourceFact.size === destinationFact.size &&
         sourceFact.modifiedMs === destinationFact.modifiedMs,
     };
+    // The deadline travels with the job so the tray and the dashboard can show the
+    // wait running out, instead of reporting a stop that silently becomes a failure.
+    job.conflictDeadline = Date.now() + conflictAnswerMs;
     // Announced before parking: the wait is bounded, and a window behind something
     // else is exactly the case a notice exists for. A listener that throws must not
     // fail a transfer that is only waiting for a human.
     try {
-      onJobWaiting(job);
+      // The listener gets the deadline with the conflict: it is what lets the toast say
+      // how long is left and come back before the wait runs out.
+      onJobWaiting({ ...job, pendingConflict: { ...job.pendingConflict, expiresInMs: conflictAnswerMs } });
     } catch (error) {
       console.error('Job waiting listener failed:', error);
     }
-    const deadline = Date.now() + CONFLICT_ANSWER_MS;
+    const deadline = job.conflictDeadline;
     // A UI that died, crashed or simply walked away must not park this job for the
     // life of the process: the wait is bounded and expiry fails the transfer.
     while (!job.cancelled && job.pendingConflict && Date.now() < deadline) await sleep(JOB_TICK_MS);
     job.pendingConflict = null;
+    job.conflictDeadline = 0;
     if (job.cancelled) throw new Error('__cancelled__');
     if (job.conflictDecision == null) {
       throw new Error(`No answer for the conflict on ${dest} within ${Math.round(CONFLICT_ANSWER_MS / 1000)}s`);

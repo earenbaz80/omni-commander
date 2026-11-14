@@ -36,7 +36,7 @@ interface Job {
   status?: string;
   paused?: boolean;
   cancelled?: boolean;
-  pendingConflict?: { destination?: string } | null;
+  pendingConflict?: { destination?: string; expiresInMs?: number } | null;
   resumeExisting?: boolean;
   items: Entry[];
   errors: { path: string; message: string }[];
@@ -56,6 +56,9 @@ interface FileOps {
 
 const { createFileOps } = require('./server/fileOps.cjs') as {
   createFileOps: (deps: Record<string, unknown>) => FileOps;
+};
+const { conflictNotice } = require('./electron/jobNotices.cjs') as {
+  conflictNotice: (job: Job) => { title: string; body: string } | null;
 };
 
 const scratchDirs: string[] = [];
@@ -280,6 +283,11 @@ describe('a transfer parked on a conflict', () => {
     expect(announced.map((waited) => ({ id: waited.id, destination: waited.pendingConflict?.destination }))).toEqual([
       { id: 'job-root-test', destination: path.join(target, 'nota.txt') },
     ]);
+    // The announced job is what the host turns into a toast, so it has to carry what a
+    // notice needs: the engine parks it as `running`, the wait is the conflict, and the
+    // deadline lets the toast come back before it runs out.
+    expect(announced[0].pendingConflict?.expiresInMs).toBe(0);
+    expect(conflictNotice(announced[0])?.body).toBe(`⏸ ${path.join(target, 'nota.txt')}`);
   });
 });
 

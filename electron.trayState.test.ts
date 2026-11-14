@@ -52,7 +52,8 @@ describe('the state the tray mirrors', () => {
       id: 'task_2',
       jobId: 'job_9',
       title: 'Move 5 items',
-      conflict: { source: 'C:\\a.txt', destination: 'D:\\a.txt' },
+      // No deadline in the payload: the menu then shows no clock rather than a zero.
+      conflict: { source: 'C:\\a.txt', destination: 'D:\\a.txt', expiresInMs: 0 },
     });
     expect(state.labels.overwrite).toBe('Sobrescribir');
     expect(state.labels.applyAll).toBe('Aplicar a todos');
@@ -67,12 +68,23 @@ describe('the state the tray mirrors', () => {
       conflict: null,
     });
     expect(normalizeTrayState({}).waiting).toBeNull();
-    // No conflict means nothing to answer: the row still leads to the page instead.
+    // No conflict means nothing to answer, and the menu disables the row for it.
     expect(normalizeTrayState({ waiting: { id: 'task_1', jobId: 'job_9' } }).waiting?.conflict).toBeNull();
     expect(normalizeTrayState({}).labels.answer).toBe('Answer the conflict');
     expect(normalizeTrayState({}).labels.overwrite).toBe('Overwrite');
   });
 
+  it('keeps the wait left on a conflict, so the menu can count it down', () => {
+    const state = normalizeTrayState({
+      waiting: {
+        id: 'task_1',
+        jobId: 'job_9',
+        conflict: { source: 'C:\a.txt', destination: 'D:\a.txt', expiresInMs: 239_900 },
+      },
+    });
+
+    expect(state.waiting?.conflict?.expiresInMs).toBe(239_900);
+  });
   it('keeps both sides of a conflict, inside the width a menu row has', () => {
     // The menu names the file the conflict is about, so the path has to survive this
     // side in one piece -- long enough to tell two folders apart, short enough that the

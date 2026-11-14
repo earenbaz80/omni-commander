@@ -6,6 +6,7 @@
  * the caller only has to show what comes back.
  */
 const { formatBytes } = require('../server/formatBytes.cjs');
+const { clockOf } = require('./clock.cjs');
 
 /** A copy is worth interrupting someone for only if it ran long enough to forget. */
 const NOTICE_MIN_MS = 10 * 1000;
@@ -45,12 +46,18 @@ function jobNotice(job, now = Date.now()) {
  * of its own, so the state is a mark rather than an English word.
  */
 function conflictNotice(job) {
-  if (!job || typeof job !== 'object' || job.status !== 'waiting') return null;
+  if (!job || typeof job !== 'object') return null;
+  // The engine parks a job that is still `running`: "waiting" is a status the snapshot
+  // derives from `pendingConflict`, not something the job itself carries. Asking for it
+  // here meant the toast never fired for the one state it exists for.
+  if (job.status !== 'running' && job.status !== 'waiting') return null;
   const conflict = job.pendingConflict;
   if (!conflict || typeof conflict !== 'object') return null;
   const label = (typeof job.label === 'string' && job.label.trim()) || 'Transfer';
   const destination = typeof conflict.destination === 'string' ? conflict.destination : '';
-  return { title: label, body: `⏸ ${destination}`.trim() };
+  // The wait is bounded: saying how much is left turns a stop into a deadline.
+  const clock = clockOf(conflict.expiresInMs);
+  return { title: label, body: ['⏸', destination, clock && `· ${clock}`].filter(Boolean).join(' ') };
 }
 
 module.exports = { conflictNotice, jobNotice };
