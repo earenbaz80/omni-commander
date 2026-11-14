@@ -122,6 +122,8 @@ describe('the tray menu', () => {
       'Conservar ambos',
       'separator',
       'Siempre…',
+      'separator',
+      'Cancelar',
     ]);
     expect(answer?.submenu?.[0]).toMatchObject({ label: 'D:\\a.txt · 4:00', enabled: false });
     answer?.submenu?.[4].click?.();
@@ -136,6 +138,10 @@ describe('the tray menu', () => {
     expect(all?.submenu?.[6]).toMatchObject({ type: 'checkbox', checked: true });
     all?.submenu?.[3].click?.();
     expect(handlers.command.mock.calls[1][0]).toEqual({ resolve: 'skip', jobId: 'job_9', applyToAll: true });
+
+    // Stopping is an answer too: the engine cancels the whole job.
+    all?.submenu?.[8].click?.();
+    expect(handlers.command.mock.calls[2][0]).toEqual({ resolve: 'cancel', jobId: 'job_9', applyToAll: false });
   });
 
   it('keeps every label it draws inside the width of a menu row', () => {
