@@ -37,6 +37,9 @@ export interface TraySnapshot {
     title: string;
     status: TrayTaskStatus;
     progress: number;
+    /** Formatted rate, so the tooltip can say whether a hidden transfer moves. */
+    speed?: string;
+    etaSeconds?: number;
   } | null;
   labels: {
     resume: string;
@@ -146,6 +149,8 @@ export function startTrayBridge(
               // what says so, so the flag is not read a second time here.
               status: (waiting?.id === task.id ? 'waiting' : task.status) as TrayTaskStatus,
               progress: task.progress,
+              speed: task.speed,
+              etaSeconds: task.etaSeconds,
             }
           : null,
       labels: {

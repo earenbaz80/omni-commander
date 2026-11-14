@@ -40,13 +40,21 @@ function conflictClock(state) {
   return conflict ? clockOf(conflict.expiresInMs) : '';
 }
 
+/** Rate and ETA of the selected transfer, for the tooltip only. */
+function paceOf(task) {
+  if (!task) return '';
+  const eta = clockOf((task.etaSeconds || 0) * 1000);
+  return [task.speed, eta].filter(Boolean).join(' · ');
+}
+
 function trayTooltip(state) {
   // The tooltip has room the row does not: the whole path instead of the file name,
   // because two copies can stop on the same name, plus the clock the wait runs on.
   const file = conflictOf(state);
   const summary = file ? waitingLine(state, file.path) : summaryOf(state);
   const clock = file ? conflictClock(state) : '';
-  return clampText([APP_NAME, summary, clock].filter(Boolean).join(' · '), TOOLTIP_LIMIT);
+  const pace = file ? '' : paceOf(state.task);
+  return clampText([APP_NAME, summary, clock, pace].filter(Boolean).join(' · '), TOOLTIP_LIMIT);
 }
 
 /**
