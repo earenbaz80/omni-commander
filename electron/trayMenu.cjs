@@ -73,6 +73,12 @@ function conflictSubmenu(state, actions) {
     answer('rename'),
     { type: 'separator' },
     { label: labels.applyAll, type: 'checkbox', checked: applyAll, click: actions.toggleApplyToAll },
+    { type: 'separator' },
+    // Stopping is an answer too, and it applies to the job, not to one file.
+    {
+      label: labels.cancel,
+      click: () => actions.command({ resolve: 'cancel', jobId: waiting.jobId, applyToAll: false }),
+    },
   ];
 }
 

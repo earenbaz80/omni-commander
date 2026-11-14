@@ -2,7 +2,7 @@ import { BackgroundTask, LanguageCode, TransferPlan } from '../types';
 import { getTranslations } from '../i18n/translations';
 import { taskQueue } from './taskQueueManager';
 
-export type ConflictDecision = 'overwrite' | 'skip' | 'rename';
+export type ConflictDecision = 'overwrite' | 'skip' | 'rename' | 'cancel';
 
 export type TrayCommand =
   | 'resume'
