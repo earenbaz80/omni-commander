@@ -308,6 +308,10 @@ const notifiedWaiting = new Set();
 // through, so a label added there cannot be missing from the menu before the first
 // one arrives -- it was, and the row was drawn with no text at all.
 let trayState = normalizeTrayState({});
+// Whether the next answer from the tray covers every remaining conflict of the job it
+// answers. It belongs to one parked transfer: the menu is rebuilt every poll, so it
+// lives here rather than in a checked item that would be thrown away with it.
+let trayApplyToAll = false;
 
 /**
  * The tray uses a 32px PNG derived from the installer icon: Windows scales it
@@ -395,6 +399,11 @@ function refreshTrayMenu() {
       showWindow: showMainWindow,
       command: sendTrayCommand,
       openDashboard,
+      applyToAll: trayApplyToAll,
+      toggleApplyToAll: () => {
+        trayApplyToAll = !trayApplyToAll;
+        refreshTrayMenu();
+      },
       // The engine page is a browser tab, and a navigation cannot send the token
       // header, so the URL carries it once and the page keeps it for the requests
       // it makes. This process is where the port and the token meet, and the row
@@ -635,7 +644,11 @@ app.on('window-all-closed', () => {
 // it, so a stray frame or a devtools extra cannot take over the tray.
 ipcMain.on('tray:state', (event, payload) => {
   if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) return;
-  trayState = normalizeTrayState(payload);
+  const next = normalizeTrayState(payload);
+  // A different parked job starts from off: the answer to all of one transfer must
+  // never become the policy of another.
+  if (next.waiting?.jobId !== trayState.waiting?.jobId) trayApplyToAll = false;
+  trayState = next;
   refreshTrayMenu();
 });
 

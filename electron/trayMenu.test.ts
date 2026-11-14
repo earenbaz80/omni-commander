@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createRequire } from 'node:module';
+import { getTranslations } from '../src/i18n/translations';
+import { LanguageCode } from '../src/types';
 
 const require = createRequire(import.meta.url);
 const { trayTooltip, trayMenuTemplate } = require('./trayMenu.cjs');
+const { clampText, TRAY_LABEL_LIMIT, normalizeTrayState } = require('./trayState.cjs');
 
 type State = {
   hasLiveWork: boolean;
@@ -31,6 +34,10 @@ const state = (overrides: Partial<State> = {}): State => ({
     dashboard: 'Abrir panel de transferencias',
     waiting: 'Esperando tu respuesta',
     answer: 'Responder en el panel',
+    overwrite: 'Sobrescribir',
+    skip: 'Omitir',
+    rename: 'Conservar ambos',
+    applyAll: 'Siempre…',
     repeat: 'Repetir el último cancelado',
     quit: 'Salir',
   },
@@ -43,12 +50,14 @@ const actions = () => ({
   openDashboard: vi.fn(),
   quit: vi.fn(),
   dashboardReady: true,
+  applyToAll: false,
+  toggleApplyToAll: vi.fn(),
 });
 
 /** The row a user reads, found by the label the snapshot carried. */
 const row = (template: MenuRow[], label: string) => template.find((entry) => entry.label === label);
 
-type MenuRow = { label?: string; enabled?: boolean; click?: () => void };
+type MenuRow = { label?: string; enabled?: boolean; type?: string; click?: () => void; submenu?: MenuRow[] };
 
 describe('the tray menu', () => {
   it('offers pause for what is running and resume for what is paused, never both', () => {
@@ -84,6 +93,62 @@ describe('the tray menu', () => {
     const template = trayMenuTemplate(parked, actions());
     expect(row(template, 'Move 5 items — Esperando tu respuesta')?.enabled).toBe(false);
     expect(row(template, 'Pausar')?.enabled).toBe(true);
+  });
+
+  it('answers the parked conflict from a submenu of its own', () => {
+    const handlers = actions();
+    const parked = state({
+      waiting: {
+        id: 'task_1',
+        jobId: 'job_9',
+        title: 'Move 5 items',
+        conflict: { source: 'C:\\a.txt', destination: 'D:\\a.txt' },
+      },
+    });
+    const answer = row(trayMenuTemplate(parked, handlers), 'Responder en el panel');
+
+    expect(answer?.submenu?.map((entry) => entry.label ?? entry.type)).toEqual([
+      'Sobrescribir',
+      'Omitir',
+      'Conservar ambos',
+      'separator',
+      'Siempre…',
+    ]);
+    answer?.submenu?.[2].click?.();
+    expect(handlers.command.mock.calls).toEqual([[{ resolve: 'rename', jobId: 'job_9', applyToAll: false }]]);
+    // The row answers the conflict; it no longer needs to send anyone to the page.
+    expect(handlers.openDashboard).not.toHaveBeenCalled();
+
+    answer?.submenu?.[4].click?.();
+    expect(handlers.toggleApplyToAll).toHaveBeenCalledTimes(1);
+
+    // Once main holds the choice, the next answer carries it, and the box is drawn
+    // checked instead of losing the tick on the next rebuild.
+    const all = row(trayMenuTemplate(parked, { ...handlers, applyToAll: true }), 'Responder en el panel');
+    expect(all?.submenu?.[4]).toMatchObject({ type: 'checkbox', checked: true });
+    all?.submenu?.[1].click?.();
+    expect(handlers.command.mock.calls[1][0]).toEqual({ resolve: 'skip', jobId: 'job_9', applyToAll: true });
+  });
+
+  it('keeps every label it draws inside the width of a menu row', () => {
+    // A label that does not fit arrives at the tray ending in an ellipsis, which reads
+    // as a broken entry. The submenu decides on a whole batch, so its words count too.
+    const languages: LanguageCode[] = ['en', 'es', 'de', 'fr', 'it', 'pt', 'ja', 'ru'];
+    for (const lang of languages) {
+      const t = getTranslations(lang);
+      for (const label of [
+        t.trayAnswer,
+        t.collisionOverwrite,
+        t.collisionSkip,
+        t.collisionRename,
+        t.conflictAlwaysMode,
+      ]) {
+        expect(clampText(label, TRAY_LABEL_LIMIT), `${lang}: ${label}`).toBe(label);
+      }
+    }
+
+    const parked = normalizeTrayState({ waiting: { id: 'task_1', jobId: 'job_9', title: 'Move 5 items' } });
+    expect(row(trayMenuTemplate(parked, actions()), getTranslations('en').trayAnswer)?.enabled).toBe(true);
   });
 
   it('opens the dashboard on the waiting row, and only when one is waiting', () => {

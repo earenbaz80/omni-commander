@@ -31,7 +31,7 @@ import { HoverPreviewTooltip } from './components/HoverPreviewTooltip';
 import { CollapsibleInfoDrawer } from './components/CollapsibleInfoDrawer';
 
 // Modals
-import { startTrayBridge } from './services/trayBridge';
+import { startTrayBridge, type ConflictDecision } from './services/trayBridge';
 import { soundManager } from './services/soundEffects';
 
 export default function App() {
@@ -369,7 +369,18 @@ export default function App() {
   repeatFromTray.current = (plan) => {
     void transferQueue.handleRunCopyList([plan]);
   };
-  useEffect(() => startTrayBridge(lang, (plan) => repeatFromTray.current(plan)), [lang]);
+  const answerFromTray = useRef<(jobId: string, decision: ConflictDecision, applyToAll: boolean) => void>(() => {});
+  answerFromTray.current = (jobId, decision, applyToAll) =>
+    transferQueue.answerConflictFromTray(jobId, decision, applyToAll);
+  useEffect(
+    () =>
+      startTrayBridge(
+        lang,
+        (plan) => repeatFromTray.current(plan),
+        (jobId, decision, applyToAll) => answerFromTray.current(jobId, decision, applyToAll),
+      ),
+    [lang],
+  );
 
   const handleClipboardPaste = () => {
     if (!fileClipboard || fileClipboard.items.length === 0) return;

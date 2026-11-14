@@ -3,7 +3,15 @@ import { getTranslations } from '../i18n/translations';
 import { taskQueue } from './taskQueueManager';
 import { lastRepeatablePlan } from './taskRepeat';
 
-export type TrayCommand = 'resume' | 'pause' | 'cancel' | 'repeat';
+export type ConflictDecision = 'overwrite' | 'skip' | 'rename';
+
+export type TrayCommand =
+  | 'resume'
+  | 'pause'
+  | 'cancel'
+  | 'repeat'
+  /** An answer to the conflict the menu was showing; the job travels with it. */
+  | { resolve: ConflictDecision; jobId: string; applyToAll: boolean };
 export type TrayAction = 'pause' | 'resume' | 'cancel';
 export type TrayTaskStatus = 'running' | 'paused' | 'queued' | 'waiting';
 
@@ -38,6 +46,10 @@ export interface TraySnapshot {
     dashboard: string;
     waiting: string;
     answer: string;
+    overwrite: string;
+    skip: string;
+    rename: string;
+    applyAll: string;
     repeat: string;
     quit: string;
   };
@@ -98,7 +110,11 @@ function bridge(): ElectronTrayBridge | undefined {
  * picks to it. Returns a teardown function; in a browser build there is nothing
  * to attach to and the returned function is a no-op.
  */
-export function startTrayBridge(lang: LanguageCode, onRepeat?: (plan: TransferPlan) => void): () => void {
+export function startTrayBridge(
+  lang: LanguageCode,
+  onRepeat?: (plan: TransferPlan) => void,
+  onAnswer?: (jobId: string, decision: ConflictDecision, applyToAll: boolean) => void,
+): () => void {
   const api = bridge();
   if (!api?.updateTrayState) return () => {};
   const updateTrayState = api.updateTrayState;
@@ -142,6 +158,12 @@ export function startTrayBridge(lang: LanguageCode, onRepeat?: (plan: TransferPl
         dashboard: t.trayDashboard,
         waiting: t.trayWaiting,
         answer: t.trayAnswer,
+        // The same words the window's prompt uses for the same answers, so a
+        // decision means one thing wherever it is made.
+        overwrite: t.collisionOverwrite,
+        skip: t.collisionSkip,
+        rename: t.collisionRename,
+        applyAll: t.conflictAlwaysMode,
         repeat: t.trayRepeat,
         quit: t.quitDialogLabel,
       },
@@ -149,6 +171,14 @@ export function startTrayBridge(lang: LanguageCode, onRepeat?: (plan: TransferPl
   };
 
   const handleCommand = (command: TrayCommand) => {
+    if (typeof command === 'object' && command) {
+      // The menu answered the conflict it was showing. A menu left open while that
+      // job moved on must not answer whatever is parked next in its place.
+      const task = taskQueue.getTasks().find((entry) => entry.serverJobId === command.jobId);
+      if (!task?.waitingForAnswer) return;
+      onAnswer?.(command.jobId, command.resolve, command.applyToAll);
+      return;
+    }
     // A stopped transfer is not the selected one -- the tray controls live work -- so
     // its command carries its own target instead of going through the selection.
     if (command === 'repeat') {
