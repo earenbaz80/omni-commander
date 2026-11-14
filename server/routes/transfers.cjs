@@ -77,6 +77,9 @@ function registerTransferRoutes(app, deps) {
       // free-space prompt already showed. Carry it into the job so the guard
       // below records the overflow instead of refusing an approved transfer.
       job.force = body.force === true;
+      // A repeat hands back the plan of a batch that did not finish; the engine uses
+      // this to skip the entries that run already had copied.
+      job.resumeExisting = body.resume === true;
       // The client only needs the job id to start polling. Sizing the tree here
       // meant a large folder blocked the response until the walk finished, and
       // any client timeout turned a working transfer into "could not start".

@@ -37,6 +37,7 @@ interface Job {
   paused?: boolean;
   cancelled?: boolean;
   pendingConflict?: { destination?: string } | null;
+  resumeExisting?: boolean;
   items: Entry[];
   errors: { path: string; message: string }[];
   copiedBytes: number;
@@ -254,14 +255,19 @@ describe('a transfer parked on a conflict', () => {
     fs.writeFileSync(path.join(source, 'nota.txt'), 'hola\n', 'utf8');
     fs.writeFileSync(path.join(target, 'nota.txt'), 'otra\n', 'utf8');
 
-    const announced: Array<{ id: string; destination?: string }> = [];
+    const announced: Job[] = [];
     const job: Job = { ...makeJob(), collision: 'ask', status: 'running', paused: false, cancelled: false };
     // A zero wait expires at once, which keeps the case short: the announcement has
     // to have happened before the job could fail on the deadline.
     const ops = makeOps({
       conflictAnswerMs: 0,
+      // Captured by value: the engine clears the conflict when the wait expires, and
+      // what the host reads is the job as it was handed over.
       onJobWaiting: (waiting: Job) =>
-        announced.push({ id: waiting.id, destination: waiting.pendingConflict?.destination }),
+        announced.push({
+          ...waiting,
+          pendingConflict: waiting.pendingConflict ? { ...waiting.pendingConflict } : null,
+        }),
     });
 
     // The file itself, not its folder: a folder copy would land in a subdirectory
@@ -271,6 +277,90 @@ describe('a transfer parked on a conflict', () => {
       /No answer for the conflict/,
     );
 
-    expect(announced).toEqual([{ id: 'job-root-test', destination: path.join(target, 'nota.txt') }]);
+    expect(announced.map((waited) => ({ id: waited.id, destination: waited.pendingConflict?.destination }))).toEqual([
+      { id: 'job-root-test', destination: path.join(target, 'nota.txt') },
+    ]);
+  });
+});
+
+/**
+ * A repeat continues the batch instead of starting it over: what the stopped run
+ * already copied is left alone, and only what is missing gets transferred again.
+ */
+describe('repeating a batch that stopped', () => {
+  // A copy carries the source times onto the copy, so matching times are exactly what
+  // the earlier run left behind.
+  const landIdentical = (src: string, dest: string) => {
+    fs.writeFileSync(src, 'hola\n', 'utf8');
+    fs.writeFileSync(dest, 'hola\n', 'utf8');
+    // Both stamped from one date: the two writes happen in the same millisecond, and
+    // a check that leaned on the clock alone would pass by accident.
+    const when = new Date('2026-01-02T03:04:05Z');
+    fs.utimesSync(src, when, when);
+    fs.utimesSync(dest, when, when);
+  };
+
+  it('skips a file the earlier run copied, without asking about it again', async () => {
+    const source = scratch('omni-resume-src-');
+    const target = scratch('omni-resume-dst-');
+    const src = path.join(source, 'nota.txt');
+    const dest = path.join(target, 'nota.txt');
+    landIdentical(src, dest);
+
+    const announced = vi.fn();
+    const job: Job = {
+      ...makeJob(),
+      collision: 'ask',
+      status: 'running',
+      paused: false,
+      cancelled: false,
+      resumeExisting: true,
+    };
+    // No answer is queued: a prompt here would expire and fail the job, which is
+    // precisely the repeat-of-a-settled-conflict this rule exists to prevent.
+    const ops = makeOps({ conflictAnswerMs: 0, onJobWaiting: announced });
+
+    await ops.runTransferJob(job, [src], target);
+
+    expect(job.errors).toEqual([]);
+    expect(announced).not.toHaveBeenCalled();
+    expect(job.items.map((entry) => entry.status)).toEqual(['skipped']);
+    expect(fs.readFileSync(dest, 'utf8')).toBe('hola\n');
+  });
+
+  it('still asks when the destination holds something else', async () => {
+    const source = scratch('omni-resume-src-');
+    const target = scratch('omni-resume-dst-');
+    const src = path.join(source, 'nota.txt');
+    fs.writeFileSync(src, 'hola\n', 'utf8');
+    fs.writeFileSync(path.join(target, 'nota.txt'), 'otra cosa\n', 'utf8');
+
+    const announced = vi.fn();
+    const job: Job = {
+      ...makeJob(),
+      collision: 'ask',
+      status: 'running',
+      paused: false,
+      cancelled: false,
+      resumeExisting: true,
+    };
+    const ops = makeOps({ conflictAnswerMs: 0, onJobWaiting: announced });
+
+    // Different bytes are not work the earlier run finished, so the user is asked.
+    await expect(ops.runTransferJob(job, [src], target)).rejects.toThrow(/No answer for the conflict/);
+    expect(announced).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the conflict on a fresh batch, where an identical destination is still one', async () => {
+    const source = scratch('omni-resume-src-');
+    const target = scratch('omni-resume-dst-');
+    const src = path.join(source, 'nota.txt');
+    landIdentical(src, path.join(target, 'nota.txt'));
+
+    const job: Job = { ...makeJob(), collision: 'ask', status: 'running', paused: false, cancelled: false };
+    const ops = makeOps({ conflictAnswerMs: 0 });
+
+    // Only a repeat may skip quietly; a first copy of the same name is a decision.
+    await expect(ops.runTransferJob(job, [src], target)).rejects.toThrow(/No answer for the conflict/);
   });
 });

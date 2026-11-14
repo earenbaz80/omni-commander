@@ -73,6 +73,52 @@ describe('tray bridge', () => {
     stop();
   });
 
+  // First in this block: its executor runs, and the cases below leave the queue busy
+  // in ways that would keep a later task from ever starting.
+  it('offers a failed transfer for a repeat as well', async () => {
+    const snapshots: TraySnapshot[] = [];
+    let handler: ((command: TrayCommand) => void) | undefined;
+    const repeated: TransferPlan[] = [];
+    electron.electronAPI = {
+      updateTrayState: (snapshot: TraySnapshot) => snapshots.push(snapshot),
+      onTrayCommand: (callback: (command: TrayCommand) => void) => {
+        handler = callback;
+        return () => {
+          handler = undefined;
+        };
+      },
+    };
+    const plan: TransferPlan = {
+      op: 'copy',
+      sourceDriveId: 'real_C',
+      targetDriveId: 'real_C',
+      targetDir: 'C:\\dest',
+      overwrite: false,
+      collision: 'ask',
+      throttleBps: 0,
+      entries: [{ path: 'C:\\a.txt', name: 'a.txt', isDirectory: false, size: 10 }],
+    };
+    const id = taskQueue.addTask(
+      'copy',
+      'Copy 2 items',
+      'C:\\dest',
+      10,
+      async () => {
+        throw new Error('EPERM: operation not permitted');
+      },
+      plan,
+    );
+    await vi.waitFor(() => expect(taskQueue.getTasks().find((entry) => entry.id === id)?.status).toBe('failed'));
+    stopBridge = startTrayBridge('es', (next) => repeated.push(next));
+
+    const last = snapshots[snapshots.length - 1];
+    expect(last.canRepeat).toBe(true);
+
+    handler?.('repeat');
+    // The plan travels marked as a continuation, so the engine skips what landed.
+    expect(repeated).toEqual([{ ...plan, resume: true }]);
+  });
+
   it('mirrors the live task with translated labels and applies menu commands', () => {
     const snapshots: TraySnapshot[] = [];
     let handler: ((command: TrayCommand) => void) | undefined;
@@ -147,6 +193,9 @@ describe('tray bridge', () => {
       plan,
     );
     taskQueue.cancelTask(runningId);
+    // The row is cleared away; the plan it left behind is what the tray still offers.
+    taskQueue.clearCompleted();
+    expect(taskQueue.getTasks()).toEqual([]);
     stopBridge = startTrayBridge('es', (next) => repeated.push(next));
 
     const last = snapshots[snapshots.length - 1];
@@ -154,7 +203,8 @@ describe('tray bridge', () => {
     expect(last.labels.repeat).toBe(getTranslations('es').trayRepeat);
 
     handler?.('repeat');
-    expect(repeated).toEqual([plan]);
+    // The plan travels marked as a continuation, so the engine skips what landed.
+    expect(repeated).toEqual([{ ...plan, resume: true }]);
     // The queue runs one transfer at a time; this executor is what holds it.
     finish();
   });

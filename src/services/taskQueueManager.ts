@@ -1,5 +1,7 @@
 import { BackgroundTask, FileProgressEntry, TransferPlan } from '../types';
 import { formatSpeed } from '../utils/formatSpeed';
+import { lastRepeatablePlan as newestRepeatablePlan } from './taskRepeat';
+import { readStoppedPlan, writeStoppedPlan } from './stoppedPlanStore';
 
 export interface OperationSignal {
   paused: boolean;
@@ -21,6 +23,8 @@ class TaskQueueManager {
   private static readonly FILE_WINDOW = 60;
 
   private tasks: BackgroundTask[] = [];
+  /** The newest plan a stopped transfer left behind, kept for a repeat after a restart. */
+  private stoppedPlan?: TransferPlan = readStoppedPlan();
   private listeners: Array<() => void> = [];
   private executors: Map<string, OperationExecutor> = new Map();
   private signals: Map<string, OperationSignal> = new Map();
@@ -180,6 +184,7 @@ class TaskQueueManager {
           if (!signal.cancelled) {
             task.status = 'failed';
             task.error = e instanceof Error ? e.message : 'Unknown error';
+            this.rememberPlan(task.plan);
             this.notify();
           }
         }
@@ -187,6 +192,7 @@ class TaskQueueManager {
         if (signal.cancelled) {
           task.status = 'cancelled';
           task.progress = 0;
+          this.rememberPlan(task.plan);
           this.notify();
         }
 
@@ -225,6 +231,7 @@ class TaskQueueManager {
       task.status = 'cancelled';
       const signal = this.signals.get(id);
       if (signal) signal.cancelled = true;
+      this.rememberPlan(task.plan);
       this.notify();
     }
   }
@@ -302,8 +309,30 @@ class TaskQueueManager {
   }
 
   public clearCompleted() {
+    // Kept before the filter: the user emptying the list is the only way a task leaves
+    // without running, and the plan is the whole of what a repeat replays. Dropping it
+    // with the row would quietly remove the way back from a failed copy.
+    this.stoppedPlan = newestRepeatablePlan(this.tasks) ?? this.stoppedPlan;
+    writeStoppedPlan(this.stoppedPlan);
     this.tasks = this.tasks.filter((t) => LIVE_STATUSES.has(t.status));
     this.notify();
+  }
+
+  /**
+   * The plan a repeat would replay: the newest one still in the list, or the last one
+   * the user cleared. A task that arrived later is newer than anything remembered, so
+   * the list always wins when it has something to offer.
+   */
+  public lastRepeatablePlan(): TransferPlan | undefined {
+    return newestRepeatablePlan(this.tasks) ?? this.stoppedPlan;
+  }
+
+  /** A transfer that stopped keeps its plan: that is what a repeat replays, and it is
+   * written out so the repeat outlives the window that ran it. */
+  private rememberPlan(plan?: TransferPlan): void {
+    if (!plan) return;
+    this.stoppedPlan = plan;
+    writeStoppedPlan(plan);
   }
 }
 

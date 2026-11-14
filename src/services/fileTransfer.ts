@@ -309,6 +309,7 @@ export function createTransferOps(deps: TransferOpsDeps): TransferOps {
             collision: options.collision,
             throttleBps: options.throttleBps,
             ...(options.force ? { force: true } : {}),
+            ...(options.resume ? { resume: true } : {}),
           }
         : {}),
     });

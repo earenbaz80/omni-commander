@@ -54,7 +54,7 @@ describe('the background tasks queue', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Repeat' }));
 
-    expect(onRunCopyList).toHaveBeenCalledWith([plan]);
+    expect(onRunCopyList).toHaveBeenCalledWith([{ ...plan, resume: true }]);
     // The queue runs one transfer at a time; this executor is what holds it.
     finish();
   });
@@ -75,7 +75,7 @@ describe('the background tasks queue', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Repeat' }));
 
-    expect(onRunCopyList).toHaveBeenCalledWith([plan]);
+    expect(onRunCopyList).toHaveBeenCalledWith([{ ...plan, resume: true }]);
   });
 
   it('offers nothing to repeat when the transfer left no plan behind', () => {

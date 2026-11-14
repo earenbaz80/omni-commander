@@ -305,6 +305,34 @@ function createFileOps(deps = {}) {
     }
   }
 
+  /** True when the destination already holds the same bytes, on the same date. */
+  async function sameFileContent(src, dest) {
+    try {
+      const [source, target] = await Promise.all([fs.promises.stat(src), fs.promises.stat(dest)]);
+      return (
+        !source.isDirectory() &&
+        !target.isDirectory() &&
+        source.size === target.size &&
+        source.mtimeMs === target.mtimeMs
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  /** Records an entry the batch decided not to touch, with the bytes it saved. */
+  async function markSkipped(job, src, dest) {
+    try {
+      const stat = await fs.promises.lstat(src);
+      if (stat.isFile()) job.bytesSkipped += stat.size;
+    } catch {
+      /* unreadable source is reported by the copy itself */
+    }
+    const skipped = noteFile(job, dest, 0);
+    skipped.status = 'skipped';
+    return null;
+  }
+
   async function uniqueName(dir, name) {
     const parsed = path.win32.parse(name);
     for (let i = 2; i < 1000; i++) {
@@ -385,20 +413,13 @@ function createFileOps(deps = {}) {
    */
   async function planDestination(src, dest, job) {
     if (!(await pathExists(dest))) return dest;
+    // A repeat continues a batch that did not finish: the destination already holds
+    // the same bytes on the same date, so this entry is work the earlier run got done.
+    // Skipping it here is what keeps a repeat from copying it again and from asking a
+    // collision the user already answered by letting that copy land.
+    if (job.resumeExisting && (await sameFileContent(src, dest))) return markSkipped(job, src, dest);
     const policy = await effectiveCollision(job, src, dest);
-    if (policy === 'skip') {
-      try {
-        const stat = await fs.promises.lstat(src);
-        if (stat.isFile()) job.bytesSkipped += stat.size;
-      } catch {
-        /* unreadable source is reported by the copy itself */
-      }
-      // Recorded here so every skip surfaces as a row, whether it happened at the
-      // top level or deep inside a copied tree.
-      const skipped = noteFile(job, dest, 0);
-      skipped.status = 'skipped';
-      return null;
-    }
+    if (policy === 'skip') return markSkipped(job, src, dest);
     if (policy === 'cancel') {
       // "Cancel the whole copy": one conflict is enough to stop the whole job.
       job.cancelled = true;
@@ -410,12 +431,7 @@ function createFileOps(deps = {}) {
       try {
         const s = await fs.promises.stat(src);
         const d = await fs.promises.stat(dest);
-        if (s.size === d.size && s.mtimeMs === d.mtimeMs) {
-          if (s.isFile()) job.bytesSkipped += s.size;
-          const skipped = noteFile(job, dest, 0);
-          skipped.status = 'skipped';
-          return null;
-        }
+        if (s.size === d.size && s.mtimeMs === d.mtimeMs) return markSkipped(job, src, dest);
       } catch {
         /* fall through to overwrite */
       }
