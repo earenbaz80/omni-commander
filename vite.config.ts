@@ -197,12 +197,16 @@ export default defineConfig(({ command, mode }) => {
       // and the result was a red run in which nothing was broken. A hang is
       // still a hang, reported twenty seconds later instead of five.
       testTimeout: 20000,
-      // Two pools, because one of them cannot run three files. vmThreads creates
+      // Two pools, because one of them cannot run four files. vmThreads creates
       // the jsdom environment once per worker instead of once per test file, and
       // that creation is 160s of the suite's 124s -- but inside it `vite.config`
-      // and `scripts/engines-floor` fail at collection, and the PBKDF2 password
-      // suite never sees its mocks (crypto and timers behave differently in that
-      // VM). Those three keep the default pool; the rest runs on vmThreads, and
+      // and `scripts/engines-floor` fail at collection, the PBKDF2 password suite
+      // never sees its mocks (crypto and timers behave differently in that VM),
+      // and the dashboard test -- the one that builds a DOM of its own -- cannot
+      // load `jsdom` there at all: it pulls `@exodus/bytes`, which ships ESM syntax
+      // inside a CommonJS package, and only Node 24+ rescues that at `require`
+      // time, so Node 22 failed to collect the file while Node 26 passed it. Those
+      // four keep the default pool; the rest runs on vmThreads, and
       // the same 741 tests pass in roughly half the time. Measured, not assumed:
       // on the whole suite vmThreads alone turned 7 tests red.
       projects: [
@@ -219,6 +223,7 @@ export default defineConfig(({ command, mode }) => {
               'scripts/engines-floor.test.ts',
               'scripts/check-links.test.ts',
               'src/components/modals/SettingsModal.password.test.tsx',
+              'server.dashboard.test.ts',
             ],
           },
         },
@@ -231,6 +236,7 @@ export default defineConfig(({ command, mode }) => {
               'scripts/engines-floor.test.ts',
               'scripts/check-links.test.ts',
               'src/components/modals/SettingsModal.password.test.tsx',
+              'server.dashboard.test.ts',
             ],
           },
         },
