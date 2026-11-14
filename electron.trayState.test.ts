@@ -74,17 +74,30 @@ describe('the state the tray mirrors', () => {
     expect(normalizeTrayState({}).labels.overwrite).toBe('Overwrite');
   });
 
-  it('keeps the wait left on a conflict, so the menu can count it down', () => {
+  it('keeps the wait left on a conflict, and the pace of a live transfer', () => {
     const state = normalizeTrayState({
+      task: {
+        id: 'job_1',
+        title: 'Copy 2 items',
+        status: 'running',
+        progress: 40,
+        speed: '12.5 MB/s',
+        etaSeconds: 95.4,
+      },
       waiting: {
         id: 'task_1',
         jobId: 'job_9',
-        conflict: { source: 'C:\a.txt', destination: 'D:\a.txt', expiresInMs: 239_900 },
+        conflict: { source: 'C:\\a.txt', destination: 'D:\\a.txt', expiresInMs: 239_900 },
       },
     });
 
+    // The menu counts the wait down and says how the transfer moves, so the snapshot
+    // has to carry both numbers rather than a status alone.
     expect(state.waiting?.conflict?.expiresInMs).toBe(239_900);
+    expect(state.task?.speed).toBe('12.5 MB/s');
+    expect(state.task?.etaSeconds).toBe(95);
   });
+
   it('keeps both sides of a conflict, inside the width a menu row has', () => {
     // The menu names the file the conflict is about, so the path has to survive this
     // side in one piece -- long enough to tell two folders apart, short enough that the

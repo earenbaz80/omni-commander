@@ -22,6 +22,8 @@ type State = {
     title: string;
     status: string;
     progress: number;
+    speed?: string;
+    etaSeconds?: number;
   } | null;
   labels: Record<string, string>;
 };
@@ -213,6 +215,15 @@ describe('the tray menu', () => {
     expect(row(trayMenuTemplate(parked, actions()), 'Responder en el panel')?.submenu?.[0].label).toBe(
       'C:\\origen\\respaldo.zip',
     );
+  });
+
+  it('says how fast a live transfer goes, and when it will end', () => {
+    const running = state({
+      task: { id: 'job_1', title: 'Copy 2 items', status: 'running', progress: 40, speed: '12.5 MB/s', etaSeconds: 95 },
+    });
+
+    // With the window minimized the tooltip is the only place this is visible.
+    expect(trayTooltip(running)).toBe('OmniCommander Pro · Copy 2 items — 40% · 12.5 MB/s · 1:35');
   });
 
   it('leaves the answer row disabled when there is nothing parked to answer', () => {

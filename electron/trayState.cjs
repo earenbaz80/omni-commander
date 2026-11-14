@@ -28,6 +28,8 @@ function normalizeTrayState(payload) {
         title: clampText(rawTask.title, TRAY_TITLE_LIMIT) || 'Transfer',
         status,
         progress: Number.isFinite(rawTask.progress) ? Math.min(100, Math.max(0, Math.round(rawTask.progress))) : 0,
+        speed: clampText(rawTask.speed, TRAY_TITLE_LIMIT),
+        etaSeconds: Number.isFinite(rawTask.etaSeconds) ? Math.max(0, Math.round(rawTask.etaSeconds)) : 0,
       }
     : null;
   const rawCount = Number(source.activeCount);
