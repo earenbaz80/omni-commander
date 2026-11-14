@@ -193,26 +193,15 @@ describe('the tray menu', () => {
     );
   });
 
-  it('opens the dashboard on the waiting row, and only when one is waiting', () => {
-    const handlers = actions();
-    const template = trayMenuTemplate(
-      state({ waiting: { id: 'job_2', jobId: 'job_9', title: 'Move 5 items', conflict: null } }),
-      handlers,
-    );
-
-    expect(row(template, 'Responder en el panel')?.enabled).toBe(true);
-    row(template, 'Responder en el panel')?.click?.();
-    expect(handlers.openDashboard.mock.calls).toEqual([['job_2']]);
-
+  it('leaves the answer row disabled when there is nothing parked to answer', () => {
     expect(row(trayMenuTemplate(state(), actions()), 'Responder en el panel')?.enabled).toBe(false);
-    const noPage = trayMenuTemplate(
+    // A waiting transfer without the details answers nothing; the dashboard row below
+    // is what still leads to its page.
+    const noConflict = trayMenuTemplate(
       state({ waiting: { id: 'job_2', jobId: 'job_9', title: 'Move 5 items', conflict: null } }),
-      {
-        ...actions(),
-        dashboardReady: false,
-      },
+      actions(),
     );
-    expect(row(noPage, 'Responder en el panel')?.enabled).toBe(false);
+    expect(row(noConflict, 'Responder en el panel')?.enabled).toBe(false);
   });
 
   it('leaves a transfer with nothing to say without controls', () => {

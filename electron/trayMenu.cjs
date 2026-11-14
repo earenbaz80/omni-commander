@@ -31,22 +31,23 @@ function conflictOf(state) {
  * another task -- and names the file it stopped on, since "a transfer is waiting"
  * says nothing about which of its files needs an answer.
  */
+/** The one line naming what is waiting, with the file when there is one. */
+function waitingLine(state, subject) {
+  return `${state.waiting.title} — ${state.labels.waiting}${subject ? ` — ${subject}` : ''}`;
+}
+
 function summaryOf(state) {
-  if (state.waiting) {
-    const line = `${state.waiting.title} — ${state.labels.waiting}`;
-    const file = conflictOf(state);
-    return file ? `${line} — ${file.name}` : line;
-  }
+  if (state.waiting) return waitingLine(state, conflictOf(state)?.name);
   const task = state.task;
   if (!task) return '';
   return `${task.title}${task.progress > 0 ? ` — ${task.progress}%` : ''}`;
 }
 
 function trayTooltip(state) {
-  // The tooltip has room the row does not, so the conflict is named by its path instead
-  // of just the file name: two copies of `a.txt` stop on the same word.
+  // The tooltip has room the row does not: the whole path instead of the file name,
+  // because two copies can stop on the same name.
   const file = conflictOf(state);
-  const summary = file ? `${state.waiting.title} — ${state.labels.waiting} — ${file.path}` : summaryOf(state);
+  const summary = file ? waitingLine(state, file.path) : summaryOf(state);
   return clampText(summary ? `${APP_NAME} · ${summary}` : APP_NAME, TOOLTIP_LIMIT);
 }
 
@@ -76,14 +77,14 @@ function conflictSubmenu(state, actions) {
 }
 
 /**
- * The row that answers a parked conflict, or leads to the job's own page when there is
- * no conflict to answer -- a transfer can be waiting without the details having arrived.
+ * The row that answers the parked conflict. Without the conflict details there is
+ * nothing to answer, and the dashboard row below already leads to the page.
  */
 function answerRow(state, actions) {
   const { labels, waiting } = state;
-  if (!waiting) return { label: labels.answer, enabled: false };
-  if (waiting.conflict) return { label: labels.answer, enabled: true, submenu: conflictSubmenu(state, actions) };
-  return { label: labels.answer, enabled: actions.dashboardReady, click: () => actions.openDashboard(waiting.id) };
+  return waiting && waiting.conflict
+    ? { label: labels.answer, enabled: true, submenu: conflictSubmenu(state, actions) }
+    : { label: labels.answer, enabled: false };
 }
 
 /**

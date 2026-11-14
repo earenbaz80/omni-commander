@@ -255,8 +255,7 @@ function dashboardHtml() {
     // a page that kept jumping back would fight whoever scrolled away.
     if(focusJob && !focusShown){
       focusShown=true;
-      var target=host.querySelector('section.focus');
-      if(target && target.scrollIntoView) target.scrollIntoView({block:'center'});
+      host.querySelector('section.focus')?.scrollIntoView?.({block:'center'});
     }
   }
   // A browser drops the click when the pressed button is replaced before the

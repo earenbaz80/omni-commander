@@ -43,8 +43,8 @@ function normalizeTrayState(payload) {
         id: waitingId,
         jobId: clampText(rawWaiting.jobId, TRAY_TITLE_LIMIT),
         title: clampText(rawWaiting.title, TRAY_TITLE_LIMIT) || 'Transfer',
-        // The two sides are only used to know a conflict is on screen; kept apart
-        // from the title so a path cannot end up in a menu label.
+        // The menu names the file from these, clamped like the rest: the row shows the
+        // name, the tooltip and the submenu the path.
         conflict: rawConflict
           ? {
               source: clampText(rawConflict.source, TRAY_TITLE_LIMIT),
