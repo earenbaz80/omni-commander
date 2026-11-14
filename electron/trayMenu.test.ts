@@ -108,25 +108,29 @@ describe('the tray menu', () => {
     const answer = row(trayMenuTemplate(parked, handlers), 'Responder en el panel');
 
     expect(answer?.submenu?.map((entry) => entry.label ?? entry.type)).toEqual([
+      // The file first: the answers below it are answers about this destination.
+      'D:\\a.txt',
+      'separator',
       'Sobrescribir',
       'Omitir',
       'Conservar ambos',
       'separator',
       'Siempre…',
     ]);
-    answer?.submenu?.[2].click?.();
+    expect(answer?.submenu?.[0]).toMatchObject({ label: 'D:\\a.txt', enabled: false });
+    answer?.submenu?.[4].click?.();
     expect(handlers.command.mock.calls).toEqual([[{ resolve: 'rename', jobId: 'job_9', applyToAll: false }]]);
     // The row answers the conflict; it no longer needs to send anyone to the page.
     expect(handlers.openDashboard).not.toHaveBeenCalled();
 
-    answer?.submenu?.[4].click?.();
+    answer?.submenu?.[6].click?.();
     expect(handlers.toggleApplyToAll).toHaveBeenCalledTimes(1);
 
     // Once main holds the choice, the next answer carries it, and the box is drawn
     // checked instead of losing the tick on the next rebuild.
     const all = row(trayMenuTemplate(parked, { ...handlers, applyToAll: true }), 'Responder en el panel');
-    expect(all?.submenu?.[4]).toMatchObject({ type: 'checkbox', checked: true });
-    all?.submenu?.[1].click?.();
+    expect(all?.submenu?.[6]).toMatchObject({ type: 'checkbox', checked: true });
+    all?.submenu?.[3].click?.();
     expect(handlers.command.mock.calls[1][0]).toEqual({ resolve: 'skip', jobId: 'job_9', applyToAll: true });
   });
 
@@ -149,6 +153,44 @@ describe('the tray menu', () => {
 
     const parked = normalizeTrayState({ waiting: { id: 'task_1', jobId: 'job_9', title: 'Move 5 items' } });
     expect(row(trayMenuTemplate(parked, actions()), getTranslations('en').trayAnswer)?.enabled).toBe(true);
+  });
+
+  it('names the file the conflict is about, in the row and in the tooltip', () => {
+    const parked = state({
+      waiting: {
+        id: 'task_1',
+        jobId: 'job_9',
+        title: 'Move 5 items',
+        conflict: { source: 'C:\\origen\\respaldo.zip', destination: 'D:\\destino\\respaldo.zip' },
+      },
+    });
+
+    // "A transfer is waiting" does not say which of its files needs an answer, and two
+    // copies stop on the same name: the destination is the one being decided about.
+    expect(
+      row(trayMenuTemplate(parked, actions()), 'Move 5 items — Esperando tu respuesta — respaldo.zip')?.enabled,
+    ).toBe(false);
+    expect(trayTooltip(parked)).toBe(
+      'OmniCommander Pro · Move 5 items — Esperando tu respuesta — D:\\destino\\respaldo.zip',
+    );
+  });
+
+  it('falls back to the source when the snapshot carried no destination', () => {
+    const parked = state({
+      waiting: {
+        id: 'task_1',
+        jobId: 'job_9',
+        title: 'Move 5 items',
+        conflict: { source: 'C:\\origen\\respaldo.zip', destination: '' },
+      },
+    });
+
+    expect(trayTooltip(parked)).toBe(
+      'OmniCommander Pro · Move 5 items — Esperando tu respuesta — C:\\origen\\respaldo.zip',
+    );
+    expect(row(trayMenuTemplate(parked, actions()), 'Responder en el panel')?.submenu?.[0].label).toBe(
+      'C:\\origen\\respaldo.zip',
+    );
   });
 
   it('opens the dashboard on the waiting row, and only when one is waiting', () => {
