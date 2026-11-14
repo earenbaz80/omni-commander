@@ -165,6 +165,26 @@ describe('fileTransfer', () => {
     expect(started).toEqual([{ totalBytes: 2048, itemsTotal: 3, jobId: 'job-9' }]);
   });
 
+  it('tells the engine when a repeated batch continues an earlier one', async () => {
+    const bodies: unknown[] = [];
+    const ops = harness({
+      callServerFs: async (_route, body) => {
+        bodies.push(body);
+        return { jobId: 'job-1' };
+      },
+    });
+    fetchWithRetry.mockResolvedValue(answer({ status: 'done' }));
+
+    await ops.transferPaths('copy', ['C:\\a'], 'C:\\b', true, undefined, undefined, {
+      collision: 'ask',
+      throttleBps: 0,
+      resume: true,
+    });
+
+    // The flag is what the engine reads to skip the entries the earlier run copied.
+    expect(bodies).toEqual([expect.objectContaining({ resume: true })]);
+  });
+
   it('returns the catalogue entry a moved file left behind and reloads both folders', async () => {
     const reloads: string[] = [];
     const landed = item({ driveId: 'T:', path: 'T:\\dest' });

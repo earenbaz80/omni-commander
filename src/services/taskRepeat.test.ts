@@ -32,10 +32,16 @@ describe('repeating a stopped or failed transfer', () => {
   it('has a plan for a cancelled or failed transfer that kept one', () => {
     const kept = plan('C:\\a');
     const lost = plan('C:\\c');
-    expect(repeatPlanOf(task('cancelled', 'cancelled', kept))).toBe(kept);
+    expect(repeatPlanOf(task('cancelled', 'cancelled', kept))).toEqual({ ...kept, resume: true });
+    // The plan handed back is a copy: the task that kept it is not rewritten by a
+    // repeat, so a second one starts from the same batch.
+    expect(kept.resume).toBeUndefined();
     expect(repeatPlanOf(task('cancelled-no-plan', 'cancelled'))).toBeUndefined();
     // A job that ended with per-file errors reaches the queue as failed.
-    expect(repeatPlanOf({ ...task('errored', 'failed', lost), error: 'access denied' })).toBe(lost);
+    expect(repeatPlanOf({ ...task('errored', 'failed', lost), error: 'access denied' })).toEqual({
+      ...lost,
+      resume: true,
+    });
     expect(repeatPlanOf(task('failed-no-plan', 'failed'))).toBeUndefined();
     expect(repeatPlanOf(task('completed', 'completed', plan('C:\\b')))).toBeUndefined();
     expect(repeatPlanOf(null)).toBeUndefined();
@@ -49,7 +55,7 @@ describe('repeating a stopped or failed transfer', () => {
       task('stopped-older', 'cancelled', plan('C:\\older')),
     ];
 
-    expect(lastRepeatablePlan(tasks)).toBe(newest);
+    expect(lastRepeatablePlan(tasks)).toEqual({ ...newest, resume: true });
   });
 
   it('offers nothing for a transfer that is still moving, even with a plan', () => {

@@ -2,6 +2,7 @@
 import express from 'express';
 import fs from 'node:fs';
 import type { Server } from 'node:http';
+import os from 'node:os';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { registerTransferRoutes } from './server/routes/transfers.cjs';
 
@@ -14,12 +15,13 @@ import { registerTransferRoutes } from './server/routes/transfers.cjs';
  */
 
 const rejected: string[] = [];
+const started: Array<Record<string, unknown>> = [];
 
 const deps = {
   fs,
   assertSafePath: (value: unknown) => String(value ?? ''),
   makeJob: (op: string, label: string) => ({ id: 'job-1', op, label, itemsTotal: 0, itemsDone: 0, errors: [] }),
-  startJob: () => undefined,
+  startJob: (job: Record<string, unknown>) => started.push(job),
   waitWhilePaused: async () => undefined,
   runTransferJob: async () => undefined,
   noteFile: (_job: unknown, target: string, size: number) => ({ path: target, size, copied: 0, status: 'pending' }),
@@ -88,6 +90,18 @@ describe('rutas de transferencia', () => {
     const response = await post('/api/fs/delete', { targets: ['C:\\'], useTrash: false });
     expect(response.status).toBe(400);
     expect((await response.json()).error).toMatch(/drive root/i);
+  });
+
+  it('marca el trabajo como continuación cuando la repetición lo pide', async () => {
+    const response = await post('/api/fs/copy', {
+      sources: ['C:\\origen\\a.txt'],
+      targetDir: os.tmpdir(),
+      resume: true,
+    });
+
+    expect(response.status).toBe(200);
+    // The engine only skips what the earlier run copied when the job says so.
+    expect(started.at(-1)?.resumeExisting).toBe(true);
   });
 
   it('sigue borrando una carpeta normal', async () => {

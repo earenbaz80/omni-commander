@@ -5,6 +5,9 @@ import { BackgroundTask, TransferPlan } from '../types';
  * built from, and that plan is the only thing a repeat has to hand back. A transfer
  * that ran to the end has nothing left to replay, and a delete never had a plan.
  *
+ * The plan comes back as a copy marked `resume`, so a repeat continues the batch
+ * instead of starting it over, and the task that kept the plan is left untouched.
+ *
  * A job that ends with per-file errors arrives here as failed: the transfer raises
  * the engine's first error once the job stops.
  *
@@ -12,7 +15,8 @@ import { BackgroundTask, TransferPlan } from '../types';
  * repeat the other refuses.
  */
 export function repeatPlanOf(task: BackgroundTask | null | undefined): TransferPlan | undefined {
-  return task && (task.status === 'cancelled' || task.status === 'failed') ? task.plan : undefined;
+  const plan = task && (task.status === 'cancelled' || task.status === 'failed') ? task.plan : undefined;
+  return plan && { ...plan, resume: true };
 }
 
 /**

@@ -197,6 +197,8 @@ export interface TransferPlan {
   collision: CollisionPolicy;
   throttleBps: number;
   entries: TransferPlanEntry[];
+  /** Set on the copy of a plan handed back for a repeat; see `TransferOptions`. */
+  resume?: boolean;
 }
 
 /** What to do when the destination entry already exists. 'ask' prompts per entry. */
@@ -235,6 +237,11 @@ export interface TransferOptions {
    * relaxes the server's own space guard; the disk still has the final word.
    */
   force?: boolean;
+  /**
+   * Continuing a batch an earlier run did not finish: a destination that already has
+   * the same bytes and date is skipped instead of copied or asked about.
+   */
+  resume?: boolean;
 }
 
 /** Free space on one volume for the bytes a pending transfer needs there. */

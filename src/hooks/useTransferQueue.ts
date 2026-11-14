@@ -267,7 +267,7 @@ export function useTransferQueue({
               plan.overwrite,
               onCopied,
               signal,
-              { collision: plan.collision, throttleBps: plan.throttleBps, force },
+              { collision: plan.collision, throttleBps: plan.throttleBps, force, resume: plan.resume === true },
               askConflict,
               onFiles,
               (info) => {

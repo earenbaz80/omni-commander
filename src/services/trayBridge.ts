@@ -1,7 +1,6 @@
 import { BackgroundTask, LanguageCode, TransferPlan } from '../types';
 import { getTranslations } from '../i18n/translations';
 import { taskQueue } from './taskQueueManager';
-import { lastRepeatablePlan } from './taskRepeat';
 
 export type ConflictDecision = 'overwrite' | 'skip' | 'rename';
 
@@ -128,7 +127,7 @@ export function startTrayBridge(
     updateTrayState({
       hasLiveWork: liveTasks.length > 0,
       activeCount: liveTasks.length,
-      canRepeat: lastRepeatablePlan(tasks) !== undefined,
+      canRepeat: taskQueue.lastRepeatablePlan() !== undefined,
       waiting: waiting
         ? {
             id: waiting.id,
@@ -182,7 +181,7 @@ export function startTrayBridge(
     // A stopped transfer is not the selected one -- the tray controls live work -- so
     // its command carries its own target instead of going through the selection.
     if (command === 'repeat') {
-      const plan = lastRepeatablePlan(taskQueue.getTasks());
+      const plan = taskQueue.lastRepeatablePlan();
       if (plan) onRepeat?.(plan);
       return;
     }
