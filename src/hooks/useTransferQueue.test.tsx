@@ -366,15 +366,28 @@ describe('useTransferQueue', () => {
 
   it('clears only the prompt of the job the tray answered', async () => {
     const { result, run, release } = await openConflict('job_9');
+    // The opening conflict already lowered the flag once; from here only the
+    // answers below may touch it.
+    vi.mocked(taskQueue.setWaitingForAnswer).mockClear();
+    resolveConflict.mockClear();
 
-    // The tray answered another job: its state comes down, this prompt does not.
+    // The tray answered another job: its state comes down, this prompt and this
+    // job's wait do not.
     act(() => result.current.answerConflictFromTray('job_other', 'skip', true));
     expect(result.current.conflictPrompt?.jobId).toBe('job_9');
     expect(resolveConflict).toHaveBeenCalledWith('job_other', 'skip', true);
+    expect(taskQueue.setWaitingForAnswer).toHaveBeenCalledTimes(1);
+    expect(taskQueue.setWaitingForAnswer).toHaveBeenCalledWith('job_other', false);
+    expect(taskQueue.setWaitingForAnswer).not.toHaveBeenCalledWith('job_9', false);
 
-    act(() => result.current.answerConflictFromTray('job_9', 'skip', true));
+    // Answering job_9 with false must carry its own apply-to-all, not the true
+    // that belonged to job_other.
+    act(() => result.current.answerConflictFromTray('job_9', 'skip', false));
     expect(result.current.conflictPrompt).toBeNull();
-    expect(resolveConflict).toHaveBeenLastCalledWith('job_9', 'skip', true);
+    expect(resolveConflict).toHaveBeenNthCalledWith(1, 'job_other', 'skip', true);
+    expect(resolveConflict).toHaveBeenNthCalledWith(2, 'job_9', 'skip', false);
+    expect(taskQueue.setWaitingForAnswer).toHaveBeenCalledTimes(2);
+    expect(taskQueue.setWaitingForAnswer).toHaveBeenLastCalledWith('job_9', false);
 
     await act(async () => {
       release();
