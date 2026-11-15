@@ -1,6 +1,6 @@
 # Hoja de ruta — OmniCommander Pro
 
-**Fecha:** 6-nov-2026 · **Base:** `e288c33` (master, quince commits por delante de la 1.0.39 publicada) · **Alcance:** los arreglos que salieron del análisis del código de la 1.0.30; las fases F0 a F7 están cerradas. La tabla de la sección 0 se volvió a medir en esta base; el resto del documento conserva las mediciones del commit en que se cerró cada fase, y lo dice donde las cita.
+**Última medición:** 15-nov-2026 · **Base:** `1b654b1` (master, 19 commits por delante de la 1.0.47 publicada) · **Alcance:** los arreglos que salieron del análisis del código de la 1.0.30; las fases F0 a F7 están cerradas. La tabla de la sección 0 y la de la sección 5 se volvieron a medir en esta base; el resto del documento conserva las mediciones del commit en que se cerró cada fase, y lo dice donde las cita.
 
 **Corrección de partida:** en el análisis se dijo que no había CI por push. Es falso. [`.github/workflows/release.yml`](.github/workflows/release.yml) se llama «CI and Release» y ya ejecuta, en cada push a `master` y en cada PR: formato, tipos, tipos estrictos, eslint, tests unitarios y los e2e; el empaquetado y la publicación solo ocurren con una etiqueta `v*`. Lo que falta en el CI no es el gate, es la **cobertura** y un **presupuesto de tiempo**. El resto del plan se apoya en ese gate, no lo repite.
 
@@ -10,22 +10,23 @@
 
 | Dato | Valor | Cómo se midió |
 | --- | --- | --- |
-| Tests | 1 040 en 141 ficheros | `npx vitest run` |
-| Tests del servidor | 33 ficheros | `ls server.*.test.ts` |
-| Cobertura de `src/**` | 58,19 % sentencias · 52,09 % ramas · 46,83 % funciones · 61,19 % líneas | `vitest run --coverage` (sin tests ni stories) |
+| Tests | 1 343 en 179 ficheros | `npx vitest run` |
+| Tests del servidor | 37 ficheros | `ls server.*.test.ts` |
+| Cobertura de `src/**` | 61,97 % sentencias · 57,27 % ramas · 50,20 % funciones · 64,73 % líneas | `vitest run --coverage` (sin tests ni stories) |
 | `server.cjs` en esa medida | **fuera**; se mide aparte con `npm run test:server:coverage` | cada suite lo arranca como proceso hijo; V8 solo informa del suyo |
-| Duración | 12,4 s con todos los workers · 37-39 s con `--maxWorkers=2` | `npx vitest run`, sin cobertura |
-| Dependencias de producción | 7 directas (1 111 en el árbol) · 0 vulnerabilidades | `npm audit --omit=dev` |
-| Dependencias desfasadas | 28, ocho con salto de major | `npm outdated` |
-| `tsc --noEmit` y `typecheck:strict` | limpios | `npm run lint`, `npm run typecheck:strict` |
-| eslint | 0 avisos con `--max-warnings 0` | `npm run lint:eslint` |
-| Bundle | 552 kB el trozo principal · 51 trozos · CSS 88 kB (sin comprimir) | `vite build` |
-| Mayores ficheros | `FileList.tsx` 1 229 · `archiveReader.cjs` 1 026 · `fileOps.cjs` 988 · `fileSystem.ts` 963 · `App.tsx` 746 · `server.cjs` 566 | `wc -l` |
+| Duración | 16,9 s con todos los workers · 40,4 s con `--maxWorkers=2` | `npx vitest run`, sin cobertura |
+| Dependencias de producción | 7 directas · 0 vulnerabilidades | `npm audit --omit=dev` |
+| Dependencias desfasadas | 21, dos con salto de major | `npm outdated` |
+| `tsc --noEmit` | limpio | `npm run lint` |
+| `typecheck:strict` | 0 errores | `npm run typecheck:strict` |
+| eslint | 0 errores y 0 avisos con `--max-warnings 0` | `npm run lint:eslint` |
+| Bundle | 590 kB el trozo principal · 52 trozos · CSS 81 kB (sin comprimir) | `vite build` |
+| Mayores ficheros | `archiveReader.cjs` 1 049 · `fileOps.cjs` 1 025 · `fileSystem.ts` 965 · `App.tsx` 700 · `server.cjs` 659 · `FileList.tsx` 556 | `wc -l` |
 | Marcadores | 0 TODO · 1 `eslint-disable` (declaración vendorizada) · 1 `any` real en producción | `grep` sobre `src`, `electron`, `server` |
 
 Las tres auditorías —[26-oct](docs/audits/AUDITORIA_2026-10-26.md#2-estado-de-las-compuertas-medido), [29-oct](docs/audits/AUDITORIA_2026-10-29.md#1-compuertas-medidas-hoy) y [6-nov](docs/audits/AUDITORIA_2026-11-06.md#1-compuertas-ejecutadas)— viven juntas en `docs/audits/` y miden commits distintos, así que sus cifras no se comparan con esta tabla; la del 29-oct hablaba del 54,01 % de cobertura y 44 `any`. Lo que sí sigue siendo cierto de aquellas: `release/` ocupa cientos de MB y la raíz acumula volcados `.txt` ignorados por git.
 
-**Aviso de dependencias, ya configurado.** El commit `9b6e681` añade [`.github/dependabot.yml`](.github/dependabot.yml), y con él una versión nueva o un advisory se ven sin esperar al siguiente push: es la brecha que la auditoría del 6-nov dejaba abierta. Revisa `package.json` y las acciones fijadas por SHA cada día laborable; los saltos de major llegan en un PR propio y el resto se agrupa por tipo de dependencia, para que las 28 desfasadas de la tabla no lleguen como 28 peticiones. El fichero no enciende las dos cosas que viven en Ajustes del repositorio: las alertas y los *security updates*, que son justo las que convierten un CVE publicado en un PR.
+**Aviso de dependencias, ya configurado.** El commit `9b6e681` añade [`.github/dependabot.yml`](.github/dependabot.yml), y con él una versión nueva o un advisory se ven sin esperar al siguiente push: es la brecha que la auditoría del 6-nov dejaba abierta. Revisa `package.json` y las acciones fijadas por SHA cada día laborable; los saltos de major llegan en un PR propio y el resto se agrupa por tipo de dependencia, para que las 21 desfasadas de la tabla no lleguen como 21 peticiones. El fichero no enciende las dos cosas que viven en Ajustes del repositorio: las alertas y los *security updates*, que son justo las que convierten un CVE publicado en un PR.
 
 ---
 
@@ -51,7 +52,7 @@ Tallas: **S** ≈ una sesión · **M** ≈ dos o tres · **L** ≈ cuatro o más
 **Hecho, en este commit:**
 
 - `npm run test:coverage` mide `src/**/*.{ts,tsx}` sin los ficheros de test ni las stories, que si no suben el número solos al crecer la suite.
-- Umbral en `vite.config.ts` igual a la línea base redondeada a la baja: arrancó en 46 sentencias, 40 ramas, 37 funciones y 48 líneas, y las fases siguientes lo subieron detrás de cada mejora hasta el 57/51/46/60 de hoy. Sube solo cuando sube el número real.
+- Umbral en `vite.config.ts` igual a la línea base redondeada a la baja: arrancó en 46 sentencias, 40 ramas, 37 funciones y 48 líneas, y las fases siguientes lo subieron detrás de cada mejora hasta el 61/57/49/64 actual. Sube solo cuando sube el número real.
 - En el CI un solo leg mide en vez de repetir la suite: el leg de Node 22 corre `test:coverage` y sube `coverage/` como artefacto, también cuando falla. El tiempo del job no cambia.
 
 **Lo que esta fase no puede hacer:** `server.cjs` no entra en la medida, y no es un olvido. Cada suite lo arranca como proceso hijo (`scripts/serverHarness.ts`) y la cobertura de V8 solo describe el proceso en el que corre; incluirlo daría cero sobre 4 710 líneas y un número falso. Medirlo pide `NODE_V8_COVERAGE` en ese hijo y una pasada que una los informes: es la tanda 0 de la F2, donde además habrá algo que medir.
@@ -296,19 +297,19 @@ Tareas:
 
 ## 5. Cómo se sabe que va bien
 
-Medido hoy en `e288c33`, con todas las fases del plan cerradas:
+Medido el 15-nov-2026 en `1b654b1`, con todas las fases del plan cerradas:
 
-| Métrica | Hoy | Objetivo |
+| Métrica | Última medición | Objetivo |
 | --- | --- | --- |
-| Cobertura de líneas del ámbito medido | 61,19 % (58,19 % sentencias · 52,09 % ramas · 46,83 % funciones) en 141 ficheros y 1 040 tests, con el umbral una décima por debajo (57/51/46/60) | 60 % — **alcanzado** |
-| Duración de la suite | 37-39 s sin cobertura en local con 2 workers · 12,4 s con todos los workers | < 120 s también con 2 workers en el CI — **alcanzado** |
-| Rojos que no son fallos | 0 en las 19 últimas ejecuciones de `master` (de la 140 a la 121) | 0 en diez ejecuciones — **alcanzado** |
-| `server.cjs` | 566 líneas | < 800 |
-| `App.tsx` | 746 líneas | < 700 — **por encima** |
-| `fileSystem.ts` | 963 líneas | < 1 000 |
-| `server/archiveReader.cjs` | 1 026 líneas | el mayor del servidor; dividir antes de que crezca |
+| Cobertura de líneas del ámbito medido | 64,73 % (61,97 % sentencias · 57,27 % ramas · 50,20 % funciones) en 179 ficheros y 1 343 tests, con el umbral por debajo (61/57/49/64) | 60 % — **alcanzado** |
+| Duración de la suite | 40,4 s sin cobertura en local con 2 workers · 16,9 s con todos los workers | < 120 s también con 2 workers en el CI — **alcanzado** |
+| Rojos que no son fallos | 0 en las 19 últimas ejecuciones de `master` medidas el 6-nov (de la 140 a la 121) | 0 en diez ejecuciones — **alcanzado** |
+| `server.cjs` | 659 líneas | < 800 |
+| `App.tsx` | 700 líneas (670 al cerrar la F3; 30 después) | ≤ 700 — **en el límite** |
+| `fileSystem.ts` | 965 líneas | < 1 000 |
+| `server/archiveReader.cjs` | 1 049 líneas | el mayor del servidor; dividir antes de que crezca |
 | Cobertura de líneas de `server.cjs` | 65 % (medida en la tanda 0 de la F2) | no bajar al partir el fichero |
-| `any`/`as any` en código de producción | 1 (`libarchive.d.ts`, el worker de la librería); 32 contando dobles de test | < 30 |
+| `any`/`as any` en código de producción | 1 (`libarchive.d.ts`, el worker de la librería); los dobles de test quedan fuera | < 30 |
 | `localStorage` en componentes | 0 en crudo; las 3 lecturas que quedan viven dentro de tiendas inyectables (`calendarStore`, `runLauncher`) | 0 (todo por `storage.ts`) |
 
 Dos cosas salieron de volver a medir. La primera: el informe de cobertura imprimía un `PARSE_ERROR` en cada ejecución, y era el proveedor v8 intentando leer la declaración de `libarchive.js` —TypeScript vendido en un `.d.ts`, con `any` en la firma del worker— para mapear los ficheros que nadie importa. Un `.d.ts` no tiene código en ejecución, así que ahora queda excluido y el error desapareció. La segunda: con el número delante no tiene sentido que el umbral siga en la línea base de la primera medición; sube a lo que la suite alcanza hoy (49 % sentencias, 42 % ramas, 42 % funciones, 51 % líneas), de modo que un descenso falle la ejecución en vez de pasar desapercibido.
@@ -317,9 +318,9 @@ Después de eso, tres diálogos que no tenían un solo test —sincronizar carpe
 
 El último tramo lo pone la guarda del teclado. `useKeyboardShortcuts` tenía tests de las dos rutas que rompieron en producción —la trama de tamaños tragándose las teclas y el ciclo de unidades sin unidades—, pero no del resto del mapa: las F, las combinaciones con Ctrl, la navegación de filas y la búsqueda al teclear. Un fichero nuevo de dieciséis casos las recorre, y la línea pasa de 59,06 % a 60,81 %. **El objetivo de esta sección queda cumplido**, con el umbral detrás una vez más (57 sentencias, 51 ramas, 46 funciones, 60 líneas).
 
-**Remedido al cortar la 1.0.33.** La suite, ya con los dos arreglos de mapas dentro, son 978 tests en 133 ficheros y dejan la línea en 60,87 % (57,88 % sentencias · 51,61 % ramas · 46,68 % funciones). La tabla de arriba lleva esas cifras; el 60,81 % del párrafo anterior es lo que se midió en el commit donde la fase se cerró, y las seis centésimas de diferencia son el ruido del proveedor v8 más dos casos nuevos, no cobertura de producto que hubiera faltado contar.
+**Remedido al cortar la 1.0.33.** La suite, ya con los dos arreglos de mapas dentro, son 978 tests en 133 ficheros y dejan la línea en 60,87 % (57,88 % sentencias · 51,61 % ramas · 46,68 % funciones). La tabla de arriba lleva las cifras de la última medición, no las de aquel commit; el 60,81 % del párrafo anterior es lo que se midió donde la fase se cerró, y las seis centésimas de diferencia son el ruido del proveedor v8 más dos casos nuevos, no cobertura de producto que hubiera faltado contar.
 
-La última fila se mide de otra manera porque no existe un registro aparte: lo que se cuenta son las conclusiones que la API del repositorio da para las ejecuciones de `master`. Hoy son diecinueve seguidas en verde, de la 140 a la 121 —la 139 es la del tag `v1.0.32`, que corre por su cuenta—, ya sin los dos rojos que no eran fallos. Conviene leerlo como lo que es: una racha, no una garantía. Nadie la vigila sola, y el número baja el día que alguien vuelve a preguntar y encuentra un rojo en medio.
+La última fila se mide de otra manera porque no existe un registro aparte: lo que se cuenta son las conclusiones que la API del repositorio da para las ejecuciones de `master`. En la última medición, el 6-nov, eran diecinueve seguidas en verde, de la 140 a la 121 —la 139 es la del tag `v1.0.32`, que corre por su cuenta—, ya sin los dos rojos que no eran fallos. Conviene leerlo como lo que es: una racha, no una garantía. Nadie la vigila sola, y el número baja el día que alguien vuelve a preguntar y encuentra un rojo en medio.
 
 ---
 
