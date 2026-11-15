@@ -11,7 +11,6 @@ const { appendLogSync } = require('../server/scratch.cjs');
 const SHUTDOWN_LOG = 'omnicommander-shutdown.log';
 
 let reason = 'unknown';
-let exitRegistered = false;
 
 /**
  * Keeps the first cause. app.quit() can close every window and reach
@@ -20,11 +19,6 @@ let exitRegistered = false;
  */
 function noteQuitReason(next) {
   if (reason === 'unknown') reason = next;
-}
-
-/** Tests start each case with no prior cause; the app never calls this. */
-function resetQuitReason() {
-  reason = 'unknown';
 }
 
 function shutdownLine(event, detail = '') {
@@ -41,11 +35,8 @@ function logShutdown(event, detail = '') {
   }
 }
 
-/** Register once, even when a test loads main.cjs again. */
 function registerExitLog() {
-  if (exitRegistered) return;
-  exitRegistered = true;
   process.once('exit', (code) => logShutdown('process-exit', `code=${code}`));
 }
 
-module.exports = { SHUTDOWN_LOG, noteQuitReason, resetQuitReason, logShutdown, registerExitLog };
+module.exports = { noteQuitReason, logShutdown, registerExitLog };
