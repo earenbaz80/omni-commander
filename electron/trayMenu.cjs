@@ -28,8 +28,8 @@ function waitingLine(state, park, subject) {
 }
 
 function summaryOf(state) {
-  // The newest park: it is the one the tooltip counts down, and the answer rows
-  // below name every park they offer.
+  // The newest park: it is the one the tooltip counts down and the answer row
+  // below names.
   const [first] = state.waiting;
   if (first) return waitingLine(state, first, conflictOf(first)?.name);
   const task = state.task;
@@ -121,30 +121,27 @@ function conflictSubmenu(state, park, actions) {
 }
 
 /**
- * One row per parked transfer. Two copies can be stopped at the same time, and a single
- * row decided only the one the menu happened to be built for while the other ran out its
- * deadline in silence. Each row names the file it stops on, so two waits -- even on the
- * same file name -- are told apart by the row the user picks.
+ * The one answer row the tray offers. The queue runs one transfer at a time, so
+ * there is at most one park; a second row would offer an answer the queue cannot
+ * produce. The job still travels in the id, so a click landing on a rebuilt menu
+ * can be traced to the transfer it answers.
  */
 function answerRows(state, actions) {
-  const { labels, waiting } = state;
-  const rows = waiting
-    .filter((park) => park.conflict)
-    .map((park) => {
-      const file = conflictOf(park);
-      const clock = conflictClock(park);
-      return {
-        // The job travels in the id, so a click landing on a rebuilt menu can be traced
-        // to the transfer it answers.
-        id: `answer:${park.jobId}`,
-        label: `${labels.answer}${file ? ` — ${file.name}` : ''}${clock ? ` · ${clock}` : ''}`,
-        enabled: true,
-        submenu: conflictSubmenu(state, park, actions),
-      };
-    });
-  // Without the conflict details there is nothing to answer, and the dashboard row
-  // below already leads to the page.
-  return rows.length ? rows : [{ label: labels.answer, enabled: false }];
+  const { labels } = state;
+  const [park] = state.waiting;
+  // Without the conflict details there is nothing to answer, and the dashboard
+  // row below already leads to the page.
+  if (!park || !park.conflict) return [{ label: labels.answer, enabled: false }];
+  const file = conflictOf(park);
+  const clock = conflictClock(park);
+  return [
+    {
+      id: `answer:${park.jobId}`,
+      label: `${labels.answer}${file ? ` — ${file.name}` : ''}${clock ? ` · ${clock}` : ''}`,
+      enabled: true,
+      submenu: conflictSubmenu(state, park, actions),
+    },
+  ];
 }
 
 /**

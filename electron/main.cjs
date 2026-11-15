@@ -656,7 +656,7 @@ app.whenReady().then(async () => {
   // After the window exists, so a state pushed early still has somewhere to go.
   setupUpdater();
 
-  // Development harness for the two-row conflict menu; see scripts/tray-probe.mjs.
+  // Development harness for the tray's conflict menu; see scripts/tray-probe.mjs.
   if (trayProbe) {
     require('../scripts/tray-probe-main.cjs').run({
       inject: (payload) => {
@@ -664,6 +664,7 @@ app.whenReady().then(async () => {
         refreshTrayMenu();
       },
       menu: () => trayMenu,
+      window: () => mainWindow,
       open: () => {
         if (!tray || tray.isDestroyed() || !trayMenu) return false;
         tray.popUpContextMenu(trayMenu);
