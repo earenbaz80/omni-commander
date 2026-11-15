@@ -6,8 +6,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
- * Runs the real Electron app with `TRAY_PROBE=1`, injects two parked transfers,
- * opens the native tray menu and checks that apply-to-all belongs to each job.
+ * Runs the real Electron app with `TRAY_PROBE=1`, injects one parked transfer,
+ * opens the native tray menu and checks its single answer row and the command it
+ * sends: the right job and its own apply-to-all.
  *
  * The main process answers with one JSON line; this script is what decides
  * whether the run passes. It needs the built renderer (`npm run build`) and a
@@ -23,13 +24,14 @@ if (!existsSync(path.join(root, 'dist', 'index.html'))) {
   process.exit(1);
 }
 
-const EXPECTED_LABELS = ['Answer the conflict — a.txt · 5:00', 'Answer the conflict — b.txt · 2:00'];
+const EXPECTED_LABELS = ['Answer the conflict — a.txt · 5:00'];
 
 const EXPECTED = {
-  initial: { job_a: false, job_b: false },
-  afterA: { job_a: true, job_b: false },
-  afterB: { job_a: true, job_b: true },
+  initial: { job_a: false },
+  afterA: { job_a: true },
 };
+
+const EXPECTED_COMMANDS = [{ resolve: 'skip', jobId: 'job_a', applyToAll: true }];
 
 const child = spawn(electron, ['.'], {
   cwd: root,
@@ -75,19 +77,19 @@ child.on('close', (code) => {
 
   try {
     assert.equal(result.ok, true, result.error);
-    assert.equal(result.rows.length, 2, 'the menu must draw one row per park');
+    assert.equal(result.rows.length, 1, 'the serial queue has at most one park to draw');
     assert.deepEqual(
       result.rows.map((row) => row.id),
-      ['answer:job_a', 'answer:job_b'],
+      ['answer:job_a'],
     );
     assert.deepEqual(
       result.rows.map((row) => row.label),
       EXPECTED_LABELS,
-      'the menu text must keep both destinations and their clocks',
+      'the row must keep the destination and its clock',
     );
     assert.deepEqual(result.initial, EXPECTED.initial);
     assert.deepEqual(result.afterA, EXPECTED.afterA);
-    assert.deepEqual(result.afterB, EXPECTED.afterB);
+    assert.deepEqual(result.commands, EXPECTED_COMMANDS, 'the answer must leave with the right job and apply-to-all');
     assert.equal(result.menuOpened, true);
   } catch (error) {
     console.error('Tray probe failed:');
@@ -101,5 +103,5 @@ child.on('close', (code) => {
   console.log(`  rows: ${result.rows.map((row) => row.label).join(' | ')}`);
   console.log(`  initial: ${JSON.stringify(result.initial)}`);
   console.log(`  after job_a: ${JSON.stringify(result.afterA)}`);
-  console.log(`  after job_b: ${JSON.stringify(result.afterB)}`);
+  console.log(`  commands: ${JSON.stringify(result.commands)}`);
 });

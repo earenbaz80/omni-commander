@@ -347,37 +347,35 @@ describe('the tray menu', () => {
     expect(row(template, 'Abrir panel de transferencias')?.enabled).toBe(false);
   });
 
-  it('offers a row per parked transfer, each answering its own job', () => {
+  it('offers only the newest park, because the queue runs one transfer at a time', () => {
     const handlers = actions();
     const parked = state({ waiting: [park('job_b', 'E:\\b.txt', 120_000), park('job_a', 'D:\\a.txt', 269_000)] });
     const template = trayMenuTemplate(parked, handlers);
 
-    // One row per park, naming the file it stops on and its own wait: a single row
-    // answered whichever park the menu was built for and left the other timing out.
+    // A second row would offer an answer the serial queue cannot produce. The
+    // newest park is the one the tooltip already names.
     expect(byId(template, 'answer:job_b')?.label).toBe('Responder en el panel — b.txt · 2:00');
-    expect(byId(template, 'answer:job_a')?.label).toBe('Responder en el panel — a.txt · 4:29');
+    expect(byId(template, 'answer:job_a')).toBeUndefined();
 
     byId(template, 'answer:job_b')?.submenu?.[3].click?.();
-    byId(template, 'answer:job_a')?.submenu?.[4].click?.();
-    expect(handlers.command.mock.calls).toEqual([
-      [{ resolve: 'skip', jobId: 'job_b', applyToAll: false }],
-      [{ resolve: 'rename', jobId: 'job_a', applyToAll: false }],
-    ]);
+    expect(handlers.command.mock.calls).toEqual([[{ resolve: 'skip', jobId: 'job_b', applyToAll: false }]]);
   });
 
-  it('ticks apply-to-all on the transfer it was set on and no other', () => {
+  it('keeps apply-to-all per job even though only one row is drawn', () => {
     const handlers = actions();
-    const parked = state({ waiting: [park('job_b', 'E:\\b.txt', 120_000), park('job_a', 'D:\\a.txt', 269_000)] });
+    const parkedB = state({ waiting: [park('job_b', 'E:\\b.txt', 120_000)] });
 
-    byId(trayMenuTemplate(parked, handlers), 'answer:job_b')?.submenu?.[6].click?.();
+    byId(trayMenuTemplate(parkedB, handlers), 'answer:job_b')?.submenu?.[6].click?.();
+    const afterB = trayMenuTemplate(parkedB, handlers);
+    expect(byId(afterB, 'answer:job_b')?.submenu?.[6]).toMatchObject({ type: 'checkbox', checked: true });
 
-    const after = trayMenuTemplate(parked, handlers);
-    expect(byId(after, 'answer:job_b')?.submenu?.[6]).toMatchObject({ type: 'checkbox', checked: true });
-    expect(byId(after, 'answer:job_a')?.submenu?.[6]).toMatchObject({ type: 'checkbox', checked: false });
+    // The next park drawn with the same main state starts unticked: the choice
+    // belongs to job_b, not to the menu instance.
+    const parkedA = state({ waiting: [park('job_a', 'D:\\a.txt', 269_000)] });
+    const afterA = trayMenuTemplate(parkedA, handlers);
+    expect(byId(afterA, 'answer:job_a')?.submenu?.[6]).toMatchObject({ type: 'checkbox', checked: false });
 
-    // The other park still answers one file at a time, even though the checkbox of
-    // the one above the row is ticked.
-    byId(after, 'answer:job_a')?.submenu?.[2].click?.();
+    byId(afterA, 'answer:job_a')?.submenu?.[2].click?.();
     expect(handlers.command.mock.calls).toEqual([[{ resolve: 'overwrite', jobId: 'job_a', applyToAll: false }]]);
   });
 });

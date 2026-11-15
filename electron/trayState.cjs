@@ -8,7 +8,8 @@
  */
 const TRAY_LABEL_LIMIT = 32;
 const TRAY_TITLE_LIMIT = 60;
-// The menu draws one answer row per park, so the list arrives bounded.
+// The snapshot is bounded because it comes from the renderer; the menu reads only
+// the newest park.
 const TRAY_WAIT_LIMIT = 5;
 // `waiting` is each transfer the engine is holding open until someone answers a
 // conflict: it is live work, not a finished one that can be dropped from the tray.
@@ -38,7 +39,8 @@ function normalizeTrayState(payload) {
   const activeCount = Number.isFinite(rawCount) ? Math.min(99, Math.max(0, Math.trunc(rawCount))) : task ? 1 : 0;
   // The transfers waiting on an answer travel on their own, because the selected
   // one is chosen for the controls and may be a different task. The order is the
-  // renderer's (newest first), and the list is bounded: the menu draws a row per park.
+  // renderer's (newest first), and the list is bounded because the snapshot is
+  // untrusted; the menu draws only the newest park.
   const rawWaiting = Array.isArray(source.waiting) ? source.waiting.slice(0, TRAY_WAIT_LIMIT) : [];
   const waiting = rawWaiting
     .filter((entry) => entry && typeof entry === 'object')
