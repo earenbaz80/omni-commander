@@ -579,29 +579,6 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
           )}
         </div>
 
-        {/* FTP menu */}
-        <div className="relative inline-block" onMouseEnter={() => enterMenu('ftp')}>
-          <button
-            onClick={() => handleMenuClick('ftp')}
-            className={`px-[var(--space-2)] py-[var(--space-1)] hover:bg-black/20 transition-colors uppercase font-medium ${openMenu === 'ftp' ? 'bg-black/30 font-bold' : ''}`}
-          >
-            <u>F</u>TP
-          </button>
-          {openMenu === 'ftp' && (
-            <div
-              className="absolute left-0 mt-0.5 w-60 shadow-2xl border py-1 z-50 text-xs font-mono"
-              style={{ backgroundColor: theme.modalBg, color: theme.itemText, borderColor: theme.borderPanel }}
-            >
-              <button
-                onClick={() => handleAction(() => onOpenModal('ftp_manager'))}
-                className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 text-emerald-300 font-bold flex justify-between"
-              >
-                <span>{t.connectFtp}</span> <span className="opacity-60">🌐</span>
-              </button>
-            </div>
-          )}
-        </div>
-
         {/* Right menu */}
         <div className="relative inline-block" onMouseEnter={() => enterMenu('right')}>
           <button

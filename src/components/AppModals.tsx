@@ -58,9 +58,6 @@ const UnlockFolderModal = React.lazy(() =>
 const SyncFoldersModal = React.lazy(() =>
   import('./modals/SyncFoldersModal').then((m) => ({ default: m.SyncFoldersModal })),
 );
-const FTPManagerModal = React.lazy(() =>
-  import('./modals/FTPManagerModal').then((m) => ({ default: m.FTPManagerModal })),
-);
 const FileSplitterJoinerModal = React.lazy(() =>
   import('./modals/FileSplitterJoinerModal').then((m) => ({ default: m.FileSplitterJoinerModal })),
 );
@@ -542,10 +539,6 @@ export const AppModals: React.FC<AppModalsProps> = ({
             }}
             onClose={() => setActiveModal(null)}
           />
-        )}
-
-        {activeModal === 'ftp_manager' && (
-          <FTPManagerModal theme={currentTheme} lang={lang} onClose={() => setActiveModal(null)} />
         )}
 
         {(activeModal === 'file_splitter' || activeModal === 'file_joiner') && (
