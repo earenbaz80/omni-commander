@@ -1,15 +1,16 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useTransferQueue } from './useTransferQueue';
 import { taskQueue } from '../services/taskQueueManager';
 import type { FileItem, PanelTab, TransferPlan } from '../types';
 
-const { addTask, parked, parkPlan, takePlan, transferPaths } = vi.hoisted(() => ({
+const { addTask, parked, parkPlan, takePlan, transferPaths, resolveConflict } = vi.hoisted(() => ({
   addTask: vi.fn(() => 'task-1'),
   parked: { current: null as TransferPlan | null },
   parkPlan: vi.fn(),
   takePlan: vi.fn(() => parked.current),
   transferPaths: vi.fn(),
+  resolveConflict: vi.fn(),
 }));
 
 vi.mock('../services/pendingTransfer', () => ({
@@ -27,6 +28,7 @@ vi.mock('../services/fileSystem', () => ({
     // The executor's work, replaced per case: only the conflict and the cancel
     // signal matter to the prompt.
     transferPaths,
+    resolveConflict,
     loadSystemDriveDirectory: async () => {},
     getParentPath: () => 'C:\\',
   },
@@ -71,6 +73,7 @@ beforeEach(() => {
   parkPlan.mockClear();
   takePlan.mockClear();
   transferPaths.mockReset();
+  resolveConflict.mockClear();
   vi.mocked(taskQueue.setWaitingForAnswer).mockClear();
   parked.current = null;
 });
@@ -308,5 +311,74 @@ describe('useTransferQueue', () => {
     expect(answer).toEqual({ ok: false, reason: 'unsupported' });
     expect(parkPlan).not.toHaveBeenCalled();
     expect(takePlan).not.toHaveBeenCalled();
+  });
+
+  /** Starts a transfer that parks on a conflict and leaves its executor open. */
+  const openConflict = async (jobId = 'job_9') => {
+    let runExecutor:
+      ((onProgress: unknown, signal: { paused: boolean; cancelled: boolean }) => Promise<void>) | undefined;
+    addTask.mockImplementation((...args: unknown[]) => {
+      runExecutor = args[4] as typeof runExecutor;
+      return 'task-1';
+    });
+    let release = () => {};
+    transferPaths.mockImplementation(async (...args: unknown[]) => {
+      (args[7] as (conflict: unknown) => void)(conflictFor(jobId));
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    });
+
+    const { result } = renderHook(() => useTransferQueue(deps()));
+    await result.current.handleRunCopyList([plan]);
+    const run = runExecutor!(() => {}, { paused: false, cancelled: false });
+    await waitFor(() => expect(result.current.conflictPrompt).not.toBeNull());
+    return { result, run, release };
+  };
+
+  it('sends apply-to-all for the prompt job and clears its wait', async () => {
+    const { result, run, release } = await openConflict('job_9');
+    vi.mocked(taskQueue.setWaitingForAnswer).mockClear();
+    resolveConflict.mockClear();
+
+    act(() => result.current.handleResolveConflict('skip', true));
+
+    expect(resolveConflict).toHaveBeenCalledWith('job_9', 'skip', true);
+    expect(result.current.conflictPrompt).toBeNull();
+    expect(taskQueue.setWaitingForAnswer).toHaveBeenCalledTimes(1);
+    expect(taskQueue.setWaitingForAnswer).toHaveBeenCalledWith('job_9', false);
+
+    await act(async () => {
+      release();
+      await run;
+    });
+  });
+
+  it('answers a conflict from the tray even when the window has no prompt', () => {
+    const { result } = renderHook(() => useTransferQueue(deps()));
+
+    act(() => result.current.answerConflictFromTray('job_9', 'overwrite', false));
+
+    expect(resolveConflict).toHaveBeenCalledWith('job_9', 'overwrite', false);
+    expect(taskQueue.setWaitingForAnswer).toHaveBeenCalledWith('job_9', false);
+    expect(result.current.conflictPrompt).toBeNull();
+  });
+
+  it('clears only the prompt of the job the tray answered', async () => {
+    const { result, run, release } = await openConflict('job_9');
+
+    // The tray answered another job: its state comes down, this prompt does not.
+    act(() => result.current.answerConflictFromTray('job_other', 'skip', true));
+    expect(result.current.conflictPrompt?.jobId).toBe('job_9');
+    expect(resolveConflict).toHaveBeenCalledWith('job_other', 'skip', true);
+
+    act(() => result.current.answerConflictFromTray('job_9', 'skip', true));
+    expect(result.current.conflictPrompt).toBeNull();
+    expect(resolveConflict).toHaveBeenLastCalledWith('job_9', 'skip', true);
+
+    await act(async () => {
+      release();
+      await run;
+    });
   });
 });
