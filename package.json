@@ -11,6 +11,12 @@
       "server/**/*.cjs",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "build/icon.png",
+        "to": "icon.png"
+      }
+    ],
     "asarUnpack": [
       "server.cjs",
       "server/**/*.cjs",

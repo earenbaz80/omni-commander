@@ -29,9 +29,12 @@ const { normalizeTrayState } = require('./trayState.cjs');
 const { trayMenuTemplate, trayTooltip } = require('./trayMenu.cjs');
 const { createJobToasts } = require('./jobToasts.cjs');
 
-// Windows groups a toast by this id and may drop one that has none; it is the id
-// the installer registers, so the notification is attributed to this app.
-if (process.platform === 'win32') app.setAppUserModelId('com.omnicmd.desktop');
+// Windows draws the taskbar button from this id, and an id that resolves to no
+// installed app makes the button fall back to Electron's own name and icon: the
+// window's icon is not consulted then. The executable's path always resolves and
+// carries the icon and the name the build writes into it, and it also groups the
+// toasts, so one id serves both.
+if (process.platform === 'win32') app.setAppUserModelId(process.execPath);
 
 // Per-launch session token. It is the shared secret between this process, the
 // embedded API server and the renderer: every mutating request, and every GET
@@ -311,18 +314,27 @@ let trayState = normalizeTrayState({});
 let trayApplyToAll = false;
 
 /**
- * The tray uses a 32px PNG derived from the installer icon: Windows scales it
- * down for the notification area at every display scale, and unlike an .ico it
- * can be read straight from the package bytes. Reading the bytes ourselves
- * matters because fs is asar-aware while nativeImage's path loader is not.
+ * The installer's artwork, shipped beside the asar: electron-builder keeps its
+ * buildResources folder out of the package, so the PNG travels as an extra
+ * resource there and stays where the build keeps it in development.
  */
-function loadTrayIcon() {
-  const file = path.join(__dirname, 'tray.png');
+const WINDOW_ICON = app.isPackaged
+  ? path.join(process.resourcesPath, 'icon.png')
+  : path.join(__dirname, '..', 'build', 'icon.png');
+
+/**
+ * An icon image read from its bytes, because fs sees inside the asar while
+ * nativeImage's own path loader does not. The tray takes a 32px PNG derived from
+ * the installer icon, which Windows scales for the notification area; the window
+ * takes the installer's artwork as it is, because a frameless window has no icon
+ * of its own on Windows and otherwise keeps the one Electron was built with.
+ */
+function loadIcon(file, what) {
   try {
     const image = nativeImage.createFromBuffer(fs.readFileSync(file));
     if (!image.isEmpty()) return image;
   } catch (error) {
-    console.error('Tray icon could not be read:', error);
+    console.error(`${what} icon could not be read:`, error);
   }
   return null;
 }
@@ -413,7 +425,7 @@ function refreshTrayMenu() {
 
 function createTray() {
   if (tray) return;
-  const icon = loadTrayIcon();
+  const icon = loadIcon(path.join(__dirname, 'tray.png'), 'Tray');
   if (!icon) {
     // A tray-less launch is degraded, not broken: transfers still work while the
     // window is open. Say so instead of failing the whole app.
@@ -509,6 +521,9 @@ function createBrowserView() {
 }
 
 function createMainWindow() {
+  // The taskbar button itself is drawn from the app identity set at the top; this
+  // picture is what Alt-Tab and the window previews under that button show.
+  const icon = loadIcon(WINDOW_ICON, 'Window');
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 840,
@@ -517,6 +532,7 @@ function createMainWindow() {
     frame: false,
     resizable: true,
     backgroundColor: '#020617',
+    ...(icon ? { icon } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
