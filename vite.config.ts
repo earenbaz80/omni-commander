@@ -267,14 +267,15 @@ export default defineConfig(({ command, mode }) => {
         reporter: ['text-summary', 'html', 'json-summary'],
         reportsDirectory: './coverage',
         // Floors sit on the measured line, not on an aspiration: they are what
-        // the suite reaches today (57,83 % / 51,55 % / 46,66 % / 60,81 %), and
-        // the roadmap's 60 % line is behind us: the floors now stand where the
-        // suite is, so a drop below it fails the run.
+        // the suite reaches today (61,87 % / 57,21 % / 50,09 % / 64,61 %), and
+        // the roadmap's 60 % line is behind us. Functions keeps one point of
+        // room because v8 moves it a few hundredths between runs, and a floor
+        // that tight turns that noise into a red run.
         thresholds: {
-          statements: 57,
-          branches: 51,
-          functions: 46,
-          lines: 60,
+          statements: 61,
+          branches: 57,
+          functions: 49,
+          lines: 64,
         },
       },
     },
