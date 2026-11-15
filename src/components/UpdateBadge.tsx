@@ -3,6 +3,7 @@ import { Download, RefreshCw } from 'lucide-react';
 import { LanguageCode } from '../types';
 import { getTranslations } from '../i18n/translations';
 import { useAppUpdate } from '../hooks/useAppUpdate';
+import { UPDATE_TONE } from './updateTones';
 
 /**
  * A one-line notice in the header, and nothing else.
@@ -29,7 +30,7 @@ export const UpdateBadge: React.FC<{ lang: LanguageCode }> = ({ lang }) => {
       <button
         onClick={update.download}
         title={t.updateAvailable.replace('{version}', update.version || '')}
-        className={`${chip} border border-emerald-400/50 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 cursor-pointer`}
+        className={`${chip} border ${UPDATE_TONE.download} cursor-pointer`}
       >
         <Download className="w-3.5 h-3.5" />
         <span>{update.version ? `v${update.version}` : t.updateDownload}</span>
@@ -51,7 +52,7 @@ export const UpdateBadge: React.FC<{ lang: LanguageCode }> = ({ lang }) => {
       <button
         onClick={update.install}
         title={t.updateInstall}
-        className={`${chip} border border-amber-400/50 bg-amber-400/20 hover:bg-amber-400/30 text-amber-200 cursor-pointer`}
+        className={`${chip} border ${UPDATE_TONE.install} cursor-pointer`}
       >
         <RefreshCw className="w-3.5 h-3.5" />
         <span>{t.updateInstall}</span>

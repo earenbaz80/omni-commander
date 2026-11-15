@@ -1059,6 +1059,7 @@ export const it = {
   updateDownload: 'Scarica',
   updateDownloading: 'Download: {percent}%',
   updateInstall: 'Riavvia e installa',
+  updateReadyToInstall: 'Aggiornamento pronto per l’installazione',
   updateUpToDate: 'Sei aggiornato',
   updateFailed: 'Impossibile verificare gli aggiornamenti',
   settingsUpdatesSection: 'Aggiornamenti',

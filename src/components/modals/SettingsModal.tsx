@@ -16,6 +16,7 @@ import { soundManager } from '../../services/soundEffects';
 import { checkPassword, createPasswordRecord } from '../../services/appLock';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useAppUpdate } from '../../hooks/useAppUpdate';
+import { UPDATE_TONE } from '../updateTones';
 
 interface SettingsModalProps {
   theme: ThemeConfig;
@@ -222,16 +223,41 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
   const update = useAppUpdate();
   // The card reports the quiet outcomes the header chip hides, as the About box
   // does: a manual check that answers with nothing would look broken.
-  const updateStatusText =
+  const updateStatusText = (() => {
+    switch (update.status) {
+      case 'available':
+        return t.updateAvailable.replace('{version}', update.version || '');
+      case 'downloading':
+        return t.updateDownloading.replace('{percent}', String(update.percent));
+      case 'downloaded':
+        return t.updateReadyToInstall;
+      case 'up-to-date':
+        return t.updateUpToDate;
+      case 'error':
+        return t.updateFailed;
+      default:
+        return '';
+    }
+  })();
+
+  // What the card offers to do about the state it reports: download what was
+  // offered, or restart into what already finished downloading. The card is where
+  // the user asked, so sending them to the header for the only click the update
+  // needs is a detour nobody guesses.
+  const updateAction =
     update.status === 'available'
-      ? t.updateAvailable.replace('{version}', update.version || '')
-      : update.status === 'downloading'
-        ? t.updateDownloading.replace('{percent}', String(update.percent))
-        : update.status === 'up-to-date'
-          ? t.updateUpToDate
-          : update.status === 'error'
-            ? t.updateFailed
-            : '';
+      ? {
+          label: t.updateDownload,
+          run: update.download,
+          tone: UPDATE_TONE.download,
+        }
+      : update.status === 'downloaded'
+        ? {
+            label: t.updateInstall,
+            run: update.install,
+            tone: UPDATE_TONE.install,
+          }
+        : null;
 
   // Validación en tiempo real
   const validateField = useCallback(
@@ -890,6 +916,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
                 {update.status === 'checking' ? t.updateChecking : t.updateCheck}
               </button>
               {updateStatusText && <span className="text-[var(--fs-8)] text-sky-300">{updateStatusText}</span>}
+              {/* A check that does find something has to be able to act on it from
+                  here, which is what the action above carries. */}
+              {updateAction && (
+                <button
+                  onClick={updateAction.run}
+                  className={`px-[var(--space-2)] py-[var(--space-1)] text-[10px] font-bold rounded border cursor-pointer ${updateAction.tone}`}
+                >
+                  {updateAction.label}
+                </button>
+              )}
             </div>
           </div>
         </SectionCard>

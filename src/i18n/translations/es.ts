@@ -1089,8 +1089,9 @@ export const es = {
   updateDownload: 'Descargar',
   updateDownloading: 'Descargando {percent}%',
   updateInstall: 'Reiniciar e instalar',
+  updateReadyToInstall: 'Actualización lista para instalar',
   updateUpToDate: 'Ya tienes la última versión',
-  updateFailed: 'No se pudo comprobar la actualización',
+  updateFailed: 'No se pudieron comprobar las actualizaciones',
   settingsUpdatesSection: 'Actualizaciones',
   updateChannelBeta: 'Recibir versiones beta',
   updateChannelBetaHint:
