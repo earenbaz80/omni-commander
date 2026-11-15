@@ -89,7 +89,9 @@ function whenApiPortReady() {
   });
 }
 
-const isDev = !app.isPackaged;
+// The tray probe loads the built bundle instead of a dev server, so it can run
+// without Vite; see scripts/tray-probe.mjs.
+const isDev = !app.isPackaged && process.env.TRAY_PROBE !== '1';
 
 let mainWindow;
 // Renderer deaths since the last load that managed to finish: a window that
@@ -651,6 +653,24 @@ app.whenReady().then(async () => {
   createTray();
   // After the window exists, so a state pushed early still has somewhere to go.
   setupUpdater();
+
+  // Development harness for the two-row conflict menu; see scripts/tray-probe.mjs.
+  if (!app.isPackaged && process.env.TRAY_PROBE === '1') {
+    require('../scripts/tray-probe-main.cjs').run({
+      inject: (payload) => {
+        trayState = normalizeTrayState(payload);
+        refreshTrayMenu();
+      },
+      menu: () => trayMenu,
+      open: () => {
+        if (!tray || tray.isDestroyed() || !trayMenu) return false;
+        tray.popUpContextMenu(trayMenu);
+        return true;
+      },
+      applyToAll: () => [...trayApplyToAll],
+      quit: (code) => app.exit(code),
+    });
+  }
 });
 
 // A real quit must not be intercepted by the close-to-tray handler above.
@@ -667,6 +687,9 @@ app.on('window-all-closed', () => {
 // or disappears of its own accord. Only the window that hosts the app may write
 // it, so a stray frame or a devtools extra cannot take over the tray.
 ipcMain.on('tray:state', (event, payload) => {
+  // The development probe owns trayState while it runs: a renderer snapshot
+  // would replace the injected parks.
+  if (process.env.TRAY_PROBE === '1') return;
   if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) return;
   const next = normalizeTrayState(payload);
   // Apply-to-all belongs to the transfer it was ticked on: the answer to all of one
