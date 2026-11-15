@@ -14,6 +14,15 @@ export type TrayCommand =
 export type TrayAction = 'pause' | 'resume' | 'cancel';
 export type TrayTaskStatus = 'running' | 'paused' | 'queued' | 'waiting';
 
+/** A transfer the engine is holding open until someone answers its conflict. */
+export interface TrayWaiting {
+  id: string;
+  /** The server job the answer has to reach. */
+  jobId: string;
+  title: string;
+  conflict: { source: string; destination: string; expiresInMs?: number } | null;
+}
+
 /** The bounded snapshot the tray is allowed to know about. */
 export interface TraySnapshot {
   hasLiveWork: boolean;
@@ -21,17 +30,12 @@ export interface TraySnapshot {
   /** A stopped transfer kept its plan, so the tray can queue it again. */
   canRepeat: boolean;
   /**
-   * The transfer the engine is holding open for an answer. It is not always the
-   * selected one -- that is chosen for the controls -- but it is the only one the
-   * user has to act on.
+   * The transfers the engine is holding open for an answer, newest first. None of
+   * them is necessarily the selected one -- that is chosen for the controls -- and
+   * the tray answers each on a row of its own, so carrying only one left the others
+   * to run out their deadline unannounced.
    */
-  waiting: {
-    id: string;
-    /** The server job the answer has to reach. */
-    jobId: string;
-    title: string;
-    conflict: { source: string; destination: string; expiresInMs?: number } | null;
-  } | null;
+  waiting: TrayWaiting[];
   task: {
     id: string;
     title: string;
@@ -122,32 +126,45 @@ export function startTrayBridge(
   const updateTrayState = api.updateTrayState;
   const t = getTranslations(lang);
 
+  // A parked transfer is the one case with nothing to report but the clock: the
+  // engine waits for an answer, no progress arrives, and the queue's own
+  // notifications stop. Without a second read the tray would keep the seconds it
+  // was handed at the moment of parking, so the wait is followed here instead.
+  let clock: ReturnType<typeof setInterval> | undefined;
+  const followClock = (parked: boolean) => {
+    if (parked && clock === undefined) clock = setInterval(sync, 1000);
+    else if (!parked && clock !== undefined) {
+      clearInterval(clock);
+      clock = undefined;
+    }
+  };
+
   const sync = () => {
     const tasks = taskQueue.getTasks();
     const liveTasks = tasks.filter(isLiveTask);
     const task = selectTrayTask(tasks);
-    const waiting = tasks.find((entry) => entry.waitingForAnswer && isLiveTask(entry));
+    const waiting: TrayWaiting[] = tasks
+      .filter((entry) => entry.waitingForAnswer && isLiveTask(entry))
+      .map((entry) => ({
+        id: entry.id,
+        jobId: entry.serverJobId ?? '',
+        title: entry.title,
+        conflict: entry.pendingConflict ?? null,
+      }));
     updateTrayState({
       hasLiveWork: liveTasks.length > 0,
       activeCount: liveTasks.length,
       canRepeat: taskQueue.lastRepeatablePlan() !== undefined,
-      waiting: waiting
-        ? {
-            id: waiting.id,
-            jobId: waiting.serverJobId ?? '',
-            title: waiting.title,
-            conflict: waiting.pendingConflict ?? null,
-          }
-        : null,
+      waiting,
       task:
         task && isLiveTask(task)
           ? {
               id: task.id,
               title: task.title,
               // A parked transfer is still `running` in the queue: the engine, not
-              // the queue, is the one waiting for an answer. The wait found above is
-              // what says so, so the flag is not read a second time here.
-              status: (waiting?.id === task.id ? 'waiting' : task.status) as TrayTaskStatus,
+              // the queue, is the one waiting for an answer. The parks found above
+              // are what say so, so the flag is not read a second time here.
+              status: (waiting.some((park) => park.id === task.id) ? 'waiting' : task.status) as TrayTaskStatus,
               progress: task.progress,
               speed: task.speed,
               etaSeconds: task.etaSeconds,
@@ -172,6 +189,9 @@ export function startTrayBridge(
         quit: t.quitDialogLabel,
       },
     });
+    // Only while something is parked with a clock to read: a running transfer
+    // reports itself, and a park without a deadline has nothing to count down.
+    followClock(waiting.some((park) => park.conflict?.expiresInMs !== undefined));
   };
 
   const handleCommand = (command: TrayCommand) => {
@@ -203,6 +223,7 @@ export function startTrayBridge(
   sync();
 
   return () => {
+    if (clock !== undefined) clearInterval(clock);
     unsubscribeQueue();
     if (typeof unsubscribeCommand === 'function') unsubscribeCommand();
   };

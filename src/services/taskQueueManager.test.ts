@@ -131,10 +131,14 @@ describe('taskQueue and a conflict left unanswered', () => {
     taskQueue.clearCompleted();
   });
 
-  const parked = (jobId: string, executor: () => Promise<void>) => {
+  const parked = (
+    jobId: string,
+    executor: () => Promise<void>,
+    conflict?: { source: string; destination: string; expiresInMs?: number },
+  ) => {
     const id = taskQueue.addTask('copy', 'Copy 2 items', 'T:\\dest', 10, executor);
     taskQueue.updateTaskMeta(id, { serverJobId: jobId });
-    taskQueue.setWaitingForAnswer(jobId, true);
+    taskQueue.setWaitingForAnswer(jobId, true, conflict);
     return id;
   };
 
@@ -206,6 +210,175 @@ describe('taskQueue and a conflict left unanswered', () => {
     expect(taskById(id).waitingForAnswer).toBe(false);
   });
 
+  it('counts the parked clock down between two readings instead of repeating the value it was handed', async () => {
+    // The tray reads this field while the job is parked, and nothing else reports
+    // progress during that wait. The conflict arrives once, with the seconds left at
+    // that instant; handing that same number to every read is what left the menu
+    // saying 5:00 until the engine gave up on the transfer.
+    const gate = hold();
+    const now = vi.spyOn(Date, 'now');
+    let id: string | undefined;
+    try {
+      now.mockReturnValue(Date.parse('2026-11-14T09:00:00Z'));
+      id = taskQueue.addTask('copy', 'Copy 2 items', 'T:\\dest', 10, gate.run);
+      taskQueue.updateTaskMeta(id, { serverJobId: 'job_clock' });
+      taskQueue.setWaitingForAnswer('job_clock', true, {
+        source: 'C:\\a.txt',
+        destination: 'D:\\a.txt',
+        expiresInMs: 300_000,
+      });
+
+      const first = taskById(id).pendingConflict?.expiresInMs;
+      expect(first).toBe(300_000);
+
+      // Three seconds of wall clock, which is the same gap the tray reads across.
+      now.mockReturnValue(Date.parse('2026-11-14T09:00:03Z'));
+      const second = taskById(id).pendingConflict?.expiresInMs;
+
+      expect(second).toBe(297_000);
+      expect(second!).toBeLessThan(first!);
+
+      // The wait ends when the deadline passes: the clock stops at zero instead of
+      // counting into time the engine no longer grants.
+      now.mockReturnValue(Date.parse('2026-11-14T09:05:03Z'));
+      expect(taskById(id).pendingConflict?.expiresInMs).toBe(0);
+    } finally {
+      now.mockRestore();
+      gate.release();
+    }
+
+    // The queue runs one transfer at a time: this one has to finish before the next
+    // test can park its own.
+    await vi.waitFor(() => expect(taskById(id!).status).toBe('completed'));
+  });
+
+  it('gives each parked job its own deadline instead of sharing one', async () => {
+    // The tray can carry two parks at once, and the engine grants each wait its own
+    // minutes. The queue runs one transfer at a time, so this state is built as
+    // data; the point is that the clock stays per job rather than per queue. One
+    // clock for the queue would hand the second job the first one's seconds -- a
+    // wait nobody was promised -- and would stop counting for the first as soon as
+    // they met.
+    const firstGate = hold();
+    const secondGate = hold();
+    const now = vi.spyOn(Date, 'now');
+    // What the tray reads while a job is parked.
+    const leftOf = (id: string) => taskById(id).pendingConflict?.expiresInMs;
+    let firstId: string | undefined;
+    let secondId: string | undefined;
+    try {
+      now.mockReturnValue(Date.parse('2026-11-14T09:00:00Z'));
+      firstId = parked('job_a', firstGate.run, {
+        source: 'C:\\a.txt',
+        destination: 'D:\\a.txt',
+        expiresInMs: 300_000,
+      });
+
+      // Half a minute later the second job parks with the two minutes it was given,
+      // not with the five the other one started with.
+      now.mockReturnValue(Date.parse('2026-11-14T09:00:30Z'));
+      secondId = parked('job_b', secondGate.run, {
+        source: 'C:\\b.txt',
+        destination: 'E:\\b.txt',
+        expiresInMs: 120_000,
+      });
+
+      now.mockReturnValue(Date.parse('2026-11-14T09:00:40Z'));
+      expect(leftOf(firstId)).toBe(260_000);
+      expect(leftOf(secondId)).toBe(110_000);
+
+      // A read of each five seconds later: neither clock is frozen on the number the
+      // read before it returned, and neither was restarted by being read.
+      now.mockReturnValue(Date.parse('2026-11-14T09:00:45Z'));
+      expect(leftOf(firstId)).toBe(255_000);
+      expect(leftOf(secondId)).toBe(105_000);
+    } finally {
+      now.mockRestore();
+      firstGate.release();
+      secondGate.release();
+    }
+
+    await vi.waitFor(() => expect(taskById(firstId!).status).toBe('completed'));
+    await vi.waitFor(() => expect(taskById(secondId!).status).toBe('completed'));
+  });
+
+  it('restarts the wait when the same job parks on a second conflict', async () => {
+    // Answering one collision can land the job on the next file, which arrives as
+    // a second conflict for the same job. The clock has to follow that one, not
+    // keep the time left over from the first.
+    const gate = hold();
+    const now = vi.spyOn(Date, 'now');
+    let id: string | undefined;
+    try {
+      now.mockReturnValue(Date.parse('2026-11-14T09:00:00Z'));
+      id = taskQueue.addTask('copy', 'Copy 2 items', 'T:\\dest', 10, gate.run);
+      taskQueue.updateTaskMeta(id, { serverJobId: 'job_again' });
+      taskQueue.setWaitingForAnswer('job_again', true, {
+        source: 'C:\\a.txt',
+        destination: 'D:\\a.txt',
+        expiresInMs: 300_000,
+      });
+
+      now.mockReturnValue(Date.parse('2026-11-14T09:00:10Z'));
+      taskQueue.setWaitingForAnswer('job_again', true, {
+        source: 'C:\\b.txt',
+        destination: 'D:\\b.txt',
+        expiresInMs: 60_000,
+      });
+
+      expect(taskById(id).pendingConflict?.destination).toBe('D:\\b.txt');
+      expect(taskById(id).pendingConflict?.expiresInMs).toBe(60_000);
+    } finally {
+      now.mockRestore();
+      gate.release();
+    }
+
+    await vi.waitFor(() => expect(taskById(id!).status).toBe('completed'));
+  });
+
+  it('cannot start a second transfer while the first is parked on an answer', async () => {
+    // The tray draws one row per park, but the queue reaches that state only if two
+    // executors run at once. It runs one: the loop is held inside the parked
+    // executor, so the next queued transfer never starts and never asks for an
+    // answer of its own. This is why the two-row menu cannot be produced from the
+    // window itself, and why the tray tests build the two parks as data.
+    const gate = hold();
+    let firstParked = false;
+    const firstId = taskQueue.addTask('copy', 'Copy 1', 'T:\\dest', 10, async () => {
+      // The engine reports the park once it is running, which is after addTask has
+      // returned and the job id has been attached to the task.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      firstParked = true;
+      taskQueue.setWaitingForAnswer('job_first', true, {
+        source: 'C:\\a.txt',
+        destination: 'D:\\a.txt',
+        expiresInMs: 300_000,
+      });
+      await gate.run();
+    });
+    taskQueue.updateTaskMeta(firstId, { serverJobId: 'job_first' });
+
+    const secondRun = vi.fn(async () => {
+      taskQueue.setWaitingForAnswer('job_second', true, {
+        source: 'C:\\b.txt',
+        destination: 'D:\\b.txt',
+        expiresInMs: 120_000,
+      });
+    });
+    const secondId = taskQueue.addTask('copy', 'Copy 2', 'T:\\dest', 10, secondRun);
+    taskQueue.updateTaskMeta(secondId, { serverJobId: 'job_second' });
+
+    await vi.waitFor(() => expect(firstParked).toBe(true));
+    expect(taskById(firstId).status).toBe('running');
+    expect(taskById(secondId).status).toBe('queued');
+    expect(secondRun).not.toHaveBeenCalled();
+    expect(taskQueue.getTasks().filter((task) => task.waitingForAnswer)).toHaveLength(1);
+
+    gate.release();
+    await vi.waitFor(() => expect(taskById(firstId).status).toBe('completed'));
+    await vi.waitFor(() => expect(taskById(secondId).status).toBe('completed'));
+  });
+
   it('stops waiting when the transfer completes with the prompt still open', async () => {
     // A conflict answered from the dashboard never passes through the renderer
     // that closes the prompt, so the flag can outlive the job it belonged to.
@@ -215,5 +388,8 @@ describe('taskQueue and a conflict left unanswered', () => {
     gate.release();
     await vi.waitFor(() => expect(taskById(id).status).toBe('completed'));
     expect(taskById(id).waitingForAnswer).toBe(false);
+    // The conflict goes with it. Kept, it would be read without its deadline and
+    // report the full wait it was handed, a 5:00 that nobody is waiting on.
+    expect(taskById(id).pendingConflict).toBeNull();
   });
 });

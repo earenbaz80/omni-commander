@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { normalizeTrayState, TRAY_TITLE_LIMIT } from './electron/trayState.cjs';
+import { normalizeTrayState, TRAY_TITLE_LIMIT, TRAY_WAIT_LIMIT } from './electron/trayState.cjs';
 
 /**
  * The tray entry that opens the dashboard is labelled by the renderer, which
@@ -38,38 +38,44 @@ describe('the state the tray mirrors', () => {
     // the conflict it is parked on and the job the answer has to reach.
     const state = normalizeTrayState({
       task: { id: 'job_1', title: 'Copy 2 items', status: 'running', progress: 40 },
-      waiting: {
-        id: 'task_2',
-        jobId: 'job_9',
-        title: 'Move 5 items',
-        conflict: { source: 'C:\\a.txt', destination: 'D:\\a.txt' },
-      },
+      waiting: [
+        {
+          id: 'task_2',
+          jobId: 'job_9',
+          title: 'Move 5 items',
+          conflict: { source: 'C:\\a.txt', destination: 'D:\\a.txt' },
+        },
+      ],
       labels: { overwrite: 'Sobrescribir', applyAll: 'Aplicar a todos' },
     });
 
     expect(state.task?.id).toBe('job_1');
-    expect(state.waiting).toEqual({
-      id: 'task_2',
-      jobId: 'job_9',
-      title: 'Move 5 items',
-      // No deadline in the payload: the menu then shows no clock rather than a zero.
-      conflict: { source: 'C:\\a.txt', destination: 'D:\\a.txt', expiresInMs: 0 },
-    });
+    expect(state.waiting).toEqual([
+      {
+        id: 'task_2',
+        jobId: 'job_9',
+        title: 'Move 5 items',
+        // No deadline in the payload: the menu then shows no clock rather than a zero.
+        conflict: { source: 'C:\\a.txt', destination: 'D:\\a.txt', expiresInMs: 0 },
+      },
+    ]);
     expect(state.labels.overwrite).toBe('Sobrescribir');
     expect(state.labels.applyAll).toBe('Aplicar a todos');
   });
 
   it('drops a waiting entry it cannot address, and names a nameless one', () => {
-    expect(normalizeTrayState({ waiting: { title: 'Move 5 items' } }).waiting).toBeNull();
-    expect(normalizeTrayState({ waiting: { id: 'job_2' } }).waiting).toEqual({
-      id: 'job_2',
-      jobId: '',
-      title: 'Transfer',
-      conflict: null,
-    });
-    expect(normalizeTrayState({}).waiting).toBeNull();
+    expect(normalizeTrayState({ waiting: { title: 'Move 5 items' } }).waiting).toEqual([]);
+    expect(normalizeTrayState({ waiting: [{ id: 'job_2' }] }).waiting).toEqual([
+      {
+        id: 'job_2',
+        jobId: '',
+        title: 'Transfer',
+        conflict: null,
+      },
+    ]);
+    expect(normalizeTrayState({}).waiting).toEqual([]);
     // No conflict means nothing to answer, and the menu disables the row for it.
-    expect(normalizeTrayState({ waiting: { id: 'task_1', jobId: 'job_9' } }).waiting?.conflict).toBeNull();
+    expect(normalizeTrayState({ waiting: [{ id: 'task_1', jobId: 'job_9' }] }).waiting[0]?.conflict).toBeNull();
     expect(normalizeTrayState({}).labels.answer).toBe('Answer the conflict');
     expect(normalizeTrayState({}).labels.overwrite).toBe('Overwrite');
   });
@@ -84,16 +90,18 @@ describe('the state the tray mirrors', () => {
         speed: '12.5 MB/s',
         etaSeconds: 95.4,
       },
-      waiting: {
-        id: 'task_1',
-        jobId: 'job_9',
-        conflict: { source: 'C:\\a.txt', destination: 'D:\\a.txt', expiresInMs: 239_900 },
-      },
+      waiting: [
+        {
+          id: 'task_1',
+          jobId: 'job_9',
+          conflict: { source: 'C:\\a.txt', destination: 'D:\\a.txt', expiresInMs: 239_900 },
+        },
+      ],
     });
 
     // The menu counts the wait down and says how the transfer moves, so the snapshot
     // has to carry both numbers rather than a status alone.
-    expect(state.waiting?.conflict?.expiresInMs).toBe(239_900);
+    expect(state.waiting[0]?.conflict?.expiresInMs).toBe(239_900);
     expect(state.task?.speed).toBe('12.5 MB/s');
     expect(state.task?.etaSeconds).toBe(95);
   });
@@ -104,12 +112,35 @@ describe('the state the tray mirrors', () => {
     // tray still draws the entry.
     const long = `D:\\${'carpeta\\'.repeat(20)}archivo.txt`;
     const state = normalizeTrayState({
-      waiting: { id: 'task_1', jobId: 'job_9', conflict: { source: 'C:\\a.txt', destination: long } },
+      waiting: [{ id: 'task_1', jobId: 'job_9', conflict: { source: 'C:\\a.txt', destination: long } }],
     });
 
-    expect(state.waiting?.conflict?.source).toBe('C:\\a.txt');
-    expect(state.waiting?.conflict?.destination).toHaveLength(TRAY_TITLE_LIMIT);
-    expect(state.waiting?.conflict?.destination.startsWith('D:\\carpeta\\')).toBe(true);
+    expect(state.waiting[0]?.conflict?.source).toBe('C:\\a.txt');
+    expect(state.waiting[0]?.conflict?.destination).toHaveLength(TRAY_TITLE_LIMIT);
+    expect(state.waiting[0]?.conflict?.destination.startsWith('D:\\carpeta\\')).toBe(true);
+  });
+
+  it('carries every parked transfer, bounded to what the menu can draw', () => {
+    // Two copies can be stopped at once, and the tray answers each on its own row: a
+    // snapshot that kept one entry left the other to time out without a word.
+    const parks = Array.from({ length: TRAY_WAIT_LIMIT + 2 }, (_, index) => ({
+      id: `task_${index}`,
+      jobId: `job_${index}`,
+    }));
+    const state = normalizeTrayState({ waiting: parks });
+
+    // The renderer's order survives -- newest first, so the tooltip names the newest --
+    // and the list stops where the menu would stop being usable.
+    expect(state.waiting).toHaveLength(TRAY_WAIT_LIMIT);
+    expect(state.waiting[0].id).toBe('task_0');
+    expect(state.waiting[TRAY_WAIT_LIMIT - 1].id).toBe(`task_${TRAY_WAIT_LIMIT - 1}`);
+
+    // An entry with nothing to address is dropped instead of drawn as an empty row, and
+    // a payload that is not a list parks nothing at all.
+    expect(
+      normalizeTrayState({ waiting: [{ jobId: 'job_9' }, { id: 'task_9', jobId: 'job_9' }] }).waiting,
+    ).toHaveLength(1);
+    expect(normalizeTrayState({ waiting: 'job_9' }).waiting).toEqual([]);
   });
 
   it('offers the repeat row only for an explicit true', () => {

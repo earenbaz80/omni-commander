@@ -206,9 +206,11 @@ export default defineConfig(({ command, mode }) => {
       // load `jsdom` there at all: it pulls `@exodus/bytes`, which ships ESM syntax
       // inside a CommonJS package, and only Node 24+ rescues that at `require`
       // time, so Node 22 failed to collect the file while Node 26 passed it. Those
-      // four keep the default pool; the rest runs on vmThreads, and
+      // five keep the default pool; the rest runs on vmThreads, and
       // the same 741 tests pass in roughly half the time. Measured, not assumed:
-      // on the whole suite vmThreads alone turned 7 tests red.
+      // on the whole suite vmThreads alone turned 7 tests red. The fifth is
+      // `electron/main.handlers.test.ts`: it loads a CommonJS entry point whose
+      // `require('electron')` is only interceptable outside the VM.
       projects: [
         {
           extends: true,
@@ -224,6 +226,7 @@ export default defineConfig(({ command, mode }) => {
               'scripts/check-links.test.ts',
               'src/components/modals/SettingsModal.password.test.tsx',
               'server.dashboard.test.ts',
+              'electron/main.handlers.test.ts',
             ],
           },
         },
@@ -237,6 +240,7 @@ export default defineConfig(({ command, mode }) => {
               'scripts/check-links.test.ts',
               'src/components/modals/SettingsModal.password.test.tsx',
               'server.dashboard.test.ts',
+              'electron/main.handlers.test.ts',
             ],
           },
         },

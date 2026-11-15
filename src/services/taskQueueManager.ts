@@ -23,6 +23,13 @@ class TaskQueueManager {
   private static readonly FILE_WINDOW = 60;
 
   private tasks: BackgroundTask[] = [];
+  /**
+   * When each parked task stops accepting an answer. The conflict reaches the queue
+   * once, with the seconds left at that instant; without an anchor the tray would
+   * hold that number for the whole wait and read `5:00` until the job expired. The
+   * remaining time is derived from this deadline on every read instead.
+   */
+  private conflictDeadlines = new Map<string, number>();
   /** The newest plan a stopped transfer left behind, kept for a repeat after a restart. */
   private stoppedPlan?: TransferPlan = readStoppedPlan();
   private listeners: Array<() => void> = [];
@@ -35,7 +42,21 @@ class TaskQueueManager {
   // indicator permanently visible and made real transfers look simulated.
 
   public getTasks(): BackgroundTask[] {
-    return [...this.tasks];
+    return this.tasks.map((task) => this.withRunningClock(task));
+  }
+
+  /**
+   * A parked task with the time it has left right now, instead of the time it had
+   * when the conflict arrived. Only the parked task is copied: everything else is
+   * handed out as it is stored.
+   */
+  private withRunningClock(task: BackgroundTask): BackgroundTask {
+    const deadline = this.conflictDeadlines.get(task.id);
+    if (deadline === undefined || !task.pendingConflict) return task;
+    return {
+      ...task,
+      pendingConflict: { ...task.pendingConflict, expiresInMs: Math.max(0, deadline - Date.now()) },
+    };
   }
 
   public getActiveCount(): number {
@@ -74,7 +95,14 @@ class TaskQueueManager {
     // A transfer that ended while its prompt was open cannot still be waiting for an
     // answer; dropping the flag here covers every path to a terminal status at once.
     for (const task of this.tasks) {
-      if (task.waitingForAnswer && !LIVE_STATUSES.has(task.status)) task.waitingForAnswer = false;
+      if (task.waitingForAnswer && !LIVE_STATUSES.has(task.status)) {
+        task.waitingForAnswer = false;
+        // The engine drops the conflict when it gives up on the job, so the queue
+        // dropped it too -- but the deadline goes first: without it, a kept
+        // conflict would report the seconds it was handed, a full 5:00 again.
+        task.pendingConflict = null;
+        this.conflictDeadlines.delete(task.id);
+      }
     }
     this.listeners.forEach((l) => l());
   }
@@ -119,6 +147,11 @@ class TaskQueueManager {
   }
 
   private async processQueue() {
+    // One transfer at a time. A parked executor holds this loop at its `await`, so
+    // the next queued task does not start while an answer is pending: the window
+    // cannot produce two parks at once, which is why the tray's multi-row menu is
+    // exercised with a snapshot instead of by driving the UI. The snapshot still
+    // carries a list so the menu does not change if the queue ever runs two.
     if (this.processing) return;
     this.processing = true;
 
@@ -305,6 +338,11 @@ class TaskQueueManager {
     if (Boolean(task.waitingForAnswer) === waiting && (!waiting || !conflict)) return;
     task.waitingForAnswer = waiting;
     task.pendingConflict = waiting ? (conflict ?? null) : null;
+    // The deadline is anchored here, once: a later read must not restart the wait,
+    // and a second conflict for the same job replaces the one the tray is holding,
+    // so it anchors a new deadline like the first.
+    if (waiting && conflict?.expiresInMs) this.conflictDeadlines.set(task.id, Date.now() + conflict.expiresInMs);
+    else this.conflictDeadlines.delete(task.id);
     this.notify();
   }
 
