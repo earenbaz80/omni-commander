@@ -46,7 +46,9 @@ const serverMock = {
   onJobWaiting: () => {},
 };
 
-const loader = Module as unknown as { _load: (...args: unknown[]) => unknown };
+const loader = Module as unknown as {
+  _load: (request: string, parent: unknown, isMain: boolean) => unknown;
+};
 const originalLoad = loader._load;
 
 beforeAll(async () => {
