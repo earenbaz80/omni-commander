@@ -149,9 +149,9 @@ class TaskQueueManager {
   private async processQueue() {
     // One transfer at a time. A parked executor holds this loop at its `await`, so
     // the next queued task does not start while an answer is pending: the window
-    // cannot produce two parks at once, which is why the tray's multi-row menu is
-    // exercised with a snapshot instead of by driving the UI. The snapshot still
-    // carries a list so the menu does not change if the queue ever runs two.
+    // cannot produce two parks at once, which is why the tray draws one answer row.
+    // The snapshot still carries a list because the renderer owns it, but the menu
+    // reads only the newest entry.
     if (this.processing) return;
     this.processing = true;
 

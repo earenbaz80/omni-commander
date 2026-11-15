@@ -337,11 +337,10 @@ describe('taskQueue and a conflict left unanswered', () => {
   });
 
   it('cannot start a second transfer while the first is parked on an answer', async () => {
-    // The tray draws one row per park, but the queue reaches that state only if two
-    // executors run at once. It runs one: the loop is held inside the parked
-    // executor, so the next queued transfer never starts and never asks for an
-    // answer of its own. This is why the two-row menu cannot be produced from the
-    // window itself, and why the tray tests build the two parks as data.
+    // The tray draws one answer row because the queue runs one transfer at a time.
+    // The loop is held inside the parked executor, so the next queued transfer never
+    // starts and never asks for an answer of its own. A second park cannot be
+    // produced from the window, which is why the menu no longer offers a second row.
     const gate = hold();
     let firstParked = false;
     const firstId = taskQueue.addTask('copy', 'Copy 1', 'T:\\dest', 10, async () => {

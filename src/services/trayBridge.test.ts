@@ -333,8 +333,9 @@ describe('tray bridge', () => {
       const latest = () => snapshots[snapshots.length - 1];
       const parkOf = (jobId: string) => latest().waiting.find((park) => park.jobId === jobId);
 
-      // Both parks travel, newest first: the menu draws a row for each, and the one the
-      // tooltip and the summary name is the newest.
+      // The snapshot can carry both parks, newest first, because it is the renderer's
+      // list; the menu reads only the newest. The one the tooltip names is that newest
+      // park, and the clock has to follow it.
       expect(latest().waiting.map((park) => park.jobId)).toEqual(['job_b', 'job_a']);
       expect(parkOf('job_b')?.conflict?.destination).toBe('E:\\b.txt');
       expect(parkOf('job_b')?.conflict?.expiresInMs).toBe(120_000);
