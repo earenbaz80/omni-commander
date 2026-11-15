@@ -26,18 +26,26 @@ export const AboutModal: React.FC<AboutModalProps> = ({ theme, lang, authorName,
   // The header chip only shows what needs a decision; this row also reports the
   // quiet outcomes, and gives the manual check the chip deliberately lacks.
   const update = useAppUpdate();
-  const updateStatusText =
-    update.status === 'available'
-      ? t.updateAvailable.replace('{version}', update.version || '')
-      : update.status === 'downloading'
-        ? t.updateDownloading.replace('{percent}', String(update.percent))
-        : update.status === 'checking'
-          ? t.updateChecking
-          : update.status === 'up-to-date'
-            ? t.updateUpToDate
-            : update.status === 'error'
-              ? t.updateFailed
-              : '';
+  const updateStatusText = (() => {
+    switch (update.status) {
+      case 'available':
+        return t.updateAvailable.replace('{version}', update.version || '');
+      case 'downloading':
+        return t.updateDownloading.replace('{percent}', String(update.percent));
+      case 'downloaded':
+        return t.updateReadyToInstall;
+      // Unlike the settings card, whose check button carries the word while it
+      // waits, the box has no button for that state, so it names it here.
+      case 'checking':
+        return t.updateChecking;
+      case 'up-to-date':
+        return t.updateUpToDate;
+      case 'error':
+        return t.updateFailed;
+      default:
+        return '';
+    }
+  })();
   const updateAction =
     update.status === 'available'
       ? { label: t.updateDownload, run: update.download }

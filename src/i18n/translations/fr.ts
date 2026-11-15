@@ -1065,6 +1065,7 @@ export const fr = {
   updateDownload: 'Télécharger',
   updateDownloading: 'Téléchargement : {percent}%',
   updateInstall: 'Redémarrer et installer',
+  updateReadyToInstall: 'Mise à jour prête à installer',
   updateUpToDate: 'Vous êtes à jour',
   updateFailed: 'Impossible de vérifier les mises à jour',
   settingsUpdatesSection: 'Mises à jour',

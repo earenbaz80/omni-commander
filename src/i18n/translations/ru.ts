@@ -1059,6 +1059,7 @@ export const ru = {
   updateDownload: 'Скачать',
   updateDownloading: 'Загрузка: {percent}%',
   updateInstall: 'Перезапустить и установить',
+  updateReadyToInstall: 'Обновление готово к установке',
   updateUpToDate: 'У вас последняя версия',
   updateFailed: 'Не удалось проверить обновления',
   settingsUpdatesSection: 'Обновления',

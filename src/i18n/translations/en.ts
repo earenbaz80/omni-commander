@@ -1084,6 +1084,7 @@ export const en = {
   updateDownload: 'Download',
   updateDownloading: 'Downloading {percent}%',
   updateInstall: 'Restart and install',
+  updateReadyToInstall: 'Update ready to install',
   updateUpToDate: 'You are up to date',
   updateFailed: 'Could not check for updates',
   settingsUpdatesSection: 'Updates',
