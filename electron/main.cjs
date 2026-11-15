@@ -308,10 +308,10 @@ let quitting = false;
 // through, so a label added there cannot be missing from the menu before the first
 // one arrives -- it was, and the row was drawn with no text at all.
 let trayState = normalizeTrayState({});
-// Whether the next answer from the tray covers every remaining conflict of the job it
-// answers. It belongs to one parked transfer: the menu is rebuilt every poll, so it
-// lives here rather than in a checked item that would be thrown away with it.
-let trayApplyToAll = false;
+// The jobs whose next answer covers every remaining conflict. The tick belongs to one
+// parked transfer -- two parks are two different answers -- and the menu is rebuilt on
+// every poll, so the choice lives here rather than in an item that gets thrown away.
+let trayApplyToAll = new Set();
 
 /**
  * The installer's artwork, shipped beside the asar: electron-builder keeps its
@@ -387,6 +387,22 @@ function notifyJobWaiting(job) {
   jobToasts.waiting(job);
 }
 
+// The countdown the tray shows while a transfer is parked is a renderer timer, and a
+// window in the tray may be throttled: Chromium is free to slow its timers down, and the
+// clock would then freeze at the seconds it had when the window hid. Throttling is
+// turned off exactly while a deadline is running — the only time the tray reads a clock
+// — and back on as soon as it is answered, so the app keeps its normal throttling.
+let followingTrayClock = false;
+
+function followTrayClock(waiting) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const parked = waiting.some((park) => park.conflict && Number(park.conflict.expiresInMs) > 0);
+  if (parked === followingTrayClock) return;
+  followingTrayClock = parked;
+  mainWindow.webContents.setBackgroundThrottling(!parked);
+  console.log(`Tray clock: background throttling ${parked ? 'off' : 'on'}`);
+}
+
 /**
  * Rebuilds the menu from the mirrored snapshot. Resume and Pause are mutually
  * exclusive so the menu always states what a click will actually do.
@@ -399,9 +415,9 @@ function refreshTrayMenu() {
       showWindow: showMainWindow,
       command: sendTrayCommand,
       openDashboard,
-      applyToAll: trayApplyToAll,
-      toggleApplyToAll: () => {
-        trayApplyToAll = !trayApplyToAll;
+      applyToAll: (jobId) => trayApplyToAll.has(jobId),
+      toggleApplyToAll: (jobId) => {
+        if (!trayApplyToAll.delete(jobId)) trayApplyToAll.add(jobId);
         refreshTrayMenu();
       },
       // The engine page is a browser tab, and a navigation cannot send the token
@@ -544,6 +560,10 @@ function createMainWindow() {
     },
   });
 
+  // A fresh renderer throttles again by default: the next snapshot from it decides
+  // whether a clock is running, the same way the first one does.
+  followingTrayClock = false;
+
   // The zoom limits belong to the frame, and a window that was just created has
   // none yet: asking then rejects with "Render frame was disposed before
   // WebFrameMain could be accessed", which went unhandled on every packaged
@@ -649,10 +669,13 @@ app.on('window-all-closed', () => {
 ipcMain.on('tray:state', (event, payload) => {
   if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) return;
   const next = normalizeTrayState(payload);
-  // A different parked job starts from off: the answer to all of one transfer must
-  // never become the policy of another.
-  if (next.waiting?.jobId !== trayState.waiting?.jobId) trayApplyToAll = false;
+  // Apply-to-all belongs to the transfer it was ticked on: the answer to all of one
+  // transfer must never become the policy of another, and a job that stopped waiting
+  // loses the choice.
+  const parkedIds = new Set(next.waiting.map((park) => park.jobId));
+  for (const jobId of trayApplyToAll) if (!parkedIds.has(jobId)) trayApplyToAll.delete(jobId);
   trayState = next;
+  followTrayClock(next.waiting);
   refreshTrayMenu();
 });
 

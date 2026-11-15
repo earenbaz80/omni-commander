@@ -7,16 +7,19 @@ const require = createRequire(import.meta.url);
 const { trayTooltip, trayMenuTemplate } = require('./trayMenu.cjs');
 const { clampText, TRAY_LABEL_LIMIT, normalizeTrayState } = require('./trayState.cjs');
 
+/** A transfer the engine is holding open for an answer. */
+type Park = {
+  id: string;
+  jobId: string;
+  title: string;
+  conflict: { source: string; destination: string; expiresInMs?: number } | null;
+};
+
 type State = {
   hasLiveWork: boolean;
   activeCount: number;
   canRepeat: boolean;
-  waiting: {
-    id: string;
-    jobId: string;
-    title: string;
-    conflict: { source: string; destination: string; expiresInMs?: number } | null;
-  } | null;
+  waiting: Park[];
   task: {
     id: string;
     title: string;
@@ -32,7 +35,7 @@ const state = (overrides: Partial<State> = {}): State => ({
   hasLiveWork: true,
   activeCount: 1,
   canRepeat: false,
-  waiting: null,
+  waiting: [],
   task: { id: 'job_1', title: 'Copy 2 items', status: 'running', progress: 40 },
   labels: {
     resume: 'Reanudar',
@@ -51,20 +54,45 @@ const state = (overrides: Partial<State> = {}): State => ({
   ...overrides,
 });
 
-const actions = () => ({
-  showWindow: vi.fn(),
-  command: vi.fn(),
-  openDashboard: vi.fn(),
-  quit: vi.fn(),
-  dashboardReady: true,
-  applyToAll: false,
-  toggleApplyToAll: vi.fn(),
-});
+// main keeps apply-to-all per job, so the stand-in does too.
+const actions = () => {
+  const all = new Set<string>();
+  return {
+    showWindow: vi.fn(),
+    command: vi.fn(),
+    openDashboard: vi.fn(),
+    quit: vi.fn(),
+    dashboardReady: true,
+    applyToAll: (jobId: string) => all.has(jobId),
+    toggleApplyToAll: (jobId: string) => {
+      if (!all.delete(jobId)) all.add(jobId);
+    },
+  };
+};
 
 /** The row a user reads, found by the label the snapshot carried. */
 const row = (template: MenuRow[], label: string) => template.find((entry) => entry.label === label);
 
-type MenuRow = { label?: string; enabled?: boolean; type?: string; click?: () => void; submenu?: MenuRow[] };
+type MenuRow = {
+  id?: string;
+  label?: string;
+  enabled?: boolean;
+  type?: string;
+  checked?: boolean;
+  click?: () => void;
+  submenu?: MenuRow[];
+};
+
+/** The answer row for a job, found by the id the menu gives it. */
+const byId = (template: MenuRow[], id: string) => template.find((entry) => entry.id === id);
+
+/** A parked transfer as the snapshot carries it. */
+const park = (jobId: string, destination: string, expiresInMs?: number): Park => ({
+  id: `task_${jobId}`,
+  jobId,
+  title: 'Copy 2 items',
+  conflict: { source: 'C:\\a.txt', destination, expiresInMs },
+});
 
 describe('the tray menu', () => {
   it('offers pause for what is running and resume for what is paused, never both', () => {
@@ -80,7 +108,7 @@ describe('the tray menu', () => {
   it('says a transfer is waiting for an answer, and still lets it be cancelled', () => {
     const waiting = state({
       task: { ...state().task!, status: 'waiting', progress: 0 },
-      waiting: { id: 'job_1', jobId: 'job_1', title: 'Copy 2 items', conflict: null },
+      waiting: [{ id: 'job_1', jobId: 'job_1', title: 'Copy 2 items', conflict: null }],
     });
     expect(trayTooltip(waiting)).toBe('OmniCommander Pro · Copy 2 items — Esperando tu respuesta');
 
@@ -94,7 +122,7 @@ describe('the tray menu', () => {
   it('names the transfer waiting on an answer even when the controls are elsewhere', () => {
     // The selected transfer is what Pause and Cancel act on; the parked one is what
     // the user has to do something about, so it is the one the title names.
-    const parked = state({ waiting: { id: 'job_2', jobId: 'job_9', title: 'Move 5 items', conflict: null } });
+    const parked = state({ waiting: [{ id: 'job_2', jobId: 'job_9', title: 'Move 5 items', conflict: null }] });
 
     expect(trayTooltip(parked)).toBe('OmniCommander Pro · Move 5 items — Esperando tu respuesta');
     const template = trayMenuTemplate(parked, actions());
@@ -105,14 +133,16 @@ describe('the tray menu', () => {
   it('answers the parked conflict from a submenu of its own', () => {
     const handlers = actions();
     const parked = state({
-      waiting: {
-        id: 'task_1',
-        jobId: 'job_9',
-        title: 'Move 5 items',
-        conflict: { source: 'C:\\a.txt', destination: 'D:\\a.txt', expiresInMs: 4 * 60 * 1000 },
-      },
+      waiting: [
+        {
+          id: 'task_1',
+          jobId: 'job_9',
+          title: 'Move 5 items',
+          conflict: { source: 'C:\\a.txt', destination: 'D:\\a.txt', expiresInMs: 4 * 60 * 1000 },
+        },
+      ],
     });
-    const answer = row(trayMenuTemplate(parked, handlers), 'Responder en el panel');
+    const answer = byId(trayMenuTemplate(parked, handlers), 'answer:job_9');
 
     expect(answer?.submenu?.map((entry) => entry.label ?? entry.type)).toEqual([
       // The file first, with the wait it has left: the answers below are about this
@@ -132,11 +162,10 @@ describe('the tray menu', () => {
     expect(handlers.command.mock.calls).toEqual([[{ resolve: 'rename', jobId: 'job_9', applyToAll: false }]]);
 
     answer?.submenu?.[6].click?.();
-    expect(handlers.toggleApplyToAll).toHaveBeenCalledTimes(1);
 
-    // Once main holds the choice, the next answer carries it, and the box is drawn
-    // checked instead of losing the tick on the next rebuild.
-    const all = row(trayMenuTemplate(parked, { ...handlers, applyToAll: true }), 'Responder en el panel');
+    // main holds the choice, so the next rebuild draws the box checked instead of
+    // losing the tick with the item.
+    const all = byId(trayMenuTemplate(parked, handlers), 'answer:job_9');
     expect(all?.submenu?.[6]).toMatchObject({ type: 'checkbox', checked: true });
     all?.submenu?.[3].click?.();
     expect(handlers.command.mock.calls[1][0]).toEqual({ resolve: 'skip', jobId: 'job_9', applyToAll: true });
@@ -164,28 +193,32 @@ describe('the tray menu', () => {
     }
 
     const parked = normalizeTrayState({
-      waiting: {
-        id: 'task_1',
-        jobId: 'job_9',
-        title: 'Move 5 items',
-        conflict: { source: 'C:\\a.txt', destination: 'D:\\a.txt' },
-      },
+      waiting: [
+        {
+          id: 'task_1',
+          jobId: 'job_9',
+          title: 'Move 5 items',
+          conflict: { source: 'C:\\a.txt', destination: 'D:\\a.txt' },
+        },
+      ],
     });
-    expect(row(trayMenuTemplate(parked, actions()), getTranslations('en').trayAnswer)?.enabled).toBe(true);
+    expect(byId(trayMenuTemplate(parked, actions()), 'answer:job_9')?.enabled).toBe(true);
   });
 
   it('names the file the conflict is about, in the row and in the tooltip', () => {
     const parked = state({
-      waiting: {
-        id: 'task_1',
-        jobId: 'job_9',
-        title: 'Move 5 items',
-        conflict: {
-          source: 'C:\\origen\\respaldo.zip',
-          destination: 'D:\\destino\\respaldo.zip',
-          expiresInMs: 4 * 60 * 1000,
+      waiting: [
+        {
+          id: 'task_1',
+          jobId: 'job_9',
+          title: 'Move 5 items',
+          conflict: {
+            source: 'C:\\origen\\respaldo.zip',
+            destination: 'D:\\destino\\respaldo.zip',
+            expiresInMs: 4 * 60 * 1000,
+          },
         },
-      },
+      ],
     });
 
     // "A transfer is waiting" does not say which of its files needs an answer, and two
@@ -195,24 +228,58 @@ describe('the tray menu', () => {
     ).toBe(false);
     // The tooltip has room for the wait left, which is what makes the stop urgent.
     expect(trayTooltip(parked)).toBe(
-      'OmniCommander Pro · Move 5 items — Esperando tu respuesta — D:\\destino\\respaldo.zip · 4:00',
+      'OmniCommander Pro · Move 5 items — Esperando tu respuesta · 4:00 · D:\\destino\\respaldo.zip',
     );
+  });
+
+  it('keeps the clock inside the 120 characters when the path is long', () => {
+    // A stop deep in a user profile used to end the line before the deadline: the
+    // tooltip named the file and said nothing about the wait that was running out.
+    const parked = state({
+      waiting: [
+        {
+          id: 'task_1',
+          jobId: 'job_9',
+          title: 'Copiar 1 elemento(s)',
+          conflict: {
+            source: 'C:\\Users\\edel\\Documents\\respaldo\\nota.txt',
+            destination: 'C:\\Users\\edel\\Documents\\Proyectos AI\\omni-commander\\nota.txt',
+            expiresInMs: 4 * 60 * 1000,
+          },
+        },
+      ],
+    });
+
+    const tooltip = trayTooltip(parked);
+    expect(tooltip).toHaveLength(120);
+    // The clock keeps its room whatever the path is.
+    expect(tooltip).toContain('· 4:00 · ');
+    expect(tooltip.indexOf('4:00')).toBeLessThan(tooltip.indexOf('C:\\Users'));
+    // What gives is the middle of the path: the drive still leads and the file name
+    // still closes the line, which is how the file is recognised.
+    expect(
+      tooltip.startsWith('OmniCommander Pro · Copiar 1 elemento(s) — Esperando tu respuesta · 4:00 · C:\\Users'),
+    ).toBe(true);
+    expect(tooltip).toContain('…');
+    expect(tooltip.endsWith('nota.txt')).toBe(true);
   });
 
   it('falls back to the source when the snapshot carried no destination', () => {
     const parked = state({
-      waiting: {
-        id: 'task_1',
-        jobId: 'job_9',
-        title: 'Move 5 items',
-        conflict: { source: 'C:\\origen\\respaldo.zip', destination: '' },
-      },
+      waiting: [
+        {
+          id: 'task_1',
+          jobId: 'job_9',
+          title: 'Move 5 items',
+          conflict: { source: 'C:\\origen\\respaldo.zip', destination: '' },
+        },
+      ],
     });
 
     expect(trayTooltip(parked)).toBe(
-      'OmniCommander Pro · Move 5 items — Esperando tu respuesta — C:\\origen\\respaldo.zip',
+      'OmniCommander Pro · Move 5 items — Esperando tu respuesta · C:\\origen\\respaldo.zip',
     );
-    expect(row(trayMenuTemplate(parked, actions()), 'Responder en el panel')?.submenu?.[0].label).toBe(
+    expect(byId(trayMenuTemplate(parked, actions()), 'answer:job_9')?.submenu?.[0].label).toBe(
       'C:\\origen\\respaldo.zip',
     );
   });
@@ -231,7 +298,7 @@ describe('the tray menu', () => {
     // A waiting transfer without the details answers nothing; the dashboard row below
     // is what still leads to its page.
     const noConflict = trayMenuTemplate(
-      state({ waiting: { id: 'job_2', jobId: 'job_9', title: 'Move 5 items', conflict: null } }),
+      state({ waiting: [{ id: 'job_2', jobId: 'job_9', title: 'Move 5 items', conflict: null }] }),
       actions(),
     );
     expect(row(noConflict, 'Responder en el panel')?.enabled).toBe(false);
@@ -278,5 +345,39 @@ describe('the tray menu', () => {
   it('disables the dashboard row when no page can be addressed', () => {
     const template = trayMenuTemplate(state(), { ...actions(), dashboardReady: false });
     expect(row(template, 'Abrir panel de transferencias')?.enabled).toBe(false);
+  });
+
+  it('offers a row per parked transfer, each answering its own job', () => {
+    const handlers = actions();
+    const parked = state({ waiting: [park('job_b', 'E:\\b.txt', 120_000), park('job_a', 'D:\\a.txt', 269_000)] });
+    const template = trayMenuTemplate(parked, handlers);
+
+    // One row per park, naming the file it stops on and its own wait: a single row
+    // answered whichever park the menu was built for and left the other timing out.
+    expect(byId(template, 'answer:job_b')?.label).toBe('Responder en el panel — b.txt · 2:00');
+    expect(byId(template, 'answer:job_a')?.label).toBe('Responder en el panel — a.txt · 4:29');
+
+    byId(template, 'answer:job_b')?.submenu?.[3].click?.();
+    byId(template, 'answer:job_a')?.submenu?.[4].click?.();
+    expect(handlers.command.mock.calls).toEqual([
+      [{ resolve: 'skip', jobId: 'job_b', applyToAll: false }],
+      [{ resolve: 'rename', jobId: 'job_a', applyToAll: false }],
+    ]);
+  });
+
+  it('ticks apply-to-all on the transfer it was set on and no other', () => {
+    const handlers = actions();
+    const parked = state({ waiting: [park('job_b', 'E:\\b.txt', 120_000), park('job_a', 'D:\\a.txt', 269_000)] });
+
+    byId(trayMenuTemplate(parked, handlers), 'answer:job_b')?.submenu?.[6].click?.();
+
+    const after = trayMenuTemplate(parked, handlers);
+    expect(byId(after, 'answer:job_b')?.submenu?.[6]).toMatchObject({ type: 'checkbox', checked: true });
+    expect(byId(after, 'answer:job_a')?.submenu?.[6]).toMatchObject({ type: 'checkbox', checked: false });
+
+    // The other park still answers one file at a time, even though the checkbox of
+    // the one above the row is ticked.
+    byId(after, 'answer:job_a')?.submenu?.[2].click?.();
+    expect(handlers.command.mock.calls).toEqual([[{ resolve: 'overwrite', jobId: 'job_a', applyToAll: false }]]);
   });
 });

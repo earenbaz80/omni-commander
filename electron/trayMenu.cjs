@@ -16,27 +16,30 @@ const TOOLTIP_LIMIT = 120;
  * The file a parked conflict is about: its destination, the one being decided about,
  * falling back to the source for a snapshot that arrived without one.
  */
-function conflictOf(state) {
-  const conflict = state.waiting?.conflict;
+function conflictOf(park) {
+  const conflict = park && park.conflict;
   const destination = conflict && (conflict.destination || conflict.source);
   return destination ? { name: path.win32.basename(destination), path: destination } : null;
 }
 
-/** The one line naming what is waiting, with the file when there is one. */
-function waitingLine(state, subject) {
-  return `${state.waiting.title} — ${state.labels.waiting}${subject ? ` — ${subject}` : ''}`;
+/** One line naming a parked transfer, with the subject when the line is about one. */
+function waitingLine(state, park, subject) {
+  return `${park.title} — ${state.labels.waiting}${subject ? ` — ${subject}` : ''}`;
 }
 
 function summaryOf(state) {
-  if (state.waiting) return waitingLine(state, conflictOf(state)?.name);
+  // The newest park: it is the one the tooltip counts down, and the answer rows
+  // below name every park they offer.
+  const [first] = state.waiting;
+  if (first) return waitingLine(state, first, conflictOf(first)?.name);
   const task = state.task;
   if (!task) return '';
   return `${task.title}${task.progress > 0 ? ` — ${task.progress}%` : ''}`;
 }
 
 /** The wait left before the engine fails the job, when the snapshot said. */
-function conflictClock(state) {
-  const conflict = state.waiting && state.waiting.conflict;
+function conflictClock(park) {
+  const conflict = park && park.conflict;
   return conflict ? clockOf(conflict.expiresInMs) : '';
 }
 
@@ -48,28 +51,50 @@ function paceOf(task) {
 }
 
 function trayTooltip(state) {
-  // The tooltip has room the row does not: the whole path instead of the file name,
-  // because two copies can stop on the same name, plus the clock the wait runs on.
-  const file = conflictOf(state);
-  const summary = file ? waitingLine(state, file.path) : summaryOf(state);
-  const clock = file ? conflictClock(state) : '';
-  const pace = file ? '' : paceOf(state.task);
-  return clampText([APP_NAME, summary, clock, pace].filter(Boolean).join(' · '), TOOLTIP_LIMIT);
+  const [first] = state.waiting;
+  const file = conflictOf(first);
+  // Nothing parked: the line is short by construction (a title, a percent, a rate).
+  if (!file) {
+    return clampText([APP_NAME, summaryOf(state), paceOf(state.task)].filter(Boolean).join(' · '), TOOLTIP_LIMIT);
+  }
+  // The clock must never be cut, so its room is taken out of the line before the path is
+  // placed: the tooltip is clamped at 120 characters, and a deep destination used to push
+  // the deadline past the edge. Whatever the path cannot have, it loses from its middle,
+  // where neither the drive nor the file name live.
+  const head = [APP_NAME, waitingLine(state, first)].join(' · ');
+  const clock = conflictClock(first);
+  const clockPart = clock ? ` · ${clock}` : '';
+  const room = TOOLTIP_LIMIT - head.length - clockPart.length - ' · '.length;
+  if (room < 1) return clampText(`${head}${clockPart}`, TOOLTIP_LIMIT);
+  return `${head}${clockPart} · ${middleEllipsis(file.path, room)}`;
 }
 
 /**
- * The answers the tray can give to a parked conflict, laid out like the window's
- * prompt: one decision per item, and apply-to-all as a checkbox main keeps across
- * the rebuilds the queue triggers.
+ * Keeps both ends of a path, which are the drive and the file name a user recognises the
+ * conflict by; the middle is what goes when the tooltip has less room than the path needs.
  */
-function conflictSubmenu(state, actions) {
-  const { labels, waiting } = state;
-  const file = conflictOf(state);
-  const clock = conflictClock(state);
-  const applyAll = actions.applyToAll === true;
+function middleEllipsis(text, limit) {
+  if (text.length <= limit) return text;
+  if (limit < 1) return '';
+  if (limit === 1) return '…';
+  const kept = limit - 1;
+  const tail = Math.ceil(kept * 0.6);
+  return `${text.slice(0, kept - tail)}…${text.slice(text.length - tail)}`;
+}
+
+/**
+ * The answers the tray can give to one parked conflict, laid out like the window's
+ * prompt: one decision per item, and apply-to-all as a checkbox main keeps for this
+ * job across the rebuilds the queue triggers.
+ */
+function conflictSubmenu(state, park, actions) {
+  const { labels } = state;
+  const file = conflictOf(park);
+  const clock = conflictClock(park);
+  const applyAll = actions.applyToAll(park.jobId) === true;
   const answer = (decision) => ({
     label: labels[decision],
-    click: () => actions.command({ resolve: decision, jobId: waiting.jobId, applyToAll: applyAll }),
+    click: () => actions.command({ resolve: decision, jobId: park.jobId, applyToAll: applyAll }),
   });
   return [
     // The conflict is named before the answers: the same batch can stop on one file per
@@ -80,25 +105,46 @@ function conflictSubmenu(state, actions) {
     answer('skip'),
     answer('rename'),
     { type: 'separator' },
-    { label: labels.applyAll, type: 'checkbox', checked: applyAll, click: actions.toggleApplyToAll },
+    {
+      label: labels.applyAll,
+      type: 'checkbox',
+      checked: applyAll,
+      click: () => actions.toggleApplyToAll(park.jobId),
+    },
     { type: 'separator' },
     // Stopping is an answer too, and it applies to the job, not to one file.
     {
       label: labels.cancel,
-      click: () => actions.command({ resolve: 'cancel', jobId: waiting.jobId, applyToAll: false }),
+      click: () => actions.command({ resolve: 'cancel', jobId: park.jobId, applyToAll: false }),
     },
   ];
 }
 
 /**
- * The row that answers the parked conflict. Without the conflict details there is
- * nothing to answer, and the dashboard row below already leads to the page.
+ * One row per parked transfer. Two copies can be stopped at the same time, and a single
+ * row decided only the one the menu happened to be built for while the other ran out its
+ * deadline in silence. Each row names the file it stops on, so two waits -- even on the
+ * same file name -- are told apart by the row the user picks.
  */
-function answerRow(state, actions) {
+function answerRows(state, actions) {
   const { labels, waiting } = state;
-  return waiting && waiting.conflict
-    ? { label: labels.answer, enabled: true, submenu: conflictSubmenu(state, actions) }
-    : { label: labels.answer, enabled: false };
+  const rows = waiting
+    .filter((park) => park.conflict)
+    .map((park) => {
+      const file = conflictOf(park);
+      const clock = conflictClock(park);
+      return {
+        // The job travels in the id, so a click landing on a rebuilt menu can be traced
+        // to the transfer it answers.
+        id: `answer:${park.jobId}`,
+        label: `${labels.answer}${file ? ` — ${file.name}` : ''}${clock ? ` · ${clock}` : ''}`,
+        enabled: true,
+        submenu: conflictSubmenu(state, park, actions),
+      };
+    });
+  // Without the conflict details there is nothing to answer, and the dashboard row
+  // below already leads to the page.
+  return rows.length ? rows : [{ label: labels.answer, enabled: false }];
 }
 
 /**
@@ -112,7 +158,7 @@ function trayMenuTemplate(state, actions) {
     { label: activeCount > 1 ? `${APP_NAME} (${activeCount})` : APP_NAME, click: actions.showWindow },
     { type: 'separator' },
     { label: summaryOf(state) || '—', enabled: false },
-    answerRow(state, actions),
+    ...answerRows(state, actions),
     { label: labels.resume, enabled: status === 'paused', click: () => actions.command('resume') },
     { label: labels.pause, enabled: status === 'running', click: () => actions.command('pause') },
     // The live statuses are exactly the ones a cancel still has something to stop.

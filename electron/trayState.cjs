@@ -8,7 +8,9 @@
  */
 const TRAY_LABEL_LIMIT = 32;
 const TRAY_TITLE_LIMIT = 60;
-// `waiting` is a transfer the engine is holding open until someone answers a
+// The menu draws one answer row per park, so the list arrives bounded.
+const TRAY_WAIT_LIMIT = 5;
+// `waiting` is each transfer the engine is holding open until someone answers a
 // conflict: it is live work, not a finished one that can be dropped from the tray.
 const LIVE_STATUSES = ['running', 'paused', 'queued', 'waiting'];
 
@@ -34,17 +36,20 @@ function normalizeTrayState(payload) {
     : null;
   const rawCount = Number(source.activeCount);
   const activeCount = Number.isFinite(rawCount) ? Math.min(99, Math.max(0, Math.trunc(rawCount))) : task ? 1 : 0;
-  // The transfer waiting on an answer travels on its own, because the selected one
-  // is chosen for the controls and may be a different task.
-  const rawWaiting = source.waiting && typeof source.waiting === 'object' ? source.waiting : null;
-  const waitingId = rawWaiting ? clampText(rawWaiting.id, TRAY_TITLE_LIMIT) : '';
-  const rawConflict =
-    rawWaiting && rawWaiting.conflict && typeof rawWaiting.conflict === 'object' ? rawWaiting.conflict : null;
-  const waiting = waitingId
-    ? {
-        id: waitingId,
-        jobId: clampText(rawWaiting.jobId, TRAY_TITLE_LIMIT),
-        title: clampText(rawWaiting.title, TRAY_TITLE_LIMIT) || 'Transfer',
+  // The transfers waiting on an answer travel on their own, because the selected
+  // one is chosen for the controls and may be a different task. The order is the
+  // renderer's (newest first), and the list is bounded: the menu draws a row per park.
+  const rawWaiting = Array.isArray(source.waiting) ? source.waiting.slice(0, TRAY_WAIT_LIMIT) : [];
+  const waiting = rawWaiting
+    .filter((entry) => entry && typeof entry === 'object')
+    .map((rawPark) => {
+      const id = clampText(rawPark.id, TRAY_TITLE_LIMIT);
+      if (!id) return null;
+      const rawConflict = rawPark.conflict && typeof rawPark.conflict === 'object' ? rawPark.conflict : null;
+      return {
+        id,
+        jobId: clampText(rawPark.jobId, TRAY_TITLE_LIMIT),
+        title: clampText(rawPark.title, TRAY_TITLE_LIMIT) || 'Transfer',
         // The menu names the file from these, clamped like the rest: the row shows the
         // name, the tooltip and the submenu the path.
         conflict: rawConflict
@@ -58,8 +63,9 @@ function normalizeTrayState(payload) {
                 : 0,
             }
           : null,
-      }
-    : null;
+      };
+    })
+    .filter(Boolean);
   const rawLabels = source.labels && typeof source.labels === 'object' ? source.labels : {};
 
   return {
@@ -87,4 +93,11 @@ function normalizeTrayState(payload) {
   };
 }
 
-module.exports = { clampText, LIVE_STATUSES, TRAY_LABEL_LIMIT, TRAY_TITLE_LIMIT, normalizeTrayState };
+module.exports = {
+  clampText,
+  LIVE_STATUSES,
+  TRAY_LABEL_LIMIT,
+  TRAY_TITLE_LIMIT,
+  TRAY_WAIT_LIMIT,
+  normalizeTrayState,
+};

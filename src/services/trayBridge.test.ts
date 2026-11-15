@@ -1,4 +1,4 @@
-import { describe, expect, it, afterEach } from 'vitest';
+import { describe, expect, it, afterEach, vi } from 'vitest';
 import { BackgroundTask, TransferPlan } from '../types';
 import { getTranslations } from '../i18n/translations';
 import { taskQueue } from './taskQueueManager';
@@ -230,12 +230,16 @@ describe('tray bridge', () => {
     );
 
     const parked = snapshots[snapshots.length - 1];
-    expect(parked.waiting).toEqual({
-      id: runningId,
-      jobId: 'job_9',
-      title: 'Copy 2 items',
-      conflict: { source: 'C:\\a.txt', destination: 'D:\\dest\\a.txt' },
-    });
+    // The list carries every park; this test has one, and it names the job the answer
+    // has to reach.
+    expect(parked.waiting).toEqual([
+      {
+        id: runningId,
+        jobId: 'job_9',
+        title: 'Copy 2 items',
+        conflict: { source: 'C:\\a.txt', destination: 'D:\\dest\\a.txt' },
+      },
+    ]);
     // The decisions are the ones the window's prompt shows for the same answers, not
     // a second set of words for the same thing.
     const es = getTranslations('es');
@@ -251,6 +255,107 @@ describe('tray bridge', () => {
     taskQueue.setWaitingForAnswer('job_9', false);
     handler?.({ resolve: 'skip', jobId: 'job_9', applyToAll: false });
     expect(answers).toHaveLength(1);
+  });
+
+  // The wait has nothing to report but the clock, so the bridge is what has to read
+  // it again: a transfer that only pushed the value it was handed at the moment of
+  // parking kept the tray saying 5:00 for the whole wait.
+  it('re-reads the parked clock so the tray shows it running down', () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-11-14T09:00:00Z'));
+      const snapshots: TraySnapshot[] = [];
+      electron.electronAPI = { updateTrayState: (snapshot: TraySnapshot) => snapshots.push(snapshot) };
+      runningId = taskQueue.addTask('copy', 'Copy 2 items', 'C:\\dest', 2048, () => new Promise<void>(() => {}));
+      taskQueue.updateTaskMeta(runningId, { serverJobId: 'job_clock' });
+      taskQueue.setWaitingForAnswer('job_clock', true, {
+        source: 'C:\\a.txt',
+        destination: 'D:\\dest\\a.txt',
+        expiresInMs: 300_000,
+      });
+      stopBridge = startTrayBridge('es');
+
+      const first = snapshots[snapshots.length - 1]?.waiting[0]?.conflict?.expiresInMs;
+      expect(first).toBe(300_000);
+
+      // One tick of the bridge, one second later: the same read now has less left.
+      vi.advanceTimersByTime(1000);
+      const second = snapshots[snapshots.length - 1]?.waiting[0]?.conflict?.expiresInMs;
+
+      expect(second).toBe(299_000);
+      expect(second!).toBeLessThan(first!);
+
+      // Once the answer arrives the park is over, and with it the once-a-second
+      // read: the interval must not outlive the wait it was following.
+      taskQueue.setWaitingForAnswer('job_clock', false);
+      const pushed = snapshots.length;
+      expect(snapshots[pushed - 1].waiting).toEqual([]);
+      vi.advanceTimersByTime(2000);
+      expect(snapshots).toHaveLength(pushed);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // Two jobs can be parked at once, and the tray only shows one. The clock it carries
+  // has to be that job's own wait, and it has to hand over to the other park with the
+  // other's seconds instead of freezing on the value it showed a moment before.
+  it('follows the deadline of the job it shows while a second one is parked too', () => {
+    vi.useFakeTimers();
+    const ids: string[] = [];
+    try {
+      vi.setSystemTime(new Date('2026-11-14T09:00:00Z'));
+      const snapshots: TraySnapshot[] = [];
+      electron.electronAPI = { updateTrayState: (snapshot: TraySnapshot) => snapshots.push(snapshot) };
+
+      const firstId = taskQueue.addTask('copy', 'Copy a', 'D:\\dest', 10, () => new Promise<void>(() => {}));
+      ids.push(firstId);
+      taskQueue.updateTaskMeta(firstId, { serverJobId: 'job_a' });
+      taskQueue.setWaitingForAnswer('job_a', true, {
+        source: 'C:\\a.txt',
+        destination: 'D:\\a.txt',
+        expiresInMs: 300_000,
+      });
+
+      // The second park arrives half a minute later with the two minutes the engine
+      // gave it, not with the five the first one started with.
+      vi.setSystemTime(new Date('2026-11-14T09:00:30Z'));
+      const secondId = taskQueue.addTask('copy', 'Copy b', 'E:\\dest', 10, () => new Promise<void>(() => {}));
+      ids.push(secondId);
+      taskQueue.updateTaskMeta(secondId, { serverJobId: 'job_b' });
+      taskQueue.setWaitingForAnswer('job_b', true, {
+        source: 'C:\\b.txt',
+        destination: 'E:\\b.txt',
+        expiresInMs: 120_000,
+      });
+
+      stopBridge = startTrayBridge('es');
+      const latest = () => snapshots[snapshots.length - 1];
+      const parkOf = (jobId: string) => latest().waiting.find((park) => park.jobId === jobId);
+
+      // Both parks travel, newest first: the menu draws a row for each, and the one the
+      // tooltip and the summary name is the newest.
+      expect(latest().waiting.map((park) => park.jobId)).toEqual(['job_b', 'job_a']);
+      expect(parkOf('job_b')?.conflict?.destination).toBe('E:\\b.txt');
+      expect(parkOf('job_b')?.conflict?.expiresInMs).toBe(120_000);
+
+      // The ticker follows the shown job: a second later its own wait is shorter, which
+      // is what a frozen copy of the value could never show.
+      vi.advanceTimersByTime(1000);
+      expect(parkOf('job_b')?.conflict?.expiresInMs).toBe(119_000);
+
+      // Answering it hands the tray to the one still parked, on its own clock.
+      taskQueue.setWaitingForAnswer('job_b', false);
+      expect(latest().waiting.map((park) => park.jobId)).toEqual(['job_a']);
+      expect(parkOf('job_a')?.conflict?.destination).toBe('D:\\a.txt');
+      expect(parkOf('job_a')?.conflict?.expiresInMs).toBe(269_000);
+
+      vi.advanceTimersByTime(1000);
+      expect(parkOf('job_a')?.conflict?.expiresInMs).toBe(268_000);
+    } finally {
+      for (const id of ids) taskQueue.cancelTask(id);
+      vi.useRealTimers();
+    }
   });
 
   // Last in the file: it leaves a transfer parked in the queue, and the queue runs
@@ -272,11 +377,11 @@ describe('tray bridge', () => {
     expect(parked.labels.waiting).toBe(getTranslations('es').trayWaiting);
     // The tray names the job that needs the user on its own field, so the menu row
     // can lead to it without guessing from the selection.
-    expect(parked.waiting).toEqual({ id: runningId, jobId: 'job_9', title: 'Copy 2 items', conflict: null });
+    expect(parked.waiting).toEqual([{ id: runningId, jobId: 'job_9', title: 'Copy 2 items', conflict: null }]);
     expect(parked.labels.answer).toBe(getTranslations('es').trayAnswer);
 
     taskQueue.setWaitingForAnswer('job_9', false);
     expect(snapshots[snapshots.length - 1].task?.status).toBe(ownStatus);
-    expect(snapshots[snapshots.length - 1].waiting).toBeNull();
+    expect(snapshots[snapshots.length - 1].waiting).toEqual([]);
   });
 });
