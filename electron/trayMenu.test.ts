@@ -149,7 +149,7 @@ describe('the tray menu', () => {
   it('keeps every label it draws inside the width of a menu row', () => {
     // A label that does not fit arrives at the tray ending in an ellipsis, which reads
     // as a broken entry. The submenu decides on a whole batch, so its words count too.
-    const languages: LanguageCode[] = ['en', 'es', 'de', 'fr', 'it', 'pt', 'ja', 'ru'];
+    const languages: LanguageCode[] = ['en', 'es', 'de', 'fr', 'it', 'pt', 'ru'];
     for (const lang of languages) {
       const t = getTranslations(lang);
       for (const label of [

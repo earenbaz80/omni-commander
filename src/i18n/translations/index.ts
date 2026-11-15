@@ -6,7 +6,6 @@ import { fr } from './fr';
 import { pt } from './pt';
 import { it } from './it';
 import { ru } from './ru';
-import { ja } from './ja';
 
 export const translations = {
   es,
@@ -16,7 +15,6 @@ export const translations = {
   pt,
   it,
   ru,
-  ja,
 } as const;
 
 export type TranslationKey = keyof (typeof translations)['en'];
