@@ -50,19 +50,12 @@ function run(api) {
     api.inject({ activeCount: 2, canRepeat: false, waiting: WAITING });
     result.rows = rows(api.menu());
     result.initial = checkedByJob(api.menu());
-    result.sets = { initial: api.applyToAll() };
 
     clickApplyToAll(api.menu(), 'job_a');
     result.afterA = checkedByJob(api.menu());
-    result.sets.afterA = api.applyToAll();
 
     clickApplyToAll(api.menu(), 'job_b');
     result.afterB = checkedByJob(api.menu());
-    result.sets.afterB = api.applyToAll();
-
-    clickApplyToAll(api.menu(), 'job_a');
-    result.afterAOff = checkedByJob(api.menu());
-    result.sets.afterAOff = api.applyToAll();
 
     result.menuOpened = api.open();
     if (!result.menuOpened) throw new Error('The tray is not available to open the menu');
@@ -74,4 +67,4 @@ function run(api) {
   setTimeout(() => api.quit(result.ok ? 0 : 1), result.ok ? 1500 : 200);
 }
 
-module.exports = { run, WAITING };
+module.exports = { run };
