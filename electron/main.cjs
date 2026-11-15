@@ -15,6 +15,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { launchElevated } = require('./elevation.cjs');
 const { appendLogSync } = require('../server/scratch.cjs');
+const { logShutdown, noteQuitReason, registerExitLog } = require('./shutdownLog.cjs');
 const crypto = require('node:crypto');
 const { isAllowedNavigationUrl } = require('./navigationGuard.cjs');
 const { isAllowedExternalTarget } = require('./externalLinks.cjs');
@@ -28,6 +29,10 @@ const { dashboardUrl } = require('./dashboardUrl.cjs');
 const { normalizeTrayState } = require('./trayState.cjs');
 const { trayMenuTemplate, trayTooltip } = require('./trayMenu.cjs');
 const { createJobToasts } = require('./jobToasts.cjs');
+
+// Electron's main process is the one that owns the exit trail; tests load this
+// file under Node, where the event would only write into the user's logs.
+if (process.type === 'browser') registerExitLog();
 
 // Windows draws the taskbar button from this id, and an id that resolves to no
 // installed app makes the button fall back to Electron's own name and icon: the
@@ -430,6 +435,8 @@ function refreshTrayMenu() {
       // is enabled exactly when a page can be addressed at all.
       dashboardReady: dashboardUrl(apiPort, sessionToken) !== null,
       quit: () => {
+        noteQuitReason('tray');
+        logShutdown('tray-quit');
         quitting = true;
         app.quit();
       },
@@ -677,11 +684,14 @@ app.whenReady().then(async () => {
 
 // A real quit must not be intercepted by the close-to-tray handler above.
 app.on('before-quit', () => {
+  logShutdown('before-quit');
   quitting = true;
 });
 
 // Windows has no dock to bring the app back from, so closing every window ends it.
 app.on('window-all-closed', () => {
+  noteQuitReason('window-all-closed');
+  logShutdown('window-all-closed');
   app.quit();
 });
 
