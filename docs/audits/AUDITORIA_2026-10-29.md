@@ -40,7 +40,7 @@ Este es el hallazgo central de la auditoría. Cada fila se comprobó leyendo el 
 
 | Pantalla | Antes (inventado) | Ahora (real) |
 | --- | --- | --- |
-| Cliente FTP/SFTP | Handshake escrito a mano (`[220] Welcome…`, `[230] logged in`), tres servidores de ejemplo y un botón que abría `drive_ftp`, un id que ninguna lista de unidades contiene | Formulario de ajustes con aviso explícito de que no hay cliente; sin botón de conectar ni unidad remota. Prueba: [`FTPManagerModal.test.tsx`](../../src/components/modals/FTPManagerModal.test.tsx) |
+| Cliente FTP/SFTP | Handshake escrito a mano (`[220] Welcome…`, `[230] logged in`), tres servidores de ejemplo y un botón que abría `drive_ftp`, un id que ninguna lista de unidades contiene | Formulario de ajustes con aviso explícito de que no hay cliente; sin botón de conectar ni unidad remota. Prueba: `FTPManagerModal.test.tsx` (el test se retiró después, con el formulario) |
 | `ipconfig` | `192.168.1.150`, máscara y puerta de enlace fijas en la tabla de traducciones | [`GET /api/net/adapters`](../../server.cjs) sobre `os.networkInterfaces()`; sin puerta de enlace, que este proceso no puede leer |
 | `tasklist` | Tabla fija de cuatro procesos con PID y memoria inventados | [`GET /api/processes`](../../server.cjs): `tasklist /fo csv` en Windows, `ps` fuera; la prueba verifica forma y que la lista no es la de cuatro filas |
 | `tree` | Cuatro nombres dibujados (`OMNICMD`, `WINDOWS`, `Users`, `Administrator`) sea cual sea la carpeta | [`GET /api/tree`](../../server.cjs): paseo real, acotado a 300 carpetas y 4 niveles, con 404 honesto si la carpeta no existe |
