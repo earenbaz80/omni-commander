@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { FileItem, CommandHistoryItem, FolderPasswordRecord, LanguageCode, TransferPlan } from './types';
+import { FileItem, CommandHistoryItem, FolderPasswordRecord, LanguageCode } from './types';
 import { CleanupTargetId, fsEngine } from './services/fileSystem';
 import { themes, ThemeConfig } from './services/themeManager';
-import { createPasswordRecord } from './services/appLock';
 import { getTranslations, setCurrentLang } from './i18n/translations';
-import { describeElevationFailure } from './services/elevation';
+import { applyDocumentChrome } from './services/documentChrome';
 import type { ElevationResult } from './types/electronBridge';
 
 // Components
@@ -23,15 +22,17 @@ import { usePanels } from './hooks/usePanels';
 import { useCommandExecution } from './hooks/useCommandExecution';
 import { useTransferQueue } from './hooks/useTransferQueue';
 import { useFileOperations } from './hooks/useFileOperations';
+import { useArchivePassword } from './hooks/useArchivePassword';
+import { useTrayBridge } from './hooks/useTrayBridge';
+import { usePasswordMigration } from './hooks/usePasswordMigration';
 
 import { CommandLineBar } from './components/CommandLineBar';
 import { FunctionKeyBar } from './components/FunctionKeyBar';
 import { FileContextMenu, type FileContextMenuState } from './components/FileContextMenu';
 import { HoverPreviewTooltip } from './components/HoverPreviewTooltip';
 import { CollapsibleInfoDrawer } from './components/CollapsibleInfoDrawer';
+import { ElevationFailureNotice } from './components/ElevationFailureNotice';
 
-// Modals
-import { startTrayBridge, type ConflictDecision } from './services/trayBridge';
 import { soundManager } from './services/soundEffects';
 
 export default function App() {
@@ -48,18 +49,7 @@ export default function App() {
   // components rendered in this same pass already see the updated language.
   setCurrentLang(lang);
 
-  // Keep the document language in sync for accessibility and search engines.
-  // index.html ships lang="es"; without this the attribute would stay Spanish
-  // no matter which language the user selects.
-  // Danger and warning ink is part of the palette: the dialogs ask for these two
-  // variables instead of naming a rose, a red or an amber, so switching theme
-  // repaints every failure and every caution in one go.
-  if (typeof document !== 'undefined') {
-    document.documentElement.lang = lang;
-    document.documentElement.style.setProperty('--nc-danger', currentTheme.accentDanger);
-    document.documentElement.style.setProperty('--nc-warn', currentTheme.accentWarn);
-    document.documentElement.style.setProperty('--nc-ok', currentTheme.accentOk);
-  }
+  applyDocumentChrome(lang, currentTheme);
 
   // File system state
   const drives = useDrives();
@@ -170,31 +160,7 @@ export default function App() {
   // Sync with FileSystem changes
   const [fsTick, setFsTick] = useState(0);
 
-  // A password request is a promise the panel awaits, so the modal has to settle
-  // exactly once: with what the user typed, or with null when they cancel. The
-  // promise lives in a ref because it is not render state -- what is rendered is
-  // only the request being asked about.
-  const pendingPassword = useRef<{ resolve: (value: string | null) => void } | null>(null);
-  const [passwordRequest, setPasswordRequest] = useState<{ fileName: string; invalid: boolean } | null>(null);
-
-  const settlePassword = useCallback((value: string | null) => {
-    const pending = pendingPassword.current;
-    pendingPassword.current = null;
-    setPasswordRequest(null);
-    pending?.resolve(value);
-  }, []);
-
-  const requestArchivePassword = useCallback(
-    (fileName: string, invalid?: boolean): Promise<string | null> =>
-      new Promise((resolve) => {
-        // A second archive opened while the modal is up cancels the first ask,
-        // so no promise is left waiting on a prompt that is no longer shown.
-        pendingPassword.current?.resolve(null);
-        pendingPassword.current = { resolve };
-        setPasswordRequest({ fileName, invalid: Boolean(invalid) });
-      }),
-    [],
-  );
+  const { passwordRequest, settlePassword, requestArchivePassword } = useArchivePassword();
 
   const {
     leftPanel,
@@ -283,24 +249,7 @@ export default function App() {
     });
   }, []);
 
-  // One-time migration: replace any legacy plaintext password with a salted
-  // PBKDF2 hash so it is never persisted in clear. The removed `admin123`
-  // default is dropped outright: it was a public master key, so hashing it
-  // would silently reintroduce the bypass it came from.
-  const passwordMigratedRef = useRef(false);
-  useEffect(() => {
-    if (passwordMigratedRef.current) return;
-    passwordMigratedRef.current = true;
-    if (settings.appPasswordHash === 'admin123' && !settings.appPasswordSalt) {
-      setSettings((s) => ({ ...s, appPasswordHash: '', appPasswordSalt: '' }));
-      return;
-    }
-    if (settings.appPasswordHash && !settings.appPasswordSalt) {
-      createPasswordRecord(settings.appPasswordHash)
-        .then((record) => setSettings((s) => ({ ...s, appPasswordHash: record.hash, appPasswordSalt: record.salt })))
-        .catch(() => {});
-    }
-  }, []);
+  usePasswordMigration(settings, setSettings);
 
   // Triggers
   const getSelectedOrFocusedItems = (): FileItem[] => {
@@ -361,26 +310,7 @@ export default function App() {
     setFsTick,
   });
 
-  // The tray mirrors the live transfer and turns its menu picks into the same
-  // pause/resume/cancel the in-window bar calls, plus a repeat of the last stopped
-  // one. The ref keeps the queue callback current without re-subscribing the menu
-  // on every render; restarting on a language change only relabels it.
-  const repeatFromTray = useRef<(plan: TransferPlan) => void>(() => {});
-  repeatFromTray.current = (plan) => {
-    void transferQueue.handleRunCopyList([plan]);
-  };
-  const answerFromTray = useRef<(jobId: string, decision: ConflictDecision, applyToAll: boolean) => void>(() => {});
-  answerFromTray.current = (jobId, decision, applyToAll) =>
-    transferQueue.answerConflictFromTray(jobId, decision, applyToAll);
-  useEffect(
-    () =>
-      startTrayBridge(
-        lang,
-        (plan) => repeatFromTray.current(plan),
-        (jobId, decision, applyToAll) => answerFromTray.current(jobId, decision, applyToAll),
-      ),
-    [lang],
-  );
+  useTrayBridge(lang, transferQueue);
 
   const handleClipboardPaste = () => {
     if (!fileClipboard || fileClipboard.items.length === 0) return;
@@ -486,21 +416,7 @@ export default function App() {
       }}
     >
       {elevationFailure && (
-        <div
-          role="alert"
-          className="fixed top-2 left-1/2 -translate-x-1/2 z-[90] max-w-[min(92vw,620px)] flex items-start gap-[var(--space-2)] px-[var(--space-3)] py-[var(--space-2)] rounded border border-amber-400 bg-amber-950/95 text-amber-200 shadow-xl text-xs font-mono"
-        >
-          <span className="flex-1">{describeElevationFailure(elevationFailure, t)}</span>
-          <button
-            type="button"
-            onClick={() => setElevationFailure(null)}
-            aria-label={t.btnClose}
-            title={t.btnClose}
-            className="shrink-0 font-bold text-amber-300 hover:text-white cursor-pointer"
-          >
-            ×
-          </button>
-        </div>
+        <ElevationFailureNotice failure={elevationFailure} t={t} onDismiss={() => setElevationFailure(null)} />
       )}
       <WindowChrome
         theme={currentTheme}
