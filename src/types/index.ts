@@ -484,7 +484,6 @@ export type ActiveModal =
   | 'unlock_folder'
   | 'app_lock'
   | 'sync_folders'
-  | 'ftp_manager'
   | 'file_splitter'
   | 'file_joiner'
   | 'cmd_winget_library'
