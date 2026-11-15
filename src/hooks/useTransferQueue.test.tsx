@@ -69,7 +69,8 @@ type ElevationBridge = { relaunchAsAdmin: () => Promise<{ ok: boolean; reason?: 
 type WindowWithBridge = Window & { electronAPI?: ElevationBridge };
 
 beforeEach(() => {
-  addTask.mockClear();
+  addTask.mockReset();
+  addTask.mockReturnValue('task-1');
   parkPlan.mockClear();
   takePlan.mockClear();
   transferPaths.mockReset();
@@ -339,14 +340,12 @@ describe('useTransferQueue', () => {
   it('sends apply-to-all for the prompt job and clears its wait', async () => {
     const { result, run, release } = await openConflict('job_9');
     vi.mocked(taskQueue.setWaitingForAnswer).mockClear();
-    resolveConflict.mockClear();
 
     act(() => result.current.handleResolveConflict('skip', true));
 
     expect(resolveConflict).toHaveBeenCalledWith('job_9', 'skip', true);
     expect(result.current.conflictPrompt).toBeNull();
-    expect(taskQueue.setWaitingForAnswer).toHaveBeenCalledTimes(1);
-    expect(taskQueue.setWaitingForAnswer).toHaveBeenCalledWith('job_9', false);
+    expect(vi.mocked(taskQueue.setWaitingForAnswer).mock.calls).toEqual([['job_9', false]]);
 
     await act(async () => {
       release();
@@ -364,30 +363,31 @@ describe('useTransferQueue', () => {
     expect(result.current.conflictPrompt).toBeNull();
   });
 
-  it('clears only the prompt of the job the tray answered', async () => {
+  it('answers the tray job without clearing another job or borrowing its apply-to-all', async () => {
     const { result, run, release } = await openConflict('job_9');
     // The opening conflict already lowered the flag once; from here only the
     // answers below may touch it.
     vi.mocked(taskQueue.setWaitingForAnswer).mockClear();
-    resolveConflict.mockClear();
 
     // The tray answered another job: its state comes down, this prompt and this
     // job's wait do not.
     act(() => result.current.answerConflictFromTray('job_other', 'skip', true));
     expect(result.current.conflictPrompt?.jobId).toBe('job_9');
-    expect(resolveConflict).toHaveBeenCalledWith('job_other', 'skip', true);
-    expect(taskQueue.setWaitingForAnswer).toHaveBeenCalledTimes(1);
-    expect(taskQueue.setWaitingForAnswer).toHaveBeenCalledWith('job_other', false);
-    expect(taskQueue.setWaitingForAnswer).not.toHaveBeenCalledWith('job_9', false);
+    // Only job_other's wait comes down; the prompt and wait of job_9 stay put.
+    expect(vi.mocked(taskQueue.setWaitingForAnswer).mock.calls).toEqual([['job_other', false]]);
 
     // Answering job_9 with false must carry its own apply-to-all, not the true
     // that belonged to job_other.
     act(() => result.current.answerConflictFromTray('job_9', 'skip', false));
     expect(result.current.conflictPrompt).toBeNull();
-    expect(resolveConflict).toHaveBeenNthCalledWith(1, 'job_other', 'skip', true);
-    expect(resolveConflict).toHaveBeenNthCalledWith(2, 'job_9', 'skip', false);
-    expect(taskQueue.setWaitingForAnswer).toHaveBeenCalledTimes(2);
-    expect(taskQueue.setWaitingForAnswer).toHaveBeenLastCalledWith('job_9', false);
+    expect(vi.mocked(resolveConflict).mock.calls).toEqual([
+      ['job_other', 'skip', true],
+      ['job_9', 'skip', false],
+    ]);
+    expect(vi.mocked(taskQueue.setWaitingForAnswer).mock.calls).toEqual([
+      ['job_other', false],
+      ['job_9', false],
+    ]);
 
     await act(async () => {
       release();
