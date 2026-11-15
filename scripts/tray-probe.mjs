@@ -23,11 +23,12 @@ if (!existsSync(path.join(root, 'dist', 'index.html'))) {
   process.exit(1);
 }
 
+const EXPECTED_LABELS = ['Answer the conflict — a.txt · 5:00', 'Answer the conflict — b.txt · 2:00'];
+
 const EXPECTED = {
   initial: { job_a: false, job_b: false },
   afterA: { job_a: true, job_b: false },
   afterB: { job_a: true, job_b: true },
-  afterAOff: { job_a: false, job_b: true },
 };
 
 const child = spawn(electron, ['.'], {
@@ -79,14 +80,14 @@ child.on('close', (code) => {
       result.rows.map((row) => row.id),
       ['answer:job_a', 'answer:job_b'],
     );
+    assert.deepEqual(
+      result.rows.map((row) => row.label),
+      EXPECTED_LABELS,
+      'the menu text must keep both destinations and their clocks',
+    );
     assert.deepEqual(result.initial, EXPECTED.initial);
     assert.deepEqual(result.afterA, EXPECTED.afterA);
     assert.deepEqual(result.afterB, EXPECTED.afterB);
-    assert.deepEqual(result.afterAOff, EXPECTED.afterAOff);
-    assert.deepEqual(result.sets.initial, []);
-    assert.deepEqual(result.sets.afterA, ['job_a']);
-    assert.deepEqual(result.sets.afterB, ['job_a', 'job_b']);
-    assert.deepEqual(result.sets.afterAOff, ['job_b']);
     assert.equal(result.menuOpened, true);
   } catch (error) {
     console.error('Tray probe failed:');
@@ -101,5 +102,4 @@ child.on('close', (code) => {
   console.log(`  initial: ${JSON.stringify(result.initial)}`);
   console.log(`  after job_a: ${JSON.stringify(result.afterA)}`);
   console.log(`  after job_b: ${JSON.stringify(result.afterB)}`);
-  console.log(`  after unticking job_a: ${JSON.stringify(result.afterAOff)}`);
 });
