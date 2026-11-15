@@ -11,7 +11,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
  */
 
 const require = createRequire(import.meta.url);
-const loader = Module as unknown as { _load: (...args: unknown[]) => unknown };
+const loader = Module as unknown as {
+  _load: (request: string, parent: unknown, isMain: boolean) => unknown;
+};
 const originalLoad = loader._load;
 const runtimeProcess = process as NodeJS.Process & { resourcesPath?: string };
 const originalResourcesPath = runtimeProcess.resourcesPath;
