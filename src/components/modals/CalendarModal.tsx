@@ -37,7 +37,6 @@ const LOCALES: Record<LanguageCode, string> = {
   pt: 'pt-PT',
   it: 'it-IT',
   ru: 'ru-RU',
-  ja: 'ja-JP',
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;

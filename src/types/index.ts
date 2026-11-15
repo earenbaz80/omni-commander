@@ -107,7 +107,7 @@ export type ThemeId =
   | 'solarized_dark'
   | 'retro_futurist';
 
-export type LanguageCode = 'es' | 'en' | 'de' | 'fr' | 'pt' | 'it' | 'ru' | 'ja';
+export type LanguageCode = 'es' | 'en' | 'de' | 'fr' | 'pt' | 'it' | 'ru';
 
 export interface BookmarkItem {
   id: string;

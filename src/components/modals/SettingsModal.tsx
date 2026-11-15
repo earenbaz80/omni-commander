@@ -33,7 +33,6 @@ const LANGUAGES: { code: LanguageCode; label: string }[] = [
   { code: 'pt', label: 'Português' },
   { code: 'it', label: 'Italiano' },
   { code: 'ru', label: 'Русский' },
-  { code: 'ja', label: '日本語' },
 ];
 
 type SettingsTab = 'theme' | 'language' | 'appearance' | 'behavior' | 'keybindings' | 'sound' | 'security';
