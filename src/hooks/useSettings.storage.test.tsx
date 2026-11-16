@@ -30,6 +30,12 @@ describe('useSettings storage', () => {
     expect(result.current.settings.language).toBe('de');
   });
 
+  it('normalizes a saved Japanese locale to one the build still ships', () => {
+    localStorage.setItem(KEY, JSON.stringify({ version: 2, value: { language: 'ja' } }));
+    const { result } = renderHook(() => useSettings());
+    expect(result.current.settings.language).toBe('en');
+  });
+
   it('falls back to the defaults when the saved value is corrupt', () => {
     localStorage.setItem(KEY, '{not json');
     const { result } = renderHook(() => useSettings());
