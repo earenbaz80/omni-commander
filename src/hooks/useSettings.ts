@@ -1,7 +1,24 @@
 import { useEffect, useState } from 'react';
-import { FolderPasswordRecord, UserSettings } from '../types';
+import { FolderPasswordRecord, LanguageCode, UserSettings } from '../types';
 import { migrateThemeId } from '../services/themeManager';
 import { readStored, writeStored, SETTINGS_KEY, type StoredSpec } from '../services/storage';
+import { translations } from '../i18n/translations';
+
+const SUPPORTED_LANGUAGES = new Set<string>(Object.keys(translations));
+
+/**
+ * Locales this build no longer ships, mapped to the one that should replace
+ * them. Japanese was removed with its translation table; keeping the saved code
+ * would let getTranslations fall back to English while tGlobal falls back to
+ * Spanish, so the same session would mix both.
+ */
+const REMOVED_LANGUAGE_FALLBACKS: Record<string, LanguageCode> = { ja: 'en' };
+
+export function normalizeLanguage(saved: unknown, fallback: LanguageCode): LanguageCode {
+  if (typeof saved !== 'string') return fallback;
+  if (SUPPORTED_LANGUAGES.has(saved)) return saved as LanguageCode;
+  return REMOVED_LANGUAGE_FALLBACKS[saved] ?? fallback;
+}
 
 /**
  * Reads the saved folder protections into the shape the app verifies against.
@@ -105,6 +122,7 @@ export function useSettings() {
       ...saved,
       // Saved by an older build that named the theme differently.
       theme: migrateThemeId(saved.theme),
+      language: normalizeLanguage(saved.language, defaultSettings.language),
       protectedFolders: normalizeProtectedFolders(saved.protectedFolders),
     };
   });
