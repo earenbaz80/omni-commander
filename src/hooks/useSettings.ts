@@ -4,20 +4,21 @@ import { migrateThemeId } from '../services/themeManager';
 import { readStored, writeStored, SETTINGS_KEY, type StoredSpec } from '../services/storage';
 import { translations } from '../i18n/translations';
 
-const SUPPORTED_LANGUAGES = new Set<string>(Object.keys(translations));
+const SUPPORTED_LANGUAGES = Object.keys(translations);
 
 /**
- * Locales this build no longer ships, mapped to the one that should replace
- * them. Japanese was removed with its translation table; keeping the saved code
- * would let getTranslations fall back to English while tGlobal falls back to
- * Spanish, so the same session would mix both.
+ * Keep a saved language only when this build can render it. Japanese was
+ * removed with its translation table; leaving it stored would make
+ * getTranslations fall back to English while tGlobal falls back to Spanish, so
+ * the same session would mix both. An unknown or missing value keeps the
+ * default, which is Spanish.
  */
-const REMOVED_LANGUAGE_FALLBACKS: Record<string, LanguageCode> = { ja: 'en' };
-
-export function normalizeLanguage(saved: unknown, fallback: LanguageCode): LanguageCode {
-  if (typeof saved !== 'string') return fallback;
-  if (SUPPORTED_LANGUAGES.has(saved)) return saved as LanguageCode;
-  return REMOVED_LANGUAGE_FALLBACKS[saved] ?? fallback;
+function normalizeLanguage(saved: unknown, fallback: LanguageCode): LanguageCode {
+  if (typeof saved === 'string' && SUPPORTED_LANGUAGES.includes(saved)) {
+    return saved as LanguageCode;
+  }
+  if (saved === 'ja') return 'en';
+  return fallback;
 }
 
 /**

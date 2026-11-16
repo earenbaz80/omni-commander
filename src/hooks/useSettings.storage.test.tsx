@@ -36,6 +36,12 @@ describe('useSettings storage', () => {
     expect(result.current.settings.language).toBe('en');
   });
 
+  it('keeps the default for a language this build does not know', () => {
+    localStorage.setItem(KEY, JSON.stringify({ version: 2, value: { language: 'xx' } }));
+    const { result } = renderHook(() => useSettings());
+    expect(result.current.settings.language).toBe('es');
+  });
+
   it('falls back to the defaults when the saved value is corrupt', () => {
     localStorage.setItem(KEY, '{not json');
     const { result } = renderHook(() => useSettings());
