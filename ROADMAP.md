@@ -303,6 +303,7 @@ Medido el 15-nov-2026 en `1b654b1`, con todas las fases del plan cerradas:
 | --- | --- | --- |
 | Cobertura de líneas del ámbito medido | 64,73 % (61,97 % sentencias · 57,27 % ramas · 50,20 % funciones) en 179 ficheros y 1 343 tests, con el umbral por debajo (61/57/49/64) | 60 % — **alcanzado** |
 | Duración de la suite | 40,4 s sin cobertura en local con 2 workers · 16,9 s con todos los workers | < 120 s también con 2 workers en el CI — **alcanzado** |
+| Suite e2e completa | 91/91 en dos corridas completas, 3,4 y 4,1 min, sin reintentos | 0 fallos y 0 flaky — **alcanzado** |
 | Rojos que no son fallos | 0 en las 19 últimas ejecuciones de `master` medidas el 6-nov (de la 140 a la 121) | 0 en diez ejecuciones — **alcanzado** |
 | `server.cjs` | 659 líneas | < 800 |
 | `App.tsx` | 700 líneas (670 al cerrar la F3; 30 después) | ≤ 700 — **en el límite** |
@@ -321,6 +322,14 @@ El último tramo lo pone la guarda del teclado. `useKeyboardShortcuts` tenía te
 **Remedido al cortar la 1.0.33.** La suite, ya con los dos arreglos de mapas dentro, son 978 tests en 133 ficheros y dejan la línea en 60,87 % (57,88 % sentencias · 51,61 % ramas · 46,68 % funciones). La tabla de arriba lleva las cifras de la última medición, no las de aquel commit; el 60,81 % del párrafo anterior es lo que se midió donde la fase se cerró, y las seis centésimas de diferencia son el ruido del proveedor v8 más dos casos nuevos, no cobertura de producto que hubiera faltado contar.
 
 La última fila se mide de otra manera porque no existe un registro aparte: lo que se cuenta son las conclusiones que la API del repositorio da para las ejecuciones de `master`. En la última medición, el 6-nov, eran diecinueve seguidas en verde, de la 140 a la 121 —la 139 es la del tag `v1.0.32`, que corre por su cuenta—, ya sin los dos rojos que no eran fallos. Conviene leerlo como lo que es: una racha, no una garantía. Nadie la vigila sola, y el número baja el día que alguien vuelve a preguntar y encuentra un rojo en medio.
+
+### Estado medido del e2e
+
+El 15-nov-2026, sobre el árbol de la 1.0.48 candidata, la suite completa pasó **91/91 en dos corridas**, con Chromium y 1 worker: **3,4 min** y **4,1 min** de reloj de Playwright. Ninguna usó el `retries: 1` de la configuración, y no hubo casos flaky, fallos ni timeouts. La segunda fue **45 s más lenta de pared**.
+
+La diferencia no se concentró en un caso: en la segunda corrida los 91 casos sumaron 242,3 s frente a 197,5 s de la primera (+44,8 s), con 73 casos más lentos, 13 más rápidos y 5 iguales. Los mayores saltos fueron la extracción de archivos —7-Zip 3,1 → 8,8 s, ZIP 2,9 → 7,6 s, RAR 2,9 → 5,2 s— y la auditoría de las 21 ventanas, 13,1 → 16,0 s.
+
+Para separar variación de disco de regresión, los tres casos de extracción se midieron en **siete rondas aisladas** del spec de archivos, intercalando los tres en cada ronda: **21/21 en verde**. 7-Zip: media 3,88 s (rango 3,35–4,58; IC 95 % ±0,46); ZIP: 3,57 s (3,00–5,13; ±0,68); RAR: 3,66 s (3,18–4,16; ±0,33). El 8,8 s no se reprodujo. La serie aislada no muestra una regresión del código; la diferencia es compatible con la contención de disco de la suite completa. Las cifras aisladas no se comparan con las de la suite completa, que corre con otros workspaces y otra carga.
 
 ---
 
