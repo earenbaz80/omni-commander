@@ -49,7 +49,7 @@
     }
   },
   "private": true,
-  "version": "1.0.47",
+  "version": "1.0.48",
   "type": "module",
   "main": "electron/main.cjs",
   "engines": {
