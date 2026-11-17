@@ -26,7 +26,7 @@ const file: FileItem = {
   fullName: 'informe.txt',
   isDirectory: false,
   size: 12,
-  path: 'Users\\ana',
+  path: 'C:\\Users\\ana',
   driveId: 'real_C',
   modifiedAt: '2026-01-01 10:00',
   createdAt: '2026-01-01 10:00',
@@ -45,8 +45,8 @@ const buildProps = (overrides: Partial<FileContextMenuProps> = {}): FileContextM
   lang: 'es',
   state: { visible: true, x: 10, y: 10, targetItem: file, panelSide: 'left' },
   settings: { favoriteFolders: [] } as unknown as UserSettings,
-  currentActiveTab: tab('real_C', 'Users\\ana'),
-  leftTab: tab('real_C', 'Users\\ana'),
+  currentActiveTab: tab('real_C', 'C:\\Users\\ana'),
+  leftTab: tab('real_C', 'C:\\Users\\ana'),
   rightTab: tab('real_D', 'D:\\'),
   onClose: vi.fn(),
   setSelectedFileForModal: vi.fn(),
@@ -93,7 +93,7 @@ describe('FileContextMenu', () => {
     fireEvent.click(screen.getByText('Extraer'));
     fireEvent.click(screen.getByText('Extraer aquí'));
 
-    expect(onExtract).toHaveBeenCalledWith(archive, { driveId: 'real_C', path: 'Users\\ana' });
+    expect(onExtract).toHaveBeenCalledWith(archive, { driveId: 'real_C', path: 'C:\\Users\\ana' });
   });
 
   it('extracts into the other pane when that is the destination chosen', () => {
@@ -112,7 +112,14 @@ describe('FileContextMenu', () => {
 
   /** The tree lists absolute paths, so a pin that is not absolute never matches. */
   it('pins a folder by its absolute path', () => {
-    expect(favoritePath(folder)).toBe('Users\\ana\\proyectos');
+    expect(favoritePath(folder)).toBe('C:\\Users\\ana\\proyectos');
+  });
+
+  /** A folder inside an archive is pinned with the separator its mount uses. */
+  it('pins a folder inside an archive without a backslash', () => {
+    const inArchive: FileItem = { ...folder, path: '/mnt/vol/respaldo.zip/docs' };
+
+    expect(favoritePath(inArchive)).toBe('/mnt/vol/respaldo.zip/docs/proyectos');
   });
 
   /** Sharing a folder from the menu targets that folder, not the panel it sits in. */
@@ -122,7 +129,7 @@ describe('FileContextMenu', () => {
 
     fireEvent.click(screen.getByText('Compartir en red…'));
 
-    expect(props.setModalData).toHaveBeenCalledWith({ shareFolderPath: 'Users\\ana\\proyectos' });
+    expect(props.setModalData).toHaveBeenCalledWith({ shareFolderPath: 'C:\\Users\\ana\\proyectos' });
     expect(props.setActiveModal).toHaveBeenCalledWith('share');
   });
 
