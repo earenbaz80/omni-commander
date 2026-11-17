@@ -11,12 +11,9 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const net = require('net');
-const { execFile, spawn } = require('child_process');
-const { promisify } = require('util');
 
 const { mapTilesDir } = require('../scratch.cjs');
 
-const execFileAsync = promisify(execFile);
 function registerMapRoutes(app, deps) {
   const { SESSION_TOKEN, parseByteRange, MEDIA_TYPES, assertSafePath, logDebug } = deps;
 
@@ -392,69 +389,6 @@ function registerMapRoutes(app, deps) {
     part.on('error', () => res.destroy());
     part.pipe(res);
   });
-
-  /**
-   * Asks the shell for its "Open with" picker and returns once it has started.
-   *
-   * The picker is modal: rundll32 stays alive until the user chooses a program.
-   * Waiting for it to exit — what an execFile with a timeout does — is what made
-   * the menu item do nothing: the request blocked for 15 s, the launcher was
-   * killed while its dialog was still on screen, and the app only ever heard about
-   * it as a 502 it did not show. The child is unref'd instead, so the dialog
-   * outlives the request and stays with the user until they close it.
-   */
-  function launchOpenWithPicker(target) {
-    return new Promise((resolve, reject) => {
-      const child = spawn('rundll32.exe', ['shell32.dll,OpenAs_RunDLL', target], {
-        stdio: 'ignore',
-        windowsHide: true,
-      });
-      child.once('error', reject);
-      child.once('spawn', () => {
-        child.unref();
-        resolve();
-      });
-    });
-  }
-
-  /**
-   * The Windows "Open with" chooser for one file.
-   *
-   * Kept apart from /api/open, which hands the file to whatever is registered:
-   * this is the dialog the shell shows when there is no default, or when the user
-   * wants a different program than the one that would start. The path is resolved
-   * through the same safety check as every other route, so only a real file on an
-   * allowed drive can be offered to a program.
-   */
-  app.post('/api/open-with', async (req, res) => {
-    const raw = typeof (req.body || {}).path === 'string' ? req.body.path : '';
-    if (!raw.trim()) return res.status(400).json({ error: 'empty-path' });
-    let resolved;
-    try {
-      resolved = assertSafePath(raw);
-    } catch {
-      return res.status(400).json({ error: 'invalid-path' });
-    }
-    const stat = await fs.promises.stat(resolved).catch(() => null);
-    if (!stat) return res.status(404).json({ error: 'not-found' });
-    if (stat.isDirectory()) return res.status(400).json({ error: 'not-a-file' });
-
-    // Same dry-run switch as the Run box, so the tests can assert the argv
-    // without a dialog opening on the machine.
-    if (process.env.OMNI_RUN_DRY_RUN === '1') {
-      return res.json({ path: resolved, launched: ['rundll32.exe', 'shell32.dll,OpenAs_RunDLL', resolved] });
-    }
-    try {
-      await launchOpenWithPicker(resolved);
-      return res.json({ path: resolved });
-    } catch (error) {
-      logDebug('open-with failed', resolved, error?.message || error);
-      return res.status(502).json({ error: 'launch-failed' });
-    }
-  });
-
-  /** Extensions the submenu is allowed to run. A registry command may name a
-   * script or a document; only a real executable is offered as a program. */
 }
 
 module.exports = { registerMapRoutes };

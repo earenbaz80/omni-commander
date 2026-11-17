@@ -7,8 +7,9 @@
  * bookkeeping it needs (snapshots, pause checks, the finished-job hook) instead
  * of reaching into the server, so a copy can be started from a test.
  *
- * Only the constants that describe Windows timeouts and the conflict answer
- * window are injected; everything else in this file is about the filesystem.
+ * The timeout constants and the platform adapter are injected; the cleanup
+ * target rules live in the Windows adapter, and the rest of this file is about
+ * the filesystem.
  */
 
 const fs = require('fs');
@@ -21,6 +22,8 @@ const { assertSafePath, isDriveRoot } = require('./pathSafety.cjs');
 const { formatBytes } = require('./formatBytes.cjs');
 const { renameWithRetry } = require('./fsRetry.cjs');
 const { appendLog, scratchFile } = require('./scratch.cjs');
+const { requireCapability } = require('./platform/contract.cjs');
+const { createPlatform } = require('./platform/index.cjs');
 
 function createFileOps(deps = {}) {
   const {
@@ -36,6 +39,7 @@ function createFileOps(deps = {}) {
     wmiTimeoutMs = 300000,
   } = deps;
 
+  const platform = deps.platform || createPlatform();
   const execFileAsync = promisify(execFile);
   // The moved code keeps the constant names it had in the server.
   const JOB_TICK_MS = jobTickMs;
@@ -47,56 +51,22 @@ function createFileOps(deps = {}) {
   const POWERSHELL_TIMEOUT_MS = powershellTimeoutMs;
   const WMI_TIMEOUT_MS = wmiTimeoutMs;
 
-  const CLEANUP_TARGETS = {
-    'user-temp': {
-      resolve: () => process.env.TEMP || process.env.TMP || '',
-      requiresAdmin: false,
-    },
-    'windows-temp': {
-      resolve: () => path.win32.join(process.env.SystemRoot || 'C:\\Windows', 'Temp'),
-      requiresAdmin: true,
-    },
-    prefetch: {
-      resolve: () => path.win32.join(process.env.SystemRoot || 'C:\\Windows', 'Prefetch'),
-      requiresAdmin: true,
-    },
-  };
-
-  // Test hook: the suite points the user temp target at a scratch folder so it can
-  // never delete the machine's real temporary files. It is an environment variable
-  // and not a request field on purpose: a request must not be able to name the
-  // folder that gets emptied.
-  const CLEANUP_TEMP_OVERRIDE = String(process.env.OMNI_CLEANUP_USER_TEMP_ROOT || '').trim();
-
   // A pathologically large folder should not hold a request open forever.
   const CLEANUP_MAX_ENTRIES = 200000;
 
-  /** Where a cleanup target points, whether or not it may be acted on. */
-  function cleanupTargetPath(targetId) {
-    const target = CLEANUP_TARGETS[targetId];
-    if (!target) return '';
-    const raw = targetId === 'user-temp' && CLEANUP_TEMP_OVERRIDE ? CLEANUP_TEMP_OVERRIDE : target.resolve();
-    if (!raw) return '';
-    try {
-      return assertSafePath(raw);
-    } catch {
-      return '';
-    }
-  }
-
-  /** Resolves a cleanup target to the one folder it is allowed to touch. */
-  function resolveCleanupRoot(targetId) {
-    if (!CLEANUP_TARGETS[targetId]) throw new Error(`Unknown cleanup target: ${String(targetId || '')}`);
-    if (CLEANUP_TARGETS[targetId].requiresAdmin) {
-      throw new Error(`${targetId} needs administrator rights`);
-    }
-    const root = cleanupTargetPath(targetId);
-    if (!root) throw new Error(`No folder for cleanup target: ${String(targetId || '')}`);
-    // Emptying a drive root would be the whole disk; refuse rather than trust that
-    // TEMP is always somewhere sensible inside a user profile.
-    if (/^[a-zA-Z]:\\$/.test(root)) throw new Error(`Refusing to clean a drive root: ${root}`);
-    return root;
-  }
+  // The table, its test override and the administrator rule live in the Windows
+  // adapter now. `fileOps` only names the capability it needs.
+  const cleanup = platform.capabilities.cleanup
+    ? requireCapability(platform, 'cleanup')
+    : {
+        targets: Object.freeze({}),
+        targetPath: () => '',
+        resolveRoot: () => {
+          throw new Error('Cleanup is not supported on this platform');
+        },
+      };
+  const { targets: CLEANUP_TARGETS, targetPath: cleanupTargetPath, resolveRoot: resolveCleanupRoot } = cleanup;
+  const trash = platform.capabilities.trash ? requireCapability(platform, 'trash') : null;
 
   /** Clamps the age filter and turns it into the cutoff the walk compares against. */
   function cleanupAgeCutoff(minAgeDays) {
@@ -662,46 +632,15 @@ function createFileOps(deps = {}) {
     }
   }
 
-  // Windows Recycle Bin access needs the VisualBasic FileSystem API, which is
-  // only reachable through PowerShell. The helper script is generated once.
-  let recycleScriptPath = null;
   let shortcutScriptPath = null;
-  function ensureRecycleScript() {
-    if (recycleScriptPath) return recycleScriptPath;
-    // Beside the app's data, not in %TEMP%: left there, the script outlived every
-    // launch that wrote it. `scratch.cjs` also removes it when the process exits.
-    const scriptPath = scratchFile(`omnicommander-recycle-${process.pid}.ps1`);
-    const lines = [
-      'param([Parameter(ValueFromRemainingArguments=$true)][string[]]$Targets)',
-      'Add-Type -AssemblyName Microsoft.VisualBasic',
-      'foreach ($t in $Targets) {',
-      '  if (-not (Test-Path -LiteralPath $t)) { continue }',
-      '  if ((Get-Item -LiteralPath $t -Force).PSIsContainer) {',
-      "    [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory($t, 'OnlyErrorDialogs', 'SendToRecycleBin')",
-      '  } else {',
-      "    [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($t, 'OnlyErrorDialogs', 'SendToRecycleBin')",
-      '  }',
-      '}',
-    ];
-    fs.writeFileSync(scriptPath, lines.join('\r\n'), 'utf8');
-    recycleScriptPath = scriptPath;
-    return scriptPath;
-  }
-
-  async function sendToRecycleBin(targets) {
-    await execFileAsync(
-      'powershell',
-      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ensureRecycleScript(), ...targets],
-      { encoding: 'utf8', windowsHide: true, maxBuffer: 8 * 1024 * 1024, timeout: WMI_TIMEOUT_MS },
-    );
-  }
 
   async function deleteTarget(target, useTrash) {
     // Same invariant as the route: a volume is not a folder, whether it goes to
     // the Recycle Bin or to rm -rf.
     if (isDriveRoot(target)) throw new Error(`Refusing to delete a drive root: ${target}`);
-    if (useTrash && process.platform === 'win32') {
-      await sendToRecycleBin([target]);
+    if (useTrash) {
+      if (!trash) throw new Error('Moving files to the Recycle Bin is not supported on this platform');
+      await trash.move([target], { timeoutMs: WMI_TIMEOUT_MS });
       return;
     }
     await fs.promises.rm(target, { recursive: true, force: true, maxRetries: 3 });

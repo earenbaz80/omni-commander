@@ -34,6 +34,15 @@
       ],
       "icon": "build/icon.ico"
     },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "build/icon-linux.png",
+      "category": "Utility",
+      "executableName": "omnicommander-pro",
+      "artifactName": "OmniCommander-Pro-${version}-${arch}.${ext}"
+    },
     "publish": {
       "provider": "github",
       "owner": "earenbaz80",

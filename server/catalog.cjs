@@ -4,385 +4,31 @@
  *
  * It is a factory because the listing cache is shared: a finished transfer
  * clears it through the function this module returns, instead of the server
- * keeping a second reference to somebody else's Map.
+ * keeping a second reference to somebody else's Map. Volume enumeration itself
+ * belongs to the platform adapter; this module only caches its listing work.
  */
 
 const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const http = require('http');
-const net = require('net');
-const { execFile } = require('child_process');
-const { promisify } = require('util');
 
-const execFileAsync = promisify(execFile);
+const { createPlatform } = require('./platform/index.cjs');
+const { requireCapability } = require('./platform/contract.cjs');
 
 function createCatalog(deps = {}) {
-  const {
-    app,
-    assertSafePath,
-    readSystemStats,
-    readElevation,
-    readUserLibraries,
-    logDebug,
-    powershellTimeoutMs = 60000,
-  } = deps;
-  const POWERSHELL_TIMEOUT_MS = powershellTimeoutMs;
+  const { app, platform = createPlatform(), readSystemStats, readElevation, readUserLibraries, fs: fsApi = fs } = deps;
+  const volumes = requireCapability(platform, 'volumes');
+  const pathApi = requireCapability(platform, 'paths').pathApi;
+  const windowsPaths = platform.id === 'win32';
 
-  function mapWin32DriveType(value) {
-    switch (Number(value)) {
-      case 2:
-        return { type: 'usb', kind: 'removable' };
-      case 3:
-        return { type: 'local', kind: 'fixed' };
-      case 4:
-        return { type: 'network', kind: 'network' };
-      case 5:
-        return { type: 'usb', kind: 'optical' };
-      case 6:
-        return { type: 'ram', kind: 'ram' };
-      default:
-        return { type: 'local', kind: 'unknown' };
-    }
-  }
-
-  function makeDrive(info) {
-    const mapped = mapWin32DriveType(info.driveType);
-    const letter = String(info.letter || '')
-      .trim()
-      .endsWith(':')
-      ? String(info.letter).trim()
-      : `${String(info.letter || '').trim()}:`;
-    const volumeName = String(info.volumeName || '').trim() || `Unidad ${letter}`;
-    return {
-      id: `real_${letter.replace(/[^a-zA-Z0-9]/g, '')}`,
-      letter,
-      name: volumeName,
-      type: mapped.type,
-      driveKind: mapped.kind,
-      fileSystem: info.fileSystem ? String(info.fileSystem) : undefined,
-      serialNumber: info.serialNumber ? String(info.serialNumber) : undefined,
-      totalBytes: Number(info.size) || 0,
-      freeBytes: Number(info.free) || 0,
-      description: `${volumeName} [${mapped.kind}] ${info.fileSystem ? `(${info.fileSystem})` : 'desconocido'}`.trim(),
-      isMounted: info.isMounted !== false,
-    };
-  }
-
-  let drivesCache = { at: 0, data: null, inflight: null };
-  // Short TTL: the probe itself is only a stat per candidate letter, and the
-  // client polls this endpoint so a USB stick plugged in later shows up fast.
-  const DRIVES_CACHE_MS = 3000;
-  // Optional, richer per-drive metadata (volume label, filesystem, serial, type)
-  // discovered asynchronously via WMI. The filesystem probe below always provides
-  // the drive list itself, so this is only enrichment.
-  let drivesMeta = new Map();
-  // Mapped drives have a table of their own, and it is the only place that keeps
-  // a letter whose server is unreachable: Win32_LogicalDisk may report the
-  // mapping with no size, or not at all, and the probe drops the letter because
-  // its root cannot be stat'ed. Reading the mapping table keeps that drive on
-  // the list, dimmed, instead of letting it vanish until the share answers.
-  let networkMeta = new Map();
-
-  // Enumerating drives must never block a request: a WMI/CIM query can take
-  // minutes on a cold or constrained machine. The fast path stats candidate roots
-  // directly (no child process) and is enriched by a background WMI query.
-  // Results are cached and concurrent calls are de-duplicated.
   async function getRealDrives() {
-    const now = Date.now();
-    if (drivesCache.data && now - drivesCache.at < DRIVES_CACHE_MS) {
-      return drivesCache.data;
-    }
-    if (drivesCache.inflight) return drivesCache.inflight;
-    drivesCache.inflight = (async () => {
-      const data = await computeRealDrives();
-      drivesCache = { at: Date.now(), data, inflight: null };
-      return data;
-    })();
     try {
-      return await drivesCache.inflight;
-    } catch {
-      drivesCache.inflight = null;
-      return [];
-    }
-  }
-
-  function withTimeout(promise, ms, fallback) {
-    return new Promise((resolve) => {
-      const timer = setTimeout(() => resolve(fallback), ms);
-      if (timer.unref) timer.unref();
-      promise.then(
-        (value) => {
-          clearTimeout(timer);
-          resolve(value);
-        },
-        () => {
-          clearTimeout(timer);
-          resolve(fallback);
-        },
-      );
-    });
-  }
-
-  // Probe C:\ .. Z:\ with fs.stat/statfs only. No child process, so this stays in
-  // the millisecond range even when the WMI/CIM service is cold.
-  async function probeDriveLetters() {
-    const roots = [];
-    for (let code = 67; code <= 90; code++) {
-      roots.push(String.fromCharCode(code) + ':\\');
-    }
-    const probed = await Promise.all(
-      roots.map(async (root) => {
-        try {
-          const stat = await fs.promises.stat(root);
-          if (!stat.isDirectory()) return null;
-          let totalBytes = 0;
-          let freeBytes = 0;
-          try {
-            const sf = await fs.promises.statfs(root);
-            const blockSize = Number(sf.bsize) || 0;
-            totalBytes = blockSize * (Number(sf.blocks) || 0);
-            freeBytes = blockSize * (Number(sf.bavail != null ? sf.bavail : sf.bfree) || 0);
-          } catch (error) {
-            logDebug('statfs failed for', root, error?.message || error);
-          }
-          return { letter: root.slice(0, 2).toUpperCase(), totalBytes, freeBytes };
-        } catch {
-          return null;
-        }
-      }),
-    );
-    const drives = [];
-    for (const found of probed) {
-      if (!found) continue;
-      const meta = drivesMeta.get(found.letter) || {};
-      const mapping = networkMeta.get(found.letter);
-      drives.push(
-        makeDrive({
-          letter: found.letter,
-          volumeName: meta.volumeName || mapping?.remoteName,
-          driveType: meta.driveType != null ? meta.driveType : mapping ? 4 : 3,
-          size: meta.size || found.totalBytes,
-          free: meta.free || found.freeBytes,
-          fileSystem: meta.fileSystem,
-          serialNumber: meta.serialNumber,
-        }),
-      );
-    }
-    return drives;
-  }
-
-  // A mapped network drive keeps its letter while the server behind it is
-  // unreachable: `fs.stat` fails, the probe drops the letter, and the drive used
-  // to disappear from every list until it came back on its own. WMI still
-  // reports it, so it is added as a drive that is not mounted and the tree
-  // shows it dimmed instead of forgetting it.
-  function withNetworkFromMeta(drives) {
-    const seen = new Set(drives.map((drive) => drive.letter.toUpperCase()));
-    const offline = [];
-    for (const [letter, meta] of drivesMeta) {
-      if (seen.has(letter)) continue;
-      if (Number(meta.driveType) !== 4) continue;
-      offline.push(makeDrive({ letter, ...meta, isMounted: false }));
-    }
-    // The mapping table knows letters LogicalDisk does not, which is exactly the
-    // disconnected share the probe and the volume query both miss.
-    for (const [letter, mapping] of networkMeta) {
-      if (seen.has(letter)) continue;
-      const meta = drivesMeta.get(letter) || {};
-      offline.push(
-        makeDrive({
-          letter,
-          volumeName: meta.volumeName || mapping.remoteName,
-          ...meta,
-          driveType: 4,
-          isMounted: false,
-        }),
-      );
-      seen.add(letter);
-    }
-    return offline.length ? [...drives, ...offline] : drives;
-  }
-
-  function drivesFromMeta(meta) {
-    const drives = [];
-    for (const [letter, m] of meta) {
-      drives.push(
-        makeDrive({
-          letter,
-          volumeName: m.volumeName,
-          driveType: m.driveType,
-          size: m.size,
-          free: m.free,
-          fileSystem: m.fileSystem,
-          serialNumber: m.serialNumber,
-          isMounted: Number(m.driveType) !== 4,
-        }),
-      );
-    }
-    return drives;
-  }
-
-  // Best-effort WMI/CIM query bounded by a timeout, so a cold WMI service can
-  // never hang a request. Returns a Map keyed by upper-case drive letter.
-  async function queryWmiDriveInfo() {
-    const command =
-      'Get-CimInstance Win32_LogicalDisk | Select-Object DeviceID,VolumeName,DriveType,Size,FreeSpace,FileSystem,VolumeSerialNumber | ConvertTo-Json -Compress';
-    const { stdout: out } = await execFileAsync(
-      'powershell',
-      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', command],
-      { encoding: 'utf8', windowsHide: true, maxBuffer: 8 * 1024 * 1024, timeout: POWERSHELL_TIMEOUT_MS },
-    );
-    const parsed = JSON.parse((out || '').trim() || '[]');
-    const entries = Array.isArray(parsed) ? parsed : parsed ? [parsed] : [];
-    const meta = new Map();
-    for (const item of entries) {
-      const letter = String(item.DeviceID || item.DeviceId || '')
-        .trim()
-        .toUpperCase();
-      if (!/^[A-Z]:$/.test(letter)) continue;
-      meta.set(letter, {
-        volumeName: item.VolumeName || item.Label,
-        driveType: item.DriveType,
-        size: item.Size,
-        free: item.FreeSpace,
-        fileSystem: item.FileSystem,
-        serialNumber: item.VolumeSerialNumber,
-      });
-    }
-    return meta;
-  }
-
-  async function queryMappedNetworkDrives() {
-    if (process.platform !== 'win32') return new Map();
-    const command =
-      'Get-CimInstance Win32_NetworkConnection | Select-Object LocalName,RemoteName | ConvertTo-Json -Compress';
-    const { stdout: out } = await execFileAsync(
-      'powershell',
-      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', command],
-      { encoding: 'utf8', windowsHide: true, maxBuffer: 8 * 1024 * 1024, timeout: POWERSHELL_TIMEOUT_MS },
-    );
-    const parsed = JSON.parse((out || '').trim() || '[]');
-    const entries = Array.isArray(parsed) ? parsed : parsed ? [parsed] : [];
-    const meta = new Map();
-    for (const item of entries) {
-      const letter = String(item.LocalName || '')
-        .trim()
-        .toUpperCase();
-      if (!/^[A-Z]:$/.test(letter)) continue;
-      meta.set(letter, { remoteName: String(item.RemoteName || '').trim() });
-    }
-    return meta;
-  }
-
-  // Runs the slow WMI query off the request path and merges its metadata into the
-  // cached drive list once it resolves. One query at a time, so hot-plug polling
-  // can never stack PowerShell spawns.
-  let wmiInflight = false;
-  // Letters a WMI refresh was already attempted for. Without this, a machine
-  // where WMI permanently fails would spawn a fresh query on every drive probe.
-  const wmiAttemptedLetters = new Set();
-
-  async function enrichDrivesFromWmi() {
-    if (process.platform !== 'win32' || wmiInflight) return;
-    wmiInflight = true;
-    try {
-      const meta = await queryWmiDriveInfo();
-      let mapped = null;
-      try {
-        mapped = await queryMappedNetworkDrives();
-      } catch (error) {
-        // No mapping table is not the same as no mappings: keep the last one.
-        logDebug('Mapped drive query failed:', error?.message || error);
-      }
-      if (mapped) networkMeta = mapped;
-      if (meta.size) drivesMeta = meta;
-      if (meta.size || (mapped && mapped.size)) {
-        drivesCache = { at: 0, data: null, inflight: null };
-      }
-    } catch (error) {
-      // Keep the fast probe's generic metadata; the next new letter retries.
-      logDebug('WMI drive enrichment failed:', error?.message || error);
-    } finally {
-      wmiInflight = false;
-    }
-  }
-
-  // A probed letter the WMI snapshot has never seen means a device was just
-  // plugged in: refresh the metadata in the background so it shows up with its
-  // real volume label and drive type instead of the probe's generic defaults.
-  function enrichForNewLetters(letters) {
-    if (process.platform !== 'win32') return;
-    const fresh = letters.filter((l) => !wmiAttemptedLetters.has(l) && !drivesMeta.has(l));
-    if (!fresh.length) return;
-    for (const letter of letters) wmiAttemptedLetters.add(letter);
-    void enrichDrivesFromWmi();
-  }
-
-  async function computeRealDrives() {
-    if (process.platform === 'win32') {
-      const fast = await withTimeout(probeDriveLetters(), 8000, []);
-      if (fast.length) {
-        enrichForNewLetters(fast.map((d) => d.letter));
-        return withNetworkFromMeta(fast);
-      }
-      // Fall back to WMI only when the filesystem probe found nothing at all.
-      // Shares the inflight flag with the background warm-up so a slow WMI query
-      // is never stacked on top of the one already running.
-      try {
-        if (!wmiInflight) {
-          wmiInflight = true;
-          try {
-            const meta = await queryWmiDriveInfo();
-            for (const [letter, mapping] of networkMeta) {
-              if (!meta.has(letter)) {
-                meta.set(letter, { driveType: 4, volumeName: mapping.remoteName });
-              }
-            }
-            if (meta.size) {
-              drivesMeta = meta;
-              return drivesFromMeta(meta);
-            }
-          } finally {
-            wmiInflight = false;
-          }
-        }
-      } catch (error) {
-        logDebug('WMI drive probe failed:', error?.message || error);
-      }
-      return [];
-    }
-    // Unix fallback
-    try {
-      const { stdout: out } = await execFileAsync('df', ['-kP'], { encoding: 'utf8' });
-      const lines = out
-        .split(/\r?\n/)
-        .slice(1)
-        .map((l) => l.trim())
-        .filter(Boolean);
-      const drives = [];
-      for (const line of lines) {
-        const parts = line.split(/\s+/);
-        if (parts.length >= 6) {
-          const mapped = { type: 'local', kind: 'fixed' };
-          drives.push({
-            id: `real_${parts[5].replace(/[^a-zA-Z0-9]/g, '')}`,
-            letter: parts[5],
-            name: parts[0],
-            type: mapped.type,
-            driveKind: mapped.kind,
-            fileSystem: parts[0],
-            totalBytes: Number(parts[1]) * 1024,
-            freeBytes: Number(parts[3]) * 1024,
-            description: `Unidad [${mapped.kind}]`,
-            isMounted: true,
-          });
-        }
-      }
-      return drives.length ? drives : [];
+      return await volumes.list();
     } catch {
       return [];
     }
+  }
+
+  function enrichDrivesFromWmi() {
+    return volumes.warmUp();
   }
 
   function formatDt(date) {
@@ -400,13 +46,13 @@ function createCatalog(deps = {}) {
   const LIST_CACHE_LIMIT = 200;
 
   async function readDirectoryEntries(safePath) {
-    const entries = await fs.promises.readdir(safePath, { withFileTypes: true });
+    const entries = await fsApi.promises.readdir(safePath, { withFileTypes: true });
     return Promise.all(
       entries.map(async (entry) => {
-        const full = path.win32.join(safePath, entry.name);
+        const full = pathApi.join(safePath, entry.name);
         let stat = null;
         try {
-          stat = await fs.promises.stat(full);
+          stat = await fsApi.promises.stat(full);
         } catch {}
         const isDirectory = entry.isDirectory();
         let ext = '';
@@ -443,7 +89,8 @@ function createCatalog(deps = {}) {
   }
 
   function readDirectoryCached(safePath) {
-    const key = safePath.toUpperCase();
+    // Windows paths compare without case; POSIX paths do not.
+    const key = windowsPaths ? safePath.toUpperCase() : safePath;
     const now = Date.now();
     const cached = listCache.get(key);
     if (cached) {
@@ -486,15 +133,27 @@ function createCatalog(deps = {}) {
     const drive = drives.find((d) => d.id === driveId);
     if (!drive) return { error: 'Unknown drive' };
 
-    const root = `${drive.letter}\\`;
-    const letterPattern = drive.letter.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-    let input = String(requestedPath || drive.letter).trim();
-    let rel = input.replace(new RegExp(`^${letterPattern}`, 'i'), '').replace(/^[\\\/]+/, '');
-    const safePath = path.win32.join(drive.letter + '\\', rel || '.');
+    let safePath;
+    if (windowsPaths) {
+      const root = `${drive.letter}\\`;
+      const letterPattern = drive.letter.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+      let input = String(requestedPath || drive.letter).trim();
+      let rel = input.replace(new RegExp(`^${letterPattern}`, 'i'), '').replace(/^[\\\/]+/, '');
+      safePath = pathApi.join(drive.letter + '\\', rel || '.');
 
-    // Safety: stay within the selected drive root.
-    if (!safePath.toUpperCase().startsWith(root.toUpperCase())) {
-      return { error: 'Path outside drive' };
+      // Safety: stay within the selected drive root.
+      if (!safePath.toUpperCase().startsWith(root.toUpperCase())) {
+        return { error: 'Path outside drive' };
+      }
+    } else {
+      const root = pathApi.normalize(drive.letter || pathApi.sep);
+      const input = String(requestedPath || root).trim();
+      if (!pathApi.isAbsolute(input)) return { error: 'Path outside drive' };
+      safePath = pathApi.normalize(input);
+      const prefix = root.endsWith(pathApi.sep) ? root : root + pathApi.sep;
+      if (safePath !== root && !safePath.startsWith(prefix)) {
+        return { error: 'Path outside drive' };
+      }
     }
 
     let items;
