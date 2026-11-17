@@ -25,6 +25,7 @@ import { useFileOperations } from './hooks/useFileOperations';
 import { useArchivePassword } from './hooks/useArchivePassword';
 import { useTrayBridge } from './hooks/useTrayBridge';
 import { usePasswordMigration } from './hooks/usePasswordMigration';
+import { loadPlatformInfo, samePath } from './services/platform';
 
 import { CommandLineBar } from './components/CommandLineBar';
 import { FunctionKeyBar } from './components/FunctionKeyBar';
@@ -251,6 +252,12 @@ export default function App() {
 
   usePasswordMigration(settings, setSettings);
 
+  // Path comparison and the renderer's capability checks are platform
+  // questions. The answer arrives from the same local server that lists drives.
+  useEffect(() => {
+    void loadPlatformInfo();
+  }, []);
+
   // Triggers
   const getSelectedOrFocusedItems = (): FileItem[] => {
     const selected = activeItems.filter((i) => currentActiveTab.selectedIds.includes(i.id));
@@ -271,10 +278,9 @@ export default function App() {
   const handleMissingFavorites = useCallback(
     (missing: string[]) => {
       if (missing.length === 0) return;
-      const gone = new Set(missing.map((entry) => entry.toLowerCase()));
       setSettings((current) => {
         const pinned = current.favoriteFolders ?? [];
-        const kept = pinned.filter((entry) => !gone.has(entry.toLowerCase()));
+        const kept = pinned.filter((entry) => !missing.some((gone) => samePath(entry, gone)));
         return kept.length === pinned.length ? current : { ...current, favoriteFolders: kept };
       });
     },
