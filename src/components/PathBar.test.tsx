@@ -11,14 +11,14 @@ import { themes } from '../services/themeManager';
  * path keeps the drive as its first segment; that button also pointed at
  * `C:\C:`, so the duplicate was not just noise, it was a dead link.
  */
-const renderBar = (currentPath: string, driveLetter = 'C:') => {
+const renderBar = (currentPath: string, driveRoot = 'C:\\') => {
   const onNavigate = vi.fn();
   const { container } = render(
     <PathBar
       theme={themes.classic_blue}
       lang="es"
       currentPath={currentPath}
-      driveLetter={driveLetter}
+      driveRoot={driveRoot}
       onNavigate={onNavigate}
       onGoParent={vi.fn()}
       onGoBack={vi.fn()}
@@ -66,7 +66,7 @@ describe('PathBar breadcrumbs', () => {
   });
 
   it('drops the drive name of a virtual drive too, which is longer than one letter', () => {
-    const { text, crumbs } = renderBar('GD:\\proyectos\\2026', 'GD:');
+    const { text, crumbs } = renderBar('GD:\\proyectos\\2026', 'GD:\\');
 
     expect(text).toBe('GD:\\proyectos\\2026');
     expect(crumbs).toEqual(['proyectos', '2026']);

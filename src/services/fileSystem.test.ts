@@ -12,6 +12,7 @@ describe('FileSystemEngine defaults', () => {
   it('real drive metadata is preserved after replacing drives', () => {
     const realDrive: Drive = {
       id: 'real_C',
+      root: 'C:\\',
       letter: 'C:',
       name: 'OS',
       type: 'local',
@@ -44,7 +45,16 @@ describe('FileSystemEngine defaults', () => {
 
   it('resetToDefaults removes all drives and files', () => {
     fsEngine.setDrives([
-      { id: 'test', letter: 'Z:', name: 'test', type: 'local', totalBytes: 1, freeBytes: 1, isMounted: true },
+      {
+        id: 'test',
+        root: 'Z:\\',
+        letter: 'Z:',
+        name: 'test',
+        type: 'local',
+        totalBytes: 1,
+        freeBytes: 1,
+        isMounted: true,
+      },
     ]);
     fsEngine.resetToDefaults();
     expect(fsEngine.getDrives()).toEqual([]);
@@ -58,13 +68,37 @@ describe('FileSystemEngine defaults', () => {
     expect(fsEngine.getParentPath('/')).toBe('');
     expect(fsEngine.childAbsolutePath('/', 'home')).toBe('/home');
     expect(fsEngine.childAbsolutePath('/home', 'ana')).toBe('/home/ana');
+
+    fsEngine.setDrives([
+      {
+        id: 'real_root',
+        root: '/',
+        letter: '/',
+        name: 'Sistema',
+        type: 'local',
+        totalBytes: 1,
+        freeBytes: 1,
+        isMounted: true,
+      },
+    ]);
     expect(fsEngine.absoluteForDrive('real_root', '/home/ana')).toBe('/home/ana');
+    expect(fsEngine.absoluteForDrive('real_root', 'home/ana')).toBe('/home/ana');
+    fsEngine.resetToDefaults();
   });
 
   it('getFiles indexes by drive + path and reflects mutations', () => {
     fsEngine.resetToDefaults();
     fsEngine.setDrives([
-      { id: 'real_T', letter: 'T:', name: 'Test', type: 'local', totalBytes: 1, freeBytes: 1, isMounted: true },
+      {
+        id: 'real_T',
+        root: 'T:\\',
+        letter: 'T:',
+        name: 'Test',
+        type: 'local',
+        totalBytes: 1,
+        freeBytes: 1,
+        isMounted: true,
+      },
     ]);
     fsEngine.createDirectory('real_T', 'T:', 'alpha');
     fsEngine.createDirectory('real_T', 'T:', 'beta');
@@ -121,7 +155,16 @@ describe('FileSystemEngine defaults', () => {
     listingCachePolicy.maxCachedDirectories = 2;
     try {
       fsEngine.setDrives([
-        { id: 'real_T', letter: 'T:', name: 'Test', type: 'local', totalBytes: 1, freeBytes: 1, isMounted: true },
+        {
+          id: 'real_T',
+          root: 'T:\\',
+          letter: 'T:',
+          name: 'Test',
+          type: 'local',
+          totalBytes: 1,
+          freeBytes: 1,
+          isMounted: true,
+        },
       ]);
       // A virtual item parked in the app recycle bin (drive id drive_trash).
       fsEngine.createFile('virtual_V', 'V:\\', 'kept.txt', 'kept');
@@ -156,7 +199,16 @@ describe('FileSystemEngine defaults', () => {
   it('getFolderSizes sums files recursively for the requested drive', () => {
     fsEngine.resetToDefaults();
     fsEngine.setDrives([
-      { id: 'real_T', letter: 'T:', name: 'Test', type: 'local', totalBytes: 1, freeBytes: 1, isMounted: true },
+      {
+        id: 'real_T',
+        root: 'T:\\',
+        letter: 'T:',
+        name: 'Test',
+        type: 'local',
+        totalBytes: 1,
+        freeBytes: 1,
+        isMounted: true,
+      },
     ]);
     fsEngine.createDirectory('real_T', 'T:', 'alpha');
     fsEngine.createDirectory('real_T', 'T:\\alpha', 'nested');
@@ -214,6 +266,18 @@ describe('FileSystemEngine defaults', () => {
     // back as `Unsafe path`, which is why the viewer showed no content and save
     // silently did nothing.
     fsEngine.resetToDefaults();
+    fsEngine.setDrives([
+      {
+        id: 'real_C',
+        root: 'C:\\',
+        letter: 'C:',
+        name: 'Windows',
+        type: 'local',
+        totalBytes: 1,
+        freeBytes: 1,
+        isMounted: true,
+      },
+    ]);
     const reads: string[] = [];
     const writes: string[] = [];
 
@@ -266,6 +330,18 @@ describe('FileSystemEngine defaults', () => {
     // the server accepts only drive-letter absolute paths, and the job helper is
     // fire-and-forget, so a rejected relative path just silently did nothing.
     fsEngine.resetToDefaults();
+    fsEngine.setDrives([
+      {
+        id: 'real_C',
+        root: 'C:\\',
+        letter: 'C:',
+        name: 'Windows',
+        type: 'local',
+        totalBytes: 1,
+        freeBytes: 1,
+        isMounted: true,
+      },
+    ]);
     const sent: Record<string, string[]> = { mkdir: [], write: [], rename: [], delete: [] };
 
     try {

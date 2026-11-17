@@ -1,4 +1,5 @@
 import type { Drive, FileItem, RecycleBinItem } from '../types';
+import { rootFromDriveFields } from './driveRoots';
 import { readStored, writeStored, type StoredSpec } from './storage';
 
 /**
@@ -30,7 +31,20 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const isDrive = (value: unknown): value is Drive =>
-  isObject(value) && typeof value.id === 'string' && typeof value.letter === 'string' && typeof value.name === 'string';
+  isObject(value) &&
+  typeof value.id === 'string' &&
+  typeof value.root === 'string' &&
+  value.root.length > 0 &&
+  typeof value.letter === 'string' &&
+  typeof value.name === 'string';
+
+/** Rescues a drive written before the model had an explicit root. */
+const migrateDrive = (value: unknown): Drive | null => {
+  if (!isObject(value) || typeof value.id !== 'string' || typeof value.name !== 'string') return null;
+  const letter = typeof value.letter === 'string' ? value.letter : '';
+  const root = rootFromDriveFields(value.root, letter);
+  return root ? ({ ...value, id: value.id, name: value.name, letter, root } as Drive) : null;
+};
 
 const isStoredFile = (value: unknown): value is StoredFile =>
   isObject(value) &&
@@ -55,7 +69,15 @@ const listSpec = <T>(guard: (value: unknown) => value is T): StoredSpec<T[]> => 
   migrate: (value) => (Array.isArray(value) ? value.filter(guard) : null),
 });
 
-const DRIVES_SPEC = listSpec(isDrive);
+// Version 2 stores the explicit root. Version 0/1 records are migrated by
+// recovering it from their label, so an upgrade keeps the drives it could list.
+const DRIVES_SPEC: StoredSpec<Drive[]> = {
+  fallback: [],
+  version: 2,
+  validate: (value): value is Drive[] => Array.isArray(value) && value.every(isDrive),
+  migrate: (value) =>
+    Array.isArray(value) ? value.map(migrateDrive).filter((drive): drive is Drive => drive !== null) : null,
+};
 const FILES_SPEC = listSpec(isStoredFile);
 const BIN_SPEC = listSpec(isBinEntry);
 
@@ -76,9 +98,11 @@ export function readCatalogue(): StoredCatalogue {
  * the user can still see.
  */
 export function writeCatalogue(catalogue: StoredCatalogue): boolean {
-  const version = DRIVES_SPEC.version ?? 1;
-  const drives = writeStored(DRIVES_KEY, catalogue.drives, version);
-  const files = writeStored(FILES_KEY, catalogue.files, version);
-  const bin = writeStored(BIN_KEY, catalogue.recycleBin, version);
+  // Each key is stamped with the version of the shape it was written in, not with
+  // the newest one around: a reader decides how to treat `files` by the number on
+  // `files`, and the drives' own bump must not make an unchanged list look stale.
+  const drives = writeStored(DRIVES_KEY, catalogue.drives, DRIVES_SPEC.version ?? 1);
+  const files = writeStored(FILES_KEY, catalogue.files, FILES_SPEC.version ?? 1);
+  const bin = writeStored(BIN_KEY, catalogue.recycleBin, BIN_SPEC.version ?? 1);
   return drives && files && bin;
 }

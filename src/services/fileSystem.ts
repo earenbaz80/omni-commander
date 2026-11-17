@@ -134,7 +134,6 @@ class FileSystemEngine {
   public loadRealDrivesFromApi = (options: { signal?: AbortSignal } = {}): Promise<boolean> =>
     this.listing.loadRealDrivesFromApi(options);
   public getDrive = (driveId: string): Drive | undefined => this.listing.getDrive(driveId);
-  public getDriveByLetter = (letter: string): Drive | undefined => this.listing.getDriveByLetter(letter);
   public getFiles = (driveId: string, currentPath: string): FileItem[] => this.listing.getFiles(driveId, currentPath);
   public getFileById = (id: string): FileItem | undefined => this.listing.getFileById(id);
   public normalizePath = (path: string): string => this.listing.normalizePath(path);

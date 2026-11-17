@@ -14,7 +14,7 @@ vi.mock('./PanelView', () => ({
 }));
 
 const theme = {} as ThemeConfig;
-const drive = { id: 'real_C', letter: 'C:' } as unknown as Drive;
+const drive = { id: 'real_C', root: 'C:\\', letter: 'C:' } as unknown as Drive;
 const tab = { id: 'tab-1', driveId: 'real_C', currentPath: 'C:\\', selectedIds: [] } as unknown as PanelTab;
 const panelState = { panelView: 'files' } as unknown as PanelState;
 

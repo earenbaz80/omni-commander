@@ -4,6 +4,7 @@ import { Drive, FileItem, LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
+import { appendPath, driveForPath } from '../../services/platform';
 import { fsEngine } from '../../services/fileSystem';
 
 import ModalShell from '../ModalShell';
@@ -49,15 +50,14 @@ export const ChooseFolderModal: React.FC<ChooseFolderModalProps> = ({
 
   const realDrives = useMemo(() => drives.filter((drive) => drive.id.startsWith('real_') && drive.isMounted), [drives]);
 
-  // The remembered folder is only usable if its drive is plugged in right now.
-  // A remembered path from a removed stick is ignored here rather than probed:
-  // nothing has to be asked of the disk to know it is unreachable.
+  // The remembered folder is only usable if the root that contains it is plugged
+  // in right now. A remembered path from a removed stick is ignored here rather
+  // than probed: nothing has to be asked of the disk to know it is unreachable.
   const remembered = useMemo(() => {
-    const match = /^([A-Za-z]):/.exec(String(rememberedFolder || '').trim());
-    if (!match) return null;
-    const letter = `${match[1].toUpperCase()}:`;
-    const drive = realDrives.find((candidate) => candidate.letter.toUpperCase() === letter);
-    return drive ? { driveId: drive.id, path: String(rememberedFolder).trim() } : null;
+    const target = String(rememberedFolder || '').trim();
+    if (!target) return null;
+    const drive = driveForPath(realDrives, target);
+    return drive ? { driveId: drive.id, path: target } : null;
   }, [rememberedFolder, realDrives]);
 
   const [activeDriveId, setActiveDriveId] = useState(remembered?.driveId ?? driveId);
@@ -99,7 +99,7 @@ export const ChooseFolderModal: React.FC<ChooseFolderModalProps> = ({
 
   const enter = (folder: FileItem) => {
     soundManager.playDiskAccess();
-    setStack((prev) => [...prev, `${currentPath}\\${folder.name}`]);
+    setStack((prev) => [...prev, appendPath(currentPath, folder.name)]);
   };
 
   const goUp = () => {
@@ -110,7 +110,7 @@ export const ChooseFolderModal: React.FC<ChooseFolderModalProps> = ({
   const switchDrive = (drive: Drive) => {
     soundManager.playDiskAccess();
     setActiveDriveId(drive.id);
-    setStack([drive.letter]);
+    setStack([drive.root]);
   };
 
   const handleSubmit = (e: React.FormEvent) => {

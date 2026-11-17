@@ -48,7 +48,10 @@ export interface SystemStats {
 
 export interface Drive {
   id: string;
-  letter: string; // "C:", "D:", "GD:", "Z:"
+  /** Absolute filesystem root this drive addresses: `C:\` or `/mnt/data`. */
+  root: string;
+  /** Short label for the drive bar (`C:`, `/mnt/data`); never used as a path. */
+  letter: string;
   name: string;
   type: DriveType;
   totalBytes: number;
