@@ -590,6 +590,7 @@ class FileSystemEngine {
       state: this.state,
       normalizePath: (path) => this.normalizePath(path),
       isSystemDrive: (driveId) => this.isSystemDrive(driveId),
+      childAbsolutePath: (parentPath, childName) => this.childAbsolutePath(parentPath, childName),
       getArchiveSource: (driveId, path) => this.getArchiveSource(driveId, path),
       getFileById: (id) => this.getFileById(id),
       extractArchive: (archiveFile, targetDriveId, targetPath, selectedEntry) =>
