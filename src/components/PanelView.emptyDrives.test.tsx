@@ -38,6 +38,7 @@ const panel: PanelState = {
 
 const emptyDrive: Drive = {
   id: '',
+  root: '',
   letter: '',
   name: t.panelNoRealDrives,
   type: 'local',

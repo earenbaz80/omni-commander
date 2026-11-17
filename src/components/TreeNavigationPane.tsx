@@ -18,6 +18,7 @@ import { fsEngine } from '../services/fileSystem';
 import { soundManager } from '../services/soundEffects';
 import { getTranslations, tGlobal, type TranslationKey } from '../i18n/translations';
 import { loadUserFolders, UserFolder, UserFolderKey } from '../services/userFolders';
+import { appendPath, baseName, driveForPath, isPathAtOrInside, samePath } from '../services/platform';
 import { log } from '../utils/logger';
 
 /**
@@ -95,8 +96,8 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
   const [subdirs, setSubdirs] = useState<FileItem[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const isExpanded = !!expandedPaths[dirPath];
-  const isActive = currentPath === dirPath;
-  const isAncestor = currentPath.startsWith(dirPath + '\\');
+  const isActive = samePath(currentPath, dirPath);
+  const isAncestor = isPathAtOrInside(dirPath, currentPath) && !samePath(currentPath, dirPath);
 
   // Query subdirectories when expanded
   useEffect(() => {
@@ -234,7 +235,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
               key={child.id}
               theme={theme}
               driveId={driveId}
-              dirPath={`${dirPath}\\${child.name}`}
+              dirPath={appendPath(dirPath, child.name)}
               dirName={child.name}
               depth={depth + 1}
               currentPath={currentPath}
@@ -326,15 +327,16 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
 
   // A library is only shown when its drive is mounted, so a path on a drive that
   // is gone cannot be offered; the drive id is what the tree reads listings by.
+  // The mounted list is also how a nested mount wins over the root that holds it.
+  const mountedDrives = React.useMemo(() => drives.filter((drive) => drive.isMounted), [drives]);
   const libraries = React.useMemo(() => {
     return userFolders
       .map((folder) => {
-        const letter = folder.path.slice(0, 2).toUpperCase();
-        const drive = drives.find((d) => d.isMounted && d.letter.toUpperCase() === letter);
+        const drive = driveForPath(mountedDrives, folder.path);
         return drive ? { ...folder, driveId: drive.id } : null;
       })
       .filter((entry): entry is UserFolder & { driveId: string } => entry !== null);
-  }, [userFolders, drives]);
+  }, [userFolders, mountedDrives]);
 
   // A favourite is checked against the disk so a folder deleted outside the app
   // disappears instead of failing when clicked. Only mounted drives are asked
@@ -342,9 +344,7 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
   // answer must not prune anything.
   useEffect(() => {
     let alive = true;
-    const mounted = pinnedFolders.filter((folderPath) =>
-      drives.some((d) => d.isMounted && d.letter.toUpperCase() === folderPath.slice(0, 2).toUpperCase()),
-    );
+    const mounted = pinnedFolders.filter((folderPath) => !!driveForPath(mountedDrives, folderPath));
     if (mounted.length === 0) {
       // React bails out on an unchanged state, so this cannot loop.
       setGoneFavorites((previous) => (previous.length === 0 ? previous : []));
@@ -362,23 +362,20 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
     return () => {
       alive = false;
     };
-  }, [pinnedFolders, drives]);
+  }, [pinnedFolders, mountedDrives]);
 
   // A pinned folder is listed by the same rules as a library: it needs a mounted
   // drive, because the tree reads listings by drive id.
   const favorites = React.useMemo(() => {
-    const gone = new Set(goneFavorites.map((entry) => entry.toLowerCase()));
     return pinnedFolders
-      .filter((folderPath) => !gone.has(folderPath.toLowerCase()))
+      .filter((folderPath) => !goneFavorites.some((gonePath) => samePath(gonePath, folderPath)))
       .map((folderPath) => {
-        const letter = folderPath.slice(0, 2).toUpperCase();
-        const drive = drives.find((d) => d.isMounted && d.letter.toUpperCase() === letter);
+        const drive = driveForPath(mountedDrives, folderPath);
         if (!drive) return null;
-        const name = folderPath.split('\\').filter(Boolean).pop() || folderPath;
-        return { path: folderPath, name, driveId: drive.id };
+        return { path: folderPath, name: baseName(folderPath), driveId: drive.id };
       })
       .filter((entry): entry is { path: string; name: string; driveId: string } => entry !== null);
-  }, [pinnedFolders, drives, goneFavorites]);
+  }, [pinnedFolders, mountedDrives, goneFavorites]);
 
   // Get virtual archive folders when inside an archive
   const virtualFolders = React.useMemo(() => {
@@ -524,7 +521,7 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
           <div className="space-y-[var(--space-1)]">
             <div className="font-bold text-[10px] uppercase text-emerald-300 opacity-90 pb-1 border-b border-white/10 flex items-center justify-between px-[var(--space-1)]">
               <span className="flex items-center gap-[var(--space-1)]">
-                <FolderTree className="w-3 h-3" /> Archive: {archiveRoot?.split('\\').pop()}
+                <FolderTree className="w-3 h-3" /> Archive: {baseName(archiveRoot)}
                 <span className="text-[9px] bg-emerald-900/50 px-1 rounded border border-emerald-400/30">
                   {archiveRoot?.split('.').pop()?.toUpperCase()}
                 </span>
@@ -576,14 +573,15 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
             {visibleDrives.map((drive) => {
               const offline = !drive.isMounted;
               const network = isNetworkDrive(drive);
-              const driveLetter = drive.letter;
-              const isDriveExpanded = !!expandedPaths[driveLetter];
-              const isDriveActive = currentPath === driveLetter;
+              const driveLabel = drive.letter;
+              const driveRoot = drive.root;
+              const isDriveExpanded = !!expandedPaths[driveRoot];
+              const isDriveActive = samePath(currentPath, driveRoot);
 
               // Read top-level directories of this drive
               // Listing a share that is down would fail on every render, and the row
               // already says why it is dimmed.
-              const rootDirs = offline ? [] : fsEngine.getFiles(drive.id, driveLetter).filter((f) => f.isDirectory);
+              const rootDirs = offline ? [] : fsEngine.getFiles(drive.id, driveRoot).filter((f) => f.isDirectory);
               const filteredRootDirs = searchFilter
                 ? rootDirs.filter((r) => r.name.toLowerCase().includes(searchFilter.toLowerCase()))
                 : rootDirs;
@@ -596,7 +594,7 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
                       // the row is there so the drive is not silently missing.
                       if (offline) return;
                       soundManager.playDiskAccess();
-                      handleSelectNode(drive.id, driveLetter);
+                      handleSelectNode(drive.id, driveRoot);
                     }}
                     aria-disabled={offline}
                     title={offline ? t.driveOffline : undefined}
@@ -604,7 +602,7 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
                       e.preventDefault();
                       e.stopPropagation();
                       soundManager.playKeyTick();
-                      toggleExpand(driveLetter);
+                      toggleExpand(driveRoot);
                     }}
                     className={`flex items-center justify-between px-[var(--space-1)].5 py-[var(--space-1)] rounded ${offline ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} text-[11px] font-bold transition-all ${
                       isDriveActive
@@ -617,7 +615,7 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
                         onClick={(e) => {
                           e.stopPropagation();
                           soundManager.playKeyTick();
-                          toggleExpand(driveLetter);
+                          toggleExpand(driveRoot);
                         }}
                         className="w-3.5 h-3.5 flex items-center justify-center hover:bg-black/30 rounded cursor-pointer shrink-0 opacity-70 hover:opacity-100"
                       >
@@ -632,7 +630,7 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
                         className={network ? 'font-black' : 'font-black text-amber-300'}
                         style={network ? { color: theme.accent } : undefined}
                       >
-                        [{driveLetter}]
+                        [{driveLabel}]
                       </span>
                       <span className="opacity-75 text-[10px] truncate">{drive.name}</span>
                     </div>
@@ -652,7 +650,7 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
                           key={sub.id}
                           theme={theme}
                           driveId={drive.id}
-                          dirPath={`${driveLetter}\\${sub.name}`}
+                          dirPath={appendPath(driveRoot, sub.name)}
                           dirName={sub.name}
                           depth={1}
                           currentPath={currentPath}

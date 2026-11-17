@@ -152,8 +152,8 @@ export function usePanels(deps: PanelDeps) {
             ? {
                 ...tab,
                 driveId: firstDrive.id,
-                currentPath: firstDrive.letter,
-                history: [firstDrive.letter],
+                currentPath: firstDrive.root,
+                history: [firstDrive.root],
                 historyIndex: 0,
                 selectedIds: [],
                 focusedIndex: 0,
@@ -176,6 +176,7 @@ export function usePanels(deps: PanelDeps) {
 
   const emptyDrive: Drive = {
     id: '',
+    root: '',
     letter: '',
     name: tGlobal('panelNoRealDrives'),
     type: 'local',
@@ -477,8 +478,8 @@ export function usePanels(deps: PanelDeps) {
           return {
             ...tab,
             driveId: drive.id,
-            currentPath: drive.letter,
-            history: [drive.letter],
+            currentPath: drive.root,
+            history: [drive.root],
             historyIndex: 0,
             selectedIds: [],
             focusedIndex: 0,
@@ -486,7 +487,7 @@ export function usePanels(deps: PanelDeps) {
           };
         }),
       }));
-      void fsEngine.loadSystemDriveDirectory(drive.id, drive.letter);
+      void fsEngine.loadSystemDriveDirectory(drive.id, drive.root);
     },
     [drives],
   );
@@ -559,7 +560,14 @@ export function usePanels(deps: PanelDeps) {
     async (item: FileItem) => {
       try {
         if (item.isDirectory) {
-          const newPath = `${item.path}\\${item.name}`;
+          // A real folder is joined with the separator of the machine, so a POSIX
+          // listing is not addressed with a Windows backslash. An entry inside an
+          // archive is not a path on disk: the mount spells its levels with `\`
+          // on every platform, and that is the form navigation matches an archive
+          // against, so rewriting it would walk out of the archive.
+          const newPath = item.archiveRoot
+            ? `${item.path.replace(/[\\/]+$/, '')}\\${item.name}`
+            : fsEngine.childAbsolutePath(item.path, item.name);
           handleNavigate(activePanel, newPath);
         } else if (ARCHIVE_EXTENSIONS.includes(item.ext.toUpperCase()) && !item.archiveRoot) {
           let password: string | undefined;

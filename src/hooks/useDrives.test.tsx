@@ -48,6 +48,7 @@ import { useDrives } from './useDrives';
 
 const realDrive: Drive = {
   id: 'real_C',
+  root: 'C:\\',
   letter: 'C:',
   name: 'Windows',
   type: 'local',

@@ -32,6 +32,7 @@ const tab = (driveId: string): PanelTab => ({
 
 const drive = (id: string, letter: string): Drive => ({
   id,
+  root: letter.endsWith(':') ? `${letter}\\` : letter,
   letter,
   name: letter,
   type: 'local',

@@ -16,6 +16,7 @@ const t = translations.es;
 
 const drive: Drive = {
   id: 'real_C',
+  root: 'C:\\',
   letter: 'C:',
   name: 'OS',
   type: 'local',

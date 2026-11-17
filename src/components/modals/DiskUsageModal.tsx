@@ -21,7 +21,7 @@ interface DiskUsageModalProps {
 
 export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({ theme, lang, drives, driveId, rootPath, onClose }) => {
   const t = getTranslations(lang);
-  const scanPath = rootPath || (driveId.startsWith('real_') ? `${driveId.slice(5)}:` : '');
+  const scanPath = rootPath || drives.find((drive) => drive.id === driveId)?.root || '';
   // The tree reports its finished scan so the largest-files table below can use
   // the measured answer instead of the in-memory index.
   const [scan, setScan] = React.useState<DiskUsageScan | null>(null);

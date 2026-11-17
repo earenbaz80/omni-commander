@@ -1,5 +1,6 @@
 import type { Drive, FileItem } from '../types';
 import type { EngineState } from './fileEngineState';
+import { withDriveRoot } from './driveRoots';
 import { API_BASE } from './apiBase';
 import { fetchWithRetry } from '../utils/fetchWithRetry';
 import { log } from '../utils/logger';
@@ -112,7 +113,9 @@ export function createListingOps(deps: ListingDeps) {
   }
 
   function setDrives(next: Drive[]) {
-    state.drives = Array.isArray(next) ? next : [];
+    // The server sends a root; a drive list restored from an older build is
+    // upgraded here too, before any panel can compose a path from it.
+    state.drives = Array.isArray(next) ? next.map((drive) => withDriveRoot(drive)) : [];
     saveToStorage();
   }
 
@@ -123,6 +126,7 @@ export function createListingOps(deps: ListingDeps) {
   function driveSignature(drive: Drive): string {
     return [
       drive.id,
+      drive.root,
       drive.letter,
       drive.name,
       drive.type,
@@ -174,11 +178,6 @@ export function createListingOps(deps: ListingDeps) {
 
   function getDrive(driveId: string): Drive | undefined {
     return state.drives.find((d) => d.id === driveId);
-  }
-
-  function getDriveByLetter(letter: string): Drive | undefined {
-    const formatted = letter.endsWith(':') ? letter : `${letter}:`;
-    return state.drives.find((d) => d.letter.toUpperCase() === formatted.toUpperCase());
   }
 
   function getFiles(driveId: string, currentPath: string): FileItem[] {
@@ -291,23 +290,48 @@ export function createListingOps(deps: ListingDeps) {
     return file.ext ? `${file.name}.${file.ext}` : file.name;
   }
 
-  /**
-   * Drive letter a real-drive id stands for: `real_C` -> `C:`. Panels hold their
-   * location relative to the drive ("Users\\name"), but the server accepts only
-   * drive-letter absolute paths, so the letter has to be put back before a call.
-   */
-  function driveLetterOf(driveId: string): string {
-    const match = /^real_([A-Za-z])$/.exec(driveId);
-    return match ? `${match[1].toUpperCase()}:` : '';
+  function isPosixRoot(root: string): boolean {
+    return root.startsWith('/');
   }
 
-  /** Absolute on-disk form of a real-drive path, which the panels keep relative. */
+  /**
+   * Collapses separator runs for a POSIX root and drops the trailing one.
+   *
+   * A backslash is an ordinary character on POSIX, so it is deliberately left
+   * alone: an entry inside a mounted archive is addressed with one on every
+   * platform, and re-spelling it here would point at a file that does not exist.
+   */
+  function normalizePosixPath(path: string): string {
+    const collapsed = String(path ?? '')
+      .replace(/\/+/g, '/')
+      .trim();
+    return collapsed.replace(/\/+$/, '') || (collapsed.startsWith('/') ? '/' : '');
+  }
+
+  /**
+   * Absolute on-disk form of a real-drive path, which the panels keep relative.
+   * The drive's explicit root supplies both the prefix and the separator, and the
+   * path is normalised by the rules of the root it lands on: `/` under a Linux
+   * mount point, `\` under a drive letter.
+   *
+   * Normalising the path first with the Windows rules is what turned a relative
+   * `home/ana` into `home\ana` on a POSIX drive, an address that never exists on
+   * that disk.
+   */
   function absoluteForDrive(driveId: string, targetPath: string): string {
-    const normalized = normalizePath(targetPath);
-    if (/^[A-Za-z]:/.test(normalized)) return normalized;
-    const letter = driveLetterOf(driveId);
-    if (!letter) return normalized;
-    return normalizePath(normalized ? `${letter}\\${normalized}` : letter);
+    const drive = getDrive(driveId);
+    if (!drive || !drive.root) return normalizePath(targetPath);
+
+    const posix = isPosixRoot(drive.root);
+    const normalized = posix ? normalizePosixPath(targetPath) : normalizePath(targetPath);
+
+    const absolute = posix ? normalized.startsWith('/') : /^[A-Za-z]:([\\/]|$)/.test(normalized);
+    if (absolute) return normalized;
+
+    const separator = posix ? '/' : '\\';
+    const root = /[\\/]$/.test(drive.root) ? drive.root : `${drive.root}${separator}`;
+    const joined = `${root}${normalized.replace(/^[\\/]+/, '')}`;
+    return posix ? normalizePosixPath(joined) : normalizePath(joined);
   }
 
   function realAbsolutePath(file: FileItem): string {
@@ -334,7 +358,6 @@ export function createListingOps(deps: ListingDeps) {
     driveSignature,
     loadRealDrivesFromApi,
     getDrive,
-    getDriveByLetter,
     getFiles,
     bucketEvictable,
     touchBucket,
@@ -343,7 +366,6 @@ export function createListingOps(deps: ListingDeps) {
     getParentPath,
     isSystemDrive,
     realEntryName,
-    driveLetterOf,
     absoluteForDrive,
     realAbsolutePath,
     childAbsolutePath,

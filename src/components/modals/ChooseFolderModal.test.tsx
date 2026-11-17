@@ -10,6 +10,7 @@ const t = translations.es;
 
 const drive = (id: string, letter: string, isMounted = true): Drive => ({
   id,
+  root: letter.endsWith(':') ? `${letter}\\` : letter,
   letter,
   name: letter,
   type: 'local',
@@ -43,7 +44,7 @@ const folder = (name: string, path: string, driveId: string): FileItem => ({
 /** Drives the server can read; anything else answers "no such folder". */
 const listings: Record<string, FileItem[]> = {
   'C:\\Temp': [folder('Escritorio', 'C:\\Temp', 'real_C')],
-  'D:': [folder('Proyectos', 'D:', 'real_D')],
+  'D:\\': [folder('Proyectos', 'D:', 'real_D')],
   'D:\\Proyectos': [],
   // A remembered destination that was deleted after the copy that recorded it.
   'D:\\Borrada': undefined as unknown as FileItem[],
@@ -104,8 +105,8 @@ describe('ChooseFolderModal drive row', () => {
     fireEvent.click(screen.getByRole('button', { name: '[D:]' }));
 
     await waitFor(() => expect(screen.getByText('Proyectos')).toBeTruthy());
-    expect(fsEngine.loadSystemDriveDirectory).toHaveBeenCalledWith('real_D', 'D:');
-    expect(screen.getByText('D:')).toBeTruthy();
+    expect(fsEngine.loadSystemDriveDirectory).toHaveBeenCalledWith('real_D', 'D:\\');
+    expect(screen.getByText('D:\\')).toBeTruthy();
     expect(screen.queryByText('Escritorio')).toBeNull();
 
     // Down into a folder and back up must land on the new drive's root, never on
@@ -116,10 +117,10 @@ describe('ChooseFolderModal drive row', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '..' }));
     await waitFor(() => expect(screen.getByText('Proyectos')).toBeTruthy());
-    expect(screen.getByText('D:')).toBeTruthy();
+    expect(screen.getByText('D:\\')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: new RegExp(t.chooseFolderCopyHere) }));
-    expect(onConfirm).toHaveBeenCalledWith('D:');
+    expect(onConfirm).toHaveBeenCalledWith('D:\\');
   });
 
   it('returns the folder on the switched drive, not the one it opened on', async () => {

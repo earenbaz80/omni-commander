@@ -11,6 +11,7 @@ function driveUsedAt(percent: number): Drive {
   const totalBytes = 100 * 1024 ** 3;
   return {
     id: 'C:',
+    root: 'C:\\',
     letter: 'C:',
     name: 'System',
     type: 'local',
@@ -46,6 +47,7 @@ describe('DriveBar network drives', () => {
     const local = driveUsedAt(20);
     const mapped: Drive = {
       id: 'Z:',
+      root: 'Z:\\',
       letter: 'Z:',
       name: 'NAS media',
       type: 'network',

@@ -25,6 +25,7 @@ vi.mock('../services/userFolders', () => ({
 
 const drive = (id: string, letter: string, isMounted = true): Drive => ({
   id,
+  root: letter.endsWith(':') ? `${letter}\\` : letter,
   letter,
   name: letter,
   type: 'local',
@@ -241,6 +242,7 @@ describe('network drives', () => {
   it('shows a mapped share that is offline and refuses to navigate into it', () => {
     const nas: Drive = {
       id: 'real_Z',
+      root: 'Z:\\',
       letter: 'Z:',
       name: 'NAS',
       type: 'network',

@@ -13,6 +13,7 @@ import { Drive, FileProgressEntry, PendingConflict, TransferPlan } from '../type
 
 const realDrive: Drive = {
   id: 'real_T',
+  root: 'T:\\',
   letter: 'T:',
   name: 'Test',
   type: 'local',
@@ -527,6 +528,7 @@ describe('FileSystemEngine real-drive bridge', () => {
 describe('FileSystemEngine drive hot-plug refresh', () => {
   const usbDrive: Drive = {
     id: 'real_E',
+    root: 'E:\\',
     letter: 'E:',
     name: 'USB STICK',
     type: 'usb',

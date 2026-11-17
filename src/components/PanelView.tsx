@@ -4,6 +4,7 @@ import { ThemeConfig } from '../services/themeManager';
 import { getTranslations } from '../i18n/translations';
 import { Drive, FileItem, LanguageCode, PanelState, PanelTab, SortField, UserSettings } from '../types';
 import { soundManager } from '../services/soundEffects';
+import { samePath } from '../services/platform';
 import { TreeNavigationPane } from './TreeNavigationPane';
 import { DriveBar } from './DriveBar';
 import { PanelTabs } from './PanelTabs';
@@ -225,7 +226,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
               lang={lang}
               theme={currentTheme}
               currentPath={tab.currentPath}
-              driveLetter={drive.letter}
+              driveRoot={drive.root}
               onNavigate={onNavigate}
               onGoParent={onGoParent}
               onGoBack={onGoBack}
@@ -279,7 +280,7 @@ export const PanelView: React.FC<PanelViewProps> = ({
                 items={items}
                 currentPath={tab.currentPath}
                 currentDriveId={tab.driveId}
-                isRoot={!tab.currentPath.includes('\\')}
+                isRoot={samePath(tab.currentPath, drive.root)}
                 focusedIndex={tab.focusedIndex}
                 selectedIds={tab.selectedIds}
                 viewMode={tab.viewMode}

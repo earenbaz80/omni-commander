@@ -14,6 +14,7 @@ const DRIVES_KEY = 'nc_drives_v1';
 
 const realDrive = {
   id: 'real_C',
+  root: 'C:\\',
   letter: 'C:',
   name: 'Windows',
   type: 'local' as const,
@@ -46,6 +47,14 @@ describe('engine boot with a stored drives key', () => {
     const { fsEngine } = await import('./fileSystem');
 
     expect(fsEngine.getDrives().map((drive) => drive.letter)).toEqual(['C:']);
+  });
+
+  it('recovers the root of a drive saved before the model had one', async () => {
+    localStorage.setItem(DRIVES_KEY, JSON.stringify([{ ...realDrive, root: undefined }]));
+
+    const { fsEngine } = await import('./fileSystem');
+
+    expect(fsEngine.getDrives()).toEqual([expect.objectContaining({ id: 'real_C', root: 'C:\\' })]);
   });
 
   it('boots with no drives when the saved value is not a list', async () => {

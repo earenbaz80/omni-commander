@@ -25,6 +25,7 @@ const t = translations.es;
 const drives: Drive[] = [
   {
     id: 'real_C',
+    root: 'C:\\',
     letter: 'C:',
     name: 'Windows',
     isMounted: true,

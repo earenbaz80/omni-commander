@@ -4,6 +4,7 @@ import type { Drive, FileItem } from '../types';
 
 const drive = (id: string): Drive => ({
   id,
+  root: 'C:\\',
   letter: 'C:',
   name: 'Local',
   type: 'local',
@@ -50,8 +51,15 @@ describe('filesystemStorage', () => {
 
   it('reads the versioned envelope this build writes', () => {
     writeCatalogue({ ...empty, drives: [drive('real_D')] });
-    expect(JSON.parse(localStorage.getItem('nc_drives_v1') as string).version).toBe(1);
+    expect(JSON.parse(localStorage.getItem('nc_drives_v1') as string).version).toBe(2);
     expect(readCatalogue().drives.map((entry) => entry.id)).toEqual(['real_D']);
+  });
+
+  it('migrates a saved drive whose only root hint is its label', () => {
+    const { root: _root, ...old } = drive('real_D');
+    localStorage.setItem('nc_drives_v1', JSON.stringify([old]));
+
+    expect(readCatalogue().drives).toEqual([expect.objectContaining({ id: 'real_D', root: 'C:\\' })]);
   });
 
   // The reason this module exists: one damaged entry used to make the engine

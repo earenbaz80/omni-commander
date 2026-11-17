@@ -13,13 +13,15 @@ import {
 import { ViewMode, LanguageCode } from '../types';
 import { ThemeConfig } from '../services/themeManager';
 import { soundManager } from '../services/soundEffects';
+import { appendPath, isPathAtOrInside, samePath } from '../services/platform';
 import { getTranslations } from '../i18n/translations';
 
 interface PathBarProps {
   theme: ThemeConfig;
   lang: LanguageCode;
   currentPath: string;
-  driveLetter: string;
+  /** Absolute root of the drive the path belongs to, e.g. `C:\` or `/mnt/data`. */
+  driveRoot: string;
   onNavigate: (newPath: string) => void;
   onGoParent: () => void;
   onGoBack: () => void;
@@ -40,7 +42,7 @@ export const PathBar: React.FC<PathBarProps> = ({
   theme,
   lang,
   currentPath,
-  driveLetter,
+  driveRoot,
   onNavigate,
   onGoParent,
   onGoBack,
@@ -142,16 +144,19 @@ export const PathBar: React.FC<PathBarProps> = ({
     }
   };
 
-  // `C:\Windows` splits into ["C:", "Windows"], and the drive is already drawn
-  // on its own in amber below, so the letter is dropped from the crumbs. Without
-  // this the drive appeared twice, and the second copy was a button pointing at
-  // `C:\C:`, a path that cannot exist: clicking it broke the panel instead of
-  // going to the root. Comparing against the drive name (not a single-letter
-  // pattern) also covers the virtual drives, whose letter can be longer.
-  const segments = currentPath ? currentPath.split('\\').filter(Boolean) : [];
-  if (segments.length && segments[0].toLowerCase() === String(driveLetter).toLowerCase()) {
-    segments.shift();
+  // The root is drawn once, in amber. Its own separator decides how the rest of
+  // the path is split, so `C:\Windows` and `/home/ana` both produce crumbs
+  // below the root without a second copy of the root itself.
+  const separator = driveRoot.startsWith('/') ? '/' : '\\';
+  const rootKey = driveRoot.replace(/[\\/]+$/, '');
+  let relative = currentPath;
+  if (samePath(currentPath, driveRoot)) {
+    relative = '';
+  } else if (isPathAtOrInside(driveRoot, currentPath)) {
+    relative = currentPath.slice(rootKey.length).replace(/^[\\/]+/, '');
   }
+  const segments = relative ? relative.split(/[\\/]+/).filter(Boolean) : [];
+  const rootPrefix = driveRoot ? (driveRoot.endsWith(separator) ? driveRoot : `${driveRoot}${separator}`) : '';
 
   return (
     <div
@@ -244,13 +249,13 @@ export const PathBar: React.FC<PathBarProps> = ({
                 title={t.pathEditHint}
                 data-path-bar
               >
-                <span className="font-bold text-amber-300 shrink-0">{driveLetter}\</span>
+                <span className="font-bold text-amber-300 shrink-0">{rootPrefix}</span>
                 {segments.map((seg, idx) => {
-                  const segPath = segments.slice(0, idx + 1).join('\\');
-                  const fullSegPath = `${driveLetter}\\${segPath}`;
+                  const segPath = segments.slice(0, idx + 1).join(separator);
+                  const fullSegPath = appendPath(driveRoot, segPath);
                   return (
                     <React.Fragment key={idx}>
-                      {idx > 0 && <span className="opacity-40 shrink-0">\</span>}
+                      {idx > 0 && <span className="opacity-40 shrink-0">{separator}</span>}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
