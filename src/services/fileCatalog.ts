@@ -1,6 +1,7 @@
 import type { FileProgressEntry, FileItem, RecycleBinItem } from '../types';
 import type { RealFsJob } from './fileTransfer';
 import { tGlobal } from '../i18n/translations';
+import { isPathAtOrInside } from './platform';
 
 /**
  * The catalogue the app writes into, and the trash that parks what it deletes.
@@ -197,14 +198,15 @@ export function createCatalogOps(deps: CatalogueOpsDeps) {
     const realSourcePath = isSystemDrive(file.driveId) ? realAbsolutePath(file) : '';
 
     if (file.isDirectory) {
-      const oldDirPath = `${normalizePath(file.path)}\\${file.name}`;
-      const newDirPath = `${normalizePath(file.path)}\\${clean}`;
+      const oldDirPath = childAbsolutePath(file.path, file.name);
+      const newDirPath = childAbsolutePath(file.path, clean);
 
-      // Update all descendants
+      // Update all descendants. The boundary matters here: a bare prefix match
+      // also re-pathed `docs2` while renaming `docs`, because one name merely
+      // starts with the other.
       state.files.forEach((f) => {
-        if (f.driveId === file.driveId && f.path.startsWith(oldDirPath)) {
-          f.path = f.path.replace(oldDirPath, newDirPath);
-        }
+        if (f.driveId !== file.driveId || !isPathAtOrInside(oldDirPath, f.path)) return;
+        f.path = `${newDirPath}${f.path.slice(oldDirPath.length)}`;
       });
 
       file.name = clean;
@@ -257,11 +259,9 @@ export function createCatalogOps(deps: CatalogueOpsDeps) {
     }
 
     if (file.isDirectory) {
-      const dirPath = `${normalizePath(file.path)}\\${file.name}`;
+      const dirPath = childAbsolutePath(file.path, file.name);
       // Remove all children recursively
-      state.files = state.files.filter(
-        (f) => !(f.driveId === file.driveId && (f.path === dirPath || f.path.startsWith(`${dirPath}\\`))),
-      );
+      state.files = state.files.filter((f) => !(f.driveId === file.driveId && isPathAtOrInside(dirPath, f.path)));
     }
 
     state.files = state.files.filter((f) => f.id !== fileId);
@@ -324,10 +324,8 @@ export function createCatalogOps(deps: CatalogueOpsDeps) {
       const file = state.files.find((f) => f.id === item.id);
       if (!file) continue;
       if (file.isDirectory) {
-        const dirPath = `${normalizePath(file.path)}\\${file.name}`;
-        state.files = state.files.filter(
-          (f) => !(f.driveId === file.driveId && (f.path === dirPath || f.path.startsWith(`${dirPath}\\`))),
-        );
+        const dirPath = childAbsolutePath(file.path, file.name);
+        state.files = state.files.filter((f) => !(f.driveId === file.driveId && isPathAtOrInside(dirPath, f.path)));
       }
       state.files = state.files.filter((f) => f.id !== file.id);
     }
@@ -365,9 +363,9 @@ export function createCatalogOps(deps: CatalogueOpsDeps) {
     file.path = 'TR:';
 
     if (file.isDirectory) {
-      const dirPath = `${normalizePath(binItem.originalPath)}\\${file.name}`;
+      const dirPath = childAbsolutePath(binItem.originalPath, file.name);
       state.files.forEach((f) => {
-        if (f.driveId === binItem.originalDriveId && (f.path === dirPath || f.path.startsWith(`${dirPath}\\`))) {
+        if (f.driveId === binItem.originalDriveId && isPathAtOrInside(dirPath, f.path)) {
           f.driveId = 'drive_trash';
           f.path = f.path.replace(binItem.originalDriveId, 'drive_trash');
         }

@@ -1,5 +1,6 @@
 import type { FileItem, FileProgressEntry, PendingConflict, TransferOptions } from '../types';
 import type { CatalogueState } from './fileCatalog';
+import { isPathAtOrInside } from './platform';
 import { log } from '../utils/logger';
 import { tGlobal } from '../i18n/translations';
 
@@ -14,6 +15,7 @@ import { tGlobal } from '../i18n/translations';
 export interface CopyMoveDeps {
   state: CatalogueState;
   normalizePath: (path: string) => string;
+  childAbsolutePath: (parentPath: string, childName: string) => string;
   isSystemDrive: (driveId: string) => boolean;
   getArchiveSource: (driveId: string, path: string) => FileItem | undefined;
   getFileById: (id: string) => FileItem | undefined;
@@ -49,6 +51,7 @@ export function createCopyMoveOps(deps: CopyMoveDeps) {
   const {
     state,
     normalizePath,
+    childAbsolutePath,
     isSystemDrive,
     getArchiveSource,
     getFileById,
@@ -100,13 +103,13 @@ export function createCopyMoveOps(deps: CopyMoveDeps) {
     const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
     if (file.isDirectory) {
-      const oldDirPath = `${normalizePath(file.path)}\\${file.name}`;
-      const newDirPath = `${normTarget}\\${file.name}`;
+      // A folder's own path is spelled like the folder it hangs from, so a POSIX
+      // listing is not given a backslash and a drive root is not given two.
+      const oldDirPath = childAbsolutePath(file.path, file.name);
+      const newDirPath = childAbsolutePath(normTarget, file.name);
 
       // Collect children BEFORE pushing new items (fixes race condition)
-      const children = state.files.filter(
-        (f) => f.driveId === file.driveId && (f.path === oldDirPath || f.path.startsWith(`${oldDirPath}\\`)),
-      );
+      const children = state.files.filter((f) => f.driveId === file.driveId && isPathAtOrInside(oldDirPath, f.path));
 
       // Create target directory
       const newDir: FileItem = {
@@ -231,13 +234,11 @@ export function createCopyMoveOps(deps: CopyMoveDeps) {
     const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
     if (file.isDirectory) {
-      const oldDirPath = `${normalizePath(file.path)}\\${file.name}`;
-      const newDirPath = `${normTarget}\\${file.name}`;
+      const oldDirPath = childAbsolutePath(file.path, file.name);
+      const newDirPath = childAbsolutePath(normTarget, file.name);
 
       // Collect children BEFORE modifying (fixes race condition)
-      const children = state.files.filter(
-        (f) => f.driveId === file.driveId && (f.path === oldDirPath || f.path.startsWith(`${oldDirPath}\\`)),
-      );
+      const children = state.files.filter((f) => f.driveId === file.driveId && isPathAtOrInside(oldDirPath, f.path));
 
       // Update children
       for (const f of children) {
