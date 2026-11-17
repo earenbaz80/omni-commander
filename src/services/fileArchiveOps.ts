@@ -147,11 +147,18 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
 
   function findArchive(driveId: string, path: string): ArchiveMount | undefined {
     const normalized = deps.normalizePath(path).toLowerCase();
-    return [...mounts.values()].find(
-      (m) =>
-        m.source.driveId === driveId &&
-        (normalized === m.root.toLowerCase() || normalized.startsWith(`${m.root.toLowerCase()}\\`)),
-    );
+    return [...mounts.values()].find((m) => {
+      if (m.source.driveId !== driveId) return false;
+      const root = m.root.toLowerCase();
+      if (normalized === root) return true;
+      // The mount is a path on disk -- `/mnt/vol/demo.zip` on Linux, `C:\demo.zip`
+      // on Windows -- while the levels inside the archive are spelled with `\` on
+      // every platform. Either separator right after the root means the path is
+      // inside it; demanding a hard-coded `\` made every subfolder of a Linux
+      // mount look like it belonged to a different archive, so it listed empty.
+      const boundary = normalized.charAt(root.length);
+      return normalized.startsWith(root) && (boundary === '/' || boundary === '\\');
+    });
   }
 
   function getArchiveSource(driveId: string, path: string): FileItem | undefined {
