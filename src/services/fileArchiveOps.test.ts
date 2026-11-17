@@ -55,6 +55,34 @@ function harness(overrides: Partial<ArchiveOpsDeps> = {}) {
   return { ops: createArchiveOps(deps), remembered };
 }
 
+/**
+ * The Linux spelling, mirroring `fileListing`: the mount point and the archive are
+ * POSIX paths, while the levels inside the archive keep the `\` that every archive
+ * entry is addressed with. `normalizePath` here reproduces the real one's habit of
+ * turning a `\` in a POSIX path into `/`, which is what made a subfolder look like
+ * it belonged to a different archive.
+ */
+function posixPath(path: string): string {
+  const collapsed = path.replace(/\\+/g, '/').trim();
+  return collapsed.replace(/\/+$/, '') || (collapsed.startsWith('/') ? '/' : '');
+}
+
+function posixHarness(overrides: Partial<ArchiveOpsDeps> = {}) {
+  return harness({
+    normalizePath: posixPath,
+    getParentPath: (path) => {
+      const norm = posixPath(path);
+      if (norm === '/') return '';
+      const slash = norm.lastIndexOf('/');
+      return slash <= 0 ? '/' : norm.slice(0, slash);
+    },
+    childAbsolutePath: (parent, name) => `${parent === '/' ? '' : parent}/${name}`,
+    absoluteForDrive: (_driveId, path) => path,
+    realAbsolutePath: (file) => `${file.path === '/' ? '' : file.path}/${file.fullName}`,
+    ...overrides,
+  });
+}
+
 describe('fileArchiveOps', () => {
   it('has nothing mounted until an archive is opened', () => {
     const { ops } = harness();
@@ -82,6 +110,52 @@ describe('fileArchiveOps', () => {
     const { ops, remembered } = harness({ getFiles: () => [item({ fullName: 'copia.tar' })] });
     await expect(ops.createArchive([item()], 'copia', 'C:', '\\', 'TAR')).rejects.toThrow('copia.tar');
     expect(remembered).toHaveLength(0);
+  });
+
+  it('finds a mounted archive under a POSIX root with either separator', async () => {
+    // Fails if `findArchive` insists on a `\` after the root: the subfolder's
+    // path normalises to `/mnt/vol/demo.zip/carpeta`, which never starts with
+    // `/mnt/vol/demo.zip\`.
+    const bytes = await zipBytes({ 'carpeta/dentro.txt': 'hola' });
+    const { ops } = posixHarness({ readFileBytes: async () => bytes });
+    const source = item({
+      id: 'zip',
+      driveId: 'real_vol',
+      path: '/mnt/vol',
+      fullName: 'demo.zip',
+      name: 'demo',
+      ext: 'zip',
+      size: bytes.length,
+    });
+
+    await expect(ops.openArchive(source)).resolves.toBe('/mnt/vol/demo.zip');
+
+    const mount = ops.findArchive('real_vol', '/mnt/vol/demo.zip\\carpeta');
+    expect(mount?.root).toBe('/mnt/vol/demo.zip');
+    expect(mount?.items.map((entry) => entry.fullName)).toContain('dentro.txt');
+    expect(ops.getArchiveSource('real_vol', '/mnt/vol/demo.zip\\carpeta')?.id).toBe('zip');
+  });
+
+  it('keeps the archive boundary after a POSIX root', async () => {
+    const bytes = await zipBytes({ 'nota.txt': 'hola' });
+    const { ops } = posixHarness({ readFileBytes: async () => bytes });
+    const source = item({
+      id: 'zip',
+      driveId: 'real_vol',
+      path: '/mnt/vol',
+      fullName: 'demo.zip',
+      name: 'demo',
+      ext: 'zip',
+    });
+
+    await ops.openArchive(source);
+
+    // The mount itself, and a path inside it, both belong to it.
+    expect(ops.findArchive('real_vol', '/mnt/vol/demo.zip')?.root).toBe('/mnt/vol/demo.zip');
+    expect(ops.findArchive('real_vol', '/mnt/vol/demo.zip/sub')?.root).toBe('/mnt/vol/demo.zip');
+    // A sibling whose name merely starts the same way does not.
+    expect(ops.findArchive('real_vol', '/mnt/vol/demo.zip.old')).toBeUndefined();
+    expect(ops.findArchive('real_vol', '/mnt/vol/demozilla.zip')).toBeUndefined();
   });
 
   it('writes bytes into a virtual folder and keeps them as base64', async () => {
