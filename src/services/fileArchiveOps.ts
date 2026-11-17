@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { samePath } from './platform';
 import { archiveEntryPath, bytesToBase64 } from './zipArchive';
 import { buildTar, gzip } from './tarArchive';
 import {
@@ -145,19 +146,25 @@ export interface ArchiveOps {
 export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
   const mounts = new Map<string, ArchiveMount>();
 
+  /**
+   * The mount a path belongs to, if any.
+   *
+   * The mount is a path on disk -- `/mnt/vol/demo.zip` on Linux, `C:\demo.zip` on
+   * Windows -- while the levels inside the archive are spelled with `\` on every
+   * platform. Either separator right after the root means the path is inside it,
+   * and the case rule comes from `samePath`: `Demo.zip` and `demo.zip` are one file
+   * on Windows and two different archives on Linux.
+   */
   function findArchive(driveId: string, path: string): ArchiveMount | undefined {
-    const normalized = deps.normalizePath(path).toLowerCase();
+    const normalized = deps.normalizePath(path);
     return [...mounts.values()].find((m) => {
       if (m.source.driveId !== driveId) return false;
-      const root = m.root.toLowerCase();
-      if (normalized === root) return true;
-      // The mount is a path on disk -- `/mnt/vol/demo.zip` on Linux, `C:\demo.zip`
-      // on Windows -- while the levels inside the archive are spelled with `\` on
-      // every platform. Either separator right after the root means the path is
-      // inside it; demanding a hard-coded `\` made every subfolder of a Linux
-      // mount look like it belonged to a different archive, so it listed empty.
+      const root = m.root.replace(/[\\/]+$/, '');
+      if (!root) return false;
+      if (samePath(root, normalized)) return true;
       const boundary = normalized.charAt(root.length);
-      return normalized.startsWith(root) && (boundary === '/' || boundary === '\\');
+      if (boundary !== '/' && boundary !== '\\') return false;
+      return samePath(root, normalized.slice(0, root.length));
     });
   }
 
@@ -176,9 +183,9 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
    * open the file again without one.
    */
   function mountedArchiveBackend(archiveFile: FileItem): ArchiveBackend | undefined {
-    const target = deps.realAbsolutePath(archiveFile).toLowerCase();
+    const target = deps.realAbsolutePath(archiveFile);
     return [...mounts.values()].find(
-      (mounted) => mounted.source.driveId === archiveFile.driveId && mounted.root.toLowerCase() === target,
+      (mounted) => mounted.source.driveId === archiveFile.driveId && samePath(mounted.root, target),
     )?.backend;
   }
 
