@@ -18,7 +18,7 @@ const { execFile } = require('child_process');
 const { promisify } = require('util');
 const { once } = require('events');
 
-const { assertSafePath, isDriveRoot } = require('./pathSafety.cjs');
+const { createPathPolicy } = require('./pathSafety.cjs');
 const { formatBytes } = require('./formatBytes.cjs');
 const { renameWithRetry } = require('./fsRetry.cjs');
 const { appendLog, scratchFile } = require('./scratch.cjs');
@@ -40,6 +40,9 @@ function createFileOps(deps = {}) {
   } = deps;
 
   const platform = deps.platform || createPlatform();
+  const pathPolicy = deps.pathPolicy || createPathPolicy(platform.id);
+  const pathApi = pathPolicy.pathApi;
+  const { assertSafePath, isDriveRoot } = pathPolicy;
   const execFileAsync = promisify(execFile);
   // The moved code keeps the constant names it had in the server.
   const JOB_TICK_MS = jobTickMs;
@@ -111,7 +114,7 @@ function createFileOps(deps = {}) {
           break;
         }
         seen += 1;
-        const full = path.win32.join(dir, entry.name);
+        const full = pathApi.join(dir, entry.name);
         let stat = null;
         try {
           stat = await fs.promises.lstat(full);
@@ -205,8 +208,8 @@ function createFileOps(deps = {}) {
 
   async function assertArchiveDestination(rootValue, target) {
     const root = assertSafePath(rootValue);
-    const relative = path.win32.relative(root, target);
-    if (!relative || relative === '..' || relative.startsWith('..\\') || path.win32.isAbsolute(relative))
+    const relative = pathApi.relative(root, target);
+    if (!relative || relative === '..' || relative.startsWith(`..${pathApi.sep}`) || pathApi.isAbsolute(relative))
       throw new Error('Invalid destination');
     let cursor = target;
     while (true) {
@@ -215,7 +218,7 @@ function createFileOps(deps = {}) {
         return null;
       });
       if (stat?.isSymbolicLink()) throw new Error('Destination contains a symbolic link');
-      const parent = path.win32.dirname(cursor);
+      const parent = pathApi.dirname(cursor);
       if (parent === cursor) break;
       cursor = parent;
     }
@@ -247,7 +250,7 @@ function createFileOps(deps = {}) {
           if (stat.isDirectory()) {
             try {
               const entries = await fs.promises.readdir(current);
-              return entries.map((name) => path.win32.join(current, name));
+              return entries.map((name) => pathApi.join(current, name));
             } catch {
               return [];
             }
@@ -304,10 +307,10 @@ function createFileOps(deps = {}) {
   }
 
   async function uniqueName(dir, name) {
-    const parsed = path.win32.parse(name);
+    const parsed = pathApi.parse(name);
     for (let i = 2; i < 1000; i++) {
       const candidate = `${parsed.name} (${i})${parsed.ext}`;
-      if (!(await pathExists(path.win32.join(dir, candidate)))) return candidate;
+      if (!(await pathExists(pathApi.join(dir, candidate)))) return candidate;
     }
     return `${parsed.name} (${Date.now()})${parsed.ext}`;
   }
@@ -415,10 +418,10 @@ function createFileOps(deps = {}) {
     }
     if (policy === 'rename-old') {
       // Keep the existing file under a backup name, then copy the new one in.
-      const dir = path.win32.dirname(dest);
-      const parsed = path.win32.parse(dest);
-      let backup = path.win32.join(dir, `${parsed.name} (old)${parsed.ext}`);
-      if (await pathExists(backup)) backup = path.win32.join(dir, `${parsed.name} (old) ${Date.now()}${parsed.ext}`);
+      const dir = pathApi.dirname(dest);
+      const parsed = pathApi.parse(dest);
+      let backup = pathApi.join(dir, `${parsed.name} (old)${parsed.ext}`);
+      if (await pathExists(backup)) backup = pathApi.join(dir, `${parsed.name} (old) ${Date.now()}${parsed.ext}`);
       try {
         // The file that is there has to move aside or the copy overwrites it, so
         // a lock that lasts a moment is worth waiting out.
@@ -429,14 +432,14 @@ function createFileOps(deps = {}) {
       return dest;
     }
     if (policy === 'rename') {
-      const dir = path.win32.dirname(dest);
-      return path.win32.join(dir, await uniqueName(dir, path.win32.basename(dest)));
+      const dir = pathApi.dirname(dest);
+      return pathApi.join(dir, await uniqueName(dir, pathApi.basename(dest)));
     }
     return dest;
   }
 
   async function resolveDestination(src, destDir, job) {
-    return planDestination(src, path.win32.join(destDir, path.win32.basename(src)), job);
+    return planDestination(src, pathApi.join(destDir, pathApi.basename(src)), job);
   }
 
   // Interrupted-job recovery contract: a copy in progress writes to
@@ -447,10 +450,10 @@ function createFileOps(deps = {}) {
   // `*.omni-part-*` file therefore means an interrupted copy and is safe to
   // delete; nothing else ever reads it.
   function partNameFor(dest) {
-    const dir = path.win32.dirname(dest);
-    const base = path.win32.basename(dest);
+    const dir = pathApi.dirname(dest);
+    const base = pathApi.basename(dest);
     const suffix = `${process.pid.toString(36)}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
-    return path.win32.join(dir, `.${base}.omni-part-${suffix}`);
+    return pathApi.join(dir, `.${base}.omni-part-${suffix}`);
   }
 
   /**
@@ -472,7 +475,7 @@ function createFileOps(deps = {}) {
 
   async function copyOneFile(src, dest, job) {
     const stat = await fs.promises.stat(src);
-    await ensureDirectory(path.win32.dirname(dest));
+    await ensureDirectory(pathApi.dirname(dest));
     job.currentFile = dest;
     const entry = noteFile(job, dest, stat.size);
     jobLog('file-start', job.id, `size=${stat.size}`, dest);
@@ -593,7 +596,7 @@ function createFileOps(deps = {}) {
     if (stat.isDirectory()) {
       await ensureDirectory(dest);
       for (const name of await fs.promises.readdir(src)) {
-        await copyTree(path.win32.join(src, name), path.win32.join(dest, name), job);
+        await copyTree(pathApi.join(src, name), pathApi.join(dest, name), job);
       }
       return;
     }
@@ -786,9 +789,9 @@ function createFileOps(deps = {}) {
   }
 
   async function copyIntoFolder(target, folder) {
-    const wanted = path.win32.basename(target);
-    const direct = path.win32.join(folder, wanted);
-    const destination = (await pathExists(direct)) ? path.win32.join(folder, await uniqueName(folder, wanted)) : direct;
+    const wanted = pathApi.basename(target);
+    const direct = pathApi.join(folder, wanted);
+    const destination = (await pathExists(direct)) ? pathApi.join(folder, await uniqueName(folder, wanted)) : direct;
     await fs.promises.cp(target, destination, { recursive: true, force: false, errorOnExist: true });
     return destination;
   }
@@ -828,7 +831,7 @@ function createFileOps(deps = {}) {
    * reason (EPERM, ENOENT, EACCES) lands in the log with the target path.
    */
   async function probeTarget(dir) {
-    const probe = path.win32.join(dir, `.omni-probe-${process.pid.toString(36)}${Date.now().toString(36)}`);
+    const probe = pathApi.join(dir, `.omni-probe-${process.pid.toString(36)}${Date.now().toString(36)}`);
     try {
       await fs.promises.writeFile(probe, 'ok');
       await fs.promises.rm(probe, { force: true });
@@ -880,7 +883,7 @@ function createFileOps(deps = {}) {
     if (job.op === 'copy' && job.totalBytes > 0) {
       let free = 0;
       try {
-        const root = path.win32.parse(targetDir).root || targetDir;
+        const root = pathApi.parse(targetDir).root || targetDir;
         const space = await fs.promises.statfs(root);
         free = Number(space.bavail) * Number(space.bsize);
       } catch {

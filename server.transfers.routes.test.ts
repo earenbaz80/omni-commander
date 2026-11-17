@@ -5,6 +5,9 @@ import type { Server } from 'node:http';
 import os from 'node:os';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { registerTransferRoutes } from './server/routes/transfers.cjs';
+import { createPathPolicy } from './server/pathSafety.cjs';
+
+const pathPolicy = createPathPolicy('win32');
 
 /**
  * The transfer and cleanup routes moved out of `server.cjs`; the queue they drive
@@ -20,6 +23,8 @@ const started: Array<Record<string, unknown>> = [];
 const deps = {
   fs,
   assertSafePath: (value: unknown) => String(value ?? ''),
+  isDriveRoot: pathPolicy.isDriveRoot,
+  samePath: pathPolicy.samePath,
   makeJob: (op: string, label: string) => ({ id: 'job-1', op, label, itemsTotal: 0, itemsDone: 0, errors: [] }),
   startJob: (job: Record<string, unknown>) => started.push(job),
   waitWhilePaused: async () => undefined,

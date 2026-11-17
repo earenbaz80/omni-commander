@@ -40,6 +40,9 @@ function makeDrive(info) {
   const volumeName = String(info.volumeName || '').trim() || `Unidad ${letter}`;
   return {
     id: `real_${letter.replace(/[^a-zA-Z0-9]/g, '')}`,
+    // The root is what paths are built from; `letter` is only the short label
+    // the drive bar paints.
+    root: `${letter}\\`,
     letter,
     name: volumeName,
     type: mapped.type,

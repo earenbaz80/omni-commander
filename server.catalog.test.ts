@@ -21,7 +21,7 @@ function recordingApp() {
 }
 
 describe('the catalog module', () => {
-  it('registers the same four paths the renderer already uses', () => {
+  it('registers the paths the renderer already uses', () => {
     const { app, paths } = recordingApp();
     createCatalog({
       app,
@@ -30,7 +30,13 @@ describe('the catalog module', () => {
       readUserLibraries: async () => ({}),
     });
 
-    expect(paths).toEqual(['GET /api/drives', 'GET /api/user-folders', 'GET /api/system/stats', 'GET /api/list']);
+    expect(paths).toEqual([
+      'GET /api/platform',
+      'GET /api/drives',
+      'GET /api/user-folders',
+      'GET /api/system/stats',
+      'GET /api/list',
+    ]);
   });
 
   it('hands out a way to empty the listing cache', () => {

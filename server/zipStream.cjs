@@ -174,9 +174,9 @@ async function listZip(target) {
  * the same volume and cannot leave half an entry under the real name.
  */
 function temporaryPathFor(destination) {
-  const folder = path.win32.dirname(destination);
+  const folder = path.dirname(destination);
   const unique = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  return path.win32.join(folder, `.omni-${unique}.part`);
+  return path.join(folder, `.omni-${unique}.part`);
 }
 
 /**

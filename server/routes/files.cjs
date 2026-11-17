@@ -66,11 +66,9 @@ function registerFileRoutes(app, deps) {
       if (!pickedFolder && body.destination === 'desktop') {
         // Explorer names these "<name> - Acceso directo.lnk", and a second one
         // for the same item gets a numbered sibling instead of replacing it.
-        const wanted = `${path.win32.basename(target)} - Acceso directo.lnk`;
-        const direct = path.win32.join(folder, wanted);
-        const shortcutPath = (await pathExists(direct))
-          ? path.win32.join(folder, await uniqueName(folder, wanted))
-          : direct;
+        const wanted = `${path.basename(target)} - Acceso directo.lnk`;
+        const direct = path.join(folder, wanted);
+        const shortcutPath = (await pathExists(direct)) ? path.join(folder, await uniqueName(folder, wanted)) : direct;
         await createShortcut(target, shortcutPath);
         invalidateListings();
         return res.json({ ok: true, kind: 'shortcut', path: shortcutPath });
@@ -118,10 +116,14 @@ function registerFileRoutes(app, deps) {
       const body = req.body || {};
       const source = assertSafePath(body.path);
       const newName = String(body.newName || '').trim();
-      if (!newName || /[\\/:*?"<>|]/.test(newName)) {
+      // Windows refuses a wider set of characters than POSIX does. The name is
+      // also the last path segment, so separators and dot entries are refused
+      // everywhere: joining above would otherwise walk out of the source folder.
+      const invalidName = path.sep === '\\' ? /[\\/:*?"<>|]/.test(newName) : /[/\0]/.test(newName);
+      if (!newName || newName === '.' || newName === '..' || invalidName) {
         return res.status(400).json({ error: 'Invalid file name' });
       }
-      const dest = path.win32.join(path.win32.dirname(source), newName);
+      const dest = path.join(path.dirname(source), newName);
       if (await pathExists(dest)) return res.status(409).json({ error: 'A file with that name already exists' });
       // Windows hands back EPERM while a scan or the indexer still holds the
       // name, so the rename is retried before the route reports a failure.
@@ -140,7 +142,7 @@ function registerFileRoutes(app, deps) {
       try {
         const target = assertSafePath(req.query.path);
         await assertArchiveDestination(req.query.root, target);
-        await fs.promises.mkdir(path.win32.dirname(target), { recursive: true });
+        await fs.promises.mkdir(path.dirname(target), { recursive: true });
         if (req.query.overwrite === '1') {
           // An answered conflict: the name is meant to be replaced, but the write
           // still lands under a temporary name first, so a failure leaves the
@@ -170,7 +172,7 @@ function registerFileRoutes(app, deps) {
     try {
       const body = req.body || {};
       const target = assertSafePath(body.path);
-      await fs.promises.mkdir(path.win32.dirname(target), { recursive: true });
+      await fs.promises.mkdir(path.dirname(target), { recursive: true });
       await fs.promises.writeFile(target, body.content == null ? '' : String(body.content), 'utf8');
       invalidateListings();
       res.json({ ok: true, path: target });
@@ -212,7 +214,7 @@ function registerFileRoutes(app, deps) {
       }
       entries.push({
         path: target,
-        name: path.win32.basename(target),
+        name: path.basename(target),
         isDirectory: stat.isDirectory(),
         size: stat.isDirectory() ? 0 : stat.size,
         modified: stat.mtimeMs,

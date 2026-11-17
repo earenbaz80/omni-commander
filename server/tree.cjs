@@ -61,7 +61,7 @@ function registerTreeRoutes(app, deps) {
           return;
         }
         entries.push({ name: folder.name, depth: level });
-        await walk(path.win32.join(listing.path, folder.name), level + 1);
+        await walk(path.join(listing.path, folder.name), level + 1);
       }
     }
 
@@ -89,7 +89,7 @@ function registerTreeRoutes(app, deps) {
 
     const newFolder = (fullPath) => ({
       path: fullPath,
-      name: path.win32.basename(fullPath) || fullPath,
+      name: path.basename(fullPath) || fullPath,
       sizeBytes: 0,
       fileCount: 0,
       dirCount: 0,
@@ -149,7 +149,7 @@ function registerTreeRoutes(app, deps) {
           break;
         }
         state.entries += 1;
-        const fullPath = path.win32.join(dirPath, entry.name);
+        const fullPath = path.join(dirPath, entry.name);
         let stat = null;
         try {
           stat = await fs.promises.lstat(fullPath);

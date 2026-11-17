@@ -40,6 +40,13 @@ function registerSpaceRoutes(app, deps) {
       // copy list can span volumes. Group by volume root so the table has one
       // row per disk instead of one row per batch.
       const volumes = new Map();
+      // Path comparison follows the filesystem: drive letters fold case, POSIX
+      // mount points do not.
+      const windowsPaths = path.sep === '\\';
+      const volumeRoot = (value) => {
+        const root = path.parse(value).root;
+        return windowsPaths ? root.toUpperCase() : root;
+      };
       // Every charge is one occurrence of a source; the bytes it adds are the
       // same for all occurrences, but the walk behind them happens once.
       const charges = [];
@@ -47,7 +54,7 @@ function registerSpaceRoutes(app, deps) {
 
       for (const plan of plans) {
         const targetDir = assertSafePath(plan.targetDir);
-        const root = path.win32.parse(targetDir).root.toUpperCase();
+        const root = volumeRoot(targetDir);
         if (!volumes.has(root)) {
           volumes.set(root, { volume: root, size: 0, free: null, lacking: 0, complete: true });
         }
@@ -59,10 +66,10 @@ function registerSpaceRoutes(app, deps) {
           // A move inside one volume is a rename: no byte is written, so it needs
           // no room at all. Counting those bytes would refuse a transfer that
           // cannot possibly fill the disk.
-          if (op === 'move' && path.win32.parse(source).root.toUpperCase() === root) continue;
+          if (op === 'move' && volumeRoot(source) === root) continue;
           // Windows paths compare without case, and the same tree listed twice is
           // written twice, so it is charged twice but walked once.
-          const key = source.toLowerCase();
+          const key = windowsPaths ? source.toLowerCase() : source;
           charges.push({ group, key });
           if (!distinct.has(key)) distinct.set(key, source);
         }

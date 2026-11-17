@@ -143,7 +143,7 @@ function registerArchiveRoutes(app, deps) {
       let reader = warmArchive && warmArchive.key === key ? warmArchive.reader : null;
       if (!reader) {
         await closeWarmArchive();
-        const file = new File([await fs.promises.readFile(target)], path.win32.basename(target));
+        const file = new File([await fs.promises.readFile(target)], path.basename(target));
         reader = await Archive.open(file);
         if (password) await reader.usePassword(password);
         warmArchive = { key, reader };
@@ -702,7 +702,7 @@ function registerArchiveRoutes(app, deps) {
   async function assertDestinationFree(destination) {
     const existing = await fs.promises.lstat(destination).catch(() => null);
     if (!existing) return;
-    const error = new Error(`A file with that name already exists: ${path.win32.basename(destination)}`);
+    const error = new Error(`A file with that name already exists: ${path.basename(destination)}`);
     error.archiveCode = 'exists';
     throw error;
   }
@@ -925,7 +925,7 @@ function registerArchiveRoutes(app, deps) {
       // Same rule as `/api/fs/write-bytes`: the destination has to be inside the
       // folder the caller declared, and no junction may stand in the way.
       if (assertArchiveDestination) await assertArchiveDestination(body.root, destination);
-      await fs.promises.mkdir(path.win32.dirname(destination), { recursive: true });
+      await fs.promises.mkdir(path.dirname(destination), { recursive: true });
     } catch (error) {
       return res.status(400).json({ code: 'not-found', error: error.message });
     }
