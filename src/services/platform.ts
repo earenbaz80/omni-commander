@@ -151,11 +151,14 @@ function pathKey(value: unknown): string {
   return trimmed || unified.slice(0, 1);
 }
 
+/** Case folding, the one comparison rule that differs between hosts. */
+function fold(text: string): string {
+  return current.caseSensitive ? text : text.toLowerCase();
+}
+
 /** Path equality follows the platform: Windows folds case, POSIX does not. */
 export function samePath(left: unknown, right: unknown): boolean {
-  const a = pathKey(left);
-  const b = pathKey(right);
-  return current.caseSensitive ? a === b : a.toLowerCase() === b.toLowerCase();
+  return fold(pathKey(left)) === fold(pathKey(right));
 }
 
 /** True when `candidate` is `root` itself or a path below it. */
@@ -164,10 +167,11 @@ export function isPathAtOrInside(root: unknown, candidate: unknown): boolean {
   const target = pathKey(candidate);
   if (!base || !target) return false;
   if (samePath(base, target)) return true;
-  if (base === '/') return target.startsWith('/');
+  // `pathKey` leaves no trailing separator, except on a root that is only one --
+  // and there it is already the prefix this wants.
   const separator = base.startsWith('/') ? '/' : '\\';
   const prefix = base.endsWith(separator) ? base : `${base}${separator}`;
-  return current.caseSensitive ? target.startsWith(prefix) : target.toLowerCase().startsWith(prefix.toLowerCase());
+  return fold(target).startsWith(fold(prefix));
 }
 
 /**
@@ -179,16 +183,14 @@ export function isPathAtOrInside(root: unknown, candidate: unknown): boolean {
  * this only decides which one addresses the path.
  */
 export function driveForPath<T extends { root: string }>(drives: ReadonlyArray<T>, value: unknown): T | undefined {
-  if (!pathKey(value)) return undefined;
+  const target = pathKey(value);
   let match: T | undefined;
-  let matchLength = -1;
+  let matchLength = 0;
   for (const drive of drives) {
-    if (!isPathAtOrInside(drive.root, value)) continue;
-    const length = pathKey(drive.root).length;
-    if (length > matchLength) {
-      match = drive;
-      matchLength = length;
-    }
+    const root = pathKey(drive.root);
+    if (root.length <= matchLength || !isPathAtOrInside(root, target)) continue;
+    match = drive;
+    matchLength = root.length;
   }
   return match;
 }

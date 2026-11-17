@@ -6,6 +6,7 @@ import { fsEngine } from '../services/fileSystem';
 import { soundManager } from '../services/soundEffects';
 import { consoleCommandFor } from '../services/appOpeners';
 import { formatFromExtension, isOpenable } from '../services/archiveBackend';
+import { appendPath } from '../services/platform';
 
 /** What the menu is open on: where it was clicked and what it was clicked over. */
 export interface FileContextMenuState {
@@ -41,18 +42,14 @@ export interface FileContextMenuProps {
   onExtract: (item: FileItem, destination: { driveId: string; path: string }) => void;
 }
 
-/** An absolute path for a folder the user can pin; a file has no entry in the tree. */
-export function favoritePath(item: FileItem): string {
-  return `${item.path}\\${item.name}`;
-}
-
 /**
- * A folder and a name as one path. A panel sitting on a drive root reports its
- * path with the trailing separator already there, and joining blindly produced
- * `C:\\Program Files` — one backslash too many for the share dialog to show.
+ * An absolute path for a folder the user can pin; a file has no entry in the tree.
+ *
+ * The separator comes from the folder it hangs from, so a folder inside an
+ * archive keeps its mount's spelling, and a drive root does not end up with two.
  */
-function joinFolder(folder: string, name: string): string {
-  return `${folder.replace(/[\\/]+$/, '')}\\${name}`;
+export function favoritePath(item: FileItem): string {
+  return appendPath(item.path, item.name);
 }
 
 /**
@@ -115,7 +112,7 @@ export const FileContextMenu: React.FC<FileContextMenuProps> = ({
         alert(error instanceof Error ? error.message : String(error));
         return;
       }
-      onExtract(item, { driveId: item.driveId, path: `${item.path}\\${item.name}` });
+      onExtract(item, { driveId: item.driveId, path: appendPath(item.path, item.name) });
       return;
     }
     onExtract(item, { driveId: item.driveId, path: item.path });
@@ -189,7 +186,7 @@ export const FileContextMenu: React.FC<FileContextMenuProps> = ({
         // Sharing takes a folder, so a file target opens the folder that holds
         // it and the empty-space menu shares the panel's own folder.
         const folderPath = item?.isDirectory
-          ? joinFolder(item.path, item.fullName ?? item.name)
+          ? appendPath(item.path, item.fullName ?? item.name)
           : currentActiveTab.currentPath;
         setModalData({ shareFolderPath: folderPath });
         setActiveModal('share');

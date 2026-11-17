@@ -300,9 +300,10 @@ export function createListingOps(deps: ListingDeps) {
   /**
    * Collapses separator runs for a POSIX root and drops the trailing one.
    *
-   * A backslash is an ordinary character on POSIX, so it is deliberately left
-   * alone: an entry inside a mounted archive is addressed with one on every
-   * platform, and re-spelling it here would point at a file that does not exist.
+   * A backslash is an ordinary character in a POSIX name, so it is deliberately
+   * left alone: re-spelling it as a separator would address a file that is not
+   * there. A level of a mounted archive already uses the mount's separator, so
+   * it needs no special case of its own.
    */
   function normalizePosixPath(path: string): string {
     const collapsed = String(path ?? '')
@@ -338,11 +339,7 @@ export function createListingOps(deps: ListingDeps) {
   }
 
   function realAbsolutePath(file: FileItem): string {
-    const parent = absoluteForDrive(file.driveId, file.path);
-    const trimmed = parent.endsWith('\\') ? parent.slice(0, -1) : parent;
-    const separator = trimmed.startsWith('/') ? '/' : '\\';
-    const base = separator === '/' && trimmed === '/' ? '' : trimmed;
-    return `${base}${separator}${realEntryName(file)}`;
+    return childAbsolutePath(absoluteForDrive(file.driveId, file.path), realEntryName(file));
   }
 
   function childAbsolutePath(parentPath: string, childName: string): string {

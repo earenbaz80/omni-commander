@@ -4,6 +4,7 @@ import { PanelTab, LanguageCode } from '../types';
 import { ThemeConfig } from '../services/themeManager';
 import { soundManager } from '../services/soundEffects';
 import { getTranslations } from '../i18n/translations';
+import { baseName } from '../services/platform';
 
 interface PanelTabsProps {
   theme: ThemeConfig;
@@ -40,7 +41,7 @@ export const PanelTabs: React.FC<PanelTabsProps> = ({
     >
       {tabs.map((tab) => {
         const isCurrent = tab.id === activeTabId;
-        const shortTitle = tab.currentPath ? tab.currentPath.split('\\').pop() || tab.currentPath : t.tabRoot;
+        const shortTitle = tab.currentPath ? baseName(tab.currentPath) || tab.currentPath : t.tabRoot;
 
         return (
           <div

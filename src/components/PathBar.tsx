@@ -153,9 +153,9 @@ export const PathBar: React.FC<PathBarProps> = ({
   const insideRoot = !atRoot && isPathAtOrInside(driveRoot, currentPath);
   const relative = atRoot ? '' : insideRoot ? currentPath.slice(rootKey.length).replace(/^[\\/]+/, '') : currentPath;
   // Each crumb points at a prefix of the path it came from, separators included.
-  // Re-joining the names with the drive's separator turned the levels of an
-  // archive -- spelled with `\` on every platform -- into `/mnt/vol/a.zip/docs`,
-  // a path outside the archive, so clicking that crumb left the archive.
+  // Slicing keeps the spelling the path really has; re-joining the names would
+  // invent one, and a level of a mounted archive is only addressable in the form
+  // its mount gave it.
   const segments: { name: string; end: number }[] = [];
   const segmentPattern = /[^\\/]+/g;
   let segment: RegExpExecArray | null;

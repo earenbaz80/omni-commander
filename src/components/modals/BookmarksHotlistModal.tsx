@@ -6,6 +6,7 @@ import { soundManager } from '../../services/soundEffects';
 import { usePersistedState } from '../../hooks/usePersistedState';
 import type { StoredSpec } from '../../services/storage';
 
+import { baseName } from '../../services/platform';
 import { getTranslations } from '../../i18n/translations';
 import ModalShell from '../ModalShell';
 
@@ -94,7 +95,7 @@ export const BookmarksHotlistModal: React.FC<BookmarksHotlistModalProps> = ({
             {!isAdding ? (
               <button
                 onClick={() => {
-                  setNewTitle(currentPath.split('\\').pop() || currentPath);
+                  setNewTitle(baseName(currentPath) || currentPath);
                   setIsAdding(true);
                 }}
                 className="mt-[var(--space-1)] py-[var(--space-2)] px-[var(--space-3)] bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/40 rounded flex items-center justify-center gap-[var(--space-2)] font-bold transition cursor-pointer"

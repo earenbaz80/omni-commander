@@ -14,7 +14,7 @@ import {
 } from '../types';
 import { tGlobal } from '../i18n/translations';
 import { ARCHIVE_EXTENSIONS } from '../services/archiveBackend';
-import { archiveLevelOf, joinArchivePath } from '../services/archivePath';
+import { archiveLevelOf } from '../services/archivePath';
 import { matchesPanelFilter } from '../utils/panelFilter';
 
 interface PanelDeps {
@@ -564,15 +564,11 @@ export function usePanels(deps: PanelDeps) {
     async (item: FileItem) => {
       try {
         if (item.isDirectory) {
-          // A real folder is joined with the separator of the machine, so a POSIX
-          // listing is not addressed with a Windows backslash. An entry inside an
-          // archive is not a path on disk: the mount spells its levels with `\`
-          // on every platform, and that is the form navigation matches an archive
-          // against, so rewriting it would walk out of the archive.
-          const newPath = item.archiveRoot
-            ? joinArchivePath(item.path, item.name)
-            : fsEngine.childAbsolutePath(item.path, item.name);
-          handleNavigate(activePanel, newPath);
+          // One joiner for both kinds of folder. A level inside a mounted archive
+          // is spelled like the mount that holds it, so the path it hangs from
+          // already carries the right separator and the archive needs no second
+          // rule here; a POSIX listing is never given a Windows backslash either.
+          handleNavigate(activePanel, fsEngine.childAbsolutePath(item.path, item.name));
         } else if (ARCHIVE_EXTENSIONS.includes(item.ext.toUpperCase()) && !item.archiveRoot) {
           let password: string | undefined;
           for (;;) {

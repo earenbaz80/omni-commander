@@ -3,6 +3,7 @@ import { CommandHistoryItem, FileItem, LanguageCode } from '../types';
 import { fsEngine } from '../services/fileSystem';
 import { getTranslations } from '../i18n/translations';
 import { describeElevationFailure } from '../services/elevation';
+import { appendPath } from '../services/platform';
 
 interface CommandExecutionDeps {
   lang: LanguageCode;
@@ -137,7 +138,7 @@ export function useCommandExecution(deps: CommandExecutionDeps) {
               handleGoParent(activePanel);
               output = t.cmdCdUp;
             } else {
-              const target = `${currentActiveTab.currentPath}\\${args}`;
+              const target = appendPath(currentActiveTab.currentPath, args);
               handleNavigate(activePanel, target);
               output = t.cmdCdTo.replace('{path}', target);
             }

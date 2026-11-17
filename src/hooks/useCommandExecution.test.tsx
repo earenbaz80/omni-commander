@@ -77,6 +77,21 @@ describe('useCommandExecution', () => {
     expect(entry.output).not.toContain('omnicmd.exe');
   });
 
+  /** `cd` names a child of the panel's folder, so it is spelled like that folder. */
+  it('joins a cd argument with the separator the panel is using', async () => {
+    const deps = {
+      ...makeDeps(),
+      currentActiveTab: { currentPath: '/mnt/vol/respaldo.zip/docs', driveId: 'real_vol' },
+    };
+    const { result } = renderHook(() => useCommandExecution(deps));
+
+    await result.current.handleExecuteCommand('cd 2026');
+
+    const target = '/mnt/vol/respaldo.zip/docs/2026';
+    expect(deps.handleNavigate).toHaveBeenCalledWith('left', target);
+    expect(pushedEntry(deps).output).toContain(target);
+  });
+
   it('draws the tree the server walked for the active folder', async () => {
     engine.getFolderTree.mockResolvedValueOnce({
       path: 'C:\\temp',

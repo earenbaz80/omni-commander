@@ -14,6 +14,7 @@ import { FileListHeader } from './FileListHeader';
 import { FileListGrid } from './FileListGrid';
 import { FileListRow, type FileListHandlers } from './FileListRow';
 import { getItemTextColor } from './fileListDisplay';
+import { appendPath, isPathAtOrInside } from '../services/platform';
 
 const THUMB_MIN = 48;
 const THUMB_MAX = 192;
@@ -296,8 +297,10 @@ const FileListComponent: React.FC<FileListProps> = ({
     const isMove = e.shiftKey;
     const operation: 'copy' | 'move' = isMove ? 'move' : 'copy';
 
-    // Target folder path
-    const destPath = targetFolder && targetFolder.isDirectory ? `${currentPath}\\${targetFolder.name}` : currentPath;
+    // The destination hangs from the panel's own path, so it is spelled with
+    // that path's separators: `/` on Linux, and the mount's inside an archive.
+    const destPath =
+      targetFolder && targetFolder.isDirectory ? appendPath(currentPath, targetFolder.name) : currentPath;
 
     // 1. Check if internal items dropped
     try {
@@ -308,8 +311,8 @@ const FileListComponent: React.FC<FileListProps> = ({
           // Filter out dropping a folder inside itself or child path
           const validItems = payload.items.filter((item: FileItem) => {
             if (item.isDirectory) {
-              const srcFolderFull = `${item.path}\\${item.name}`;
-              if (destPath === srcFolderFull || destPath.startsWith(`${srcFolderFull}\\`)) {
+              const srcFolderFull = appendPath(item.path, item.name);
+              if (isPathAtOrInside(srcFolderFull, destPath)) {
                 return false;
               }
             }

@@ -101,8 +101,9 @@ export function writeCatalogue(catalogue: StoredCatalogue): boolean {
   // Each key is stamped with the version of the shape it was written in, not with
   // the newest one around: a reader decides how to treat `files` by the number on
   // `files`, and the drives' own bump must not make an unchanged list look stale.
-  const drives = writeStored(DRIVES_KEY, catalogue.drives, DRIVES_SPEC.version ?? 1);
-  const files = writeStored(FILES_KEY, catalogue.files, FILES_SPEC.version ?? 1);
-  const bin = writeStored(BIN_KEY, catalogue.recycleBin, BIN_SPEC.version ?? 1);
+  // `writeStored` stamps 1 when a spec declares no version of its own.
+  const drives = writeStored(DRIVES_KEY, catalogue.drives, DRIVES_SPEC.version);
+  const files = writeStored(FILES_KEY, catalogue.files, FILES_SPEC.version);
+  const bin = writeStored(BIN_KEY, catalogue.recycleBin, BIN_SPEC.version);
   return drives && files && bin;
 }
