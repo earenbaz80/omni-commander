@@ -2,7 +2,8 @@
 // The module writes bytes and gzips them; neither needs a DOM, and jsdom here
 // has no CompressionStream, so TAR.GZ could not be exercised in it.
 import JSZip from 'jszip';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+import { setPlatformInfo, type PlatformInfo } from './platform';
 import type { FileItem } from '../types';
 import {
   createArchiveOps,
@@ -210,6 +211,58 @@ async function extraction(
     });
   return { run, asked, written, catalogue };
 }
+
+describe('fileArchiveOps on a case-sensitive root', () => {
+  const platform = (caseSensitive: boolean, separator: '/' | '\\'): PlatformInfo => ({
+    platform: caseSensitive ? 'linux' : 'win32',
+    caseSensitive,
+    separator,
+    capabilities: { paths: true, volumes: true, cleanup: true, trash: true, openWith: true },
+  });
+
+  afterEach(() => {
+    setPlatformInfo(platform(false, '\\'));
+  });
+
+  it('keeps two archives apart when their names differ only in case', async () => {
+    setPlatformInfo(platform(true, '/'));
+    const bytes = await zipBytes({ 'nota.txt': 'hola' });
+    const { ops } = posixHarness({ readFileBytes: async () => bytes });
+    const source = item({
+      id: 'zip',
+      driveId: 'real_vol',
+      path: '/mnt/vol',
+      fullName: 'demo.zip',
+      name: 'demo',
+      ext: 'zip',
+    });
+
+    await ops.openArchive(source);
+
+    expect(ops.findArchive('real_vol', '/mnt/vol/demo.zip\\carpeta')?.root).toBe('/mnt/vol/demo.zip');
+    // `/mnt/vol/Demo.zip` is another file on this filesystem, not this mount.
+    expect(ops.findArchive('real_vol', '/mnt/vol/Demo.zip')).toBeUndefined();
+    expect(ops.findArchive('real_vol', '/mnt/vol/Demo.zip\\carpeta')).toBeUndefined();
+  });
+
+  it('still folds case on a Windows drive', async () => {
+    setPlatformInfo(platform(false, '\\'));
+    const bytes = await zipBytes({ 'nota.txt': 'hola' });
+    const { ops } = harness({ readFileBytes: async () => bytes });
+    const source = item({
+      id: 'zip',
+      driveId: 'C:',
+      path: 'C:\\vol',
+      fullName: 'demo.zip',
+      name: 'demo',
+      ext: 'zip',
+    });
+
+    await ops.openArchive(source);
+
+    expect(ops.findArchive('C:', 'c:\\vol\\DEMO.zip\\carpeta')?.root).toBe('C:\\vol\\demo.zip');
+  });
+});
 
 describe('fileArchiveOps extraction conflicts', () => {
   const taken = (overrides: Partial<FileItem> = {}) =>
