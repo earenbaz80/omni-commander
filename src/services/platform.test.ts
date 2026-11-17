@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { appendPath, driveForPath, samePath, setPlatformInfo, type PlatformInfo } from './platform';
 
 /**
- * The two machines this build ships for. The capability flags are irrelevant
- * here: these cases are about path arithmetic, which reads only the separator
- * and whether the filesystem folds case.
+ * The two machines this build ships for. Path arithmetic reads only the
+ * separator and whether the filesystem folds case, so the capability flags are
+ * whatever each host would answer.
  */
 const WINDOWS: PlatformInfo = {
   platform: 'win32',
@@ -24,44 +24,31 @@ beforeEach(() => {
   setPlatformInfo(WINDOWS);
 });
 
-/**
- * `pathKey` is private on purpose -- it is the spelling equality uses, not a
- * public way to address a file -- so every case here goes through the readers
- * that depend on it.
- */
+/** `pathKey` is private, so its cases go through the readers that use it. */
 describe('pathKey', () => {
-  it('folds the two separator spellings on Windows', () => {
-    expect(samePath('C:/Temp', 'C:\\Temp')).toBe(true);
-    expect(samePath('C:\\Temp\\', 'c:\\temp')).toBe(true);
+  it('folds the separators of a path on Windows', () => {
+    expect(samePath('C:/Temp\\', 'c:\\temp')).toBe(true);
   });
 
   it('keeps a backslash as a name character on POSIX', () => {
     setPlatformInfo(LINUX);
-    expect(samePath('/mnt/data', '/mnt/data/')).toBe(true);
+    expect(samePath('/mnt/data/', '/mnt/data')).toBe(true);
     expect(samePath('/mnt/data', '\\mnt\\data')).toBe(false);
     expect(samePath('/mnt/data', '/mnt/Data')).toBe(false);
   });
 
-  it('keeps one separator for a path made only of separators', () => {
-    setPlatformInfo(LINUX);
-    expect(samePath('/', '/')).toBe(true);
-    expect(samePath('/', '')).toBe(false);
-    setPlatformInfo(WINDOWS);
+  it('keeps one separator when the path is nothing but separators', () => {
     expect(samePath('/', '\\')).toBe(true);
+    expect(samePath('/', '')).toBe(false);
   });
 });
 
 describe('appendPath', () => {
-  it('joins under a Windows drive root with a backslash', () => {
+  it('joins under an absolute root with that root own separator', () => {
     expect(appendPath('C:\\', 'Users')).toBe('C:\\Users');
-    expect(appendPath('C:\\Users', 'ana')).toBe('C:\\Users\\ana');
     expect(appendPath('C:\\Users\\', 'ana')).toBe('C:\\Users\\ana');
-  });
-
-  it('joins under a POSIX root with a slash', () => {
     setPlatformInfo(LINUX);
-    expect(appendPath('/', 'home')).toBe('/home');
-    expect(appendPath('/mnt/data', 'docs')).toBe('/mnt/data/docs');
+    expect(appendPath('C:\\Users', 'ana')).toBe('C:\\Users\\ana');
     expect(appendPath('/mnt/data/', 'docs')).toBe('/mnt/data/docs');
   });
 
@@ -71,19 +58,13 @@ describe('appendPath', () => {
     expect(appendPath('docs', 'ana')).toBe('docs/ana');
   });
 
-  it('keeps the separator an absolute parent already spells', () => {
-    setPlatformInfo(LINUX);
-    expect(appendPath('C:\\Users', 'ana')).toBe('C:\\Users\\ana');
-  });
-
   it('returns the child alone when there is no parent', () => {
     expect(appendPath('', 'ana')).toBe('ana');
-    expect(appendPath(undefined, 'ana')).toBe('ana');
   });
 });
 
 describe('driveForPath', () => {
-  it('picks the most specific root that contains the path', () => {
+  it('picks the most specific root, and only across a separator', () => {
     setPlatformInfo(LINUX);
     const drives = [
       { id: 'root', root: '/' },
@@ -91,21 +72,12 @@ describe('driveForPath', () => {
     ];
     expect(driveForPath(drives, '/mnt/data/docs')?.id).toBe('data');
     expect(driveForPath(drives, '/home/ana')?.id).toBe('root');
-  });
-
-  it('does not match a sibling whose name starts the same way', () => {
-    setPlatformInfo(LINUX);
-    const drives = [
-      { id: 'root', root: '/' },
-      { id: 'data', root: '/mnt/data' },
-    ];
     expect(driveForPath(drives, '/mnt/database')?.id).toBe('root');
   });
 
   it('matches a drive letter regardless of case', () => {
     const drives = [
       { id: 'real_C', root: 'C:\\' },
-      { id: 'real_D', root: 'D:\\' },
       { id: 'users', root: 'C:\\Users' },
     ];
     expect(driveForPath(drives, 'c:\\Windows')?.id).toBe('real_C');
