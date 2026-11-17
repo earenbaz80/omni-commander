@@ -14,6 +14,7 @@ import {
 } from '../types';
 import { tGlobal } from '../i18n/translations';
 import { ARCHIVE_EXTENSIONS } from '../services/archiveBackend';
+import { archiveLevelOf, joinArchivePath } from '../services/archivePath';
 import { matchesPanelFilter } from '../utils/panelFilter';
 
 interface PanelDeps {
@@ -283,10 +284,13 @@ export function usePanels(deps: PanelDeps) {
       let newArchiveRoot: string | undefined;
       let newVirtualPath: string | undefined;
 
-      if (currentArchiveRoot && newPath.startsWith(currentArchiveRoot + '\\')) {
+      // A level of the archive is spelled like the mount that holds it, so the
+      // branch below is the same containment question as any other folder.
+      const archiveLevel = currentArchiveRoot ? archiveLevelOf(currentArchiveRoot, newPath) : null;
+      if (currentArchiveRoot && archiveLevel !== null) {
         // Staying inside the same archive - update virtual path
         newArchiveRoot = currentArchiveRoot;
-        newVirtualPath = newPath.slice(currentArchiveRoot.length + 1);
+        newVirtualPath = archiveLevel;
       } else if (!currentArchiveRoot) {
         // Check if new path is an archive root (from openArchive)
         const mount = fsEngine.getArchiveSource(activeTab?.driveId || '', newPath);
@@ -566,7 +570,7 @@ export function usePanels(deps: PanelDeps) {
           // on every platform, and that is the form navigation matches an archive
           // against, so rewriting it would walk out of the archive.
           const newPath = item.archiveRoot
-            ? `${item.path.replace(/[\\/]+$/, '')}\\${item.name}`
+            ? joinArchivePath(item.path, item.name)
             : fsEngine.childAbsolutePath(item.path, item.name);
           handleNavigate(activePanel, newPath);
         } else if (ARCHIVE_EXTENSIONS.includes(item.ext.toUpperCase()) && !item.archiveRoot) {

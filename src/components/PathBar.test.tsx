@@ -65,6 +65,17 @@ describe('PathBar breadcrumbs', () => {
     expect(crumbs).toEqual([]);
   });
 
+  it('draws an archive under the mount point that holds it', () => {
+    // The archive's root is a folder of the disk, so it is a crumb like any other;
+    // the levels below it are spelled the same way and stay inside the archive.
+    const { crumbs, onNavigate } = renderBar('/mnt/vol/demo.zip/docs/2026', '/mnt/vol');
+
+    expect(crumbs).toEqual(['demo.zip', 'docs', '2026']);
+
+    fireEvent.click(screen.getByText('docs'));
+    expect(onNavigate).toHaveBeenCalledWith('/mnt/vol/demo.zip/docs');
+  });
+
   it('drops the drive name of a virtual drive too, which is longer than one letter', () => {
     const { text, crumbs } = renderBar('GD:\\proyectos\\2026', 'GD:\\');
 

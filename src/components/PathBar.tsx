@@ -149,13 +149,19 @@ export const PathBar: React.FC<PathBarProps> = ({
   // below the root without a second copy of the root itself.
   const separator = driveRoot.startsWith('/') ? '/' : '\\';
   const rootKey = driveRoot.replace(/[\\/]+$/, '');
-  let relative = currentPath;
-  if (samePath(currentPath, driveRoot)) {
-    relative = '';
-  } else if (isPathAtOrInside(driveRoot, currentPath)) {
-    relative = currentPath.slice(rootKey.length).replace(/^[\\/]+/, '');
+  const atRoot = samePath(currentPath, driveRoot);
+  const insideRoot = !atRoot && isPathAtOrInside(driveRoot, currentPath);
+  const relative = atRoot ? '' : insideRoot ? currentPath.slice(rootKey.length).replace(/^[\\/]+/, '') : currentPath;
+  // Each crumb points at a prefix of the path it came from, separators included.
+  // Re-joining the names with the drive's separator turned the levels of an
+  // archive -- spelled with `\` on every platform -- into `/mnt/vol/a.zip/docs`,
+  // a path outside the archive, so clicking that crumb left the archive.
+  const segments: { name: string; end: number }[] = [];
+  const segmentPattern = /[^\\/]+/g;
+  let segment: RegExpExecArray | null;
+  while (relative && (segment = segmentPattern.exec(relative))) {
+    segments.push({ name: segment[0], end: segment.index + segment[0].length });
   }
-  const segments = relative ? relative.split(/[\\/]+/).filter(Boolean) : [];
   const rootPrefix = driveRoot ? (driveRoot.endsWith(separator) ? driveRoot : `${driveRoot}${separator}`) : '';
 
   return (
@@ -251,10 +257,17 @@ export const PathBar: React.FC<PathBarProps> = ({
               >
                 <span className="font-bold text-amber-300 shrink-0">{rootPrefix}</span>
                 {segments.map((seg, idx) => {
-                  const segPath = segments.slice(0, idx + 1).join(separator);
-                  const fullSegPath = appendPath(driveRoot, segPath);
+                  const fullSegPath = insideRoot
+                    ? `${rootKey}${separator}${relative.slice(0, seg.end)}`
+                    : appendPath(
+                        driveRoot,
+                        segments
+                          .slice(0, idx + 1)
+                          .map((part) => part.name)
+                          .join(separator),
+                      );
                   return (
-                    <React.Fragment key={idx}>
+                    <React.Fragment key={seg.end}>
                       {idx > 0 && <span className="opacity-40 shrink-0">{separator}</span>}
                       <button
                         onClick={(e) => {
@@ -264,7 +277,7 @@ export const PathBar: React.FC<PathBarProps> = ({
                         }}
                         className="hover:underline hover:text-yellow-200 whitespace-nowrap cursor-pointer font-medium shrink-0"
                       >
-                        {seg}
+                        {seg.name}
                       </button>
                     </React.Fragment>
                   );

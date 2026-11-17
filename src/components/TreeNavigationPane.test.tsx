@@ -4,6 +4,7 @@ import { TreeNavigationPane } from './TreeNavigationPane';
 import { themes } from '../services/themeManager';
 import { fsEngine } from '../services/fileSystem';
 import { loadUserFolders } from '../services/userFolders';
+import { joinArchivePath } from '../services/archivePath';
 import { Drive, FileItem } from '../types';
 
 /**
@@ -237,16 +238,16 @@ describe('TreeNavigationPane double click', () => {
 });
 
 describe('virtual archive folders', () => {
-  // A mount stores its entries with the separator of the disk it was opened from
-  // (`/` on Linux), while an archive addresses its levels with `\`. The tree used
-  // to list the archive root and pick folders by equality against a deeper
-  // prefix, so a nested folder never showed up.
+  // A mount's levels are spelled like the mount, so the tree asks for the level it
+  // shows and addresses each folder below it the same way. The tree used to list
+  // the archive root and pick folders by equality against a deeper prefix, so a
+  // nested folder never showed up.
   it.each([
-    ['a POSIX mount', '/mnt/vol/demo.zip', '/mnt/vol/demo.zip/docs'],
-    ['a Windows drive', 'C:\\Carpetas\\demo.zip', 'C:\\Carpetas\\demo.zip\\docs'],
-  ])('lists the folders below the current level on %s', async (_label, archiveRoot, storedLevel) => {
-    const level = `${archiveRoot}\\docs`;
-    listings[level] = [folder('informes', storedLevel, 'real_vol')];
+    ['a POSIX mount', '/mnt/vol/demo.zip'],
+    ['a Windows drive', 'C:\\Carpetas\\demo.zip'],
+  ])('lists the folders below the current level on %s', async (_label, archiveRoot) => {
+    const level = joinArchivePath(archiveRoot, 'docs');
+    listings[level] = [folder('informes', level, 'real_vol')];
     const { onNavigate } = renderPane({
       archiveRoot,
       virtualPath: 'docs',
@@ -256,7 +257,7 @@ describe('virtual archive folders', () => {
 
     fireEvent.click(await screen.findByText('informes'));
 
-    expect(onNavigate).toHaveBeenCalledWith(`${level}\\informes`);
+    expect(onNavigate).toHaveBeenCalledWith(joinArchivePath(level, 'informes'));
   });
 });
 

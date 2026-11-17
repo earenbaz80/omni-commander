@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
-import { samePath } from './platform';
+import { isPathAtOrInside, samePath } from './platform';
+import { archiveLevels, joinArchivePath, parentArchivePath } from './archivePath';
 import { archiveEntryPath, bytesToBase64 } from './zipArchive';
 import { buildTar, gzip } from './tarArchive';
 import {
@@ -149,23 +150,14 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
   /**
    * The mount a path belongs to, if any.
    *
-   * The mount is a path on disk -- `/mnt/vol/demo.zip` on Linux, `C:\demo.zip` on
-   * Windows -- while the levels inside the archive are spelled with `\` on every
-   * platform. Either separator right after the root means the path is inside it,
-   * and the case rule comes from `samePath`: `Demo.zip` and `demo.zip` are one file
-   * on Windows and two different archives on Linux.
+   * A mount and its levels share one spelling (see `archivePath`), so this is the
+   * same containment question as `C:\Users` inside `C:\`: the separator is the
+   * mount's, and the case rule is the platform's -- `Demo.zip` and `demo.zip` are
+   * one file on Windows and two archives on Linux.
    */
   function findArchive(driveId: string, path: string): ArchiveMount | undefined {
     const normalized = deps.normalizePath(path);
-    return [...mounts.values()].find((m) => {
-      if (m.source.driveId !== driveId) return false;
-      const root = m.root.replace(/[\\/]+$/, '');
-      if (!root) return false;
-      if (samePath(root, normalized)) return true;
-      const boundary = normalized.charAt(root.length);
-      if (boundary !== '/' && boundary !== '\\') return false;
-      return samePath(root, normalized.slice(0, root.length));
-    });
+    return [...mounts.values()].find((m) => m.source.driveId === driveId && isPathAtOrInside(m.root, normalized));
   }
 
   function getArchiveSource(driveId: string, path: string): FileItem | undefined {
@@ -369,13 +361,16 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
     const items: FileItem[] = [];
     for (const entry of backend.entries) {
       const relative = archiveEntryPath(entry.name);
-      const fullPath = deps.childAbsolutePath(root, relative);
-      const fullName = relative.split('\\').pop()!;
+      // Two levels here: the entry's own path inside the archive, and the folder
+      // that holds it. Both are spelled like the root, so nothing downstream has
+      // to know that `\` and `/` were ever mixed.
+      const fullPath = joinArchivePath(root, relative);
+      const fullName = archiveLevels(relative).pop()!;
       const dot = entry.dir ? -1 : fullName.lastIndexOf('.');
       items.push({
         id: `archive_${source.driveId}_${fullPath}`,
         driveId: source.driveId,
-        path: deps.getParentPath(fullPath),
+        path: parentArchivePath(root, relative),
         name: dot > 0 ? fullName.slice(0, dot) : fullName,
         ext: dot > 0 ? fullName.slice(dot + 1) : '',
         fullName,
