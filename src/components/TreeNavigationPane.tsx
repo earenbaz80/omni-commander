@@ -19,6 +19,7 @@ import { soundManager } from '../services/soundEffects';
 import { getTranslations, tGlobal, type TranslationKey } from '../i18n/translations';
 import { loadUserFolders, UserFolder, UserFolderKey } from '../services/userFolders';
 import { appendPath, baseName, driveForPath, isPathAtOrInside, samePath } from '../services/platform';
+import { archiveLevels, joinArchivePath } from '../services/archivePath';
 import { log } from '../utils/logger';
 
 /**
@@ -26,14 +27,6 @@ import { log } from '../utils/logger';
  * every render, which restarts the existence check below forever.
  */
 const NO_FOLDERS: string[] = [];
-
-/**
- * An archive addresses its levels with `\` on every platform, while the mount
- * stores its entries with the separator of the disk it was opened from. Folding
- * both spellings is what lets the tree compare a level it built with a path the
- * catalogue holds.
- */
-const archiveLevelKey = (value: string): string => value.replace(/[\\/]+/g, '/').replace(/\/+$/, '');
 
 /** Windows calls these libraries; the tree labels them in the user's language. */
 const LIBRARY_LABEL_KEYS: Record<UserFolderKey, TranslationKey> = {
@@ -388,17 +381,17 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
   // Get virtual archive folders when inside an archive
   //
   // The listing is asked for the level the panel is showing, not for the archive
-  // root: `getFiles` matches the mount's own stored spelling through
-  // `normalizePath`, so the lookup works whether the entries carry `/` or `\`.
-  // Selecting them by equality against a prefix, as this used to, could only ever
-  // find the root level and silently dropped every nested folder.
+  // root: selecting them by equality against a prefix could only ever find the
+  // root level and silently dropped every nested folder. The level and each
+  // folder path are built by `archivePath`, which keeps them spelled like the
+  // mount that holds them.
   const virtualFolders = React.useMemo(() => {
     if (!archiveRoot) return [];
-    const level = (virtualPath ? `${archiveRoot}\\${virtualPath}` : archiveRoot).replace(/[\\/]+$/, '');
+    const level = joinArchivePath(archiveRoot, virtualPath ?? '');
     return fsEngine
       .getFiles(currentDriveId, level)
       .filter((f) => f.isDirectory)
-      .map((f) => ({ ...f, fullPath: `${level}\\${f.name}` }));
+      .map((f) => ({ ...f, fullPath: joinArchivePath(level, f.name) }));
   }, [archiveRoot, virtualPath, currentDriveId]);
 
   return (
@@ -541,14 +534,12 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
                 </span>
               </span>
               {virtualPath && (
-                <span className="text-[9px] opacity-60">
-                  {virtualPath.split(/[\\/]+/).filter(Boolean).length} level(s) deep
-                </span>
+                <span className="text-[9px] opacity-60">{archiveLevels(virtualPath ?? '').length} level(s) deep</span>
               )}
             </div>
             <div className="space-y-0.5 pt-0.5">
               {virtualFolders.map((folder) => {
-                const isActive = archiveLevelKey(currentPath) === archiveLevelKey(folder.fullPath);
+                const isActive = samePath(currentPath, folder.fullPath);
                 return (
                   <button
                     key={folder.id}

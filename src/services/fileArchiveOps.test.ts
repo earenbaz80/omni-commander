@@ -113,10 +113,7 @@ describe('fileArchiveOps', () => {
     expect(remembered).toHaveLength(0);
   });
 
-  it('finds a mounted archive under a POSIX root with either separator', async () => {
-    // Fails if `findArchive` insists on a `\` after the root: the subfolder's
-    // path normalises to `/mnt/vol/demo.zip/carpeta`, which never starts with
-    // `/mnt/vol/demo.zip\`.
+  it('spells a POSIX mount and its two levels with the mount separator', async () => {
     const bytes = await zipBytes({ 'carpeta/dentro.txt': 'hola' });
     const { ops } = posixHarness({ readFileBytes: async () => bytes });
     const source = item({
@@ -131,10 +128,12 @@ describe('fileArchiveOps', () => {
 
     await expect(ops.openArchive(source)).resolves.toBe('/mnt/vol/demo.zip');
 
-    const mount = ops.findArchive('real_vol', '/mnt/vol/demo.zip\\carpeta');
+    const mount = ops.findArchive('real_vol', '/mnt/vol/demo.zip/carpeta');
     expect(mount?.root).toBe('/mnt/vol/demo.zip');
-    expect(mount?.items.map((entry) => entry.fullName)).toContain('dentro.txt');
-    expect(ops.getArchiveSource('real_vol', '/mnt/vol/demo.zip\\carpeta')?.id).toBe('zip');
+    // The entry lives one level down, and that level is spelled like the mount:
+    // no backslash survives into a path the catalogue looks a listing up by.
+    expect(mount?.items.find((entry) => entry.fullName === 'dentro.txt')?.path).toBe('/mnt/vol/demo.zip/carpeta');
+    expect(ops.getArchiveSource('real_vol', '/mnt/vol/demo.zip/carpeta')?.id).toBe('zip');
   });
 
   it('keeps the archive boundary after a POSIX root', async () => {
@@ -239,10 +238,10 @@ describe('fileArchiveOps on a case-sensitive root', () => {
 
     await ops.openArchive(source);
 
-    expect(ops.findArchive('real_vol', '/mnt/vol/demo.zip\\carpeta')?.root).toBe('/mnt/vol/demo.zip');
+    expect(ops.findArchive('real_vol', '/mnt/vol/demo.zip/carpeta')?.root).toBe('/mnt/vol/demo.zip');
     // `/mnt/vol/Demo.zip` is another file on this filesystem, not this mount.
     expect(ops.findArchive('real_vol', '/mnt/vol/Demo.zip')).toBeUndefined();
-    expect(ops.findArchive('real_vol', '/mnt/vol/Demo.zip\\carpeta')).toBeUndefined();
+    expect(ops.findArchive('real_vol', '/mnt/vol/Demo.zip/carpeta')).toBeUndefined();
   });
 
   it('still folds case on a Windows drive', async () => {

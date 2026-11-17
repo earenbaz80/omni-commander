@@ -1,6 +1,7 @@
 import type { Drive, FileItem } from '../types';
 import type { EngineState } from './fileEngineState';
 import { withDriveRoot } from './driveRoots';
+import { samePath } from './platform';
 import { API_BASE } from './apiBase';
 import { fetchWithRetry } from '../utils/fetchWithRetry';
 import { log } from '../utils/logger';
@@ -182,7 +183,9 @@ export function createListingOps(deps: ListingDeps) {
 
   function getFiles(driveId: string, currentPath: string): FileItem[] {
     const mount = findArchive(driveId, currentPath);
-    if (mount) return mount.items.filter((item) => normalizePath(item.path) === normalizePath(currentPath));
+    // A mount's levels are spelled like its root, so the comparison is the same
+    // one any other folder gets: the platform's case rule, one separator.
+    if (mount) return mount.items.filter((item) => samePath(item.path, currentPath));
     if (state.filesIndexVersion !== state.filesVersion) {
       state.filesIndex.clear();
       for (const f of state.files) {
