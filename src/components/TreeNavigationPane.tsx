@@ -27,6 +27,14 @@ import { log } from '../utils/logger';
  */
 const NO_FOLDERS: string[] = [];
 
+/**
+ * An archive addresses its levels with `\` on every platform, while the mount
+ * stores its entries with the separator of the disk it was opened from. Folding
+ * both spellings is what lets the tree compare a level it built with a path the
+ * catalogue holds.
+ */
+const archiveLevelKey = (value: string): string => value.replace(/[\\/]+/g, '/').replace(/\/+$/, '');
+
 /** Windows calls these libraries; the tree labels them in the user's language. */
 const LIBRARY_LABEL_KEYS: Record<UserFolderKey, TranslationKey> = {
   desktop: 'libraryDesktop',
@@ -378,13 +386,19 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
   }, [pinnedFolders, mountedDrives, goneFavorites]);
 
   // Get virtual archive folders when inside an archive
+  //
+  // The listing is asked for the level the panel is showing, not for the archive
+  // root: `getFiles` matches the mount's own stored spelling through
+  // `normalizePath`, so the lookup works whether the entries carry `/` or `\`.
+  // Selecting them by equality against a prefix, as this used to, could only ever
+  // find the root level and silently dropped every nested folder.
   const virtualFolders = React.useMemo(() => {
     if (!archiveRoot) return [];
-    const allItems = fsEngine.getFiles(currentDriveId, archiveRoot);
-    const prefix = virtualPath ? `${archiveRoot}\\${virtualPath}` : archiveRoot;
-    return allItems
-      .filter((f) => f.isDirectory && f.path === prefix)
-      .map((f) => ({ ...f, displayPath: f.path.slice(archiveRoot.length + 1) }));
+    const level = (virtualPath ? `${archiveRoot}\\${virtualPath}` : archiveRoot).replace(/[\\/]+$/, '');
+    return fsEngine
+      .getFiles(currentDriveId, level)
+      .filter((f) => f.isDirectory)
+      .map((f) => ({ ...f, fullPath: `${level}\\${f.name}` }));
   }, [archiveRoot, virtualPath, currentDriveId]);
 
   return (
@@ -527,19 +541,20 @@ export const TreeNavigationPane: React.FC<TreeNavigationPaneProps> = ({
                 </span>
               </span>
               {virtualPath && (
-                <span className="text-[9px] opacity-60">{virtualPath.split('\\').length} level(s) deep</span>
+                <span className="text-[9px] opacity-60">
+                  {virtualPath.split(/[\\/]+/).filter(Boolean).length} level(s) deep
+                </span>
               )}
             </div>
             <div className="space-y-0.5 pt-0.5">
-              {virtualFolders.map((folder, idx) => {
-                const fullPath = `${archiveRoot}\\${folder.displayPath}`;
-                const isActive = currentPath === fullPath;
+              {virtualFolders.map((folder) => {
+                const isActive = archiveLevelKey(currentPath) === archiveLevelKey(folder.fullPath);
                 return (
                   <button
-                    key={idx}
+                    key={folder.id}
                     onClick={() => {
                       soundManager.playDiskAccess();
-                      handleSelectNode(currentDriveId, fullPath);
+                      handleSelectNode(currentDriveId, folder.fullPath);
                     }}
                     className={`w-full text-left px-[var(--space-2)] py-[var(--space-1)] rounded flex items-center gap-[var(--space-2)] cursor-pointer transition-colors text-[11px] truncate ${
                       isActive ? 'font-extrabold shadow' : 'hover:bg-white/10 text-white/90'

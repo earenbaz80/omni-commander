@@ -236,6 +236,30 @@ describe('TreeNavigationPane double click', () => {
   });
 });
 
+describe('virtual archive folders', () => {
+  // A mount stores its entries with the separator of the disk it was opened from
+  // (`/` on Linux), while an archive addresses its levels with `\`. The tree used
+  // to list the archive root and pick folders by equality against a deeper
+  // prefix, so a nested folder never showed up.
+  it.each([
+    ['a POSIX mount', '/mnt/vol/demo.zip', '/mnt/vol/demo.zip/docs'],
+    ['a Windows drive', 'C:\\Carpetas\\demo.zip', 'C:\\Carpetas\\demo.zip\\docs'],
+  ])('lists the folders below the current level on %s', async (_label, archiveRoot, storedLevel) => {
+    const level = `${archiveRoot}\\docs`;
+    listings[level] = [folder('informes', storedLevel, 'real_vol')];
+    const { onNavigate } = renderPane({
+      archiveRoot,
+      virtualPath: 'docs',
+      currentDriveId: 'real_vol',
+      currentPath: level,
+    });
+
+    fireEvent.click(await screen.findByText('informes'));
+
+    expect(onNavigate).toHaveBeenCalledWith(`${level}\\informes`);
+  });
+});
+
 describe('network drives', () => {
   // A mapped share keeps its letter when its server is unreachable, and the tree
   // used to drop it there: the drive vanished and came back on its own later.
