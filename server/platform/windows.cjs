@@ -13,12 +13,13 @@ const os = require('node:os');
 const path = require('node:path');
 const { promisify } = require('node:util');
 
-const { assertSafePath } = require('../pathSafety.cjs');
+const { createPathPolicy } = require('../pathSafety.cjs');
 const { createAppPaths } = require('./appPaths.cjs');
 const { CONTRACT_VERSION, capabilitiesOf, definePlatform } = require('./contract.cjs');
 const { createWindowsVolumes } = require('./windowsVolumes.cjs');
 
 const WIN32 = path.win32;
+const WIN32_PATH_POLICY = createPathPolicy('win32');
 const PROGRAM_EXTENSIONS = new Set(['.exe', '.com']);
 
 /**
@@ -81,7 +82,7 @@ if ($result.Count -eq 0) { Write-Output '[]' } else { Write-Output (ConvertTo-Js
 
 function createWindowsPlatform(options = {}) {
   const env = options.env || process.env;
-  const normalizePath = options.normalizePath || assertSafePath;
+  const normalizePath = options.normalizePath || WIN32_PATH_POLICY.assertSafePath;
   const execFileAsync = options.execFileAsync || promisify(execFile);
   const spawnProcess = options.spawnProcess || spawn;
   const tempOverride = String(env.OMNI_CLEANUP_USER_TEMP_ROOT || '').trim();

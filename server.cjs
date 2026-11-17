@@ -13,7 +13,7 @@ const { Worker } = require('node:worker_threads');
 // Two responsibilities already live on their own so they can be tested without
 // booting the server: path validation, which every route goes through, and the
 // CPU/RAM reading behind the info drawer.
-const { assertSafePath } = require('./server/pathSafety.cjs');
+const { createPathPolicy } = require('./server/pathSafety.cjs');
 const { readSystemStats, readElevation } = require('./server/systemLoad.cjs');
 const { registerJobRoutes } = require('./server/routes/jobs.cjs');
 const { registerTransferRoutes } = require('./server/routes/transfers.cjs');
@@ -264,6 +264,8 @@ const WMI_TIMEOUT_MS = 300000; // hard ceiling for the slow os/WMI fallback
 // declared, so volume enrichment gets the same budget and diagnostic channel
 // the catalog used to hand it.
 const platform = createPlatform(process.platform, { logDebug, powershellTimeoutMs: POWERSHELL_TIMEOUT_MS });
+const pathPolicy = createPathPolicy(platform);
+const { assertSafePath, isDriveRoot, samePath } = pathPolicy;
 
 // The preferred port is only a preference. Another application frequently holds
 // it (this machine has seen 3001 taken by unrelated software), and a hard
@@ -449,6 +451,7 @@ const {
   runTransferJob,
 } = createFileOps({
   platform,
+  pathPolicy,
   noteFile,
   waitWhilePaused,
   sleep,
@@ -466,6 +469,7 @@ const {
 const catalog = createCatalog({
   app,
   platform,
+  pathPolicy,
   readSystemStats,
   readElevation,
   readUserLibraries,
@@ -528,6 +532,8 @@ function registerFsRoutes() {
   registerTransferRoutes(app, {
     fs,
     assertSafePath,
+    isDriveRoot,
+    samePath,
     makeJob,
     startJob,
     waitWhilePaused,

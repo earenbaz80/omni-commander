@@ -6,13 +6,14 @@
  * scan. What moved is the HTTP surface: same paths, same methods, same answers,
  * which is why the suites that boot the real server did not have to change.
  */
-const { isDriveRoot } = require('../pathSafety.cjs');
 const { appendLog } = require('../scratch.cjs');
 
 function registerTransferRoutes(app, deps) {
   const {
     fs,
     assertSafePath,
+    isDriveRoot,
+    samePath,
     makeJob,
     startJob,
     waitWhilePaused,
@@ -60,7 +61,7 @@ function registerTransferRoutes(app, deps) {
         throw new Error(`Target is not a directory: ${targetDir} (received "${body.targetDir}")`);
       }
       for (const src of sources) {
-        if (src.toUpperCase() === targetDir.toUpperCase()) {
+        if (samePath(src, targetDir)) {
           throw new Error(`Source and target are the same: ${src}`);
         }
       }

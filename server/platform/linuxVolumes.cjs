@@ -105,8 +105,11 @@ function createLinuxVolumes(options = {}) {
           // Encode the mount point rather than stripping punctuation: `/mnt/a-b`
           // and `/mnt/ab` must not share an id, or one mount becomes unreachable.
           id: mountPoint === '/' ? 'real_root' : `real_mount_${encodeURIComponent(mountPoint)}`,
-          // `letter` is the existing Drive field. On Linux it carries the mount
-          // point so the current API keeps one shape until the path layer moves.
+          // A mount point is the POSIX equivalent of `C:\`: it is the explicit
+          // root every path on this drive is built from.
+          root: mountPoint,
+          // Kept as the display label the drive bar expects. It is not used to
+          // compose a path.
           letter: mountPoint,
           name,
           type: mapped.type,

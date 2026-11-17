@@ -14,10 +14,22 @@ const { createPlatform } = require('./platform/index.cjs');
 const { requireCapability } = require('./platform/contract.cjs');
 
 function createCatalog(deps = {}) {
-  const { app, platform = createPlatform(), readSystemStats, readElevation, readUserLibraries, fs: fsApi = fs } = deps;
+  const {
+    app,
+    platform = createPlatform(),
+    pathPolicy,
+    readSystemStats,
+    readElevation,
+    readUserLibraries,
+    fs: fsApi = fs,
+  } = deps;
   const volumes = requireCapability(platform, 'volumes');
   const pathApi = requireCapability(platform, 'paths').pathApi;
   const windowsPaths = platform.id === 'win32';
+  // The policy is the same object the routes use for path equality. A caller
+  // that only builds a catalog in a test may omit it; the platform id is then
+  // the fallback, never the Windows constant.
+  const caseSensitive = pathPolicy ? pathPolicy.caseSensitive === true : platform.id !== 'win32';
 
   async function getRealDrives() {
     try {
@@ -179,6 +191,19 @@ function createCatalog(deps = {}) {
     }
     return { path: safePath, items };
   }
+
+  // What the renderer may assume about paths. Capabilities are sent as an
+  // explicit boolean map so a Linux build names the features it still lacks
+  // instead of letting the UI discover them through a failed call.
+  app.get('/api/platform', (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json({
+      platform: platform.id,
+      caseSensitive,
+      separator: pathApi.sep,
+      capabilities: { ...platform.capabilities },
+    });
+  });
 
   app.get('/api/drives', async (_req, res) => {
     try {

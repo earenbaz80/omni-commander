@@ -78,7 +78,7 @@ function createJobEngine(deps = {}) {
   function noteFile(job, filePath, size) {
     const entry = {
       path: filePath,
-      name: path.win32.basename(filePath),
+      name: path.basename(filePath),
       size: Number(size) || 0,
       copied: 0,
       status: 'copying',
