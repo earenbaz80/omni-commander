@@ -70,7 +70,12 @@ function fallbackPlatform(): PlatformInfo {
 let current = fallbackPlatform();
 let pending: Promise<PlatformInfo> | null = null;
 
-/** Applies an answer from the server, or a bootstrap value, to every consumer. */
+/**
+ * Applies an answer from the server, or a bootstrap value, to every consumer.
+ *
+ * This is the only way the answer is installed: the loader below goes through it,
+ * so there is one place that decides what the module currently believes.
+ */
 export function setPlatformInfo(info: PlatformInfo): PlatformInfo {
   current = info;
   return current;
@@ -119,8 +124,7 @@ export function loadPlatformInfo(options: { signal?: AbortSignal } = {}): Promis
       });
       if (!response.ok) return current;
       const parsed = parsePlatformInfo(await response.json());
-      if (parsed) current = parsed;
-      return current;
+      return parsed ? setPlatformInfo(parsed) : current;
     } catch {
       return current;
     } finally {
