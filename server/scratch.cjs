@@ -19,52 +19,17 @@
  */
 
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 
-const APP_DIR_NAME = 'omnicommander-pro';
+const { requireCapability } = require('./platform/contract.cjs');
+const { createPlatform } = require('./platform/index.cjs');
 
 /**
- * The folder the app keeps its data in, resolved without Electron to ask. It
- * matches what `app.getPath('userData')` returns, so a bare server run and the
- * packaged app write to the same place instead of two.
+ * The data roots are a platform capability. The overrides remain inside the
+ * shared path builder, which reads them on every call: the log and map tests
+ * point them at a scratch folder after this module is imported.
  */
-function appDataDir() {
-  const explicit = String(process.env.OMNI_DATA_DIR || '').trim();
-  if (explicit) return explicit;
-  if (process.platform === 'win32') {
-    const roaming = String(process.env.APPDATA || '').trim();
-    if (roaming) return path.join(roaming, APP_DIR_NAME);
-  }
-  if (process.platform === 'darwin') {
-    return path.join(os.homedir(), 'Library', 'Application Support', APP_DIR_NAME);
-  }
-  return path.join(
-    String(process.env.XDG_CONFIG_HOME || '').trim() || path.join(os.homedir(), '.config'),
-    APP_DIR_NAME,
-  );
-}
-
-/** The throwaway folder: helper scripts only, safe to lose at any moment. */
-function scratchDir() {
-  const explicit = String(process.env.OMNI_SCRATCH_DIR || '').trim();
-  return explicit || path.join(appDataDir(), 'tmp');
-}
-
-/**
- * The offline map cache. Not a scratch file: an area saved before a flight has
- * to survive a restart, so it is pruned by budget rather than emptied on exit.
- */
-function mapTilesDir() {
-  const explicit = String(process.env.OMNI_MAP_CACHE_DIR || '').trim();
-  return explicit || path.join(appDataDir(), 'map-tiles');
-}
-
-/** The diagnostic logs, beside the data they describe. */
-function logsDir() {
-  const explicit = String(process.env.OMNI_LOG_DIR || '').trim();
-  return explicit || path.join(appDataDir(), 'logs');
-}
+const { appDataDir, scratchDir, mapTilesDir, logsDir } = requireCapability(createPlatform(), 'paths');
 
 const written = new Set();
 

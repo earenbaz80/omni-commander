@@ -51,6 +51,16 @@ describe('FileSystemEngine defaults', () => {
     expect(fsEngine.getFiles('', '')).toEqual([]);
   });
 
+  it('keeps POSIX roots and separators for a Linux panel', () => {
+    expect(fsEngine.normalizePath('/home/ana/')).toBe('/home/ana');
+    expect(fsEngine.getParentPath('/home/ana')).toBe('/home');
+    expect(fsEngine.getParentPath('/home')).toBe('/');
+    expect(fsEngine.getParentPath('/')).toBe('');
+    expect(fsEngine.childAbsolutePath('/', 'home')).toBe('/home');
+    expect(fsEngine.childAbsolutePath('/home', 'ana')).toBe('/home/ana');
+    expect(fsEngine.absoluteForDrive('real_root', '/home/ana')).toBe('/home/ana');
+  });
+
   it('getFiles indexes by drive + path and reflects mutations', () => {
     fsEngine.resetToDefaults();
     fsEngine.setDrives([

@@ -1,0 +1,82 @@
+name: Linux portability preflight
+
+# Manual or Linux-port branch only. This workflow is intentionally not a gate
+# for master while the platform adapters do not exist yet.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - linux-port
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Static checks and build on Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --engine-strict
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Check documentation links
+        run: npm run check:links
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Lint renderer
+        run: npm run lint:eslint
+
+      - name: Type check
+        run: npm run typecheck:strict
+
+      - name: Build renderer
+        run: npm run build
+
+      - name: Build Electron bundles
+        run: npm run build:electron
+
+      # This is a test artifact, not a release. The workflow does not run on tags
+      # and electron-builder is told never to publish, so the AppImage is only
+      # available from the run's artifacts. A Linux tester can still download
+      # and launch it to exercise the port.
+      - name: Package the Linux AppImage
+        run: npx electron-builder --linux AppImage --publish never
+
+      - name: Check the AppImage was produced
+        shell: bash
+        run: |
+          set -euo pipefail
+          appimage=$(find release -maxdepth 1 -type f -name '*.AppImage' -print -quit)
+          if [ -z "$appimage" ]; then
+            echo "::error::electron-builder produced no AppImage"
+            exit 1
+          fi
+          file "$appimage"
+          ls -lh release/*.AppImage
+
+      - name: Upload the AppImage test artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: omnicommander-pro-linux-appimage
+          path: release/*.AppImage
+          if-no-files-found: error
+          retention-days: 7
+
+      # Unit tests and e2e are intentionally omitted for now. The current suite
+      # assumes Windows drives, shells and shortcuts; add Linux tests together
+      # with the platform adapters, then make this workflow required.

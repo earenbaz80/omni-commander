@@ -13,7 +13,7 @@ const { Worker } = require('node:worker_threads');
 // Two responsibilities already live on their own so they can be tested without
 // booting the server: path validation, which every route goes through, and the
 // CPU/RAM reading behind the info drawer.
-const { isAbsoluteLocalPath, assertSafePath } = require('./server/pathSafety.cjs');
+const { assertSafePath } = require('./server/pathSafety.cjs');
 const { readSystemStats, readElevation } = require('./server/systemLoad.cjs');
 const { registerJobRoutes } = require('./server/routes/jobs.cjs');
 const { registerTransferRoutes } = require('./server/routes/transfers.cjs');
@@ -24,6 +24,7 @@ const { registerSpaceRoutes } = require('./server/routes/space.cjs');
 const { dashboardHtml } = require('./server/dashboard.cjs');
 const { createJobEngine } = require('./server/jobEngine.cjs');
 const { createFileOps } = require('./server/fileOps.cjs');
+const { createPlatform } = require('./server/platform/index.cjs');
 const { appendLog } = require('./server/scratch.cjs');
 const { registerMapRoutes } = require('./server/routes/maps.cjs');
 const { registerOpenWithRoutes } = require('./server/openWith.cjs');
@@ -259,6 +260,11 @@ const JOB_TICK_MS = 120; // pause / cancel polling granularity
 const POWERSHELL_TIMEOUT_MS = 60000; // normal ceiling for one PowerShell query
 const WMI_TIMEOUT_MS = 300000; // hard ceiling for the slow os/WMI fallback
 
+// The adapter is built after the timeout constants, and after the debug log is
+// declared, so volume enrichment gets the same budget and diagnostic channel
+// the catalog used to hand it.
+const platform = createPlatform(process.platform, { logDebug, powershellTimeoutMs: POWERSHELL_TIMEOUT_MS });
+
 // The preferred port is only a preference. Another application frequently holds
 // it (this machine has seen 3001 taken by unrelated software), and a hard
 // EADDRINUSE crash would take the whole Electron main process down with it, so
@@ -382,7 +388,11 @@ registerMapRoutes(app, { SESSION_TOKEN, parseByteRange, MEDIA_TYPES, assertSafeP
 
 // "Open with" enumerates registered programs through PowerShell and then
 // launches one of them, so it owns its own module and its own quoting rules.
-registerOpenWithRoutes(app, { assertSafePath, isAbsoluteLocalPath, logDebug });
+// A platform that has no chooser does not register the routes at all; this keeps
+// the Linux server bootable while that capability is still a named gap.
+if (platform.capabilities.openWith) {
+  registerOpenWithRoutes(app, { platform, assertSafePath, logDebug });
+}
 
 const { once } = require('events');
 
@@ -438,6 +448,7 @@ const {
   startJob,
   runTransferJob,
 } = createFileOps({
+  platform,
   noteFile,
   waitWhilePaused,
   sleep,
@@ -454,12 +465,10 @@ const {
 // user-folder resolution it serves is theirs.
 const catalog = createCatalog({
   app,
-  assertSafePath,
+  platform,
   readSystemStats,
   readElevation,
   readUserLibraries,
-  logDebug,
-  powershellTimeoutMs: POWERSHELL_TIMEOUT_MS,
 });
 const { clearListCache, listDirectory } = catalog;
 

@@ -236,6 +236,13 @@ export function createListingOps(deps: ListingDeps) {
 
   function normalizePath(path: string): string {
     if (!path) return '';
+    // A POSIX path keeps its separator. Windows panels never start with `/`
+    // (their roots are drive letters), so this branch cannot affect them.
+    if (path.startsWith('/')) {
+      let p = path.replace(/\/+/g, '/').trim();
+      p = p.replace(/\/+$/, '');
+      return p || '/';
+    }
     let p = path.replace(/\//g, '\\').trim();
     // Normalize drive root to always have a trailing backslash: "C:" -> "C:\"
     if (/^[A-Z]:$/i.test(p)) p += '\\';
@@ -248,6 +255,11 @@ export function createListingOps(deps: ListingDeps) {
 
   function getParentPath(path: string): string {
     const norm = normalizePath(path);
+    if (norm.startsWith('/')) {
+      if (norm === '/') return '';
+      const slash = norm.lastIndexOf('/');
+      return slash <= 0 ? '/' : norm.slice(0, slash);
+    }
     // Drive root (e.g. "C:\") — cannot navigate above it.
     if (/^[A-Z]:\\$/i.test(norm)) return '';
     const lastSlash = norm.lastIndexOf('\\');
@@ -301,13 +313,17 @@ export function createListingOps(deps: ListingDeps) {
   function realAbsolutePath(file: FileItem): string {
     const parent = absoluteForDrive(file.driveId, file.path);
     const trimmed = parent.endsWith('\\') ? parent.slice(0, -1) : parent;
-    return `${trimmed}\\${realEntryName(file)}`;
+    const separator = trimmed.startsWith('/') ? '/' : '\\';
+    const base = separator === '/' && trimmed === '/' ? '' : trimmed;
+    return `${base}${separator}${realEntryName(file)}`;
   }
 
   function childAbsolutePath(parentPath: string, childName: string): string {
     const parent = normalizePath(parentPath);
     const trimmed = parent.endsWith('\\') ? parent.slice(0, -1) : parent;
-    return `${trimmed}\\${childName}`;
+    const separator = trimmed.startsWith('/') ? '/' : '\\';
+    const base = separator === '/' && trimmed === '/' ? '' : trimmed;
+    return `${base}${separator}${childName}`;
   }
 
   return {
