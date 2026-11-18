@@ -4,6 +4,7 @@ import { DiskUsageScan, DiskUsageTopFile, Drive, FileItem, LanguageCode } from '
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { fsEngine } from '../../services/fileSystem';
+import { appendPath } from '../../services/platform';
 
 import ModalShell from '../ModalShell';
 import { DiskUsageTree } from '../DiskUsageTree';
@@ -115,7 +116,7 @@ export const DiskUsageModal: React.FC<DiskUsageModalProps> = ({ theme, lang, dri
                 </thead>
                 <tbody>
                   {topFiles.map((file, idx) => (
-                    <tr key={`${file.path}\\${file.fullName}`} className="border-b border-white/5 hover:bg-white/5">
+                    <tr key={appendPath(file.path, file.fullName)} className="border-b border-white/5 hover:bg-white/5">
                       <td className="p-[var(--space-2)] font-bold truncate text-white flex items-center gap-[var(--space-2)]">
                         <span className="text-[var(--fs-8)] opacity-40 tabular-nums">#{idx + 1}</span>
                         <span className="truncate">{file.fullName}</span>
