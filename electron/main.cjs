@@ -21,7 +21,7 @@ const { isAllowedNavigationUrl } = require('./navigationGuard.cjs');
 const { isAllowedExternalTarget } = require('./externalLinks.cjs');
 const { denyAllPermissions } = require('./permissions.cjs');
 const { normalizeChannel, readUpdateChannel } = require('./updateChannel.cjs');
-const { nextStateForOffer } = require('./updateOffer.cjs');
+const { nextStateForEvent } = require('./updateOffer.cjs');
 const { canReloadRenderer, rendererGoneLine } = require('./rendererRecovery.cjs');
 const { isTransientUpdateError, nextRetryDelay } = require('./updateRetry.cjs');
 const { normalizeBrowserUrl } = require('./browserUrl.cjs');
@@ -264,22 +264,23 @@ function setupUpdater() {
   updater = autoUpdater;
   applyUpdateChannel();
 
-  autoUpdater.on('checking-for-update', () => setUpdateState({ status: 'checking', error: null }));
+  // Every event that moves the state goes through one reducer: a check starts
+  // and answers on its own schedule, sometimes after a download finished, and
+  // the decision to keep that restart has to survive the check announcing
+  // itself as well as its answer.
+  autoUpdater.on('checking-for-update', () => setUpdateState(nextStateForEvent(updateState, 'checking-for-update')));
   // A check that got as far as an answer ends the retry ladder.
   autoUpdater.on('update-available', () => resetUpdateRetry());
   autoUpdater.on('update-not-available', () => resetUpdateRetry());
-  // A check can land on a version whose installer is already downloaded — the
-  // timer eight seconds after launch, the one every six hours, or the button.
-  // The decision keeps that restart instead of asking for the file again.
-  autoUpdater.on('update-available', (info) => setUpdateState(nextStateForOffer(updateState, info)));
-  autoUpdater.on('update-not-available', () =>
-    setUpdateState({ status: 'up-to-date', version: null, percent: 0, error: null }),
+  autoUpdater.on('update-available', (info) =>
+    setUpdateState(nextStateForEvent(updateState, 'update-available', info)),
   );
+  autoUpdater.on('update-not-available', () => setUpdateState(nextStateForEvent(updateState, 'update-not-available')));
   autoUpdater.on('download-progress', (progress) =>
-    setUpdateState({ status: 'downloading', percent: Math.min(100, Math.max(0, Math.round(progress?.percent ?? 0))) }),
+    setUpdateState(nextStateForEvent(updateState, 'download-progress', progress)),
   );
   autoUpdater.on('update-downloaded', (info) =>
-    setUpdateState({ status: 'downloaded', version: info?.version ?? updateState.version, percent: 100, error: null }),
+    setUpdateState(nextStateForEvent(updateState, 'update-downloaded', info)),
   );
   autoUpdater.on('error', reportUpdateError);
 
