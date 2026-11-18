@@ -105,21 +105,30 @@ export const AboutModal: React.FC<AboutModalProps> = ({ theme, lang, authorName,
           {/* Without an updater (web build, development, portable package) there
               is nothing to check, so the row is absent rather than dead. */}
           {update.enabled && (
-            <div className="flex items-center justify-between gap-[var(--space-2)]">
-              <span className="flex items-center gap-[var(--space-2)] opacity-70">
-                <RefreshCw className="w-3.5 h-3.5 text-sky-400" /> {t.updateCheck}
-              </span>
-              <span className="flex items-center gap-[var(--space-2)]">
-                <span className="text-slate-300">{updateStatusText}</span>
-                <button
-                  onClick={updateAction.run}
-                  disabled={update.status === 'checking' || update.status === 'downloading'}
-                  className="px-[var(--space-2)] py-[var(--space-1)] text-[10px] font-bold rounded border border-sky-400/40 bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 cursor-pointer disabled:opacity-50 disabled:cursor-default"
-                >
-                  {updateAction.label}
-                </button>
-              </span>
-            </div>
+            <>
+              <div className="flex items-center justify-between gap-[var(--space-2)]">
+                <span className="flex items-center gap-[var(--space-2)] opacity-70">
+                  <RefreshCw className="w-3.5 h-3.5 text-sky-400" /> {t.updateCheck}
+                </span>
+                <span className="flex flex-wrap items-center justify-end gap-[var(--space-2)]">
+                  <span className="text-slate-300">{updateStatusText}</span>
+                  {/* A finished download outlives the check that failed after it,
+                      so the reason sits beside the state it did not change. */}
+                  {update.error && update.status !== 'error' && (
+                    <span className="text-[var(--fs-8)] nc-danger-ink" title={update.error}>
+                      {t.updateFailed}: {update.error}
+                    </span>
+                  )}
+                  <button
+                    onClick={updateAction.run}
+                    disabled={update.status === 'checking' || update.status === 'downloading'}
+                    className="px-[var(--space-2)] py-[var(--space-1)] text-[10px] font-bold rounded border border-sky-400/40 bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 cursor-pointer disabled:opacity-50 disabled:cursor-default"
+                  >
+                    {updateAction.label}
+                  </button>
+                </span>
+              </div>
+            </>
           )}
         </div>
 

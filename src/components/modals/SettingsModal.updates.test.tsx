@@ -113,6 +113,16 @@ describe('updates card actions', () => {
     expect(screen.queryByRole('button', { name: t.updateInstall })).toBeNull();
   });
 
+  it('keeps the restart and says why the check after it failed', async () => {
+    openUpdatesTab(snapshot({ status: 'downloaded', version: '9.9.9', error: 'net::ERR_INTERNET_DISCONNECTED' }));
+
+    // A check that fails while the installer waits leaves the restart in place;
+    // dropping its reason would make the card look like nothing went wrong.
+    expect(await screen.findByText(t.updateReadyToInstall)).toBeTruthy();
+    expect(await screen.findByText(/net::ERR_INTERNET_DISCONNECTED/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: t.updateInstall })).toBeTruthy();
+  });
+
   it('installs a download that already finished, from the same card', async () => {
     const { installUpdate } = openUpdatesTab(snapshot({ status: 'downloaded', version: '9.9.9' }));
 
