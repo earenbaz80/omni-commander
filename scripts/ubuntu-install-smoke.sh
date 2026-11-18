@@ -55,16 +55,21 @@ if [ -n "$launcher" ]; then
 else
   program=$(dpkg -L "$package_name" | while IFS= read -r candidate; do
     case "$candidate" in
-      /opt/*)
-        case "$(basename "$candidate")" in
-          chrome*) continue ;;
-        esac
-        if [ -f "$candidate" ] && [ -x "$candidate" ]; then
-          printf '%s\n' "$candidate"
-          break
-        fi
-        ;;
+      /opt/*) ;;
+      *) continue ;;
     esac
+    # The app is the one executable there whose name carries no suffix. What
+    # else is executable beside it is Chromium's: `chrome-sandbox` and
+    # `chrome_crashpad_handler` stop at every switch, and `libEGL.so` or
+    # `libvulkan.so.1` are libraries with the executable bit set, which is a
+    # core dump instead of a window.
+    case "$(basename "$candidate")" in
+      *.* | chrome*) continue ;;
+    esac
+    if [ -f "$candidate" ] && [ -x "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      break
+    fi
   done)
 fi
 if [ -z "$program" ]; then
@@ -80,7 +85,14 @@ case "$program" in
     ;;
 esac
 echo "installed $package_name, program at $program"
-file "$program" || true
+
+# The menu entry has to name the program that was installed, or a desktop user
+# gets an icon that does nothing.
+desktop_file=$(dpkg -L "$package_name" | grep -E '^/usr/share/applications/.*\.desktop$' | head -n 1 || true)
+if [ -n "$desktop_file" ] && ! grep -q "$(basename "$program")" "$desktop_file"; then
+  echo "::error::the desktop entry does not name the installed program: $(grep -E '^Exec=' "$desktop_file" | tr '\n' ' ')"
+  exit 1
+fi
 
 # `--version` starts the same binary without a window: when the boot below dies
 # with nothing in its log, this says whether the program itself runs at all.
