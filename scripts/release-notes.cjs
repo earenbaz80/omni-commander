@@ -62,20 +62,29 @@ function typeOf(subject) {
 }
 
 /**
- * The one line that replaces the section heading, e.g.
- * `13 commits: 7 docs, 3 test, 3 refactor`. Counts come from the subjects, so a
- * reader knows what is folded away without opening it.
+ * `2 docs, 1 refactor, 1 test`: what the commits are, most frequent first. Both
+ * the folded summary and the visible line of a release with nothing else are
+ * built from this, so the two never disagree.
  */
-function summaryOf(commits) {
+function countsOf(commits) {
   const counts = new Map();
   for (const commit of commits) {
     const type = typeOf(commit.subject);
     counts.set(type, (counts.get(type) ?? 0) + 1);
   }
-  const parts = [...counts.entries()]
+  return [...counts.entries()]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .map(([type, count]) => `${count} ${type}`);
-  return `${commits.length} commit${commits.length === 1 ? '' : 's'}: ${parts.join(', ')}`;
+    .map(([type, count]) => `${count} ${type}`)
+    .join(', ');
+}
+
+/**
+ * The one line that replaces the section heading, e.g.
+ * `13 commits: 7 docs, 3 test, 3 refactor`. Counts come from the subjects, so a
+ * reader knows what is folded away without opening it.
+ */
+function summaryOf(commits) {
+  return `${commits.length} commit${commits.length === 1 ? '' : 's'}: ${countsOf(commits)}`;
 }
 
 /** Groups commits into the sections of the body, in a fixed order, without empties. */
@@ -109,6 +118,20 @@ function buildNotes({ tag, previousTag = null, commits = [], repository = null }
 
   const base = repository ? `https://github.com/${repository}` : null;
   const lines = [previousTag ? `Cambios desde \`${previousTag}\` hasta \`${tag}\`.` : `Primer release, \`${tag}\`.`];
+
+  // A release whose commits are all maintenance — a beta cut to exercise the
+  // pipeline, or a patch of tooling — would otherwise render as nothing but a
+  // collapsed block and a comparison link, which reads as an empty body. The
+  // line says what is inside without opening anything, and every commit stays
+  // in the block below it.
+  if (groups.every((group) => group.title === COLLAPSED_TITLE)) {
+    const total = groups.reduce((sum, group) => sum + group.commits.length, 0);
+    lines.push(
+      '',
+      `Sin cambios de producto: ${total} commit${total === 1 ? '' : 's'} de mantenimiento (${countsOf(groups[0].commits)}).`,
+    );
+  }
+
   for (const group of groups) {
     const entries = group.commits.map((commit) => {
       const short = commit.sha.slice(0, 7);
@@ -196,4 +219,4 @@ function main(argv) {
 
 if (require.main === module) process.exitCode = main(process.argv.slice(2));
 
-module.exports = { SECTIONS, parseCommits, groupCommits, buildNotes, previousTagOf, notesForTag, summaryOf };
+module.exports = { SECTIONS, parseCommits, groupCommits, buildNotes, previousTagOf, notesForTag, summaryOf, countsOf };

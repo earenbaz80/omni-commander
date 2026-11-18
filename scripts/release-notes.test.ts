@@ -5,7 +5,7 @@ import { createRequire } from 'node:module';
 // The generator is CommonJS so the workflow can run it with plain `node`, which
 // is also the shape the publishing step invokes.
 const loadCjs = createRequire(import.meta.url);
-const { buildNotes, groupCommits, parseCommits, summaryOf } = loadCjs('./release-notes.cjs') as {
+const { buildNotes, groupCommits, parseCommits, summaryOf, countsOf } = loadCjs('./release-notes.cjs') as {
   buildNotes: (input: {
     tag: string;
     previousTag?: string | null;
@@ -13,6 +13,7 @@ const { buildNotes, groupCommits, parseCommits, summaryOf } = loadCjs('./release
     repository?: string | null;
   }) => string;
   summaryOf: (commits: Commit[]) => string;
+  countsOf: (commits: Commit[]) => string;
   groupCommits: (commits: Commit[]) => Array<{ title: string; commits: Commit[] }>;
   parseCommits: (output: string) => Commit[];
 };
@@ -70,6 +71,19 @@ describe('groupCommits', () => {
     expect(groupCommits([commit('perf(panel): skip the second pass')]).map((group) => group.title)).toEqual([
       'Rendimiento',
     ]);
+  });
+});
+
+describe('countsOf', () => {
+  it('counts by type, most frequent first, then alphabetically', () => {
+    expect(
+      countsOf([
+        commit('docs(release): a'),
+        commit('docs(release): b'),
+        commit('test(catalog): c'),
+        commit('An unconventional subject'),
+      ]),
+    ).toBe('2 docs, 1 otros, 1 test');
   });
 });
 
@@ -148,6 +162,40 @@ describe('buildNotes', () => {
     expect(notes).toContain('### Nuevas funciones');
     expect(notes).toContain('### Correcciones');
     expect(notes).not.toContain('<details>');
+  });
+
+  it('states in one visible line what a release with no product changes contains', () => {
+    const notes = buildNotes({
+      tag: 'v1.0.50-beta.1',
+      previousTag: 'v1.0.49',
+      repository: 'owner/name',
+      commits: [
+        commit('ci(release): let the notes step run without a tag'),
+        commit('docs(release): record the cut'),
+        commit('docs(release): record the body'),
+      ],
+    });
+    expect(notes).toContain('Sin cambios de producto: 3 commits de mantenimiento (2 docs, 1 ci).');
+    // The line is outside the block, so it is visible without opening anything.
+    expect(notes.indexOf('Sin cambios de producto')).toBeLessThan(notes.indexOf('<details>'));
+    expect(notes).toContain('<summary>Mantenimiento (3 commits: 2 docs, 1 ci)</summary>');
+    for (const subject of [
+      'ci(release): let the notes step run without a tag',
+      'docs(release): record the cut',
+      'docs(release): record the body',
+    ]) {
+      expect(notes).toContain(subject);
+    }
+  });
+
+  it('leaves that line out when a product section is present', () => {
+    const notes = buildNotes({
+      tag: 'v1.0.50',
+      previousTag: 'v1.0.49',
+      commits: [commit('fix(panel): keep the row key'), commit('docs(release): record the cut')],
+    });
+    expect(notes).not.toContain('Sin cambios de producto');
+    expect(notes).toContain('### Correcciones');
   });
 
   it('describes a first release without a comparison range', () => {
