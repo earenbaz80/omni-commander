@@ -122,9 +122,12 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
 - El servidor arranca con el adaptador Linux y `/api/drives` responde; el listado
   POSIX está probado con un sistema de archivos inyectado y con una carpeta real
   a través de la ruta POSIX.
-- Sigue faltando: copiar, mover, renombrar, borrar sin papelera, `cleanup`,
-  `openWith` y el instalador. La UI muestra los montajes, pero el resto de
-  operaciones reales todavía asume Windows.
+- Copiar, mover, renombrar, recorrer y medir el árbol, extraer de un ZIP y
+  mandar a la papelera ya están cubiertos por
+  `server.linux.integration.test.ts`, que arranca el servidor real en CI. Sigue
+  faltando: borrar sin papelera (comparte el motor con `fs.rm`, pero no tiene
+  caso Linux), `cleanup`, `openWith` y el instalador. La UI muestra los montajes,
+  pero el resto de operaciones reales todavía asume Windows.
 
 ### Fase 3 — Integración de escritorio
 
