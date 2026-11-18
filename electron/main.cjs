@@ -231,9 +231,12 @@ function scheduleUpdateRetry(message) {
 function reportUpdateError(error) {
   const message = String(error?.message ?? error);
   // Offline machines are normal for this app, so a failed check is a state to
-  // display, never something that interrupts the session.
+  // display, never something that interrupts the session. It goes through the
+  // reducer all the same: one that arrives with a finished download waiting is
+  // the check that ran after it, and must not take the restart away. Asking to
+  // quit is how this process marks that the restart itself is what failed.
   console.error('Update error:', error);
-  setUpdateState({ status: 'error', error: message });
+  setUpdateState(nextStateForEvent(updateState, 'error', { message, installing: quitting }));
   scheduleUpdateRetry(message);
 }
 
@@ -726,7 +729,7 @@ ipcMain.handle('update:check', async (event) => {
   try {
     await updater.checkForUpdates();
   } catch (error) {
-    setUpdateState({ status: 'error', error: String(error?.message ?? error) });
+    setUpdateState(nextStateForEvent(updateState, 'error', { message: String(error?.message ?? error) }));
   }
   return updateState;
 });
@@ -761,7 +764,7 @@ ipcMain.handle('update:download', async (event) => {
   try {
     await updater.downloadUpdate();
   } catch (error) {
-    setUpdateState({ status: 'error', error: String(error?.message ?? error) });
+    setUpdateState(nextStateForEvent(updateState, 'error', { message: String(error?.message ?? error) }));
   }
   return updateState;
 });

@@ -14,6 +14,13 @@
  * was refused until the file was offered again. Both answers therefore leave a
  * finished download alone.
  *
+ * A failure takes the same road. While a finished download waits nothing is
+ * being fetched, so a failure that arrives belongs to the question asked after
+ * it -- usually the check that runs every six hours on a machine that went
+ * offline -- and says nothing about the installer already verified on disk. The
+ * restart stays. The exception is the restart itself: one that was asked for and
+ * did not happen is exactly what has to be reported, so that failure is shown.
+ *
  * It lives here, apart from main.cjs, so the whole sequence can be tested
  * without launching Electron.
  */
@@ -79,6 +86,14 @@ function nextStateForEvent(state, event, payload) {
         percent: 100,
         error: null,
       };
+
+    case 'error': {
+      const message = String(payload?.message ?? 'unknown error');
+      // A restart that was asked for and failed is the state; anything failing
+      // while one waits is a later question, and keeps the waiting download.
+      if (holdsDownload && payload?.installing !== true) return { ...previous, error: message };
+      return { ...previous, status: 'error', error: message };
+    }
 
     default:
       return previous;

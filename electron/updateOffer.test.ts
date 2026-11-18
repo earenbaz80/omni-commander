@@ -128,4 +128,50 @@ describe('cableado del updater', () => {
     expect(next.status).toBe('downloaded');
     expect(next.percent).toBe(100);
   });
+
+  it('una comprobación que falla tampoco se lleva el reinicio', () => {
+    const next = replay(DOWNLOADED, [
+      ['checking-for-update'],
+      ['error', { message: 'net::ERR_INTERNET_DISCONNECTED' }],
+    ]);
+    expect(next.status).toBe('downloaded');
+    expect(next.percent).toBe(100);
+    expect(next.version).toBe('1.0.42');
+  });
+
+  it('deja escrito por qué falló, al lado del reinicio que sigue esperando', () => {
+    const next = replay(DOWNLOADED, [['error', { message: 'net::ERR_INTERNET_DISCONNECTED' }]]);
+    expect(next.error).toBe('net::ERR_INTERNET_DISCONNECTED');
+  });
+
+  it('el evento de error del updater llega con installing=false y aun así conserva el reinicio', () => {
+    // main.cjs marks an install failure by asking to quit, so this is the shape a
+    // check failure arrives in: the message is kept and the download is too.
+    const next = replay(DOWNLOADED, [['error', { message: 'net::ETIMEDOUT', installing: false }]]);
+    expect(next.status).toBe('downloaded');
+    expect(next.version).toBe('1.0.42');
+    expect(next.error).toBe('net::ETIMEDOUT');
+  });
+
+  it('un fallo mientras se descarga sí se ve', () => {
+    const next = replay(AVAILABLE, [
+      ['download-progress', { percent: 40 }],
+      ['error', { message: 'net::ERR_CONNECTION_RESET' }],
+    ]);
+    expect(next.status).toBe('error');
+    expect(next.error).toBe('net::ERR_CONNECTION_RESET');
+  });
+
+  it('y el fallo del propio reinicio también, en vez de ofrecerlo otra vez', () => {
+    const next = replay(DOWNLOADED, [['error', { message: 'spawn failed', installing: true }]]);
+    expect(next.status).toBe('error');
+    expect(next.error).toBe('spawn failed');
+  });
+
+  it('una comprobación que luego va bien limpia el error que había dejado', () => {
+    const failed = replay(DOWNLOADED, [['error', { message: 'net::ERR_INTERNET_DISCONNECTED' }]]);
+    const next = replay(failed, [['checking-for-update']]);
+    expect(next.status).toBe('downloaded');
+    expect(next.error).toBe(null);
+  });
 });
