@@ -92,13 +92,17 @@ jobs:
       # vite-plugin-pwa uses), deepmerge 4.3.1 is the newest published version and
       # the advisory covers everything up to it, and npm's only offered fix is a
       # downgrade of vite-plugin-pwa to 0.2.1 that would break the PWA. Gating at
-      # high keeps a real advisory red instead of failing every push on one that
-      # has no fix and only an annotation to show for it.
+      # high keeps a real advisory red; the one high with no release to move to is
+      # the single entry in `.github/audit-exceptions.json`, dated and expiring.
       - name: Audit production dependencies
         run: npm audit --omit=dev
 
+      # Same audit, read as JSON so an advisory can be excepted by id: a high
+      # with no published fix cannot be patched here, and the alternative was to
+      # drop the level and stop watching the toolchain. The script fails on every
+      # other high or critical, and on an exception that has expired.
       - name: Audit all dependencies
-        run: npm audit --audit-level=high
+        run: node scripts/audit-gate.cjs
 
       # A local `npm run electron:build` could not finish while `npm run dev` was
       # up: the dev server watched release/, the folder electron-builder renames
