@@ -95,9 +95,18 @@ const row = (page, name) => page.locator(`[data-name="${name}"]`).first();
  * which is what the Linux port has to make true.
  */
 async function enterPath(page, panel, target) {
-  await page.locator('[data-path-bar]').nth(panel).click();
+  const bar = page.locator('[data-path-bar]').nth(panel);
+  // The middle of the bar is not empty space: on a short path the crumbs sit
+  // there, and a crumb's own click navigates to that level instead of opening
+  // the editor. The corner is the bar itself, whatever its crumbs hold.
+  await bar.click({ position: { x: 4, y: 2 } });
   const input = page.locator('[data-path-input]');
-  await input.waitFor({ state: 'visible', timeout: 20_000 });
+  try {
+    await input.waitFor({ state: 'visible', timeout: 20_000 });
+  } catch {
+    const shown = (await bar.innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
+    throw new Error(`the path bar showing "${shown}" did not open its editor`);
+  }
   await input.fill(target);
   await input.press('Enter');
   await waitFor(async () => (await page.locator('[data-path-input]').count()) === 0, {
