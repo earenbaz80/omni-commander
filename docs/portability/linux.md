@@ -1,9 +1,11 @@
 # Portabilidad a Linux: capa de plataforma
 
-**Estado:** fase 1 implementada (`volumes`, `cleanup`, `paths`, `trash` y `openWith` detrás del contrato) y corte
-vertical Linux iniciado: el servidor arranca con `paths`/`volumes`, lista una carpeta real con rutas POSIX y la UI
-conserva `/`; la papelera Linux usa `gio trash` con fallback XDG. El target AppImage de prueba y su build de CI ya
-existen, pero no se publica ninguna release Linux; Windows sigue siendo la única plataforma distribuida.
+**Estado:** fase 1 implementada (`volumes`, `cleanup`, `paths`, `trash` y `openWith` detrás del contrato) y fase 2
+avanzada: el servidor arranca con `paths`/`volumes`, lista una carpeta real con rutas POSIX y la UI conserva `/`;
+copiar, mover, renombrar, recorrer el árbol, extraer de un ZIP y mandar a la papelera pasan contra el servidor real
+en `linux-integration.yml`, en cada push a `master` y en cada pull request. La papelera Linux usa `gio trash` con
+fallback XDG. El target AppImage de prueba y su build de CI ya existen —el preflight lo empaqueta como artefacto de
+la corrida—, pero no se publica ninguna release Linux; Windows sigue siendo la única plataforma distribuida.
 
 **Objetivo inicial:** Linux x64 con gestión de archivos local —listar, copiar,
 mover, renombrar, borrar, papelera, abrir y línea de órdenes— y empaquetado
@@ -57,9 +59,11 @@ arreglos funcionales en el mismo commit.
 
 ## 4. Puntos de acoplamiento medidos
 
-- **Rutas:** el README cuenta 73 usos de `path.win32`; aparecen en
-  `server/catalog.cjs`, `server/fileOps.cjs`, `server/archiveReader.cjs`,
-  `server/runLauncher.cjs` y `server/routes/files.cjs`, entre otros.
+- **Rutas:** quedan 38 usos de `path.win32` —el README sigue diciendo 73—,
+  casi todos en `server/runLauncher.cjs` (26) y `server/fileOps.cjs` (7), más
+  `server/pathSafety.cjs` (2), `server/platform/windows.cjs`,
+  `electron/trayMenu.cjs` y un test de `fileOps`. `catalog`, `archiveReader` y
+  las rutas de ficheros ya no lo usan.
 - **Servidor:** `server/platform/windowsVolumes.cjs` concentra el sondeo de
   unidades, WMI y las conexiones de red; `server/fileOps.cjs` y
   `server/openWith.cjs` ya delegan sus partes Windows en el adaptador;
@@ -68,9 +72,11 @@ arreglos funcionales en el mismo commit.
 - **Electron:** `electron/main.cjs` tiene `setAppUserModelId`, bandeja y
   relanzamiento elevado; `electron/elevation.cjs` depende de `elevate.exe`;
   `electron/trayMenu.cjs` usa `path.win32`.
-- **Interfaz:** los paneles muestran letras de unidad y la barra de órdenes
-  ejecuta `dir`, `cls` y `vol`; no es solo un texto: el modelo de navegación
-  asume raíces de unidad.
+- **Interfaz:** la barra de unidades pinta la etiqueta que entrega el adaptador
+  —una letra en Windows, el punto de montaje en Linux— y la barra de órdenes
+  sigue siendo de verbos de DOS (`dir`, `cls`, `copy`, `xcopy`, `robocopy`),
+  con alias POSIX sueltos (`ls`, `cat`, `rm`, `clear`). El campo se llama
+  `letter` en todo el renderer aunque ya acepte una raíz `/`.
 - **Empaquetado:** `package.json` declara `win` (NSIS/portable) y un target
   `linux` limitado a AppImage de prueba; `.github/workflows/release.yml` corre
   en `windows-latest` y ejecuta `electron-builder --win`, mientras que
@@ -159,7 +165,9 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
   con permisos POSIX.
 - El paquete Linux se instala, abre, se identifica con la versión correcta y
   actualiza desde una copia anterior.
-- La CI Linux solo se vuelve obligatoria cuando esas pruebas existen y pasan.
+- La integración Linux corre en cada push a `master` y en cada pull request
+  (`linux-integration.yml`), así que el adaptador POSIX ya es un gate; el
+  preflight que empaqueta el AppImage sigue siendo manual.
 
 ## 7. Decisiones pendientes
 
