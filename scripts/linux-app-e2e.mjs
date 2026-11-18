@@ -1,5 +1,5 @@
 /**
- * Three things a person does in the packaged Linux app, done through the window.
+ * Four things a person does in the packaged Linux app, done through the window.
  *
  * The smoke next door answers one question: does the packaged app boot and list
  * a mount? That is the floor. A window that lists a drive can still be unable to
@@ -7,17 +7,26 @@
  * those go through the keyboard engine, the transfer queue and the server's file
  * operations -- code the listing never touches. So each case below starts from
  * the file list, presses the keys a user presses, and then reads the scratch
- * folders and the XDG trash back on disk, which is the only way to tell an
- * operation from a dialog that looks right.
+ * folders and the freedesktop trash back on disk, which is the only way to tell
+ * an operation from a dialog that looks right.
  *
- * The delete case turns the Recycle Bin off on purpose. With it on, the file
- * leaves the folder just the same and only the trash proves where it went, so a
- * check that looks at the folder alone would pass for the wrong reason.
+ * Deleting gets two cases because the app has two branches behind one key. With
+ * the Recycle Bin on, the file has to leave the folder and land in the trash
+ * with metadata a restore can be built from; with it off, the file has to be
+ * gone for good. A test that only checked the folder would pass for both and
+ * tell them apart from nothing.
  */
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { appendSummary, attachToWindow, escapeCommandData, startPackagedApp, waitFor } from './linux-app-harness.mjs';
+import {
+  appendSummary,
+  attachToWindow,
+  escapeCommandData,
+  sleep,
+  startPackagedApp,
+  waitFor,
+} from './linux-app-harness.mjs';
 
 const appImage = process.argv[2];
 if (!appImage) {
@@ -29,6 +38,7 @@ const port = Number(process.env.LINUX_APP_CDP_PORT ?? 9334);
 
 /** The bytes the copy has to carry, so a truncated write fails the case. */
 const NOTE = 'nota de origen\n';
+const RECYCLED = 'va a la papelera\n';
 
 const workspace = await fs.mkdtemp(path.join(os.tmpdir(), 'omni-e2e-linux-'));
 const origen = path.join(workspace, 'origen');
@@ -40,18 +50,21 @@ await fs.mkdir(destino, { recursive: true });
 await fs.writeFile(path.join(dentro, 'dentro.txt'), 'dentro\n', 'utf8');
 await fs.writeFile(path.join(origen, 'nota.txt'), NOTE, 'utf8');
 await fs.writeFile(path.join(origen, 'borrar.txt'), 'borrame\n', 'utf8');
+await fs.writeFile(path.join(origen, 'reciclado.txt'), RECYCLED, 'utf8');
 // A row of its own, so the right panel can be activated by clicking something
 // that exists only on its side.
 await fs.writeFile(path.join(destino, 'marcador.txt'), 'marca\n', 'utf8');
 
 /**
- * Where the XDG trash keeps what it takes.
+ * Where the freedesktop trash keeps what it takes.
  *
- * The app deletes through the server, and on Linux the server's trash is the
- * freedesktop one. Naming the file here is what separates "removed" from "moved
- * somewhere the folder no longer shows".
+ * The app's own fallback writes `$XDG_DATA_HOME/Trash`, but the preferred path
+ * is `gio trash`, which uses the home trash only when the file is on the home
+ * filesystem and otherwise a trash at the top of the mount. Both layouts hold
+ * `files/<name>` and `info/<name>.trashinfo`, so the cases look in both places
+ * instead of assuming which one this runner took.
  */
-const trashDir = path.join(process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'), 'Trash');
+const homeTrash = path.join(process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'), 'Trash');
 
 async function exists(file) {
   try {
@@ -62,7 +75,7 @@ async function exists(file) {
   }
 }
 
-/** The file's text, or null when it is not there, so `waitFor` can retry. */
+/** The file's text, or null when it is not there, so a wait can retry. */
 async function readIfPresent(file) {
   try {
     return await fs.readFile(file, 'utf8');
@@ -71,18 +84,81 @@ async function readIfPresent(file) {
   }
 }
 
-/** Whether the trash holds that name in its files or in its metadata. */
-async function trashed(name) {
-  for (const sub of ['files', 'info']) {
-    let entries = [];
-    try {
-      entries = await fs.readdir(path.join(trashDir, sub));
-    } catch {
-      continue;
-    }
-    if (entries.includes(name) || entries.includes(`${name}.trashinfo`)) return true;
+/** The top of the filesystem `dir` lives on, where a mount-local trash would sit. */
+async function mountTopOf(dir) {
+  let current = await fs.realpath(dir);
+  const { dev } = await fs.stat(current);
+  for (;;) {
+    const parent = path.dirname(current);
+    if (parent === current) return current;
+    if ((await fs.stat(parent)).dev !== dev) return current;
+    current = parent;
   }
-  return false;
+}
+
+/** Every trash that could hold something deleted from `dir`, home first. */
+async function trashRootsFor(dir) {
+  const top = await mountTopOf(dir);
+  const uid = typeof process.getuid === 'function' ? String(process.getuid()) : '1000';
+  const roots = [homeTrash, path.join(top, `.Trash-${uid}`), path.join(top, '.Trash', uid)];
+  return [...new Set(roots)];
+}
+
+/** The entry for `name`, wherever this machine's trash put it, or null. */
+async function findTrashEntry(name) {
+  for (const root of await trashRootsFor(origen)) {
+    const file = path.join(root, 'files', name);
+    const info = path.join(root, 'info', `${name}.trashinfo`);
+    if ((await exists(info)) && (await exists(file))) return { root, file, info };
+  }
+  return null;
+}
+
+/**
+ * The original path and deletion date the entry records.
+ *
+ * `Path` is URL-encoded per segment, which is how the app writes it and what the
+ * spec asks for; decoding segment by segment keeps the separators and survives a
+ * name that carries a stray `%`.
+ */
+async function readTrashInfo(entry) {
+  const text = await fs.readFile(entry.info, 'utf8');
+  if (!text.startsWith('[Trash Info]')) {
+    throw new Error(`the trash entry has no [Trash Info] header: ${text.slice(0, 80)}`);
+  }
+  const pathLine = /^Path=(.*)$/m.exec(text);
+  const dateLine = /^DeletionDate=(.*)$/m.exec(text);
+  if (!pathLine) throw new Error('the trash entry names no original path');
+  if (!dateLine) throw new Error('the trash entry records no deletion date');
+
+  const original = pathLine[1]
+    .split('/')
+    .map((segment) => {
+      try {
+        return decodeURIComponent(segment);
+      } catch {
+        return segment;
+      }
+    })
+    .join('/');
+  return { original, deletionDate: dateLine[1] };
+}
+
+/** Puts an entry back where its metadata says it came from, as a desktop trash does. */
+async function restoreTrashEntry(entry) {
+  const { original } = await readTrashInfo(entry);
+  if (!path.isAbsolute(original)) throw new Error(`the trash entry names no absolute path: ${original}`);
+  await fs.mkdir(path.dirname(original), { recursive: true });
+  try {
+    await fs.rename(entry.file, original);
+  } catch (error) {
+    // The trash can sit on another filesystem than the file it took.
+    if (error?.code !== 'EXDEV') throw error;
+    await fs.copyFile(entry.file, original);
+    await fs.rm(entry.file, { force: true });
+  }
+  await fs.rm(entry.info, { force: true });
+  return original;
 }
 
 const row = (page, name) => page.locator(`[data-name="${name}"]`).first();
@@ -123,22 +199,44 @@ async function openPanels(page) {
 }
 
 /**
- * Turns the Recycle Bin off before the window boots.
+ * Writes the settings the next case needs and restarts the window on them.
  *
  * The app reads its settings from localStorage under the key `SETTINGS_KEY` in
  * `src/services/storage.ts`, and a bare object is read as the oldest stored
- * shape, so this needs no version of its own. Written before the reload, the
- * policy is in place when the first render reads it.
+ * shape, so this needs no version of its own. Registering the script before the
+ * reload puts the value there for the first render; a later registration runs
+ * after an earlier one, which is how a case overrides the one before it.
  */
-async function seedSettings(page) {
+async function setSettings(page, settings) {
   await page.addInitScript(
     ({ key, value }) => {
       localStorage.setItem(key, value);
     },
-    { key: 'nc_settings_v1', value: JSON.stringify({ useRecycleBin: false }) },
+    { key: 'nc_settings_v1', value: JSON.stringify(settings) },
   );
   await page.reload();
   await page.locator('[data-name]').first().waitFor({ state: 'visible', timeout: 90_000 });
+}
+
+/** Polls `produce` until it returns something truthy, and hands that back. */
+async function waitForValue(produce, { timeoutMs = 30_000, intervalMs = 250, label } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const value = await produce();
+    if (value) return value;
+    if (Date.now() > deadline) throw new Error(`timed out after ${timeoutMs} ms waiting for ${label}`);
+    await sleep(intervalMs);
+  }
+}
+
+/** Presses F8 on the focused row and confirms the window that opens. */
+async function deleteFocusedRow(page) {
+  await page.keyboard.press('F8');
+  const dialog = page.getByRole('dialog');
+  await dialog.waitFor({ state: 'visible', timeout: 20_000 });
+  // The window labels its confirm button with the key that presses it, in every
+  // language, which is why this does not depend on the UI language.
+  await dialog.getByRole('button', { name: /\(Enter\)/ }).click();
 }
 
 const cases = [
@@ -185,17 +283,14 @@ const cases = [
   {
     name: 'deletes a file without sending it to the trash',
     async run(page) {
+      await setSettings(page, { useRecycleBin: false });
       await openPanels(page);
-      if (await trashed('borrar.txt')) throw new Error('the trash already holds that name before the case runs');
+      if (await findTrashEntry('borrar.txt')) {
+        throw new Error('the trash already holds that name before the case runs');
+      }
 
       await row(page, 'borrar.txt').click();
-      await page.keyboard.press('F8');
-
-      const dialog = page.getByRole('dialog');
-      await dialog.waitFor({ state: 'visible', timeout: 20_000 });
-      // The window labels its confirm button with the key that presses it, in
-      // every language, which is why this does not depend on the UI language.
-      await dialog.getByRole('button', { name: /\(Enter\)/ }).click();
+      await deleteFocusedRow(page);
 
       await waitFor(async () => !(await exists(path.join(origen, 'borrar.txt'))), {
         label: 'the file to leave the folder',
@@ -203,10 +298,52 @@ const cases = [
       if (!(await exists(path.join(origen, 'nota.txt')))) {
         throw new Error('the delete took a file that was not the one focused');
       }
-      // The bin is off, so a file that turned up here would mean the setting
-      // never reached the app and the case proved something else.
-      if (await trashed('borrar.txt')) {
-        throw new Error('the Recycle Bin is off but the file was moved to the XDG trash');
+      // The bin is off, so a file that turned up in the trash would mean the
+      // setting never reached the app and the case proved something else.
+      if (await findTrashEntry('borrar.txt')) {
+        throw new Error('the Recycle Bin is off but the file was moved to the trash');
+      }
+    },
+  },
+  {
+    name: 'deletes a file into the trash and the entry restores it',
+    async run(page) {
+      await setSettings(page, { useRecycleBin: true });
+      await openPanels(page);
+
+      const original = path.join(origen, 'reciclado.txt');
+      await row(page, 'reciclado.txt').click();
+      await deleteFocusedRow(page);
+
+      await waitFor(async () => (await readIfPresent(original)) === null, {
+        label: 'the file to leave the folder',
+      });
+
+      // The entry, its payload and its metadata: a trash that only moved the
+      // bytes would leave a desktop unable to say where they came from.
+      const entry = await waitForValue(() => findTrashEntry('reciclado.txt'), {
+        label: 'the file to appear in the trash with its .trashinfo',
+      });
+      if ((await readIfPresent(entry.file)) !== RECYCLED) {
+        throw new Error('the trash holds the entry but not the bytes of the file');
+      }
+      const info = await readTrashInfo(entry);
+      if (info.original !== original) {
+        throw new Error(`the .trashinfo names ${info.original} instead of ${original}`);
+      }
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(info.deletionDate)) {
+        throw new Error(`the .trashinfo carries an unusable deletion date: ${info.deletionDate}`);
+      }
+
+      // Restoring is the second half of the promise: what the metadata records
+      // has to be enough to put the file back where it was, bytes included.
+      const restored = await restoreTrashEntry(entry);
+      if (restored !== original) throw new Error(`the entry restored ${restored} instead of ${original}`);
+      if ((await readIfPresent(original)) !== RECYCLED) {
+        throw new Error('the restored file did not come back with its bytes');
+      }
+      if (await findTrashEntry('reciclado.txt')) {
+        throw new Error('the trash still holds an entry for the file that was restored');
       }
     },
   },
@@ -251,14 +388,13 @@ function report() {
 try {
   const attached = await attachToWindow(app, port);
   browser = attached.browser;
-  await seedSettings(attached.page);
 
   for (const testCase of cases) {
     try {
       await testCase.run(attached.page);
       results.push({ name: testCase.name, ok: true });
     } catch (error) {
-      // One case failing must not hide the others: the point of running three is
+      // One case failing must not hide the others: the point of running four is
       // knowing which of them the port can already do.
       results.push({ name: testCase.name, ok: false, reason: String(error?.message ?? error) });
     }

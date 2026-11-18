@@ -132,11 +132,11 @@ jobs:
           fi
           exit "$status"
 
-      # The smoke above proves the window boots and lists a mount. These three
+      # The smoke above proves the window boots and lists a mount. These four
       # cases ask whether the package can be used at all -- a folder opened, a
-      # file copied between the panels, a file deleted for good -- because the
-      # listing never touches the keyboard engine, the transfer queue or the
-      # server's delete.
+      # file copied between the panels, one file deleted for good and another
+      # sent to the trash and restored -- because the listing never touches the
+      # keyboard engine, the transfer queue or the server's delete.
       - name: Run the packaged AppImage's interaction cases under Xvfb
         timeout-minutes: 10
         shell: bash

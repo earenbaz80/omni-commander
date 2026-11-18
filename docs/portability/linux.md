@@ -157,10 +157,11 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
   decía nada sobre que se instale y arranque.
 - Faltan `latest-linux.yml`, el updater Linux y una release de prueba. Bajo
   Xvfb el preflight ya no sólo abre el AppImage empaquetado y comprueba que
-  lista un montaje: también abre una carpeta, copia un fichero entre paneles y
-  borra otro sin papelera, con las carpetas y la papelera XDG leídas de disco.
-  Lo que falta es que corra allí la suite e2e completa, no tres casos, antes de
-  que Linux sea un gate.
+  lista un montaje: también abre una carpeta, copia un fichero entre paneles,
+  borra otro sin papelera y, con la papelera encendida, manda uno a la papelera
+  XDG —comprobando `files/`, el `.trashinfo` y la restauración—, con las carpetas
+  y la papelera leídas de disco. Lo que falta es que corra allí la suite e2e
+  completa, no cuatro casos, antes de que Linux sea un gate.
 
 ### Fase 5 — Paridad
 
