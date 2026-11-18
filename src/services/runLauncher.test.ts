@@ -1,12 +1,35 @@
 // @vitest-environment node
-import { describe, it, expect } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect } from 'vitest';
 import {
   RUN_FAVORITES_LIMIT,
   loadRunFavorites,
   moveRunFavorite,
+  rememberRunTarget,
   removeRunFavorite,
   toggleRunFavorite,
 } from './runLauncher';
+import { setPlatformInfo, type PlatformInfo } from './platform';
+
+/**
+ * The two machines this build ships for. Only the separator and the case rule
+ * reach path identity, but the answer `/api/platform` gives carries all of it.
+ */
+const WINDOWS: PlatformInfo = {
+  platform: 'win32',
+  caseSensitive: false,
+  separator: '\\',
+  capabilities: { paths: true, volumes: true, cleanup: true, trash: true, openWith: true },
+};
+
+const LINUX: PlatformInfo = {
+  platform: 'linux',
+  caseSensitive: true,
+  separator: '/',
+  capabilities: { paths: true, volumes: true, cleanup: false, trash: true, openWith: false },
+};
+
+beforeEach(() => setPlatformInfo(WINDOWS));
+afterEach(() => setPlatformInfo(WINDOWS));
 
 /**
  * Favourites are the only thing in the Run box that the user maintains by hand,
@@ -53,6 +76,55 @@ describe('run favourites', () => {
     expect(loadRunFavorites(storage('{"not":"an array"}') as any)).toEqual([]);
     expect(loadRunFavorites(storage('["", 7, "calc"]') as any)).toEqual(['calc']);
     expect(loadRunFavorites(null)).toEqual([]);
+  });
+});
+
+describe('run targets on a case-sensitive root', () => {
+  beforeEach(() => setPlatformInfo(LINUX));
+
+  it('keeps two paths that differ only in case', () => {
+    // Two folders on this host: recalling one must not replace the other.
+    expect(rememberRunTarget('/mnt/Data', ['/mnt/data'], storage() as any)).toEqual(['/mnt/Data', '/mnt/data']);
+    expect(toggleRunFavorite('/mnt/Data', ['/mnt/data'], storage() as any)).toEqual(['/mnt/Data', '/mnt/data']);
+    expect(removeRunFavorite('/mnt/data', ['/mnt/Data'], storage() as any)).toEqual(['/mnt/Data']);
+    expect(moveRunFavorite('/mnt/data', 1, ['/mnt/Data', '/mnt/data'], storage() as any)).toEqual([
+      '/mnt/Data',
+      '/mnt/data',
+    ]);
+  });
+
+  it('still treats the same path written with a trailing separator as one', () => {
+    expect(rememberRunTarget('/mnt/data/', ['/mnt/data'], storage() as any)).toEqual(['/mnt/data/']);
+    expect(toggleRunFavorite('/mnt/data/', ['/mnt/data'], storage() as any)).toEqual([]);
+  });
+
+  it('still folds the case of a program name, which the host does not', () => {
+    // `notepad` is a program, not a path: Windows resolves both spellings to the
+    // same one, and the box has always unpinned it that way.
+    expect(toggleRunFavorite('NOTEPAD', ['notepad'], storage() as any)).toEqual([]);
+  });
+
+  it('folds a command line, whose separator belongs to an argument', () => {
+    // `cmd /c dir` carries a slash and is still not a path; reading it as one
+    // would let the history hold the same command twice.
+    expect(rememberRunTarget('cmd /c dir', ['CMD /C DIR'], storage() as any)).toEqual(['cmd /c dir']);
+  });
+
+  it('folds a URL down to its origin and leaves the path alone', () => {
+    // A host is case-insensitive on every host; the path behind it is not.
+    expect(rememberRunTarget('https://Freebuff.com/Notas', ['https://freebuff.com/Notas'], storage() as any)).toEqual([
+      'https://Freebuff.com/Notas',
+    ]);
+    expect(rememberRunTarget('https://freebuff.com/notas', ['https://freebuff.com/Notas'], storage() as any)).toEqual([
+      'https://freebuff.com/notas',
+      'https://freebuff.com/Notas',
+    ]);
+  });
+});
+
+describe('run targets on a Windows drive', () => {
+  it('folds the case of a path, because the filesystem does', () => {
+    expect(rememberRunTarget('C:\\Temp', ['c:\\temp'], storage() as any)).toEqual(['C:\\Temp']);
   });
 });
 

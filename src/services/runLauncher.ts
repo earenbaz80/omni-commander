@@ -1,5 +1,6 @@
 import { API_BASE } from './apiBase';
 import { fetchWithRetry } from '../utils/fetchWithRetry';
+import { pathIdentity } from './platform';
 
 /**
  * The "Ejecutar" box: what Windows' Run dialog does.
@@ -191,6 +192,57 @@ export const RUN_EXAMPLE_ROWS: RunExampleRow[] = [
   { examples: ['google.com', 'https://freebuff.com'], descriptionKey: 'helpRunExampleWeb' },
 ];
 
+/**
+ * Whether a run target names something on disk.
+ *
+ * The box takes a path, a program, a command line, a shell destination
+ * (`shell:startup`) or a URL, and only the first is a path. A drive letter, a
+ * leading separator or `~`, or a separator anywhere (`sub/nota.txt`) makes it
+ * one. A leading `scheme:` says it is not, because the shell resolves those,
+ * and so does a space: `cmd /c dir` is a program and its argument, not a file,
+ * which reads a relative path with a space in it the same way -- the cost there
+ * is only the case fold.
+ */
+function isFilesystemTarget(target: string): boolean {
+  if (/^[A-Za-z]:([\\/]|$)/.test(target)) return true;
+  if (/^[\\/~]/.test(target)) return true;
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(target)) return false;
+  if (/\s/.test(target)) return false;
+  return target.includes('/') || target.includes('\\');
+}
+
+/**
+ * Identity of a URL: the scheme and the host are case-insensitive, the path and
+ * the query are not, so only the origin folds. `null` for anything that is not
+ * an absolute URL with a scheme -- a bare host is left to the rule below, where
+ * it and its lowercased spelling already agree.
+ */
+function urlIdentity(target: string): string | null {
+  if (!/^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(target)) return null;
+  try {
+    const url = new URL(target);
+    return `${url.protocol.toLowerCase()}//${url.host.toLowerCase()}${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Identity of a run target for the history and the favourites.
+ *
+ * Two paths that differ only in case are two folders on a POSIX drive, so
+ * collapsing them lost one recall in favour of the other; `pathIdentity` folds
+ * case only where the host does, and ignores a trailing separator everywhere. A
+ * URL folds down to its origin for the same reason, and a program, a service or
+ * a bare host keeps the lowercased comparison it always had, because the host
+ * that resolves them does not care about case either.
+ */
+function runTargetKey(target: string): string {
+  const cleaned = target.trim();
+  if (isFilesystemTarget(cleaned)) return pathIdentity(cleaned);
+  return urlIdentity(cleaned) ?? cleaned.toLowerCase();
+}
+
 const HISTORY_KEY = 'omni-run-history';
 export const RUN_HISTORY_LIMIT = 8;
 
@@ -219,10 +271,8 @@ export function rememberRunTarget(
 ): string[] {
   const cleaned = target.trim();
   if (!cleaned) return history;
-  const next = [cleaned, ...history.filter((entry) => entry.toLowerCase() !== cleaned.toLowerCase())].slice(
-    0,
-    RUN_HISTORY_LIMIT,
-  );
+  const key = runTargetKey(cleaned);
+  const next = [cleaned, ...history.filter((entry) => runTargetKey(entry) !== key)].slice(0, RUN_HISTORY_LIMIT);
   try {
     storage?.setItem(HISTORY_KEY, JSON.stringify(next));
   } catch {
@@ -261,16 +311,17 @@ function saveRunFavorites(favorites: string[], storage: Pick<Storage, 'setItem'>
   return favorites;
 }
 
-/** Drops a favourite, matched without regard to case. */
+/** Drops a favourite, matched by its target identity: case folds for a program,
+ * and for a path only where the host folds it. */
 export function removeRunFavorite(
   target: string,
   favorites: string[],
   storage: Pick<Storage, 'setItem'> | null = globalStorage(),
 ): string[] {
-  const key = target.trim().toLowerCase();
+  const key = runTargetKey(target);
   if (!key) return favorites;
   return saveRunFavorites(
-    favorites.filter((entry) => entry.toLowerCase() !== key),
+    favorites.filter((entry) => runTargetKey(entry) !== key),
     storage,
   );
 }
@@ -286,8 +337,8 @@ export function moveRunFavorite(
   favorites: string[],
   storage: Pick<Storage, 'setItem'> | null = globalStorage(),
 ): string[] {
-  const key = target.trim().toLowerCase();
-  const index = favorites.findIndex((entry) => entry.toLowerCase() === key);
+  const key = runTargetKey(target);
+  const index = favorites.findIndex((entry) => runTargetKey(entry) === key);
   const destination = index + offset;
   if (index === -1 || destination < 0 || destination >= favorites.length) return favorites;
   const next = [...favorites];
@@ -303,9 +354,10 @@ export function toggleRunFavorite(
 ): string[] {
   const cleaned = target.trim();
   if (!cleaned) return favorites;
-  const already = favorites.some((entry) => entry.toLowerCase() === cleaned.toLowerCase());
+  const key = runTargetKey(cleaned);
+  const already = favorites.some((entry) => runTargetKey(entry) === key);
   const next = already
-    ? favorites.filter((entry) => entry.toLowerCase() !== cleaned.toLowerCase())
+    ? favorites.filter((entry) => runTargetKey(entry) !== key)
     : [cleaned, ...favorites].slice(0, RUN_FAVORITES_LIMIT);
   try {
     storage?.setItem(FAVORITES_KEY, JSON.stringify(next));
