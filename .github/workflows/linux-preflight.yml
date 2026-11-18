@@ -1,7 +1,8 @@
 name: Linux portability preflight
 
-# Manual or Linux-port branch only. This workflow is intentionally not a gate
-# for master while the platform adapters do not exist yet.
+# Manual or Linux-port branch only: it builds and packages, which is too slow for
+# every push. The real server's POSIX adapter is covered on master and in pull
+# requests by `linux-integration.yml` instead.
 on:
   workflow_dispatch:
   push:
@@ -78,29 +79,5 @@ jobs:
           retention-days: 7
 
       # The Windows suite and e2e still assume Windows drives, shells and
-      # shortcuts, so they are not run here. The Linux integration job below
-      # boots the real server against a temporary workspace instead.
-
-  linux-integration:
-    name: Real-server filesystem integration on Linux
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci --engine-strict
-
-      # The suite starts `server.cjs` with an isolated HOME/XDG_DATA_HOME and a
-      # temporary workspace, then exercises list, copy, move, rename, trash,
-      # tree and ZIP extraction through the HTTP API. It creates no release and
-      # never runs on tags.
-      - name: Exercise the local server
-        run: npx vitest run server.linux.integration.test.ts --reporter=verbose
+      # shortcuts, so they are not run here. The real server's POSIX adapter is
+      # covered on master and in pull requests by `linux-integration.yml`.
