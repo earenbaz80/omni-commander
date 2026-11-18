@@ -203,3 +203,43 @@ jobs:
       # The Windows suite and e2e still assume Windows drives, shells and
       # shortcuts, so they are not run here. The real server's POSIX adapter is
       # covered on master and in pull requests by `linux-integration.yml`.
+
+  # Every check above runs on an image that already carries what Electron links
+  # against, so a `.deb` missing a dependency still installs and starts there.
+  # This job repeats the install in a bare ubuntu image, where only the package's
+  # own `Depends` can supply what the program needs.
+  clean-ubuntu-install:
+    name: Install the .deb on a clean Ubuntu 24.04
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download the .deb this run built
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: omnicommander-pro-linux-deb
+          path: pkg
+
+      - name: Install and boot it inside ubuntu:24.04
+        shell: bash
+        run: |
+          set -euo pipefail
+          deb=$(find pkg -maxdepth 1 -type f -name '*.deb' -print -quit)
+          if [ -z "$deb" ]; then
+            echo "::error::the run produced no .deb to install"
+            exit 1
+          fi
+          status=0
+          docker run --rm \
+            -v "$PWD/$deb:/tmp/package.deb:ro" \
+            -v "$PWD/scripts/ubuntu-install-smoke.sh:/tmp/ubuntu-install-smoke.sh:ro" \
+            ubuntu:24.04 bash -euo pipefail /tmp/ubuntu-install-smoke.sh || status=$?
+          if [ "$status" -eq 0 ]; then
+            echo "### .deb on a clean Ubuntu 24.04: installed and booted" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### .deb on a clean Ubuntu 24.04: failed" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$status"

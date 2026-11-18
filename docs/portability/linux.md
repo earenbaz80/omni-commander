@@ -154,7 +154,10 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
   `.deb` declara la misma versión que `package.json` y los sube como artefactos
   de la corrida, sin crear una release. Después instala el `.deb` con `apt` y le
   pasa el mismo humo a la copia que queda en `/opt`: que el paquete se genere no
-  decía nada sobre que se instale y arranque.
+  decía nada sobre que se instale y arranque. Un job aparte,
+  `clean-ubuntu-install`, repite la instalación en `ubuntu:24.04` limpio y
+  arranca el binario allí: el runner ya trae las librerías de Electron, así que
+  sólo un entorno desnudo distingue un `Depends` incompleto de uno completo.
 - Faltan `latest-linux.yml`, el updater Linux y una release de prueba. Bajo
   Xvfb el preflight ya no sólo abre el AppImage empaquetado y comprueba que
   lista un montaje: también abre una carpeta, copia un fichero entre paneles,
