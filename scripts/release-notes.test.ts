@@ -127,6 +127,18 @@ describe('buildNotes', () => {
     expect(notes.indexOf('</details>')).toBeGreaterThan(notes.indexOf('<details>'));
   });
 
+  it('counts what is folded away by type, most frequent first', () => {
+    expect(
+      summaryOf([
+        commit('docs(release): a'),
+        commit('docs(release): b'),
+        commit('test(catalog): c'),
+        commit('refactor(panel): d'),
+        commit('An unconventional subject'),
+      ]),
+    ).toBe('5 commits: 2 docs, 1 otros, 1 refactor, 1 test');
+  });
+
   it('keeps the sections a user reads as headings', () => {
     const notes = buildNotes({
       tag: 'v1.0.50',
