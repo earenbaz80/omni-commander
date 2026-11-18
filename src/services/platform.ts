@@ -156,6 +156,17 @@ function fold(text: string): string {
   return current.caseSensitive ? text : text.toLowerCase();
 }
 
+/**
+ * The identity of a path when spellings that name the same file must collapse.
+ *
+ * Trailing separators never matter, and case matters only where the host says it
+ * does. Exported for callers that key a collection by path; addressing itself
+ * still goes through the helpers above.
+ */
+export function pathIdentity(value: unknown): string {
+  return fold(pathKey(value));
+}
+
 /** Path equality follows the platform: Windows folds case, POSIX does not. */
 export function samePath(left: unknown, right: unknown): boolean {
   return fold(pathKey(left)) === fold(pathKey(right));

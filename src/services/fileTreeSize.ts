@@ -7,6 +7,7 @@ import type {
   TreeSizeResult,
 } from '../types';
 import { API_BASE } from './apiBase';
+import { baseName } from './platform';
 import { sessionTokenHeader } from '../utils/fetchWithRetry';
 import { log } from '../utils/logger';
 
@@ -151,10 +152,11 @@ export function createTreeSizeOps(deps: TreeSizeDeps) {
     if (!driveId) return null;
     const normPath = normalizePath(path);
     const items = getFiles(driveId, normPath);
-    const trimmed = normPath.replace(/\\+$/, '');
     const folderItem: DiskUsageItem = {
       path: normPath,
-      name: trimmed.split('\\').pop() || normPath,
+      // A label, not an address: both separators are understood, so a Linux path
+      // does not come out whole for having no backslash to split on.
+      name: baseName(normPath) || normPath,
       sizeBytes: 0,
       fileCount: 0,
       subFolders: [],

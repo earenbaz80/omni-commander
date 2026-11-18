@@ -672,7 +672,7 @@ class FileSystemEngine {
 
   // Cryptographic Hash Calculator (MD5 approximation + real Web Crypto SHA-1 & SHA-256)
   public async calculateFileHashes(file: FileItem): Promise<{ md5: string; sha1: string; sha256: string }> {
-    return calculateFileHashesImpl(file);
+    return calculateFileHashesImpl(file, this.realAbsolutePath);
   }
 
   /**

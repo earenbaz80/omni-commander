@@ -7,6 +7,9 @@ export interface FileHashes {
   sha256: string;
 }
 
+/** Resolves a listed item to the absolute path the server can open. */
+export type RealPathResolver = (file: FileItem) => string;
+
 /**
  * Cryptographic hash calculator.
  * Extracted from fileSystem.ts to keep the main engine file focused.
@@ -43,10 +46,15 @@ function isRealDriveFile(file: FileItem): boolean {
   return !file.isDirectory && file.driveId.startsWith('real_');
 }
 
-/** Hashes a real-drive file server-side, over its actual bytes. */
-async function hashRealFile(file: FileItem): Promise<FileHashes> {
-  const fullName = file.fullName || (file.ext ? `${file.name}.${file.ext}` : file.name);
-  const target = `${file.path}${file.path.endsWith('\\') ? '' : '\\'}${fullName}`;
+/**
+ * Hashes a real-drive file server-side, over its actual bytes.
+ *
+ * The address comes from the caller's path rules rather than a separator guessed
+ * here: the old `\` join asked a POSIX server for `/home/ana\nota.txt`, a name
+ * that does not exist, so every hash on a Linux drive 404'd.
+ */
+async function hashRealFile(file: FileItem, realAbsolutePath: RealPathResolver): Promise<FileHashes> {
+  const target = realAbsolutePath(file);
   const response = await fetchWithRetry(`${apiBase()}/api/fs/hash?path=${encodeURIComponent(target)}`);
   if (!response.ok) {
     // No fabricated digest: surface the server's reason so the modal can show it.
@@ -154,14 +162,14 @@ function md5Hex(bytes: Uint8Array): string {
     .join('');
 }
 
-export async function calculateFileHashes(file: FileItem): Promise<FileHashes> {
+export async function calculateFileHashes(file: FileItem, realAbsolutePath: RealPathResolver): Promise<FileHashes> {
   // A virtual item that actually carries its bytes is hashed locally; a real
   // file never does, so it goes to the server.
   if (typeof file.content === 'string' && file.content.length > 0) {
     return hashContent(file.content);
   }
   if (isRealDriveFile(file)) {
-    return hashRealFile(file);
+    return hashRealFile(file, realAbsolutePath);
   }
   // No bytes are available from any source. Refuse rather than invent a digest.
   throw new Error('No file bytes available to hash');
