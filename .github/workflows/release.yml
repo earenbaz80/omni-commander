@@ -407,8 +407,14 @@ jobs:
     permissions:
       contents: write
     steps:
+      # The release body is built from the commits the tag carries, and that
+      # needs the tag's history and the previous tag: the default single-commit
+      # checkout has neither, so `git describe` would find nothing to start from
+      # and the notes would be written for the wrong range.
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -550,10 +556,27 @@ jobs:
         shell: pwsh
         run: Remove-Item release/builder-debug.yml -ErrorAction SilentlyContinue
 
+      # 1.0.49 went out with an empty body: the release was created from the
+      # artifacts alone, so the tag was the only thing saying what changed. The
+      # body is generated here, before the release exists, from the commits
+      # between the previous tag and this one. It fails rather than publishing a
+      # release nobody can read, which is the state this step removes.
+      - name: Write the release notes from the commits
+        shell: bash
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          node scripts/release-notes.cjs --tag "${{ github.ref_name }}" --out release-notes.md
+          cat release-notes.md
+
       - name: Publish release
         uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           name: ${{ steps.version.outputs.version }}
+          # The file the step above wrote, not an inline string: the body is
+          # Markdown with links, and passing it through the shell would mangle
+          # the backticks and the newlines.
+          body_path: release-notes.md
           draft: false
           prerelease: ${{ contains(steps.version.outputs.version, '-') }}
           # `*.yml` rather than `latest.yml`: a beta publishes its channel file
