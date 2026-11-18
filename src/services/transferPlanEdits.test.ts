@@ -1,6 +1,7 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { addEntriesToPlan, planEntryKey, planFileBytes } from './transferPlanEdits';
+import { setPlatformInfo, type PlatformInfo } from './platform';
 import { TransferPlan, TransferPlanEntry } from '../types';
 
 /**
@@ -8,7 +9,27 @@ import { TransferPlan, TransferPlanEntry } from '../types';
  * file can come back twice under different spellings. These tests pin the
  * dedupe rule and the byte total, because a wrong one either copies a file twice
  * or makes the progress bar lie.
+ *
+ * The platform is pinned rather than inherited: the suite used to run on the
+ * Windows fallback alone, which left the case-sensitive half of the rule -- the
+ * half that decides whether two names are one file -- untested.
  */
+const WINDOWS: PlatformInfo = {
+  platform: 'win32',
+  caseSensitive: false,
+  separator: '\\',
+  capabilities: { paths: true, volumes: true, cleanup: true, trash: true, openWith: true },
+};
+
+const LINUX: PlatformInfo = {
+  platform: 'linux',
+  caseSensitive: true,
+  separator: '/',
+  capabilities: { paths: true, volumes: true, cleanup: false, trash: true, openWith: false },
+};
+
+beforeEach(() => setPlatformInfo(WINDOWS));
+afterEach(() => setPlatformInfo(WINDOWS));
 
 const entry = (path: string, isDirectory = false, size = 10): TransferPlanEntry => ({
   path,
@@ -60,6 +81,27 @@ describe('appending picked entries', () => {
 
     expect(result.added).toHaveLength(0);
     expect(result.plan).toBe(base);
+  });
+});
+
+describe('plan entry identity on a case-sensitive root', () => {
+  beforeEach(() => setPlatformInfo(LINUX));
+
+  it('keeps two files that differ only in case apart', () => {
+    expect(planEntryKey('/mnt/data/Report.txt')).not.toBe(planEntryKey('/mnt/data/report.txt'));
+  });
+
+  it('still ignores a trailing separator and the spaces around it', () => {
+    expect(planEntryKey(' /mnt/data/docs/ ')).toBe(planEntryKey('/mnt/data/docs'));
+  });
+
+  it('queues both names instead of dropping the second pick', () => {
+    const base = plan([entry('/mnt/data/Report.txt')]);
+    const result = addEntriesToPlan(base, [entry('/mnt/data/report.txt'), entry('/mnt/data/Report.txt')]);
+
+    expect(result.added.map((picked) => picked.path)).toEqual(['/mnt/data/report.txt']);
+    expect(result.skipped).toBe(1);
+    expect(result.plan.entries.map((queued) => queued.path)).toEqual(['/mnt/data/Report.txt', '/mnt/data/report.txt']);
   });
 });
 
