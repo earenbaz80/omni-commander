@@ -124,7 +124,7 @@ jobs:
           # like success.
           status=0
           xvfb-run -a node scripts/linux-app-smoke.mjs "$appimage" || status=$?
-          if [ -s "${GITHUB_STEP_SUMMARY:-/dev/null}" ] && grep -q 'Linux AppImage smoke' "$GITHUB_STEP_SUMMARY"; then
+          if [ -s "${GITHUB_STEP_SUMMARY:-/dev/null}" ] && grep -q 'Linux smoke (AppImage)' "$GITHUB_STEP_SUMMARY"; then
             echo "the verdict is in the run's step summary"
           else
             echo "::error::the smoke left no verdict in the step summary"
@@ -154,6 +154,48 @@ jobs:
             echo "the cases are in the run's step summary"
           else
             echo "::error::the interaction cases left no verdict in the step summary"
+            status=1
+          fi
+          exit "$status"
+
+      # A .deb is a different package from the AppImage: the program lands under
+      # /opt, its dependencies are declared, and a .desktop file points at it.
+      # Building one proves neither that apt can install it nor that the copy it
+      # leaves behind starts, which is exactly what a user does with the file
+      # this run publishes.
+      - name: Install the .deb and smoke the copy under /opt
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          set -euo pipefail
+          deb=$(find release -maxdepth 1 -type f -name '*.deb' -print -quit)
+          package=$(dpkg-deb -f "$deb" Package)
+          executable=$(node -p "require('./package.json').build.linux.executableName")
+
+          sudo apt-get update
+          # By path, so apt installs the package this run built instead of a
+          # release that happens to be published.
+          sudo apt-get install -y --no-install-recommends "./$deb"
+
+          # Where the package says it put the program, rather than a layout this
+          # step assumes: a change there has to break here instead of hide.
+          binary=$(dpkg -L "$package" | grep -E "^/opt/.*/${executable}$" | head -n 1 || true)
+          if [ -z "$binary" ]; then
+            files=$(dpkg -L "$package" | head -c 600 | tr '\n' ' ')
+            echo "::error::the .deb installed no program at /opt/*/$executable; it installed: $files"
+            exit 1
+          fi
+          echo "installed at $binary"
+
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get install -y --no-install-recommends xvfb
+          fi
+          status=0
+          xvfb-run -a node scripts/linux-app-smoke.mjs "$binary" 'installed .deb' || status=$?
+          if [ -s "${GITHUB_STEP_SUMMARY:-/dev/null}" ] && grep -q 'Linux smoke (installed .deb)' "$GITHUB_STEP_SUMMARY"; then
+            echo "the verdict is in the run's step summary"
+          else
+            echo "::error::the installed copy left no verdict in the step summary"
             status=1
           fi
           exit "$status"

@@ -3,11 +3,16 @@
  * window, over the DevTools protocol, whether it painted a file row.
  *
  * The Playwright suite already covers the sources, but it talks to Vite and to
- * a server the harness starts. What a Linux tester installs is this AppImage:
- * its own server, its own asar and the packaged renderer, none of which the
- * suite exercises. So this spawns the artifact, waits for its debugging port,
+ * a server the harness starts. What a Linux tester installs is one of these
+ * packages: its own server, its own asar and the packaged renderer, none of
+ * which the suite exercises. So this spawns what it is given -- the AppImage,
+ * or the copy a `.deb` leaves in `/opt` -- waits for its debugging port,
  * attaches Playwright to that existing Chromium and fails when no row appears,
  * when the renderer raised an error, or when the process died on the way.
+ *
+ * The third argument names what was launched. It only shows up in the failure
+ * text and in the step summary, where two smokes in one job would otherwise be
+ * indistinguishable and each step's guard would match the other's heading.
  *
  * It answers one question -- does the package boot -- and `linux-app-e2e.mjs`
  * asks the next three, so a red here is never confused with a broken operation.
@@ -16,9 +21,11 @@ import { appendSummary, attachToWindow, escapeCommandData, startPackagedApp } fr
 
 const appImage = process.argv[2];
 if (!appImage) {
-  console.error('usage: node scripts/linux-app-smoke.mjs <path to the AppImage>');
+  console.error('usage: node scripts/linux-app-smoke.mjs <path to the AppImage or installed program> [label]');
   process.exit(2);
 }
+
+const label = process.argv[3] ?? 'AppImage';
 
 const port = Number(process.env.SMOKE_CDP_PORT ?? 9333);
 const app = startPackagedApp(appImage, port);
@@ -30,12 +37,12 @@ let browser;
  */
 function fail(reason) {
   const lastLines = app.tail() || '(the app printed nothing)';
-  const report = `linux smoke: ${reason}\n--- last lines of the app ---\n${lastLines}`;
+  const report = `linux smoke (${label}): ${reason}\n--- last lines of the app ---\n${lastLines}`;
   console.error(report);
   console.error(`::error::${escapeCommandData(report)}`);
   appendSummary(
     [
-      '### Linux AppImage smoke: failed',
+      `### Linux smoke (${label}): failed`,
       '',
       `**Reason:** ${reason}`,
       '',
@@ -79,7 +86,9 @@ try {
   clearTimeout(watchdog);
   const result = { ok: true, rows, first, title, url };
   console.log(JSON.stringify(result, null, 1));
-  appendSummary(['### Linux AppImage smoke: passed', '', '```json', JSON.stringify(result, null, 2), '```'].join('\n'));
+  appendSummary(
+    [`### Linux smoke (${label}): passed`, '', '```json', JSON.stringify(result, null, 2), '```'].join('\n'),
+  );
 } catch (error) {
   fail(String(error?.message ?? error));
 } finally {
