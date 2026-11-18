@@ -11,7 +11,7 @@ El diseño exploratorio de una futura capa Linux, todavía sin soporte, vive en 
 En la práctica eso significa:
 
 - El empaquetado soportado produce instalador NSIS y portable para Windows, y el updater (`latest.yml` + `electron-updater`) es el de Windows. El target AppImage Linux existe solo para probar el port desde un artefacto de CI, sin release ni updater.
-- Hacerla compatible no es un refactor: si algún día se quiere, es una decisión de producto con su propio diseño, y toca el modelo de rutas del servidor (73 usos de `path.win32`), las unidades que muestra el cliente y los tests que las asumen.
+- Hacerla compatible no es un refactor: si algún día se quiere, es una decisión de producto con su propio diseño, y toca el modelo de rutas del servidor (47 usos de `path.win32`), las unidades que muestra el cliente y los tests que las asumen.
 - Para usarla desde otro sistema, la vía razonable es una máquina virtual con Windows: no compromete nada del código ni añade una segunda plataforma que mantener.
 
 ## Requisitos
