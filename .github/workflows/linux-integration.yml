@@ -1,0 +1,40 @@
+name: Linux filesystem integration
+
+# The renderer's POSIX halves are covered by mock harnesses on every platform,
+# but the seam they cannot reach is the real Linux adapter under the local
+# server. This workflow boots it on ubuntu-latest, on every push to master and
+# on every pull request, so that coverage is a gate instead of a manual run.
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    name: Real-server filesystem integration on Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --engine-strict
+
+      # The suite starts `server.cjs` with an isolated HOME/XDG_DATA_HOME and a
+      # temporary workspace, then exercises list, copy, move, rename, trash,
+      # tree and ZIP extraction through the HTTP API. It creates no release and
+      # never runs on tags.
+      - name: Exercise the local server
+        run: npx vitest run server.linux.integration.test.ts --reporter=verbose
