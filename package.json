@@ -58,7 +58,7 @@
     }
   },
   "private": true,
-  "version": "1.0.50-beta.1",
+  "version": "1.0.50",
   "type": "module",
   "main": "electron/main.cjs",
   "engines": {
