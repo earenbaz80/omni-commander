@@ -34,6 +34,8 @@ let moved = '';
 let extracted = '';
 let zipPath = '';
 let trashSource = '';
+let permanentFile = '';
+let permanentFolder = '';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -89,6 +91,8 @@ beforeAll(async () => {
   extracted = path.join(root, 'extracted');
   zipPath = path.join(root, 'fixtures', 'sample.zip');
   trashSource = path.join(workspace, 'a-borrar.txt');
+  permanentFile = path.join(workspace, 'borrado-definitivo.txt');
+  permanentFolder = path.join(workspace, 'carpeta-a-borrar');
 
   fs.mkdirSync(path.join(workspace, 'nested'), { recursive: true });
   fs.writeFileSync(path.join(workspace, 'nota.txt'), 'hola\n');
@@ -97,6 +101,9 @@ beforeAll(async () => {
   fs.writeFileSync(path.join(treeRoot, 'uno.txt'), 'uno');
   fs.writeFileSync(path.join(treeRoot, 'sub', 'dos.txt'), 'dos');
   fs.writeFileSync(trashSource, 'borrar\n');
+  fs.writeFileSync(permanentFile, 'efimero\n');
+  fs.mkdirSync(permanentFolder, { recursive: true });
+  fs.writeFileSync(path.join(permanentFolder, 'dentro.txt'), 'dentro\n');
   fs.mkdirSync(destination);
   fs.mkdirSync(moved);
   fs.mkdirSync(path.dirname(zipPath), { recursive: true });
@@ -224,6 +231,18 @@ describe.runIf(process.platform === 'linux')('Linux filesystem integration', () 
       .map((line) => JSON.parse(line) as { type: string; ok?: boolean });
     expect(events.at(-1)).toMatchObject({ type: 'done', ok: true });
     expect(fs.readFileSync(target, 'utf8')).toBe('contenido extraido\n');
+  });
+
+  it('deletes a file and a folder without the trash', async () => {
+    const started = await post('/api/fs/delete', {
+      targets: [permanentFile, permanentFolder],
+      useTrash: false,
+    });
+    expect(started.status).toBe(200);
+    await waitForJob((started.body as { jobId: string }).jobId);
+
+    expect(fs.existsSync(permanentFile)).toBe(false);
+    expect(fs.existsSync(permanentFolder)).toBe(false);
   });
 
   it('moves a file to the trash', async () => {
