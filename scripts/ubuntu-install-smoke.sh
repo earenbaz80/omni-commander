@@ -33,22 +33,52 @@ fi
 
 package_name=$(dpkg-deb -f "$PACKAGE" Package)
 
-# The program the package placed under /opt, taken from its own file list rather
-# than from a name written here.
-program=$(dpkg -L "$package_name" | while IFS= read -r candidate; do
+# The program to run, taken from the package's own file list rather than from a
+# name written here. The launcher on PATH comes first: Chromium's helpers ship
+# next to the app under /opt and `chrome-sandbox` is executable too, so "the
+# first executable under /opt" is a binary that answers every switch with a
+# sandbox error instead of the app.
+launcher=""
+while IFS= read -r candidate; do
   case "$candidate" in
-    /opt/*)
-      if [ -f "$candidate" ] && [ -x "$candidate" ]; then
-        printf '%s\n' "$candidate"
+    /usr/bin/*)
+      if [ -f "$candidate" ]; then
+        launcher=$candidate
         break
       fi
       ;;
   esac
-done)
+done < <(dpkg -L "$package_name")
+
+if [ -n "$launcher" ]; then
+  program=$(readlink -f "$launcher")
+else
+  program=$(dpkg -L "$package_name" | while IFS= read -r candidate; do
+    case "$candidate" in
+      /opt/*)
+        case "$(basename "$candidate")" in
+          chrome*) continue ;;
+        esac
+        if [ -f "$candidate" ] && [ -x "$candidate" ]; then
+          printf '%s\n' "$candidate"
+          break
+        fi
+        ;;
+    esac
+  done)
+fi
 if [ -z "$program" ]; then
-  echo "::error::the .deb installed no executable under /opt; it installed: $(dpkg -L "$package_name" | tr '\n' ' ')"
+  echo "::error::the .deb installed no runnable program under /opt; it installed: $(dpkg -L "$package_name" | tr '\n' ' ')"
   exit 1
 fi
+# The package is expected to keep its program under /opt and point at it.
+case "$program" in
+  /opt/*) ;;
+  *)
+    echo "::error::the .deb put its program at $program, outside /opt"
+    exit 1
+    ;;
+esac
 echo "installed $package_name, program at $program"
 
 # The shared libraries the binary itself resolves. Empty here means the package
