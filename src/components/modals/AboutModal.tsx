@@ -4,6 +4,7 @@ import { LanguageCode } from '../../types';
 import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { useAppUpdate } from '../../hooks/useAppUpdate';
+import { UpdateFailureNote } from '../UpdateFailureNote';
 
 import ModalShell from '../ModalShell';
 
@@ -112,13 +113,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ theme, lang, authorName,
                 </span>
                 <span className="flex flex-wrap items-center justify-end gap-[var(--space-2)]">
                   <span className="text-slate-300">{updateStatusText}</span>
-                  {/* A finished download outlives the check that failed after it,
-                      so the reason sits beside the state it did not change. */}
-                  {update.error && update.status !== 'error' && (
-                    <span className="text-[var(--fs-8)] nc-danger-ink" title={update.error}>
-                      {t.updateFailed}: {update.error}
-                    </span>
-                  )}
+                  <UpdateFailureNote update={update} label={t.updateFailed} />
                   <button
                     onClick={updateAction.run}
                     disabled={update.status === 'checking' || update.status === 'downloading'}

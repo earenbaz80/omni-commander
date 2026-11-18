@@ -4,13 +4,16 @@ import { describe, expect, it } from 'vitest';
 
 /**
  * A check can arrive after the download finished — the periodic one, the one
- * fired eight seconds after launch, or the one behind the settings button. The
- * installer is already in `pending/` at that point, so an offer of the same
- * version must not take the restart away and ask for the file again.
+ * fired eight seconds after launch, or the one behind the settings button — and
+ * so can a failure. At that point the installer is in `pending/`, verified, and
+ * none of those answers is about the file on disk: the restart has to survive
+ * them all, and the reason a check failed is kept beside it.
+ *
+ * Every case below goes through the one function main.cjs calls, in the order
+ * the updater emits the events.
  */
 const require = createRequire(import.meta.url);
-const { nextStateForEvent, nextStateForOffer } = require('./updateOffer.cjs') as {
-  nextStateForOffer: (state: Record<string, unknown>, info?: { version?: unknown } | null) => Record<string, unknown>;
+const { nextStateForEvent } = require('./updateOffer.cjs') as {
   nextStateForEvent: (state: Record<string, unknown>, event: string, payload?: unknown) => Record<string, unknown>;
 };
 
@@ -32,50 +35,7 @@ const AVAILABLE = {
   channel: 'stable',
 };
 
-describe('oferta de actualización', () => {
-  it('no deshace una descarga que ya está hecha', () => {
-    const next = nextStateForOffer(DOWNLOADED, { version: '1.0.42' });
-    expect(next.status).toBe('downloaded');
-    expect(next.version).toBe('1.0.42');
-    expect(next.percent).toBe(100);
-  });
-
-  it('conserva lo que el resto de la app ya sabía', () => {
-    const next = nextStateForOffer(DOWNLOADED, { version: '1.0.42' });
-    expect(next.enabled).toBe(true);
-    expect(next.channel).toBe('stable');
-  });
-
-  it('una versión más nueva vuelve a pedir la descarga', () => {
-    const next = nextStateForOffer(DOWNLOADED, { version: '1.0.43' });
-    expect(next.status).toBe('available');
-    expect(next.version).toBe('1.0.43');
-    expect(next.percent).toBe(0);
-  });
-
-  it('sin nada descargado la oferta es una descarga', () => {
-    const next = nextStateForOffer({ status: 'checking', version: null, percent: 0 }, { version: '1.0.42' });
-    expect(next.status).toBe('available');
-    expect(next.version).toBe('1.0.42');
-  });
-
-  it('no conserva la descarga si la oferta no dice qué versión trae', () => {
-    const next = nextStateForOffer(DOWNLOADED, undefined);
-    expect(next.status).toBe('available');
-    expect(next.version).toBe(null);
-  });
-
-  it('limpia el error de un intento anterior al ofrecer algo', () => {
-    const failed = { ...DOWNLOADED, status: 'available', error: 'net::ERR_INTERNET_DISCONNECTED' };
-    expect(nextStateForOffer(failed, { version: '1.0.42' }).error).toBe(null);
-  });
-});
-
-/**
- * The events main.cjs forwards, in the order the updater emits them. A check
- * announces itself before it answers, so the answer is never the first thing
- * the state sees.
- */
+/** The events main.cjs forwards, in the order the updater emits them. */
 function replay(start: Record<string, unknown>, events: Array<[string, unknown?]>) {
   return events.reduce((state, [event, payload]) => nextStateForEvent(state, event, payload), start);
 }
@@ -99,10 +59,23 @@ describe('cableado del updater', () => {
     expect(next.status).toBe('downloaded');
   });
 
+  it('conserva lo que el resto de la app ya sabía', () => {
+    const next = replay(DOWNLOADED, [['checking-for-update'], ['update-not-available']]);
+    expect(next.enabled).toBe(true);
+    expect(next.channel).toBe('stable');
+  });
+
   it('una versión más nueva sí reemplaza la descarga que esperaba', () => {
     const next = replay(DOWNLOADED, [['checking-for-update'], ['update-available', { version: '1.0.43' }]]);
     expect(next.status).toBe('available');
     expect(next.version).toBe('1.0.43');
+    expect(next.percent).toBe(0);
+  });
+
+  it('una oferta sin versión no puede conservar la descarga', () => {
+    const next = replay(DOWNLOADED, [['checking-for-update'], ['update-available', undefined]]);
+    expect(next.status).toBe('available');
+    expect(next.version).toBe(null);
   });
 
   it('sin descarga pendiente, comprobar se ve como antes', () => {
@@ -129,7 +102,12 @@ describe('cableado del updater', () => {
     expect(next.percent).toBe(100);
   });
 
-  it('una comprobación que falla tampoco se lleva el reinicio', () => {
+  it('el porcentaje de la descarga se queda entre 0 y 100', () => {
+    expect(replay(AVAILABLE, [['download-progress', { percent: 137 }]]).percent).toBe(100);
+    expect(replay(AVAILABLE, [['download-progress', { percent: -5 }]]).percent).toBe(0);
+  });
+
+  it('una comprobación que falla conserva el reinicio y deja escrito por qué', () => {
     const next = replay(DOWNLOADED, [
       ['checking-for-update'],
       ['error', { message: 'net::ERR_INTERNET_DISCONNECTED' }],
@@ -137,20 +115,7 @@ describe('cableado del updater', () => {
     expect(next.status).toBe('downloaded');
     expect(next.percent).toBe(100);
     expect(next.version).toBe('1.0.42');
-  });
-
-  it('deja escrito por qué falló, al lado del reinicio que sigue esperando', () => {
-    const next = replay(DOWNLOADED, [['error', { message: 'net::ERR_INTERNET_DISCONNECTED' }]]);
     expect(next.error).toBe('net::ERR_INTERNET_DISCONNECTED');
-  });
-
-  it('el evento de error del updater llega con installing=false y aun así conserva el reinicio', () => {
-    // main.cjs marks an install failure by asking to quit, so this is the shape a
-    // check failure arrives in: the message is kept and the download is too.
-    const next = replay(DOWNLOADED, [['error', { message: 'net::ETIMEDOUT', installing: false }]]);
-    expect(next.status).toBe('downloaded');
-    expect(next.version).toBe('1.0.42');
-    expect(next.error).toBe('net::ETIMEDOUT');
   });
 
   it('un fallo mientras se descarga sí se ve', () => {
@@ -160,12 +125,6 @@ describe('cableado del updater', () => {
     ]);
     expect(next.status).toBe('error');
     expect(next.error).toBe('net::ERR_CONNECTION_RESET');
-  });
-
-  it('y el fallo del propio reinicio también, en vez de ofrecerlo otra vez', () => {
-    const next = replay(DOWNLOADED, [['error', { message: 'spawn failed', installing: true }]]);
-    expect(next.status).toBe('error');
-    expect(next.error).toBe('spawn failed');
   });
 
   it('una comprobación que luego va bien limpia el error que había dejado', () => {

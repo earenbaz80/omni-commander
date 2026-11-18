@@ -1,25 +1,15 @@
 /**
  * What an event from the updater does to the update state.
  *
- * Checks run on their own: once eight seconds after launch, and every six hours
- * after that. Any of them can report the version that is already downloaded,
- * and the verified installer is then sitting in the updater's `pending` folder
- * waiting for a restart. Taking the offer at face value would swap the restart
- * button for the download one and ask for the same 120 MB a second time, so a
- * download that belongs to the offered version survives the check.
+ * The updater works on its own: a check eight seconds after launch, another
+ * every six hours, and the one behind the settings button. Any of them can
+ * answer while the verified installer sits in the `pending` folder waiting for
+ * a restart, and any of them can fail the same way. None of those answers is
+ * about the file already on disk, so a finished download survives them: the
+ * restart stays, and the reason a check failed is kept beside it.
  *
- * A check also announces itself before it answers, and that notice used to
- * erase the download: the offer that followed then had nothing to preserve, the
- * restart button turned back into a download button, and asking for the restart
- * was refused until the file was offered again. Both answers therefore leave a
- * finished download alone.
- *
- * A failure takes the same road. While a finished download waits nothing is
- * being fetched, so a failure that arrives belongs to the question asked after
- * it -- usually the check that runs every six hours on a machine that went
- * offline -- and says nothing about the installer already verified on disk. The
- * restart stays. The exception is the restart itself: one that was asked for and
- * did not happen is exactly what has to be reported, so that failure is shown.
+ * Only two things replace it: an offer of a different version, which is a new
+ * download to make, and a download that starts over.
  *
  * It lives here, apart from main.cjs, so the whole sequence can be tested
  * without launching Electron.
@@ -29,20 +19,22 @@ function sameVersion(left, right) {
   return typeof left === 'string' && left.length > 0 && left === right;
 }
 
+function percentOf(value) {
+  return Math.min(100, Math.max(0, Math.round(value ?? 0)));
+}
+
 /**
  * The state an `update-available` event leaves behind.
  *
- * Anything other than "the offered version is the downloaded one" is a plain
- * offer: a newer version replaces the pending download, and a check that finds
- * nothing downloaded reports what can be fetched.
+ * An offer of the version already downloaded is not a new download: the file
+ * is here and verified, so only the restart is missing. Any other offer is a
+ * plain one, and a newer version replaces what waited.
  */
-function nextStateForOffer(state, info) {
-  const previous = state && typeof state === 'object' ? state : {};
+function nextStateForOffer(previous, info) {
   const offered = typeof info?.version === 'string' && info.version ? info.version : null;
 
   if (previous.status === 'downloaded' && sameVersion(previous.version, offered)) {
-    // The file is here and verified: only the restart is missing.
-    return { ...previous, status: 'downloaded', version: previous.version, percent: 100, error: null };
+    return { ...previous, error: null };
   }
 
   return { ...previous, status: 'available', version: offered, percent: 0, error: null };
@@ -50,33 +42,25 @@ function nextStateForOffer(state, info) {
 
 /**
  * The state an event leaves behind, in the order the updater emits them.
- *
- * A finished download outranks the check: the file is verified on disk, so
- * neither "I am looking" nor "there is nothing to fetch" may take the restart
- * away. Anything else keeps the visible state moving the way it always did.
  */
 function nextStateForEvent(state, event, payload) {
   const previous = state && typeof state === 'object' ? state : {};
-  const holdsDownload = previous.status === 'downloaded';
+  const waiting = previous.status === 'downloaded';
 
   switch (event) {
     case 'checking-for-update':
-      return holdsDownload ? { ...previous, error: null } : { ...previous, status: 'checking', error: null };
+      return waiting ? { ...previous, error: null } : { ...previous, status: 'checking', error: null };
 
     case 'update-available':
       return nextStateForOffer(previous, payload);
 
     case 'update-not-available':
-      return holdsDownload
+      return waiting
         ? { ...previous, error: null }
         : { ...previous, status: 'up-to-date', version: null, percent: 0, error: null };
 
     case 'download-progress':
-      return {
-        ...previous,
-        status: 'downloading',
-        percent: Math.min(100, Math.max(0, Math.round(payload?.percent ?? 0))),
-      };
+      return { ...previous, status: 'downloading', percent: percentOf(payload?.percent) };
 
     case 'update-downloaded':
       return {
@@ -89,10 +73,9 @@ function nextStateForEvent(state, event, payload) {
 
     case 'error': {
       const message = String(payload?.message ?? 'unknown error');
-      // A restart that was asked for and failed is the state; anything failing
-      // while one waits is a later question, and keeps the waiting download.
-      if (holdsDownload && payload?.installing !== true) return { ...previous, error: message };
-      return { ...previous, status: 'error', error: message };
+      // Whatever failed did not fail at fetching: a broken download is still
+      // `downloading`. A finished one keeps its restart and records why.
+      return waiting ? { ...previous, error: message } : { ...previous, status: 'error', error: message };
     }
 
     default:
@@ -102,5 +85,4 @@ function nextStateForEvent(state, event, payload) {
 
 module.exports = {
   nextStateForEvent,
-  nextStateForOffer,
 };

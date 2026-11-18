@@ -16,6 +16,7 @@ import { soundManager } from '../../services/soundEffects';
 import { checkPassword, createPasswordRecord } from '../../services/appLock';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useAppUpdate } from '../../hooks/useAppUpdate';
+import { UpdateFailureNote } from '../UpdateFailureNote';
 import { UPDATE_TONE } from '../updateTones';
 
 interface SettingsModalProps {
@@ -916,14 +917,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
                 {update.status === 'checking' ? t.updateChecking : t.updateCheck}
               </button>
               {updateStatusText && <span className="text-[var(--fs-8)] text-sky-300">{updateStatusText}</span>}
-              {/* A failure that arrives while a download waits is the check that ran
-                  after it, and the restart survives it: saying why it failed sits
-                  beside the state it did not change. */}
-              {update.error && update.status !== 'error' && (
-                <span className="text-[var(--fs-8)] nc-danger-ink" title={update.error}>
-                  {t.updateFailed}: {update.error}
-                </span>
-              )}
+              <UpdateFailureNote update={update} label={t.updateFailed} />
               {/* A check that does find something has to be able to act on it from
                   here, which is what the action above carries. */}
               {updateAction && (
