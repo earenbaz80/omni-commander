@@ -95,8 +95,10 @@ if [ -n "$desktop_file" ] && ! grep -q "$(basename "$program")" "$desktop_file";
 fi
 
 # `--version` starts the same binary without a window: when the boot below dies
-# with nothing in its log, this says whether the program itself runs at all.
-version_output=$(timeout 20 "$program" --version 2>&1 || true)
+# with nothing in its log, this says whether the program itself runs at all. It
+# carries the same container concessions as the boot, and it is flattened to one
+# line because a newline would cut the `::error::` command in half.
+version_output=$(timeout 20 "$program" --no-sandbox --version 2>&1 | tr '\n' ' ' | cut -c1-400 || true)
 echo "version output: ${version_output:-none}"
 
 # The shared libraries the binary itself resolves. Empty here means the package
@@ -108,8 +110,9 @@ if [ -n "$missing" ]; then
 fi
 
 # Now the display. A desktop provides X, so this is what the package is allowed
-# to assume is already there.
-apt-get install -y -qq --no-install-recommends xvfb
+# to assume is already there. `xauth` comes along because `xvfb-run` calls it and
+# `--no-install-recommends` would leave it out.
+apt-get install -y -qq --no-install-recommends xvfb xauth
 
 # `--no-zygote` and `--no-sandbox` are container concessions, not app settings:
 # this runs as root in a container without user namespaces, where Chromium's
@@ -139,16 +142,21 @@ if [ "$opened" = 1 ]; then
   pages=$(timeout 5 bash -c 'exec 3<>/dev/tcp/127.0.0.1/9333; printf "GET /json/list HTTP/1.0\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n" >&3; cat <&3' 2>/dev/null || true)
 fi
 
+app_log() {
+  printf '%s' "$(tr '\n' ' ' </tmp/app.log | tail -c 1500)"
+}
+
 if [ "$opened" != 1 ] || ! printf '%s' "$pages" | grep -q 'index\.html'; then
   tail -n 40 /tmp/app.log
-  echo "::error::the app did not load its window on a clean ubuntu:24.04 ($program, version output: ${version_output:-none}); log: $(tail -n 30 /tmp/app.log | tr '\n' ' ')"
+  echo "app log is $(wc -c </tmp/app.log) bytes; alive: $(kill -0 "$app" 2>/dev/null && echo yes || echo no)"
+  echo "::error::the app did not load its window on a clean ubuntu:24.04 ($program, version output: ${version_output:-none}); log: $(app_log)"
   exit 1
 fi
 
 sleep 2
 if ! kill -0 "$app" 2>/dev/null; then
   tail -n 40 /tmp/app.log
-  echo "::error::the app closed right after loading its window; log: $(tail -n 30 /tmp/app.log | tr '\n' ' ')"
+  echo "::error::the app closed right after loading its window; log: $(app_log)"
   exit 1
 fi
 if grep -qE 'Segmentation fault|FATAL:|ERR_FILE_NOT_FOUND' /tmp/app.log; then
