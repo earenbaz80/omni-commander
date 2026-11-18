@@ -117,7 +117,20 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y --no-install-recommends xvfb
           fi
-          xvfb-run -a node scripts/linux-app-smoke.mjs "$appimage"
+          # The step summary is the only view of this verdict left once the log
+          # is gone, and the script swallows its own write errors so a passing
+          # app can still leave nobody able to read the rows it found. Failing
+          # the step when the file stayed empty keeps "no summary" from looking
+          # like success.
+          status=0
+          xvfb-run -a node scripts/linux-app-smoke.mjs "$appimage" || status=$?
+          if [ -s "${GITHUB_STEP_SUMMARY:-/dev/null}" ] && grep -q 'Linux AppImage smoke' "$GITHUB_STEP_SUMMARY"; then
+            echo "the verdict is in the run's step summary"
+          else
+            echo "::error::the smoke left no verdict in the step summary"
+            status=1
+          fi
+          exit "$status"
 
       # The Windows suite and e2e still assume Windows drives, shells and
       # shortcuts, so they are not run here. The real server's POSIX adapter is
