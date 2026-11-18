@@ -10,6 +10,7 @@
  * when the renderer raised an error, or when the process died on the way.
  */
 import { spawn } from 'node:child_process';
+import { appendFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 const appImage = process.argv[2];
@@ -26,9 +27,44 @@ function tail() {
   return log.join('').split('\n').slice(-40).join('\n');
 }
 
+// The run page is where this output has to land: downloading the job log cuts
+// off before this step, so a verdict that only reaches stdout reaches nobody.
+// Workflow commands need their own escaping, and the summary is a file that only
+// exists under Actions.
+function escapeCommandData(value) {
+  return value.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
+}
+
+function appendSummary(markdown) {
+  const file = process.env.GITHUB_STEP_SUMMARY;
+  if (!file) return;
+  try {
+    appendFileSync(file, `${markdown}\n`);
+  } catch {
+    // Losing the summary must not turn a passing smoke into a failing one.
+  }
+}
+
 function fail(reason) {
-  console.error(`linux smoke: ${reason}`);
-  console.error(`--- last lines of the app ---\n${tail()}`);
+  const lastLines = tail() || '(the app printed nothing)';
+  const report = `linux smoke: ${reason}\n--- last lines of the app ---\n${lastLines}`;
+  console.error(report);
+  console.error(`::error::${escapeCommandData(report)}`);
+  appendSummary(
+    [
+      '### Linux AppImage smoke: failed',
+      '',
+      `**Reason:** ${reason}`,
+      '',
+      '<details><summary>Last lines of the app log</summary>',
+      '',
+      '````',
+      lastLines,
+      '````',
+      '',
+      '</details>',
+    ].join('\n'),
+  );
   try {
     process.kill(-app.pid, 'SIGKILL');
   } catch {
@@ -120,7 +156,9 @@ try {
   if (fatal) fail(`the app log carries "${fatal[0]}"`);
 
   clearTimeout(watchdog);
-  console.log(JSON.stringify({ ok: true, rows, first, title, url }, null, 1));
+  const result = { ok: true, rows, first, title, url };
+  console.log(JSON.stringify(result, null, 1));
+  appendSummary(['### Linux AppImage smoke: passed', '', '```json', JSON.stringify(result, null, 2), '```'].join('\n'));
 } catch (error) {
   fail(String(error?.message ?? error));
 } finally {
