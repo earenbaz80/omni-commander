@@ -157,7 +157,12 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
   decía nada sobre que se instale y arranque. Un job aparte,
   `clean-ubuntu-install`, repite la instalación en `ubuntu:24.04` limpio y
   arranca el binario allí: el runner ya trae las librerías de Electron, así que
-  sólo un entorno desnudo distingue un `Depends` incompleto de uno completo.
+  sólo un entorno desnudo distingue un `Depends` incompleto de uno completo. La
+  primera corrida de ese job marcó `libgbm.so.1` y `libasound.so.2` como no
+  encontradas, así que `build.deb.depends` repite la lista por defecto de
+  electron-builder —declarar `depends` la reemplaza, no la extiende— y le añade
+  `libgbm1` y `libasound2t64 | libasound2`: en 24.04 `libasound2` es un paquete
+  virtual, y la alternativa cubre 22.04 sin dejar de instalar en 24.04.
 - Faltan `latest-linux.yml`, el updater Linux y una release de prueba. Bajo
   Xvfb el preflight ya no sólo abre el AppImage empaquetado y comprueba que
   lista un montaje: también abre una carpeta, copia un fichero entre paneles,
