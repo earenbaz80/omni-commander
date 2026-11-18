@@ -1,4 +1,5 @@
 import type { FileItem } from '../types';
+import { pathIdentity } from './platform';
 
 /**
  * The cleanup folders the toolbar offers. Only the user's temp folder can be
@@ -90,9 +91,13 @@ export function createFolderQueries(deps: FolderQueriesDeps) {
     if (paths.length === 0) return [];
     const answer = await callServerFs<{ existing?: string[]; unchecked?: string[] }>('exists', { paths });
     if (!answer || !Array.isArray(answer.existing)) return null;
-    const existing = new Set(answer.existing.map((entry) => entry.toLowerCase()));
-    const unchecked = new Set((answer.unchecked ?? []).map((entry) => entry.toLowerCase()));
-    return paths.filter((entry) => !existing.has(entry.toLowerCase()) && !unchecked.has(entry.toLowerCase()));
+    // Which two spellings name the same folder is the platform's rule, not this
+    // module's: folding case by hand kept a pin to `/mnt/Data` alive on a Linux
+    // drive just because `/mnt/data` exists. A folder the server could not check
+    // is kept for the same reason a missing answer keeps it -- a failed read must
+    // never prune a favourite.
+    const answered = new Set([...answer.existing, ...(answer.unchecked ?? [])].map(pathIdentity));
+    return paths.filter((entry) => !answered.has(pathIdentity(entry)));
   }
 
   function lastServerError(): string {
