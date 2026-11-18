@@ -22,6 +22,7 @@ const { isAllowedExternalTarget } = require('./externalLinks.cjs');
 const { denyAllPermissions } = require('./permissions.cjs');
 const { normalizeChannel, readUpdateChannel } = require('./updateChannel.cjs');
 const { nextStateForEvent } = require('./updateOffer.cjs');
+const { restartFailure } = require('./updateRestart.cjs');
 const { canReloadRenderer, rendererGoneLine } = require('./rendererRecovery.cjs');
 const { isTransientUpdateError, nextRetryDelay } = require('./updateRetry.cjs');
 const { normalizeBrowserUrl } = require('./browserUrl.cjs');
@@ -778,13 +779,23 @@ ipcMain.handle('update:install', (event) => {
   if (!isFromAppWindow(event) || !updater) return false;
   if (updateState.status !== 'downloaded') return false;
   // A real quit must not be turned into "hide to tray" by the close handler.
+  const wasQuitting = quitting;
   quitting = true;
   // Silent on purpose. The assistant left a wizard open between the app closing
   // and the same program reopening, and its last page still wanted a click: on
   // a machine nobody is watching, that is an app left half updated. The second
   // argument stays true because the user asked for an update, not to come back
   // to the app closed.
-  updater.quitAndInstall(true, true);
+  const failure = restartFailure(updater);
+  if (failure) {
+    // The restart was refused, not the download: the installer is still in
+    // `pending/`, so the card keeps offering it and the reason is recorded
+    // beside it. Leaving `quitting` set would make the next close skip the
+    // tray for a restart that never happened.
+    quitting = wasQuitting;
+    setUpdateState(updateFailureState(failure));
+    return false;
+  }
   return true;
 });
 
