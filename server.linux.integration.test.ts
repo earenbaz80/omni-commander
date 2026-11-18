@@ -36,6 +36,7 @@ let zipPath = '';
 let trashSource = '';
 let permanentFile = '';
 let permanentFolder = '';
+let mountRoot = '';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -135,7 +136,9 @@ beforeAll(async () => {
 
   const { status, body } = await get('/api/drives');
   expect(status).toBe(200);
-  driveId = driveFor(workspace, body as Drive[]).id;
+  const drive = driveFor(workspace, body as Drive[]);
+  driveId = drive.id;
+  mountRoot = drive.letter;
 }, 40000);
 
 afterAll(async () => {
@@ -243,6 +246,15 @@ describe.runIf(process.platform === 'linux')('Linux filesystem integration', () 
 
     expect(fs.existsSync(permanentFile)).toBe(false);
     expect(fs.existsSync(permanentFolder)).toBe(false);
+  });
+
+  it('refuses to delete a mount root, with or without the trash', async () => {
+    for (const useTrash of [true, false]) {
+      const response = await post('/api/fs/delete', { targets: [mountRoot], useTrash });
+      expect(response.status).toBe(400);
+      expect((response.body as { error: string }).error).toMatch(/drive root/i);
+      expect(fs.existsSync(mountRoot)).toBe(true);
+    }
   });
 
   it('moves a file to the trash', async () => {
