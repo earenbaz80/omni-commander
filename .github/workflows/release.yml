@@ -7,6 +7,17 @@ on:
     tags:
       - 'v*'
   pull_request:
+  # The publish job only exists for a tag, so the step that writes the release
+  # body had no way to be exercised before cutting one, and 1.0.49 shipped an
+  # empty body whose first real run would have been the next release. A manual
+  # dispatch runs that generator alone on the same Windows runner and prints the
+  # body it would publish; it uploads and publishes nothing.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag whose notes to generate; empty means the newest tag reachable from the ref'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -28,6 +39,10 @@ jobs:
   # is exactly how it drifts from the declaration it is supposed to test.
   engines:
     name: Node floor from package.json
+    # A manual dispatch is there to exercise the notes step alone; the checks
+    # every push already runs would only spend a runner, and the jobs that need
+    # this one are skipped with it.
+    if: github.event_name != 'workflow_dispatch'
     # The product is Windows-only, so its CI is too: no job runs on a Linux image.
     runs-on: windows-latest
     timeout-minutes: 5
@@ -398,6 +413,47 @@ jobs:
       # build died inside workbox. Building it here keeps that from coming back.
       - name: Build Storybook
         run: npm run build-storybook
+
+  # The generator is the one piece of the publish job that can run without a
+  # tag, and it is also the piece that had never run on a runner: it needs
+  # nothing but git and node, so the preview installs no dependencies and writes
+  # the body to the summary and the log. Nothing is uploaded and no release is
+  # touched, which is why this can run against an already published tag.
+  notes-preview:
+    name: Release notes preview (manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      # Full history and tags: the range starts at the previous tag, and the
+      # default single commit has neither.
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Write the release notes
+        shell: bash
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          REQUESTED_TAG: ${{ inputs.tag }}
+        run: |
+          tag="$REQUESTED_TAG"
+          if [ -z "$tag" ]; then
+            tag=$(git describe --tags --abbrev=0 HEAD)
+            echo "No tag asked for; using the newest tag reachable from ${{ github.ref_name }}: $tag"
+          fi
+          previous=$(git describe --tags --abbrev=0 "$tag^" 2>/dev/null || true)
+          echo "Range: ${previous:-<first commit>}..$tag"
+          echo "Commits in range: $(git rev-list --count "${previous:+$previous..}$tag")"
+          node scripts/release-notes.cjs --tag "$tag" --out release-notes.md
+          {
+            echo "### Release notes preview: $tag"
+            echo ""
+            cat release-notes.md
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "--- body that would be published ---"
+          cat release-notes.md
 
   build:
     name: Build and publish
