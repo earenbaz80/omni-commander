@@ -66,6 +66,13 @@ function realDriveFile(): FileItem {
 
 const expected = (algorithm: string) => createHash(algorithm).update(fixtureBytes).digest('hex');
 
+/**
+ * The engine's own path rule, injected the way `fileSystem.ts` injects it. The
+ * hasher must never be the place that decides which separator a path uses.
+ */
+const realAbsolutePath = (file: FileItem) =>
+  path.join(file.path, file.fullName || (file.ext ? `${file.name}.${file.ext}` : file.name));
+
 describe('calculateFileHashes', () => {
   beforeEach(() => {
     // The renderer reaches the server through the preload bridge; give it the
@@ -80,7 +87,7 @@ describe('calculateFileHashes', () => {
   });
 
   it('hashes a real-drive file from its bytes through the server route', async () => {
-    const result = await calculateFileHashes(realDriveFile());
+    const result = await calculateFileHashes(realDriveFile(), realAbsolutePath);
 
     expect(result.md5).toBe(expected('md5'));
     expect(result.sha1).toBe(expected('sha1'));
@@ -99,7 +106,7 @@ describe('calculateFileHashes', () => {
       content,
     };
 
-    const result = await calculateFileHashes(file);
+    const result = await calculateFileHashes(file, realAbsolutePath);
     const bytes = Buffer.from(content, 'utf8');
 
     expect(result.md5).toBe(createHash('md5').update(bytes).digest('hex'));
@@ -115,7 +122,7 @@ describe('calculateFileHashes', () => {
       path: path.join(scratchDir, 'missing'),
     };
 
-    await expect(calculateFileHashes(missing)).rejects.toThrow();
+    await expect(calculateFileHashes(missing, realAbsolutePath)).rejects.toThrow();
   });
 });
 

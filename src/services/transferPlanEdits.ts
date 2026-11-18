@@ -1,18 +1,17 @@
 import { TransferPlan, TransferPlanEntry } from '../types';
+import { pathIdentity } from './platform';
 
 /**
  * Identity of a plan entry for duplicate detection.
  *
  * Windows treats `C:\Temp\` and `c:\temp` as the same folder, and the native
- * picker happily returns the trailing-separator form, so trimming the separator
- * and comparing case-insensitively is what keeps one file from being queued
- * twice under two spellings.
+ * picker happily returns the trailing-separator form, so the trailing separator
+ * has to go before comparing. Case is the host's rule, not this module's: folding
+ * it unconditionally merged `Ana.txt` with `ana.txt` on POSIX, where they are two
+ * files, and the second pick was silently dropped from the queue.
  */
 export function planEntryKey(path: string): string {
-  return path
-    .trim()
-    .replace(/[\\/]+$/, '')
-    .toLowerCase();
+  return pathIdentity(path);
 }
 
 export interface PlanMerge {
