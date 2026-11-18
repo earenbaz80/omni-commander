@@ -59,11 +59,15 @@ arreglos funcionales en el mismo commit.
 
 ## 4. Puntos de acoplamiento medidos
 
-- **Rutas:** quedan 38 usos de `path.win32` —el README sigue diciendo 73—,
-  casi todos en `server/runLauncher.cjs` (26) y `server/fileOps.cjs` (7), más
-  `server/pathSafety.cjs` (2), `server/platform/windows.cjs`,
-  `electron/trayMenu.cjs` y un test de `fileOps`. `catalog`, `archiveReader` y
-  las rutas de ficheros ya no lo usan.
+- **Rutas:** quedan 47 usos de `path.win32` —el README ya lo refleja—, 37 de
+  ellos fuera de los tests: `server/runLauncher.cjs` (26), `server/fileOps.cjs`
+  (7), `server/pathSafety.cjs` (2), `server/platform/windows.cjs` y
+  `electron/trayMenu.cjs`. Los otros 10 están en siete ficheros de test
+  (`server.archives.routes.test.ts`, `server/fileOps.stall.test.ts` y
+  `server.files.routes.test.ts` con 2 cada uno, y `server.catalog.test.ts`,
+  `server.cleanup.test.ts`, `server.pathsafety.test.ts` y
+  `server.share.test.ts` con 1). `catalog`, `archiveReader` y las rutas de
+  ficheros ya no lo usan en producción.
 - **Servidor:** `server/platform/windowsVolumes.cjs` concentra el sondeo de
   unidades, WMI y las conexiones de red; `server/fileOps.cjs` y
   `server/openWith.cjs` ya delegan sus partes Windows en el adaptador;
