@@ -190,9 +190,17 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
   ): Promise<FileItem> {
     if (getArchiveSource(driveId, root)) throw new Error(tGlobal('zipReadOnly'));
     const safe = archiveEntryPath(relative);
+    // `archiveEntryPath` answers the levels of an archive entry joined with `\`,
+    // which is that file's own vocabulary and not a path on this machine. Handing
+    // it whole to `childAbsolutePath` made a POSIX destination a single level
+    // literally named `sub\nota.txt`, so the levels are joined one by one and
+    // each takes the separator of the folder it hangs from.
+    const levels = archiveLevels(safe);
+    const fullName = levels.pop()!;
+    const parent = levels.reduce((acc, level) => deps.childAbsolutePath(acc, level), deps.normalizePath(root));
     // Kept drive-relative for the catalogue entry, which indexes panels by that
     // form; only the request to the server needs the drive letter.
-    const target = deps.childAbsolutePath(root, safe);
+    const target = deps.childAbsolutePath(parent, fullName);
     if (deps.isSystemDrive(driveId)) {
       const replace = options.overwrite ? '&overwrite=1' : '';
       const response = await fetchWithRetry(
@@ -207,8 +215,6 @@ export function createArchiveOps(deps: ArchiveOpsDeps): ArchiveOps {
       );
       if (!response.ok) throw new Error((await response.json()).error);
     }
-    const parent = deps.getParentPath(target);
-    const fullName = safe.split('\\').pop()!;
     const listed = deps.isSystemDrive(driveId)
       ? undefined
       : deps.getFiles(driveId, parent).find((f) => deps.realEntryName(f).toLowerCase() === fullName.toLowerCase());

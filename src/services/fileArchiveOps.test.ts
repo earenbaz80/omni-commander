@@ -261,6 +261,32 @@ describe('fileArchiveOps on a case-sensitive root', () => {
 
     expect(ops.findArchive('C:', 'c:\\vol\\DEMO.zip\\carpeta')?.root).toBe('C:\\vol\\demo.zip');
   });
+
+  it('writes an extracted member one level down on a POSIX destination', async () => {
+    setPlatformInfo(platform(true, '/'));
+    const bytes = await zipBytes({ 'sub/dentro.txt': 'hola' });
+    const written: FileItem[] = [];
+    const { ops } = posixHarness({
+      readFileBytes: async () => bytes,
+      rememberFile: (entry) => written.push(entry),
+    });
+    const source = item({
+      id: 'zip',
+      driveId: 'real_vol',
+      path: '/mnt/vol',
+      fullName: 'demo.zip',
+      name: 'demo',
+      ext: 'zip',
+      size: bytes.length,
+    });
+
+    await ops.extractArchive(source, 'real_vol', '/mnt/vol/dest');
+
+    // The member is `sub/dentro.txt`. Its levels are archive vocabulary and come
+    // back backslash-joined, so the catalogue only records it in `sub` if they are
+    // joined with the destination's own separator; a single child flattened it.
+    expect(written.map((file) => [file.path, file.fullName])).toEqual([['/mnt/vol/dest/sub', 'dentro.txt']]);
+  });
 });
 
 describe('fileArchiveOps extraction conflicts', () => {
