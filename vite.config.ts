@@ -222,6 +222,7 @@ export default defineConfig(({ command, mode }) => {
               'node_modules/**',
               'dist/**',
               'vite.config.test.ts',
+              'scripts/audit-gate.test.ts',
               'scripts/engines-floor.test.ts',
               'scripts/check-links.test.ts',
               'src/components/modals/SettingsModal.password.test.tsx',
@@ -237,6 +238,7 @@ export default defineConfig(({ command, mode }) => {
             name: 'threads',
             include: [
               'vite.config.test.ts',
+              'scripts/audit-gate.test.ts',
               'scripts/engines-floor.test.ts',
               'scripts/check-links.test.ts',
               'src/components/modals/SettingsModal.password.test.tsx',
