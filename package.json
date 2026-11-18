@@ -1,5 +1,7 @@
 {
   "name": "omnicommander-pro",
+  "description": "Dual-panel file manager with a keyboard-driven terminal interface, a local Express server and an Electron shell.",
+  "homepage": "https://github.com/earenbaz80/omni-commander",
   "build": {
     "appId": "com.omnicmd.desktop",
     "productName": "OmniCommander Pro",
@@ -36,12 +38,15 @@
     },
     "linux": {
       "target": [
-        "AppImage"
+        "AppImage",
+        "deb"
       ],
       "icon": "build/icon-linux.png",
       "category": "Utility",
       "executableName": "omnicommander-pro",
-      "artifactName": "OmniCommander-Pro-${version}-${arch}.${ext}"
+      "artifactName": "OmniCommander-Pro-${version}-${arch}.${ext}",
+      "maintainer": "earenbaz80 <edelarencibiabaez@gmail.com>",
+      "synopsis": "Dual-panel file manager"
     },
     "publish": {
       "provider": "github",

@@ -4,8 +4,8 @@
 avanzada: el servidor arranca con `paths`/`volumes`, lista una carpeta real con rutas POSIX y la UI conserva `/`;
 copiar, mover, renombrar, recorrer el árbol, extraer de un ZIP y mandar a la papelera pasan contra el servidor real
 en `linux-integration.yml`, en cada push a `master` y en cada pull request. La papelera Linux usa `gio trash` con
-fallback XDG. El target AppImage de prueba y su build de CI ya existen —el preflight lo empaqueta como artefacto de
-la corrida—, pero no se publica ninguna release Linux; Windows sigue siendo la única plataforma distribuida.
+fallback XDG. Los targets AppImage y `.deb` de prueba y su build de CI ya existen —el preflight empaqueta ambos como
+artefactos de la corrida—, pero no se publica ninguna release Linux; Windows sigue siendo la única plataforma distribuida.
 
 **Objetivo inicial:** Linux x64 con gestión de archivos local —listar, copiar,
 mover, renombrar, borrar, papelera, abrir y línea de órdenes— y empaquetado
@@ -82,10 +82,11 @@ arreglos funcionales en el mismo commit.
   con alias POSIX sueltos (`ls`, `cat`, `rm`, `clear`). El campo se llama
   `letter` en todo el renderer aunque ya acepte una raíz `/`.
 - **Empaquetado:** `package.json` declara `win` (NSIS/portable) y un target
-  `linux` limitado a AppImage de prueba; `.github/workflows/release.yml` corre
+  `linux` con AppImage y `.deb` de prueba; `.github/workflows/release.yml` corre
   en `windows-latest` y ejecuta `electron-builder --win`, mientras que
-  `.github/workflows/linux-preflight.yml` genera el AppImage como artefacto de
-  CI con `--publish never`. No hay `latest-linux.yml` ni release Linux.
+  `.github/workflows/linux-preflight.yml` genera el AppImage y el `.deb` como
+  artefactos de CI con `--publish never`. No hay `latest-linux.yml` ni release
+  Linux.
 - **Tests:** `server.open.test.ts`, `server.run.test.ts` y
   `server.share.test.ts` tienen casos condicionados a `win32`; la suite Linux
   necesitará sus equivalentes, no borrar los de Windows.
@@ -135,7 +136,8 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
 - Copiar, mover, renombrar, recorrer y medir el árbol, extraer de un ZIP,
   mandar a la papelera y borrar sin papelera ya están cubiertos por
   `server.linux.integration.test.ts`, que arranca el servidor real en CI. Sigue
-  faltando: `cleanup`, `openWith` y el instalador. La UI muestra los montajes,
+  faltando: `cleanup`, `openWith` y un paquete publicado desde el que instalar.
+  La UI muestra los montajes,
   pero el resto de operaciones reales todavía asume Windows.
 
 ### Fase 3 — Integración de escritorio
@@ -147,11 +149,12 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
 
 ### Fase 4 — Paquete y updater (en curso)
 
-- El target AppImage, su icono de 512 px y el artefacto de CI ya están. El job
-  Linux lo empaqueta con `--publish never` y lo sube como artefacto de la
-  corrida, sin crear una release.
-- Faltan `.deb`, `latest-linux.yml`, el updater Linux y una release de prueba;
-  también faltan tests y e2e bajo Xvfb antes de que Linux pueda ser un gate.
+- Los targets AppImage y `.deb`, su icono de 512 px y los artefactos de CI ya
+  están. El job Linux empaqueta ambos con `--publish never`, comprueba que el
+  `.deb` declara la misma versión que `package.json` y los sube como artefactos
+  de la corrida, sin crear una release.
+- Faltan `latest-linux.yml`, el updater Linux y una release de prueba; también
+  faltan tests y e2e bajo Xvfb antes de que Linux pueda ser un gate.
 
 ### Fase 5 — Paridad
 
@@ -170,12 +173,12 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
   actualiza desde una copia anterior.
 - La integración Linux corre en cada push a `master` y en cada pull request
   (`linux-integration.yml`), así que el adaptador POSIX ya es un gate; el
-  preflight que empaqueta el AppImage sigue siendo manual.
+  preflight que empaqueta el AppImage y el `.deb` sigue siendo manual.
 
 ## 7. Decisiones pendientes
 
-1. **Alcance del MVP:** ¿solo x64 y AppImage, o también `.deb` desde la primera
-   entrega?
+1. **Arquitectura del MVP:** x64 con AppImage y `.deb` ya se empaqueta; ¿se
+   agrega arm64?
 2. **Escritorio:** X11 y Wayland; GNOME/KDE como referencia, sin prometer
    integración profunda.
 3. **Elevación:** ¿`pkexec` para operaciones puntuales o se declara fuera del
