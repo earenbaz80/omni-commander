@@ -80,6 +80,12 @@ case "$program" in
     ;;
 esac
 echo "installed $package_name, program at $program"
+file "$program" || true
+
+# `--version` starts the same binary without a window: when the boot below dies
+# with nothing in its log, this says whether the program itself runs at all.
+version_output=$(timeout 20 "$program" --version 2>&1 || true)
+echo "version output: ${version_output:-none}"
 
 # The shared libraries the binary itself resolves. Empty here means the package
 # brought everything it links against.
@@ -93,7 +99,11 @@ fi
 # to assume is already there.
 apt-get install -y -qq --no-install-recommends xvfb
 
-xvfb-run -a "$program" --no-sandbox --disable-gpu --disable-dev-shm-usage --remote-debugging-port=9333 \
+# `--no-zygote` and `--no-sandbox` are container concessions, not app settings:
+# this runs as root in a container without user namespaces, where Chromium's
+# zygote cannot start. A desktop user never needs either flag.
+ELECTRON_ENABLE_LOGGING=1 xvfb-run -a "$program" \
+  --no-sandbox --no-zygote --disable-gpu --disable-dev-shm-usage --remote-debugging-port=9333 \
   >/tmp/app.log 2>&1 &
 app=$!
 
@@ -118,13 +128,15 @@ if [ "$opened" = 1 ]; then
 fi
 
 if [ "$opened" != 1 ] || ! printf '%s' "$pages" | grep -q 'index\.html'; then
-  echo "::error::the app did not load its window on a clean ubuntu:24.04; last lines: $(tail -n 12 /tmp/app.log | tr '\n' ' ')"
+  tail -n 40 /tmp/app.log
+  echo "::error::the app did not load its window on a clean ubuntu:24.04 ($program, version output: ${version_output:-none}); log: $(tail -n 30 /tmp/app.log | tr '\n' ' ')"
   exit 1
 fi
 
 sleep 2
 if ! kill -0 "$app" 2>/dev/null; then
-  echo "::error::the app closed right after loading its window; last lines: $(tail -n 12 /tmp/app.log | tr '\n' ' ')"
+  tail -n 40 /tmp/app.log
+  echo "::error::the app closed right after loading its window; log: $(tail -n 30 /tmp/app.log | tr '\n' ' ')"
   exit 1
 fi
 if grep -qE 'Segmentation fault|FATAL:|ERR_FILE_NOT_FOUND' /tmp/app.log; then
