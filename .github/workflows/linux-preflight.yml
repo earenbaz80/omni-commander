@@ -101,6 +101,24 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      # The artifacts are already uploaded, so a build that breaks here still
+      # reaches whoever has to look at it. What this proves is different from
+      # the integration suite: that the packaged app starts on its own, serves
+      # its own renderer and lists a mount, not just that the server module
+      # answers when a test harness boots it.
+      - name: Smoke the packaged AppImage under Xvfb
+        timeout-minutes: 8
+        shell: bash
+        run: |
+          set -euo pipefail
+          appimage=$(find release -maxdepth 1 -type f -name '*.AppImage' -print -quit)
+          chmod +x "$appimage"
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends xvfb
+          fi
+          xvfb-run -a node scripts/linux-app-smoke.mjs "$appimage"
+
       # The Windows suite and e2e still assume Windows drives, shells and
       # shortcuts, so they are not run here. The real server's POSIX adapter is
       # covered on master and in pull requests by `linux-integration.yml`.

@@ -154,7 +154,8 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
   `.deb` declara la misma versión que `package.json` y los sube como artefactos
   de la corrida, sin crear una release.
 - Faltan `latest-linux.yml`, el updater Linux y una release de prueba; también
-  faltan tests y e2e bajo Xvfb antes de que Linux pueda ser un gate.
+  falta la suite e2e completa bajo Xvfb —el preflight sólo abre el AppImage
+  empaquetado y comprueba que lista un montaje— antes de que Linux sea un gate.
 
 ### Fase 5 — Paridad
 
