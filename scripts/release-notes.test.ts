@@ -5,13 +5,14 @@ import { createRequire } from 'node:module';
 // The generator is CommonJS so the workflow can run it with plain `node`, which
 // is also the shape the publishing step invokes.
 const loadCjs = createRequire(import.meta.url);
-const { buildNotes, groupCommits, parseCommits } = loadCjs('./release-notes.cjs') as {
+const { buildNotes, groupCommits, parseCommits, summaryOf } = loadCjs('./release-notes.cjs') as {
   buildNotes: (input: {
     tag: string;
     previousTag?: string | null;
     commits?: Commit[];
     repository?: string | null;
   }) => string;
+  summaryOf: (commits: Commit[]) => string;
   groupCommits: (commits: Commit[]) => Array<{ title: string; commits: Commit[] }>;
   parseCommits: (output: string) => Commit[];
 };
@@ -96,6 +97,45 @@ describe('buildNotes', () => {
     const notes = buildNotes({ tag: 'v1.0.50', previousTag: 'v1.0.49', commits: [commit('fix: x', sha)] });
     expect(notes).toContain('- fix: x (`abcdef1`)');
     expect(notes).not.toContain('https://github.com/');
+  });
+
+  it('folds maintenance into a collapsed block that still lists every commit', () => {
+    const notes = buildNotes({
+      tag: 'v1.0.50',
+      previousTag: 'v1.0.49',
+      repository: 'owner/name',
+      commits: [
+        commit('fix(panel): keep the row key'),
+        commit('docs(release): close the check'),
+        commit('docs(release): sync the notes'),
+        commit('test(catalog): cover the edges'),
+        commit('refactor(panel): spell the path'),
+      ],
+    });
+    expect(notes).toContain('<details>');
+    expect(notes).toContain('<summary>Mantenimiento (4 commits: 2 docs, 1 refactor, 1 test)</summary>');
+    expect(notes).not.toContain('### Mantenimiento');
+    for (const subject of [
+      'docs(release): close the check',
+      'docs(release): sync the notes',
+      'test(catalog): cover the edges',
+      'refactor(panel): spell the path',
+    ]) {
+      expect(notes).toContain(subject);
+    }
+    expect(notes.indexOf('<details>')).toBeGreaterThan(notes.indexOf('### Correcciones'));
+    expect(notes.indexOf('</details>')).toBeGreaterThan(notes.indexOf('<details>'));
+  });
+
+  it('keeps the sections a user reads as headings', () => {
+    const notes = buildNotes({
+      tag: 'v1.0.50',
+      previousTag: 'v1.0.49',
+      commits: [commit('feat(panel): add a tab'), commit('fix(panel): keep the row key')],
+    });
+    expect(notes).toContain('### Nuevas funciones');
+    expect(notes).toContain('### Correcciones');
+    expect(notes).not.toContain('<details>');
   });
 
   it('describes a first release without a comparison range', () => {

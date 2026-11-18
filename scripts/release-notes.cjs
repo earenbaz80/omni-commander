@@ -12,6 +12,12 @@
  * classification the history promises. Subjects stay verbatim: they are the
  * record the repository already keeps, and rewriting them here would add a
  * second description of the same change that could drift from the first.
+ *
+ * Maintenance is the exception to a plain section: 1.0.49 shipped thirteen such
+ * entries — the previous cut's own documentation and its tests — and reading the
+ * body meant scrolling past them to reach what changed for a user. They are
+ * kept, all of them, inside a collapsed block: nothing is dropped, and the
+ * visible part of the body stays about the product.
  */
 const { execFileSync } = require('node:child_process');
 
@@ -25,6 +31,7 @@ const SECTIONS = [
 // A subject that is not conventional is still a commit somebody made, and
 // dropping it would make the body quietly incomplete.
 const OTHER_TITLE = 'Mantenimiento';
+const COLLAPSED_TITLE = OTHER_TITLE;
 
 const SUBJECT = /^([a-z]+)(?:\(([^)]+)\))?!?: /;
 
@@ -46,6 +53,29 @@ function parseCommits(output) {
       return { sha: (sha ?? '').trim(), subject: (subject ?? '').trim(), body: (body ?? '').trim() };
     })
     .filter((commit) => commit.sha && commit.subject && !commit.subject.startsWith('Merge '));
+}
+
+/** The type a subject declares, or `otros` when it is not conventional. */
+function typeOf(subject) {
+  const match = SUBJECT.exec(subject);
+  return match ? match[1] : 'otros';
+}
+
+/**
+ * The one line that replaces the section heading, e.g.
+ * `13 commits: 7 docs, 3 test, 3 refactor`. Counts come from the subjects, so a
+ * reader knows what is folded away without opening it.
+ */
+function summaryOf(commits) {
+  const counts = new Map();
+  for (const commit of commits) {
+    const type = typeOf(commit.subject);
+    counts.set(type, (counts.get(type) ?? 0) + 1);
+  }
+  const parts = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([type, count]) => `${count} ${type}`);
+  return `${commits.length} commit${commits.length === 1 ? '' : 's'}: ${parts.join(', ')}`;
 }
 
 /** Groups commits into the sections of the body, in a fixed order, without empties. */
@@ -80,15 +110,27 @@ function buildNotes({ tag, previousTag = null, commits = [], repository = null }
   const base = repository ? `https://github.com/${repository}` : null;
   const lines = [previousTag ? `Cambios desde \`${previousTag}\` hasta \`${tag}\`.` : `Primer release, \`${tag}\`.`];
   for (const group of groups) {
-    lines.push('', `### ${group.title}`, '');
-    for (const commit of group.commits) {
+    const entries = group.commits.map((commit) => {
       const short = commit.sha.slice(0, 7);
-      lines.push(
-        base
-          ? `- ${commit.subject} ([\`${short}\`](${base}/commit/${commit.sha}))`
-          : `- ${commit.subject} (\`${short}\`)`,
-      );
+      return base
+        ? `- ${commit.subject} ([\`${short}\`](${base}/commit/${commit.sha}))`
+        : `- ${commit.subject} (\`${short}\`)`;
+    });
+    if (group.title !== COLLAPSED_TITLE) {
+      lines.push('', `### ${group.title}`, '', ...entries);
+      continue;
     }
+    // Folded, not dropped: the summary says what is inside and every entry is
+    // still one click away.
+    lines.push(
+      '',
+      '<details>',
+      `<summary>${group.title} (${summaryOf(group.commits)})</summary>`,
+      '',
+      ...entries,
+      '',
+      '</details>',
+    );
   }
   if (base && previousTag) lines.push('', `**Comparar los cambios**: ${base}/compare/${previousTag}...${tag}`);
   return `${lines.join('\n')}\n`;
@@ -154,4 +196,4 @@ function main(argv) {
 
 if (require.main === module) process.exitCode = main(process.argv.slice(2));
 
-module.exports = { SECTIONS, parseCommits, groupCommits, buildNotes, previousTagOf, notesForTag };
+module.exports = { SECTIONS, parseCommits, groupCommits, buildNotes, previousTagOf, notesForTag, summaryOf };
