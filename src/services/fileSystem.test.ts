@@ -1,7 +1,26 @@
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { fsEngine, listingCachePolicy } from './fileSystem';
+import { setPlatformInfo, type PlatformInfo } from './platform';
 import { log } from '../utils/logger';
 import { Drive } from '../types';
+
+/**
+ * The two machines this build ships for. Only the separator and the case rule
+ * reach path arithmetic, but the answer `/api/platform` gives carries all of it.
+ */
+const WINDOWS: PlatformInfo = {
+  platform: 'win32',
+  caseSensitive: false,
+  separator: '\\',
+  capabilities: { paths: true, volumes: true, cleanup: true, trash: true, openWith: true },
+};
+
+const LINUX: PlatformInfo = {
+  platform: 'linux',
+  caseSensitive: true,
+  separator: '/',
+  capabilities: { paths: true, volumes: true, cleanup: false, trash: true, openWith: false },
+};
 describe('FileSystemEngine defaults', () => {
   it('contains no virtual drives by default', () => {
     const letters = fsEngine.getDrives().map((d) => d.letter);
@@ -229,6 +248,45 @@ describe('FileSystemEngine defaults', () => {
     expect(alpha.sizeBytes).toBe(4);
     expect(alpha.fileCount).toBe(2);
 
+    fsEngine.resetToDefaults();
+  });
+
+  it('labels a POSIX mount and its levels by their last path segment', () => {
+    // The case above pins the labels through a drive letter, where a backslash is
+    // the separator. This one goes through the engine's own `normalizePath` and
+    // `childAbsolutePath`, which is what a Linux mount actually asks them for.
+    setPlatformInfo(LINUX);
+    fsEngine.setDrives([
+      {
+        id: 'mnt_data',
+        root: '/mnt/data',
+        letter: '/mnt/data',
+        name: 'data',
+        type: 'local',
+        totalBytes: 1,
+        freeBytes: 1,
+        isMounted: true,
+      },
+    ]);
+    fsEngine.createDirectory('mnt_data', '/mnt/data', 'docs');
+    fsEngine.createDirectory('mnt_data', '/mnt/data/docs', 'ana');
+    fsEngine.createFile('mnt_data', '/mnt/data', 'nota.txt', '1234');
+
+    const tree = fsEngine.getFolderSizes('/mnt/data', 'mnt_data');
+
+    expect(tree).not.toBeNull();
+    expect(tree!.name).toBe('data');
+    expect(tree!.subFolders!.map((folder) => folder.name)).toEqual(['docs']);
+    expect(tree!.subFolders![0].subFolders![0].name).toBe('ana');
+    // The label is the only thing shortened: the row still addresses the folder.
+    expect(tree!.path).toBe('/mnt/data');
+    expect(tree!.subFolders![0].path).toBe('/mnt/data/docs');
+    expect(tree!.sizeBytes).toBe(4);
+  });
+
+  afterEach(() => {
+    // The platform is module state, so a case that changes it has to put it back.
+    setPlatformInfo(WINDOWS);
     fsEngine.resetToDefaults();
   });
 
