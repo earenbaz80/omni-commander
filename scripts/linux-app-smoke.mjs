@@ -8,10 +8,11 @@
  * suite exercises. So this spawns the artifact, waits for its debugging port,
  * attaches Playwright to that existing Chromium and fails when no row appears,
  * when the renderer raised an error, or when the process died on the way.
+ *
+ * It answers one question -- does the package boot -- and `linux-app-e2e.mjs`
+ * asks the next three, so a red here is never confused with a broken operation.
  */
-import { spawn } from 'node:child_process';
-import { appendFileSync } from 'node:fs';
-import { chromium } from 'playwright';
+import { appendSummary, attachToWindow, escapeCommandData, startPackagedApp } from './linux-app-harness.mjs';
 
 const appImage = process.argv[2];
 if (!appImage) {
@@ -20,33 +21,15 @@ if (!appImage) {
 }
 
 const port = Number(process.env.SMOKE_CDP_PORT ?? 9333);
-const log = [];
-let app;
+const app = startPackagedApp(appImage, port);
+let browser;
 
-function tail() {
-  return log.join('').split('\n').slice(-40).join('\n');
-}
-
-// The run page is where this output has to land: downloading the job log cuts
-// off before this step, so a verdict that only reaches stdout reaches nobody.
-// Workflow commands need their own escaping, and the summary is a file that only
-// exists under Actions.
-function escapeCommandData(value) {
-  return value.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
-}
-
-function appendSummary(markdown) {
-  const file = process.env.GITHUB_STEP_SUMMARY;
-  if (!file) return;
-  try {
-    appendFileSync(file, `${markdown}\n`);
-  } catch {
-    // Losing the summary must not turn a passing smoke into a failing one.
-  }
-}
-
+/**
+ * The run page is where this verdict has to land: downloading the job log cuts
+ * off before this step, so a failure that only reached stdout reached nobody.
+ */
 function fail(reason) {
-  const lastLines = tail() || '(the app printed nothing)';
+  const lastLines = app.tail() || '(the app printed nothing)';
   const report = `linux smoke: ${reason}\n--- last lines of the app ---\n${lastLines}`;
   console.error(report);
   console.error(`::error::${escapeCommandData(report)}`);
@@ -65,78 +48,16 @@ function fail(reason) {
       '</details>',
     ].join('\n'),
   );
-  try {
-    process.kill(-app.pid, 'SIGKILL');
-  } catch {
-    // Already gone: nothing to clean up.
-  }
+  app.stop();
   process.exit(1);
 }
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-app = spawn(
-  appImage,
-  [
-    // The runner restricts unprivileged user namespaces, so Chromium's sandbox
-    // cannot start there; a virtual display has no GPU, and /dev/shm is small.
-    '--no-sandbox',
-    '--disable-gpu',
-    '--disable-dev-shm-usage',
-    `--remote-debugging-port=${port}`,
-  ],
-  {
-    // FUSE is not guaranteed on the runner image; this makes the runtime unpack
-    // itself instead of mounting, which needs no privileged helper.
-    env: { ...process.env, APPIMAGE_EXTRACT_AND_RUN: '1' },
-    detached: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  },
-);
-for (const stream of [app.stdout, app.stderr]) {
-  stream.on('data', (data) => log.push(String(data)));
-}
-// A missing or non-executable artifact fails in spawn, not in a signal, and an
-// unhandled 'error' event would end the process with a stack instead of a reason.
-app.on('error', (error) => fail(`the app could not be started: ${error.message}`));
-
 const watchdog = setTimeout(() => fail('the app did not become usable within 180 s'), 180_000);
 
-async function waitForDebuggingPort() {
-  const deadline = Date.now() + 60_000;
-  for (;;) {
-    if (app.exitCode !== null) {
-      fail(`the app exited with code ${app.exitCode} before opening its debugging port`);
-    }
-    try {
-      const response = await fetch(`http://127.0.0.1:${port}/json/version`);
-      if (response.ok) return;
-    } catch {
-      // Nothing listening yet; keep waiting until the deadline.
-    }
-    if (Date.now() > deadline) fail('the app never opened its debugging port');
-    await sleep(500);
-  }
-}
-
-async function findWindow(browser) {
-  const deadline = Date.now() + 30_000;
-  for (;;) {
-    for (const context of browser.contexts()) {
-      for (const page of context.pages()) {
-        if (page.url().endsWith('index.html')) return page;
-      }
-    }
-    if (Date.now() > deadline) fail('no window loaded the packaged index.html');
-    await sleep(250);
-  }
-}
-
-let browser;
 try {
-  await waitForDebuggingPort();
-  browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
-  const page = await findWindow(browser);
+  const attached = await attachToWindow(app, port);
+  browser = attached.browser;
+  const page = attached.page;
 
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -151,8 +72,8 @@ try {
   const title = await page.title();
 
   if (errors.length > 0) fail(`the renderer raised ${errors.length} error(s): ${errors.join(' | ')}`);
-  if (app.exitCode !== null) fail(`the app exited with code ${app.exitCode} after loading`);
-  const fatal = log.join('').match(/Segmentation fault|FATAL:|ERR_FILE_NOT_FOUND/);
+  if (app.child.exitCode !== null) fail(`the app exited with code ${app.child.exitCode} after loading`);
+  const fatal = app.log.join('').match(/Segmentation fault|FATAL:|ERR_FILE_NOT_FOUND/);
   if (fatal) fail(`the app log carries "${fatal[0]}"`);
 
   clearTimeout(watchdog);
@@ -162,10 +83,6 @@ try {
 } catch (error) {
   fail(String(error?.message ?? error));
 } finally {
-  try {
-    process.kill(-app.pid, 'SIGKILL');
-  } catch {
-    // Already gone.
-  }
+  app.stop();
   if (browser) await browser.close().catch(() => {});
 }

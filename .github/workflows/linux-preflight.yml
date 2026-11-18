@@ -132,6 +132,32 @@ jobs:
           fi
           exit "$status"
 
+      # The smoke above proves the window boots and lists a mount. These three
+      # cases ask whether the package can be used at all -- a folder opened, a
+      # file copied between the panels, a file deleted for good -- because the
+      # listing never touches the keyboard engine, the transfer queue or the
+      # server's delete.
+      - name: Run the packaged AppImage's interaction cases under Xvfb
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          set -euo pipefail
+          appimage=$(find release -maxdepth 1 -type f -name '*.AppImage' -print -quit)
+          chmod +x "$appimage"
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends xvfb
+          fi
+          status=0
+          xvfb-run -a node scripts/linux-app-e2e.mjs "$appimage" || status=$?
+          if [ -s "${GITHUB_STEP_SUMMARY:-/dev/null}" ] && grep -q 'Linux AppImage e2e' "$GITHUB_STEP_SUMMARY"; then
+            echo "the cases are in the run's step summary"
+          else
+            echo "::error::the interaction cases left no verdict in the step summary"
+            status=1
+          fi
+          exit "$status"
+
       # The Windows suite and e2e still assume Windows drives, shells and
       # shortcuts, so they are not run here. The real server's POSIX adapter is
       # covered on master and in pull requests by `linux-integration.yml`.
