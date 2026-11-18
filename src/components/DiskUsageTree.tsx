@@ -145,10 +145,15 @@ export const DiskUsageTree: React.FC<DiskUsageTreeProps> = ({
 
   const partialFolders = progress?.folders ?? [];
 
+  // A virtual drive is measured from the engine's own index, so the walk needs
+  // its root path even when the caller sits on the drive itself and passes an
+  // empty one. Asking the drive keeps that root right on both platforms; the
+  // literal `C:` this used to fall back to only exists where drives are letters.
+  const indexPath = path || fsEngine.getDrives().find((drive) => drive.id === driveId)?.root || '';
   const tree: DiskUsageItem | DiskUsageScan | null = scansDisk
     ? scan
     : driveId
-      ? fsEngine.getFolderSizes(path || 'C:', driveId)
+      ? fsEngine.getFolderSizes(indexPath, driveId)
       : null;
 
   const toggle = (folderPath: string) =>
