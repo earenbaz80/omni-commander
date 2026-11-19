@@ -17,6 +17,7 @@ class PackagedSummary implements Reporter {
   private rows: string[] = [];
   private failures: string[] = [];
   private reasons: string[] = [];
+  private seen = new Set<string>();
 
   onTestEnd(test: TestCase, result: TestResult): void {
     const name = test.titlePath().filter(Boolean).slice(1).join(' > ');
@@ -24,10 +25,15 @@ class PackagedSummary implements Reporter {
     this.rows.push(`| ${name} | ${passed ? 'passed' : `**${result.status}**`} | ${Math.round(result.duration)} ms |`);
     if (!passed) {
       this.failures.push(name);
-      // The first failures say why the run broke; the rest usually repeat it. A
-      // log is not readable from the API, an annotation is.
+      // A log is not readable from the API and an annotation is, so the run says
+      // why it broke. One message per distinct cause: sixty-nine copies of the
+      // same fixture error would hide the second reason.
       const reason = (result.error?.message ?? '').trim();
-      if (reason && this.reasons.length < 3) this.reasons.push(reason.slice(0, 600));
+      const signature = reason.slice(0, 80);
+      if (reason && !this.seen.has(signature) && this.reasons.length < 6) {
+        this.seen.add(signature);
+        this.reasons.push(reason.slice(0, 700));
+      }
     }
   }
 

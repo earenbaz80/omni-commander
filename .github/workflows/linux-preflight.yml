@@ -165,10 +165,18 @@ jobs:
       # playwright.packaged.config.ts) -- and puts every case in the step summary.
       - name: Run the suite's specs against the packaged AppImage
         timeout-minutes: 40
+        # The verdict matters even when an earlier case failed: a broken
+        # interaction case and a broken suite are different findings, and one
+        # should not hide the other.
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
           appimage=$(find release -maxdepth 1 -type f -name '*.AppImage' -print -quit)
+          if [ -z "$appimage" ]; then
+            echo "::error::there is no AppImage for the suite to run against"
+            exit 1
+          fi
           chmod +x "$appimage"
           if ! command -v xvfb-run >/dev/null 2>&1; then
             sudo apt-get update

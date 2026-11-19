@@ -139,6 +139,10 @@ export async function launchPackagedWindow(appPath: string): Promise<PackagedWin
     await waitForDebuggingPort(child, cdpPort, log);
     const browser = await chromium.connectOverCDP(`http://127.0.0.1:${cdpPort}`);
     const page = await findAppWindow(browser);
+    // Hand the test a window whose document has finished loading. Reloading one
+    // that is still in flight aborts the navigation instead of starting a new
+    // one, and the first `goto('/')` of every test would fail on it.
+    await page.waitForLoadState('load', { timeout: 30_000 }).catch(() => {});
 
     // `page.goto('/')` is the suite's way of saying "boot the app". In the
     // package the window is already on that document, so the same intent is a
