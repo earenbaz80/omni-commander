@@ -16,12 +16,19 @@ const ANNOTATION_LIMIT = 900;
 class PackagedSummary implements Reporter {
   private rows: string[] = [];
   private failures: string[] = [];
+  private reasons: string[] = [];
 
   onTestEnd(test: TestCase, result: TestResult): void {
     const name = test.titlePath().filter(Boolean).slice(1).join(' > ');
     const passed = result.status === 'passed';
     this.rows.push(`| ${name} | ${passed ? 'passed' : `**${result.status}**`} | ${Math.round(result.duration)} ms |`);
-    if (!passed) this.failures.push(name);
+    if (!passed) {
+      this.failures.push(name);
+      // The first failures say why the run broke; the rest usually repeat it. A
+      // log is not readable from the API, an annotation is.
+      const reason = (result.error?.message ?? '').trim();
+      if (reason && this.reasons.length < 3) this.reasons.push(reason.slice(0, 600));
+    }
   }
 
   onEnd(): void {
@@ -46,6 +53,10 @@ class PackagedSummary implements Reporter {
     if (this.failures.length) {
       const list = this.failures.join(', ').slice(0, ANNOTATION_LIMIT);
       console.log(`::error::packaged e2e failed ${this.failures.length} case(s): ${list}`);
+      for (const reason of this.reasons) {
+        const flat = reason.replaceAll('%', '%25').replaceAll('\r', '').replaceAll('\n', ' ');
+        console.log(`::error::first failures: ${flat}`);
+      }
     }
   }
 }
