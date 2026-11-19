@@ -12,6 +12,7 @@ import {
   toggleToolbarItem,
   moveToolbarItem,
 } from '../../services/toolbarItems';
+import { usePlatformInfo } from '../../hooks/usePlatformInfo';
 import { soundManager } from '../../services/soundEffects';
 import { checkPassword, createPasswordRecord } from '../../services/appLock';
 import { useThemeColors } from '../../hooks/useThemeColors';
@@ -212,6 +213,9 @@ export function ThemePreview({ themeId, lang }: { themeId: ThemeId; lang: Langua
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, settings, onUpdateSettings, onClose }) => {
   const t = getTranslations(lang);
+  // A command the host does not implement is not one this list can offer either.
+  const platformInfo = usePlatformInfo();
+  const toolbarCommandAvailable = (id: string) => id !== 'cleanup' || platformInfo.capabilities.cleanup;
   const [activeTab, setActiveTab] = useState<SettingsTab>('theme');
   const [formData, setFormData] = useState<FormSettings>({ ...INITIAL_FORM, ...settings });
   const [errors, setErrors] = useState<Partial<Record<keyof FormSettings, string>>>({});
@@ -587,7 +591,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
         <div className="space-y-[var(--space-1)]">
           {resolveToolbarItems(formData.toolbarItems).map((id, index, list) => {
             const definition = TOOLBAR_ITEMS.find((entry) => entry.id === id);
-            if (!definition) return null;
+            if (!definition || !toolbarCommandAvailable(id)) return null;
             return (
               <div key={id} className="flex items-center gap-[var(--space-2)]">
                 <input
@@ -630,7 +634,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
         {/* Hidden commands stay listed, so turning one back on is a click and
             not a guess about which buttons this build even has. */}
         <div className="space-y-[var(--space-1)]">
-          {DEFAULT_TOOLBAR_ITEMS.filter((id) => !resolveToolbarItems(formData.toolbarItems).includes(id)).map((id) => {
+          {DEFAULT_TOOLBAR_ITEMS.filter(
+            (id) => toolbarCommandAvailable(id) && !resolveToolbarItems(formData.toolbarItems).includes(id),
+          ).map((id) => {
             const definition = TOOLBAR_ITEMS.find((entry) => entry.id === id);
             if (!definition) return null;
             return (

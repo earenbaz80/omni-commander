@@ -70,6 +70,25 @@ function fallbackPlatform(): PlatformInfo {
 let current = fallbackPlatform();
 let pending: Promise<PlatformInfo> | null = null;
 
+type PlatformListener = (info: PlatformInfo) => void;
+const listeners = new Set<PlatformListener>();
+
+/**
+ * Subscribes to the answer the server gives, for a view that draws a command
+ * only where the host implements it. Returns the unsubscribe.
+ */
+export function watchPlatformInfo(listener: PlatformListener): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+/** The answer in force: the user agent's guess until the server replaces it. */
+export function currentPlatformInfo(): PlatformInfo {
+  return current;
+}
+
 /**
  * Applies an answer from the server, or a bootstrap value, to every consumer.
  *
@@ -78,6 +97,7 @@ let pending: Promise<PlatformInfo> | null = null;
  */
 export function setPlatformInfo(info: PlatformInfo): PlatformInfo {
   current = info;
+  for (const listener of listeners) listener(info);
   return current;
 }
 

@@ -18,8 +18,9 @@ import {
 import { ThemeConfig } from '../services/themeManager';
 import { ActiveModal, FileItem, PanelState, PanelTab } from '../types';
 import { soundManager } from '../services/soundEffects';
-import { cleanupTargets, CleanupTargetId } from '../services/fileSystem';
-import { cleanupTargetLabel } from '../utils/cleanupTargets';
+import { CleanupTargetId } from '../services/fileSystem';
+import { cleanupTargetLabel, cleanupTargetsFor } from '../utils/cleanupTargets';
+import { usePlatformInfo } from '../hooks/usePlatformInfo';
 import { resolveToolbarItems } from '../services/toolbarItems';
 import { RunLauncher } from './RunLauncher';
 
@@ -98,6 +99,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   toolbarItems,
 }) => {
   const [cleanupMenuOpen, setCleanupMenuOpen] = React.useState(false);
+
+  // What this host implements, as the server declares it. A Linux window must not
+  // offer a cleanup its adapter says it does not have, nor the two folders only
+  // Windows has.
+  const platformInfo = usePlatformInfo();
+  const cleanupOffers = cleanupTargetsFor(platformInfo.capabilities, platformInfo.platform);
 
   // Closes the cleanup menu on a click anywhere else and on Escape. Its own
   // controls stop propagation, so toggling it open is not what closes it again.
@@ -329,56 +336,57 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       comes from the server, which owns the real paths and refuses the two that
       need an elevated token.
     */
-    cleanup: (
-      <div className="relative">
-        <button
-          onClick={(event) => {
-            event.stopPropagation();
-            soundManager.playKeyTick();
-            setCleanupMenuOpen((open) => !open);
-          }}
-          className="px-[var(--space-2)] py-[var(--space-1)] rounded border nc-danger-surface-strong cursor-pointer"
-          title={t.toolbarCleanup}
-          aria-haspopup="menu"
-          aria-expanded={cleanupMenuOpen}
-        >
-          <Trash className="w-4 h-4 nc-danger-ink" />
-        </button>
-
-        {cleanupMenuOpen && (
-          <div
-            role="menu"
-            aria-label={t.toolbarCleanup}
-            className="absolute right-0 z-[70] mt-1 min-w-[17rem] rounded border bg-black/95 shadow-lg py-[var(--space-1)]"
-            style={{ borderColor: currentTheme.borderPanel }}
+    cleanup:
+      cleanupOffers.length === 0 ? null : (
+        <div className="relative">
+          <button
+            onClick={(event) => {
+              event.stopPropagation();
+              soundManager.playKeyTick();
+              setCleanupMenuOpen((open) => !open);
+            }}
+            className="px-[var(--space-2)] py-[var(--space-1)] rounded border nc-danger-surface-strong cursor-pointer"
+            title={t.toolbarCleanup}
+            aria-haspopup="menu"
+            aria-expanded={cleanupMenuOpen}
           >
-            {cleanupTargets.map((entry) => (
-              <button
-                key={entry.id}
-                role="menuitem"
-                disabled={entry.requiresAdmin}
-                title={entry.requiresAdmin ? t.cleanupRequiresAdmin : undefined}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  if (entry.requiresAdmin) return;
-                  soundManager.playKeyTick();
-                  setCleanupMenuOpen(false);
-                  onCleanup(entry.id);
-                }}
-                className="w-full flex items-center justify-between gap-[var(--space-3)] px-[var(--space-3)] py-[var(--space-2)] text-left text-xs cursor-pointer hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <span className="truncate text-white">{cleanupTargetLabel(entry.id, t)}</span>
-                {entry.requiresAdmin && (
-                  <span className="text-[9px] uppercase tracking-wide shrink-0 text-amber-300/80">
-                    {t.cleanupRequiresAdmin}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    ),
+            <Trash className="w-4 h-4 nc-danger-ink" />
+          </button>
+
+          {cleanupMenuOpen && (
+            <div
+              role="menu"
+              aria-label={t.toolbarCleanup}
+              className="absolute right-0 z-[70] mt-1 min-w-[17rem] rounded border bg-black/95 shadow-lg py-[var(--space-1)]"
+              style={{ borderColor: currentTheme.borderPanel }}
+            >
+              {cleanupOffers.map((entry) => (
+                <button
+                  key={entry.id}
+                  role="menuitem"
+                  disabled={entry.requiresAdmin}
+                  title={entry.requiresAdmin ? t.cleanupRequiresAdmin : undefined}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (entry.requiresAdmin) return;
+                    soundManager.playKeyTick();
+                    setCleanupMenuOpen(false);
+                    onCleanup(entry.id);
+                  }}
+                  className="w-full flex items-center justify-between gap-[var(--space-3)] px-[var(--space-3)] py-[var(--space-2)] text-left text-xs cursor-pointer hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <span className="truncate text-white">{cleanupTargetLabel(entry.id, t)}</span>
+                  {entry.requiresAdmin && (
+                    <span className="text-[9px] uppercase tracking-wide shrink-0 text-amber-300/80">
+                      {t.cleanupRequiresAdmin}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ),
   };
 
   return (
