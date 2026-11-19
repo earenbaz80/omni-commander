@@ -47,6 +47,7 @@ package_name=$(dpkg-deb -f "$PACKAGE" Package)
 # first executable under /opt" is a binary that answers every switch with a
 # sandbox error instead of the app.
 launcher=""
+via_launcher=no
 while IFS= read -r candidate; do
   case "$candidate" in
     /usr/bin/*)
@@ -60,6 +61,7 @@ done < <(dpkg -L "$package_name")
 
 if [ -n "$launcher" ]; then
   program=$(readlink -f "$launcher")
+  via_launcher=yes
 else
   program=$(dpkg -L "$package_name" | while IFS= read -r candidate; do
     case "$candidate" in
@@ -93,6 +95,14 @@ case "$program" in
     ;;
 esac
 echo "installed $package_name, program at $program"
+# Which path was taken matters: a desktop starts the package through the
+# launcher on PATH, so "the window loaded" only speaks for a user's click when
+# the launcher was the thing that started it.
+if [ "$via_launcher" = yes ]; then
+  echo "started through the launcher the package installs at $launcher"
+else
+  echo "the package installs no launcher on PATH; the program was run directly"
+fi
 
 # The menu entry has to name the program that was installed, or a desktop user
 # gets an icon that does nothing.
