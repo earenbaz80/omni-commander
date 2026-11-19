@@ -190,12 +190,23 @@ async function enterPath(page, panel, target) {
   });
 }
 
+/**
+ * How long a panel gets to paint its rows.
+ *
+ * A request to the app's own server is retried with a 10 s timeout and two
+ * backoffs, and a boot chains two of them: a slow boot answers after 63 s, while
+ * these waits used to give up at 30 s. On a runner whose egress is throttled,
+ * the app's own update check is enough to push the first listing past that, and
+ * the cases then reported "the panel never listed" for an app that was listing.
+ */
+const ROWS_TIMEOUT_MS = 90_000;
+
 /** Points both panels at the scratch folders and waits for their rows. */
 async function openPanels(page) {
   await enterPath(page, 0, origen);
   await enterPath(page, 1, destino);
-  await row(page, 'nota.txt').waitFor({ state: 'visible', timeout: 30_000 });
-  await row(page, 'marcador.txt').waitFor({ state: 'visible', timeout: 30_000 });
+  await row(page, 'nota.txt').waitFor({ state: 'visible', timeout: ROWS_TIMEOUT_MS });
+  await row(page, 'marcador.txt').waitFor({ state: 'visible', timeout: ROWS_TIMEOUT_MS });
 }
 
 /**
@@ -248,7 +259,7 @@ const cases = [
       // Double-click is how the list opens a row; the panel has to leave the
       // folder it was in, not paint the child's name over the parent's rows.
       await row(page, 'abrir').dblclick();
-      await row(page, 'dentro.txt').waitFor({ state: 'visible', timeout: 30_000 });
+      await row(page, 'dentro.txt').waitFor({ state: 'visible', timeout: ROWS_TIMEOUT_MS });
 
       if ((await page.locator('[data-name="nota.txt"]').count()) !== 0) {
         throw new Error('the panel still shows the folder it was in after opening a child');

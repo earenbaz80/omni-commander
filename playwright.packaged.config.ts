@@ -46,9 +46,10 @@ export default defineConfig({
   // up. Here every case also starts the app, and the boot gate the specs use
   // allows it 90 s.
   timeout: 120_000,
-  // A retry would relaunch the app and hide the first attempt's state; a case
-  // that fails here is a finding, not a flake to paper over.
-  retries: 0,
+  // One retry in CI, for the reason the dev config gives: a broken case fails on
+  // both attempts, while a runner whose egress stalls the app's own update check
+  // can push a first listing past the wait once. Locally there is none.
+  retries: process.env.CI ? 1 : 0,
   reporter: [['list'], ['./e2e/support/packagedSummary.ts']],
   use: {
     trace: 'retain-on-failure',
