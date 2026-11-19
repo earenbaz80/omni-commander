@@ -454,85 +454,17 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # Both downloads go through the script the other released-asset jobs use:
-      # it compares the bytes with the size and the digest GitHub records for the
-      # asset, so the channel cannot describe a file the download URL does not
-      # serve.
-      - name: Download the published .deb for this version
-        id: deb
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          version=$(node -p "require('./package.json').version")
-          node scripts/fetch-release-asset.mjs \
-            "v$version" "OmniCommander-Pro-${version}-amd64.deb" pkg
-
-      - name: Download the published AppImage for this version
-        id: appimage
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          version=$(node -p "require('./package.json').version")
-          node scripts/fetch-release-asset.mjs \
-            "v$version" "OmniCommander-Pro-${version}-x86_64.AppImage" pkg
-
-      - name: Write the channel from both packages
-        if: steps.deb.outputs.skipped != 'yes' && steps.appimage.outputs.skipped != 'yes'
-        shell: bash
-        run: |
-          set -euo pipefail
-          version=$(node -p "require('./package.json').version")
-          node scripts/linux-update-channel.cjs write pkg --out channel --version "$version"
-          cat channel/latest-linux.yml
-
-      # A size or a sha512 that disagrees with the file is an update every client
-      # downloads and then refuses, so the channel is checked before it is
-      # attached rather than after somebody reports it.
-      - name: Check the channel describes the files it names
-        if: steps.deb.outputs.skipped != 'yes' && steps.appimage.outputs.skipped != 'yes'
-        shell: bash
-        run: |
-          set -euo pipefail
-          version=$(node -p "require('./package.json').version")
-          for channel in channel/*-linux.yml; do
-            node scripts/linux-update-channel.cjs verify "$channel" pkg --version "$version"
-          done
-
-      - name: Publish the channel file
+      # The same step the tag runs: `scripts/publish-linux-channel.cjs` downloads
+      # the packages this version publishes, writes the channel with what they
+      # weigh and hash, checks it and attaches it. A version that has not been cut
+      # writes `skipped=yes` and its own row in the summary, which is why the job
+      # below waits on that output rather than on a step of its own.
+      - name: Write and attach the Linux update channel
         id: publish
-        if: steps.deb.outputs.skipped != 'yes' && steps.appimage.outputs.skipped != 'yes'
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          version=$(node -p "require('./package.json').version")
-          node scripts/publish-release-asset.mjs "v$version" channel/*-linux.yml
-          {
-            echo "### Linux update channel on v$version"
-            echo
-            echo "- the updater reads: \`latest-linux.yml\`"
-            echo "- files: \`$(cd channel && ls *-linux.yml | tr '\n' ' ')\`"
-            echo "- verdict: written from the published packages and attached"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      # A version that has not been cut publishes nothing, and that is not a
-      # finding about the package. The summary says so, because a green job with
-      # no row of its own reads like a run that did something.
-      - name: Say the version is not published yet
-        if: steps.deb.outputs.skipped == 'yes' || steps.appimage.outputs.skipped == 'yes'
-        shell: bash
-        run: |
-          version=$(node -p "require('./package.json').version")
-          {
-            echo "### Linux update channel: nothing to write"
-            echo
-            echo "- \`v$version\` publishes no \`.deb\` and no AppImage yet"
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: node scripts/publish-linux-channel.cjs pkg
 
   # What somebody on a fresh Ubuntu asks is whether the app offers them anything,
   # and only the updater answers that. This job installs nothing and boots

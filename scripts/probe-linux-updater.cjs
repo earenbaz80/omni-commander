@@ -13,7 +13,8 @@
 // adapter below is the smallest one DebUpdater reads, and requests go through
 // node's http instead of Electron's net.
 //
-// Usage: node scripts/probe-linux-updater.cjs [--version <v>] [--owner <o>] [--repo <r>]
+// Usage: node scripts/probe-linux-updater.cjs [--version <v>] [--channel <name>]
+//        [--owner <o>] [--repo <r>]
 const fs = require('node:fs');
 const http = require('node:http');
 const https = require('node:https');
@@ -25,6 +26,21 @@ const EXTENSIONS = [
   { extension: '.AppImage', updater: 'AppImageUpdater' },
 ];
 const DEFAULTS = { owner: 'earenbaz80', repo: 'omni-commander' };
+
+/**
+ * The channel a version asks for: the first identifier of its prerelease, or
+ * none for a stable one.
+ *
+ * It is not cosmetic. GitHubProvider reads `/releases/latest` when there is no
+ * channel, and that endpoint never returns a prerelease; with a channel it walks
+ * `/releases` and takes the first release whose prerelease starts with that
+ * name. Asking without it from a `1.0.53-beta.1` build finds the previous stable
+ * and reports it as if the feed were behind.
+ */
+function channelOf(version) {
+  const dash = version.indexOf('-');
+  return dash < 0 ? null : version.slice(dash + 1).split('.')[0];
+}
 
 /** HttpExecutor is abstract: the one it wants is Electron's net, this is node's. */
 class NodeHttpExecutor extends require('builder-util-runtime').HttpExecutor {
@@ -68,9 +84,13 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const flag = argv[index];
     if (flag === '--version') options.version = argv[(index += 1)];
+    else if (flag === '--channel') options.channel = argv[(index += 1)];
     else if (flag === '--owner') options.owner = argv[(index += 1)];
     else if (flag === '--repo') options.repo = argv[(index += 1)];
   }
+  // Derived, not passed by the caller: a workflow that had to compute the
+  // channel would be able to compute it differently from the build that wrote it.
+  if (options.channel === undefined) options.channel = channelOf(options.version);
   return options;
 }
 
@@ -80,7 +100,7 @@ function feedError(error) {
   return `${code}${firstLine}`;
 }
 
-async function probe({ version, owner, repo }) {
+async function probe({ version, owner, repo, channel = channelOf(version) }) {
   const { DebUpdater } = require('electron-updater');
   const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-updater-'));
 
@@ -94,7 +114,7 @@ async function probe({ version, owner, repo }) {
   // it, and a check that asked for the Windows `latest.yml` on a Linux runner
   // would pass for the wrong file the day it ran on another host.
   updater._testOnlyOptions = { platform: 'linux' };
-  updater.setFeedURL({ provider: 'github', owner, repo });
+  updater.setFeedURL({ provider: 'github', owner, repo, ...(channel ? { channel } : {}) });
 
   let result;
   try {
@@ -132,7 +152,8 @@ async function probe({ version, owner, repo }) {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const { version, files } = await probe(options);
-  console.log(`the updater read latest-linux.yml of ${version}`);
+  const channelFile = options.channel ? `${options.channel}-linux.yml` : 'latest-linux.yml';
+  console.log(`the updater read ${channelFile} of ${version}`);
   for (const file of files)
     console.log(`  ${file.url}: ${file.size} bytes, sha512:${file.sha512.slice(0, 16)}... offered to ${file.consumer}`);
 }
@@ -144,4 +165,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { NodeHttpExecutor, appAdapter, probe };
+module.exports = { NodeHttpExecutor, appAdapter, channelOf, probe };

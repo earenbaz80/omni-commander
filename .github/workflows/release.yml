@@ -754,78 +754,53 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # Downloading through the script the other released-asset jobs use keeps
-      # the channel tied to what the release serves: it compares the bytes with
-      # the size and the digest GitHub records for the asset, so a channel cannot
-      # describe a file the download URL does not hand out.
-      - name: Download the published .deb
-        id: deb
+      # One step, shared with the preflight: it asks for the packages the release
+      # serves, writes the channel with what they weigh and hash, checks it and
+      # attaches it. The tag and the channel name the version asks for are decided
+      # inside the script, so the two workflows cannot disagree about them.
+      - name: Write and attach the Linux update channel
+        id: publish
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          version=$(node -p "require('./package.json').version")
-          node scripts/fetch-release-asset.mjs \
-            "v$version" "OmniCommander-Pro-${version}-amd64.deb" pkg
+        run: node scripts/publish-linux-channel.cjs pkg
 
-      - name: Download the published AppImage
-        id: appimage
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          version=$(node -p "require('./package.json').version")
-          node scripts/fetch-release-asset.mjs \
-            "v$version" "OmniCommander-Pro-${version}-x86_64.AppImage" pkg
-
-      - name: Write the channel from both packages
-        if: steps.deb.outputs.skipped != 'yes' && steps.appimage.outputs.skipped != 'yes'
-        shell: bash
-        run: |
-          set -euo pipefail
-          version=$(node -p "require('./package.json').version")
-          node scripts/linux-update-channel.cjs write pkg --out channel --version "$version"
-          cat channel/latest-linux.yml
-
-      # A size or a sha512 that disagrees with the file is an update every client
-      # downloads and then refuses, so the channel is checked before it is
-      # attached rather than after somebody reports it.
-      - name: Check the channel describes the files it names
-        if: steps.deb.outputs.skipped != 'yes' && steps.appimage.outputs.skipped != 'yes'
-        shell: bash
-        run: |
-          set -euo pipefail
-          version=$(node -p "require('./package.json').version")
-          for channel in channel/*-linux.yml; do
-            node scripts/linux-update-channel.cjs verify "$channel" pkg --version "$version"
-          done
-
-      - name: Publish the channel file
-        if: steps.deb.outputs.skipped != 'yes' && steps.appimage.outputs.skipped != 'yes'
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          version=$(node -p "require('./package.json').version")
-          node scripts/publish-release-asset.mjs "v$version" channel/*-linux.yml
-          {
-            echo "### Linux update channel on v$version"
-            echo
-            echo "- the updater reads: \`latest-linux.yml\`"
-            echo "- files: \`$(cd channel && ls *-linux.yml | tr '\n' ' ')\`"
-            echo "- written from the packages the release serves and attached"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      # A tag whose packages are missing gives the release nothing to describe.
-      # The Windows job publishes both, so this only fires on a run that skipped
-      # it, and says so instead of ending green with no row about the channel.
+      # On a tag the release exists by now, so a skipped channel is a broken
+      # release rather than a version that has not been cut.
       - name: Say the release carries no Linux packages
-        if: steps.deb.outputs.skipped == 'yes' || steps.appimage.outputs.skipped == 'yes'
+        if: steps.publish.outputs.skipped == 'yes'
         shell: bash
         run: |
           version=$(node -p "require('./package.json').version")
           echo "::error::v$version has no release with the .deb and the AppImage, so it has no Linux feed"
+          exit 1
+
+      # The channel is only good if the updater a `.deb` copy runs can read it.
+      # DebUpdater is the class `resources/package-type` selects, and it asks for
+      # `latest-linux.yml` -- or `beta-linux.yml` on a prerelease, which is why the
+      # probe derives the channel from the version rather than taking it from here.
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --engine-strict
+
+      # The asset was attached seconds ago and the feed can lag behind the API;
+      # the retries cover that, and the last error is the one that decides.
+      - name: Read the feed with the app's updater
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          for attempt in 1 2 3 4 5 6; do
+            if node scripts/probe-linux-updater.cjs --version "$version"; then
+              exit 0
+            fi
+            echo "attempt $attempt: the feed did not answer yet, retrying in 20s"
+            sleep 20
+          done
+          echo "::error::DebUpdater never read the channel of v$version"
           exit 1
