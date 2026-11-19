@@ -31,10 +31,12 @@ mkdir -p /tmp/appimage
 install -m 0755 "$SOURCE" /tmp/appimage/omnicommander.AppImage
 appimage=/tmp/appimage/omnicommander.AppImage
 
-apt-get update -qq || {
-  echo "::error::apt-get update failed in the container"
-  exit 1
-}
+# shellcheck source=scripts/ubuntu-apt.sh
+source "$(dirname "${BASH_SOURCE[0]}")/ubuntu-apt.sh"
+
+# Bounded like the .deb job's: a mirror that stops answering must not look like
+# work in progress until the job's own timeout kills it.
+ubuntu_apt_update
 
 # An alternative is written `libasound2t64 | libasound2`. apt resolves the pipe
 # itself, but `apt-get install` would read it as another package name, so the
@@ -47,12 +49,8 @@ while IFS= read -r line; do
 done < "$DEPENDS"
 echo "installing the libraries the .deb declares: ${packages[*]}"
 
-if ! install_log=$(apt-get install -y --no-install-recommends "${packages[@]}" xvfb xauth 2>&1); then
-  printf '%s\n' "$install_log" | tail -n 25
-  apt-cache policy libgbm1 2>&1 | head -n 4
-  echo "::error::apt could not install the libraries the AppImage needs: $(printf '%s' "$install_log" | tail -n 5 | tr '\n' ' ')"
-  exit 1
-fi
+ubuntu_require_candidates "${packages[@]}"
+ubuntu_apt_install "${packages[@]}" xvfb xauth
 
 # shellcheck source=scripts/ubuntu-app-boot.sh
 source "$(dirname "${BASH_SOURCE[0]}")/ubuntu-app-boot.sh"

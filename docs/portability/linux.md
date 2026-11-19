@@ -162,7 +162,12 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
   encontradas, así que `build.deb.depends` repite la lista por defecto de
   electron-builder —declarar `depends` la reemplaza, no la extiende— y le añade
   `libgbm1` y `libasound2t64 | libasound2`: en 24.04 `libasound2` es un paquete
-  virtual, y la alternativa cubre 22.04 sin dejar de instalar en 24.04. Ese job
+  virtual, y la alternativa cubre 22.04 sin dejar de instalar en 24.04. El apt
+  de ese contenedor va acotado (`scripts/ubuntu-apt.sh`): el índice tiene 120 s
+  y cada descarga 15 s sin reintentos, y antes de instalar se comprueba que el
+  índice ofrezca candidato para cada dependencia declarada —`(none)` para todas
+  a la vez es un índice truncado, no un paquete roto—. Antes, un mirror que no
+  contestaba se comía los 20 minutos del job sin decir nada. Ese job
   sólo habla del paquete que su propio run acaba de compilar; el fichero que
   alguien descarga es el asset del Release, que con la misma versión son otros
   bytes. Por eso `released-deb-install` baja el asset publicado de `v<versión>`,

@@ -18,26 +18,25 @@ if [ ! -f "$PACKAGE" ]; then
   exit 1
 fi
 
-# The container fetches its package index over the runner's network, and a
-# partially written index makes every dependency below read as "not installable"
-# -- an apt failure that looks like a package problem. Retrying here would not
-# help: when the archive is unreachable apt is waiting on a connection, not on a
-# transfer it could start over, so the run is left to fail once and say why.
-apt-get update -qq || {
-  echo "::error::apt-get update failed in the container"
-  exit 1
-}
+# shellcheck source=scripts/ubuntu-apt.sh
+source "$(dirname "${BASH_SOURCE[0]}")/ubuntu-apt.sh"
+
+# The container fetches its package index over the runner's network. A partially
+# written index makes every dependency below read as "not installable", and an
+# unreachable mirror makes apt wait for as long as it is allowed to, which a job
+# timeout turns into twenty silent minutes. The wrapper bounds the wait and says
+# which of the two happened.
+ubuntu_apt_update
+
+# What the package declares, checked against the index before apt is asked to
+# resolve it: with no candidate for one of these, apt spends its time downloading
+# and then refuses every dependency in turn.
+mapfile -t declared < <(ubuntu_deb_dependency_names "$PACKAGE")
+ubuntu_require_candidates "${declared[@]}"
 
 # By path, so apt resolves the dependencies of this package and not those of a
 # release that happens to be published.
-if ! install_log=$(apt-get install -y --no-install-recommends "$PACKAGE" 2>&1); then
-  printf '%s\n' "$install_log" | tail -n 25
-  # A candidate of "(none)" says the index never arrived, which is a different
-  # failure from a dependency this release of Ubuntu genuinely cannot satisfy.
-  apt-cache policy libgbm1 2>&1 | head -n 4
-  echo "::error::apt could not install the .deb: $(printf '%s' "$install_log" | tail -n 5 | tr '\n' ' ')"
-  exit 1
-fi
+ubuntu_apt_install "$PACKAGE"
 
 package_name=$(dpkg-deb -f "$PACKAGE" Package)
 
@@ -145,7 +144,7 @@ fi
 # Now the display. A desktop provides X, so this is what the package is allowed
 # to assume is already there. `xauth` comes along because `xvfb-run` calls it and
 # `--no-install-recommends` would leave it out.
-apt-get install -y -qq --no-install-recommends xvfb xauth
+ubuntu_apt_install xvfb xauth
 
 # The boot and the window check live in a shared helper: the AppImage job asks
 # the same question with the same evidence, and two copies of this logic would
