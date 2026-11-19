@@ -114,8 +114,13 @@ jobs:
           appimage=$(find release -maxdepth 1 -type f -name '*.AppImage' -print -quit)
           chmod +x "$appimage"
           if ! command -v xvfb-run >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y --no-install-recommends xvfb
+            # The runner's apt gets the container's bounded waits: a mirror that
+            # stops answering here would cost this job's whole timeout, and say
+            # nothing about why.
+            export APT_SUDO=sudo
+            source scripts/ubuntu-apt.sh
+            ubuntu_apt_update
+            ubuntu_apt_install xvfb
           fi
           # The step summary is the only view of this verdict left once the log
           # is gone, and the script swallows its own write errors so a passing
@@ -145,8 +150,13 @@ jobs:
           appimage=$(find release -maxdepth 1 -type f -name '*.AppImage' -print -quit)
           chmod +x "$appimage"
           if ! command -v xvfb-run >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y --no-install-recommends xvfb
+            # The runner's apt gets the container's bounded waits: a mirror that
+            # stops answering here would cost this job's whole timeout, and say
+            # nothing about why.
+            export APT_SUDO=sudo
+            source scripts/ubuntu-apt.sh
+            ubuntu_apt_update
+            ubuntu_apt_install xvfb
           fi
           status=0
           xvfb-run -a node scripts/linux-app-e2e.mjs "$appimage" || status=$?
@@ -179,8 +189,13 @@ jobs:
           fi
           chmod +x "$appimage"
           if ! command -v xvfb-run >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y --no-install-recommends xvfb
+            # The runner's apt gets the container's bounded waits: a mirror that
+            # stops answering here would cost this job's whole timeout, and say
+            # nothing about why.
+            export APT_SUDO=sudo
+            source scripts/ubuntu-apt.sh
+            ubuntu_apt_update
+            ubuntu_apt_install xvfb
           fi
           status=0
           # Unpacked once, not once per test: the runtime extracts a whole copy
@@ -214,10 +229,15 @@ jobs:
           package=$(dpkg-deb -f "$deb" Package)
           executable=$(node -p "require('./package.json').build.linux.executableName")
 
-          sudo apt-get update
+          # Bounded like the container's, with the same reasons: the mirror that
+          # stalls here stalls there, and here the cost is the whole job.
+          export APT_SUDO=sudo
+          source scripts/ubuntu-apt.sh
+          ubuntu_apt_update
           # By path, so apt installs the package this run built instead of a
           # release that happens to be published.
-          sudo apt-get install -y --no-install-recommends "./$deb"
+          ubuntu_apt_simulate "./$deb"
+          ubuntu_apt_install "./$deb"
 
           # Where the package says it put the program, rather than a layout this
           # step assumes: a change there has to break here instead of hide.
@@ -230,7 +250,7 @@ jobs:
           echo "installed at $binary"
 
           if ! command -v xvfb-run >/dev/null 2>&1; then
-            sudo apt-get install -y --no-install-recommends xvfb
+            ubuntu_apt_install xvfb
           fi
           status=0
           xvfb-run -a node scripts/linux-app-smoke.mjs "$binary" 'installed .deb' || status=$?

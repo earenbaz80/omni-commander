@@ -2,6 +2,10 @@
 #
 # Sourced by the clean-container smokes, never run on its own.
 #
+# Set APT_SUDO=sudo where the caller is not root yet, as the runner's steps are:
+# the same waits, the same checks and the same messages apply there, where an
+# unresponsive mirror costs the job's whole timeout instead of one step's.
+
 # A container's apt has no reason to hang for the length of a job: a mirror that
 # stopped answering and a truncated index both look exactly like "still working",
 # and the job is then killed by its own timeout with nothing said about why. The
@@ -27,10 +31,21 @@ APT_TIMEOUT_ACQUIRE=${APT_TIMEOUT_ACQUIRE:-15}
 # APT_TIMEOUT_ACQUIRE and the whole step at APT_TIMEOUT_INSTALL.
 APT_RETRIES_INSTALL=${APT_RETRIES_INSTALL:-2}
 
+export DEBIAN_FRONTEND=${DEBIAN_FRONTEND:-noninteractive}
+
+# Read at call time, so a step can set APT_SUDO before or after sourcing.
+ubuntu_apt_root() {
+  apt_root=()
+  if [ -n "${APT_SUDO:-}" ]; then
+    apt_root=("$APT_SUDO")
+  fi
+}
+
 ubuntu_apt_update() {
   local log=/tmp/apt-update.log
   local status=0
-  timeout "$APT_TIMEOUT_UPDATE" apt-get update -qq \
+  ubuntu_apt_root
+  timeout "$APT_TIMEOUT_UPDATE" "${apt_root[@]}" apt-get update -qq \
     -o "Acquire::Retries=0" \
     -o "Acquire::http::Timeout=$APT_TIMEOUT_ACQUIRE" \
     -o "Acquire::https::Timeout=$APT_TIMEOUT_ACQUIRE" \
@@ -71,7 +86,8 @@ ubuntu_apt_update() {
 ubuntu_apt_simulate() {
   local log=/tmp/apt-simulate.log
   local status=0
-  timeout "$APT_TIMEOUT_SIMULATE" apt-get install -y --no-install-recommends -s "$@" \
+  ubuntu_apt_root
+  timeout "$APT_TIMEOUT_SIMULATE" "${apt_root[@]}" apt-get install -y --no-install-recommends -s "$@" \
     >"$log" 2>&1 || status=$?
 
   if [ "$status" -eq 0 ]; then
@@ -90,7 +106,8 @@ ubuntu_apt_simulate() {
 ubuntu_apt_install() {
   local log=/tmp/apt-install.log
   local status=0
-  timeout "$APT_TIMEOUT_INSTALL" apt-get install -y --no-install-recommends \
+  ubuntu_apt_root
+  timeout "$APT_TIMEOUT_INSTALL" "${apt_root[@]}" apt-get install -y --no-install-recommends \
     -o "Acquire::Retries=$APT_RETRIES_INSTALL" \
     -o "Acquire::http::Timeout=$APT_TIMEOUT_ACQUIRE" \
     -o "Acquire::https::Timeout=$APT_TIMEOUT_ACQUIRE" \
