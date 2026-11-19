@@ -173,7 +173,15 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
   lanzador es la entrada `.desktop`, no un comando en `/usr/bin`: el paquete
   pone el programa en `/opt/OmniCommander Pro` y el humo ejecuta el `Exec=` que
   la entrada declara, con sus códigos de campo quitados, porque es lo que corre
-  un clic y lo único que puede decir si el icono abre algo.
+  un clic y lo único que puede decir si el icono abre algo. `released-appimage-boot`
+  hace lo mismo con el AppImage publicado: mismo cotejo de tamaño y `digest`,
+  y en el contenedor instala las librerías que el `.deb` de esa versión declara
+  —el AppImage no declara ninguna— antes de arrancarlo con
+  `--appimage-extract-and-run`, porque un contenedor no tiene montaje FUSE. El
+  camino de montaje lo cubre el humo del AppImage de la corrida, que sí corre en
+  un runner con FUSE. El arranque y la comprobación de que la ventana cargó
+  viven en `scripts/ubuntu-app-boot.sh`, compartidos por los dos humos para que
+  no se separen en qué aceptan como "abrió".
 - Faltan `latest-linux.yml`, el updater Linux y una release de prueba. Bajo
   Xvfb el preflight ya no sólo abre el AppImage empaquetado y comprueba que
   lista un montaje: también abre una carpeta, copia un fichero entre paneles,

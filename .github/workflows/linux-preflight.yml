@@ -305,67 +305,17 @@ jobs:
       - name: Download the published .deb for this version
         id: download
         shell: bash
+        # Read with the workflow's own token: an anonymous call shares the
+        # runner's address with everything else on it and starts answering 403
+        # once that hourly quota is gone, which is not the same as "no release".
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           version=$(node -p "require('./package.json').version")
-          tag="v$version"
-          asset="OmniCommander-Pro-${version}-amd64.deb"
-          api="https://api.github.com/repos/${{ github.repository }}/releases/tags/$tag"
-
-          # Read with the workflow's own token: an anonymous call shares the
-          # runner's address with everything else on it and starts answering 403
-          # once that hourly quota is gone, which is not the same as "no release".
-          code=$(curl -sS -o release.json -w '%{http_code}' \
-            -H "Authorization: Bearer ${{ github.token }}" \
-            -H "Accept: application/vnd.github+json" "$api" || echo 000)
-
-          # A version that has not been cut yet has no released file to install,
-          # and saying so is different from reporting a package or a network fault.
-          if [ "$code" = 404 ]; then
-            echo "skipped=yes" >> "$GITHUB_OUTPUT"
-            echo "::notice::$tag has no release yet, so there is no published .deb to install"
-            {
-              echo "### published .deb on a clean Ubuntu 24.04: skipped"
-              echo
-              echo "\`$tag\` has no release yet, so the file testers download does not exist."
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          if [ "$code" != 200 ]; then
-            head -c 300 release.json || true
-            echo "::error::the release API answered HTTP $code for $tag"
-            exit 1
-          fi
-          echo "skipped=no" >> "$GITHUB_OUTPUT"
-
-          url=$(jq -r --arg name "$asset" '.assets[] | select(.name == $name) | .browser_download_url' release.json)
-          digest=$(jq -r --arg name "$asset" '.assets[] | select(.name == $name) | .digest // ""' release.json)
-          bytes=$(jq -r --arg name "$asset" '.assets[] | select(.name == $name) | .size' release.json)
-          if [ -z "$url" ] || [ "$url" = "null" ]; then
-            echo "::error::$tag publishes no $asset"
-            exit 1
-          fi
-
-          mkdir -p pkg
-          curl -fsSL -o "pkg/$asset" "$url"
-          got_bytes=$(stat -c %s "pkg/$asset")
-          got_digest="sha256:$(sha256sum "pkg/$asset" | cut -d' ' -f1)"
-          echo "$asset: $got_bytes bytes, $got_digest"
-          if [ "$got_bytes" != "$bytes" ]; then
-            echo "::error::the downloaded $asset is $got_bytes bytes, the release says $bytes"
-            exit 1
-          fi
-          if [ -n "$digest" ] && [ "$digest" != "$got_digest" ]; then
-            echo "::error::$asset does not match the digest the release records ($digest)"
-            exit 1
-          fi
-          {
-            echo "### published .deb on a clean Ubuntu 24.04"
-            echo
-            echo "- asset: \`$asset\` from \`$tag\`"
-            echo "- sha256: \`${got_digest#sha256:}\`"
-            echo "- size: $got_bytes bytes"
-          } >> "$GITHUB_STEP_SUMMARY"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          node scripts/fetch-release-asset.mjs \
+            "v$version" "OmniCommander-Pro-${version}-amd64.deb" pkg
 
       - name: Install and boot it inside ubuntu:24.04
         if: steps.download.outputs.skipped != 'yes'
@@ -381,10 +331,79 @@ jobs:
           docker run --rm \
             -v "$PWD/$deb:/tmp/package.deb:ro" \
             -v "$PWD/scripts/ubuntu-install-smoke.sh:/tmp/ubuntu-install-smoke.sh:ro" \
+            -v "$PWD/scripts/ubuntu-app-boot.sh:/tmp/ubuntu-app-boot.sh:ro" \
             ubuntu:24.04 bash -euo pipefail /tmp/ubuntu-install-smoke.sh || status=$?
-          if [ "$status" -eq 0 ]; then
-            echo "- verdict: installed, and its launcher opened" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "- verdict: failed, see the container log above" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### published .deb on a clean Ubuntu 24.04"
+            echo
+            echo "- asset: \`${{ steps.download.outputs.asset }}\` from \`${{ steps.download.outputs.tag }}\`"
+            echo "- sha256: \`${{ steps.download.outputs.digest }}\`"
+            echo "- size: ${{ steps.download.outputs.bytes }} bytes"
+            if [ "$status" -eq 0 ]; then
+              echo "- verdict: installed, and its launcher opened"
+            else
+              echo "- verdict: failed, see the container log above"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+  # The AppImage is the other published file, and a different kind of check: it
+  # carries no dependency list, so the bare image has to be given the libraries
+  # the `.deb` of the same version declares before a window can even be attempted.
+  # Booting the asset answers what the run's own AppImage smoke cannot: that the
+  # file on the release page opens, not a rebuild of it that shares its version.
+  released-appimage-boot:
+    name: Boot the published AppImage on a clean Ubuntu 24.04
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download the published AppImage for this version
+        id: download
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          node scripts/fetch-release-asset.mjs \
+            "v$version" "OmniCommander-Pro-${version}-x86_64.AppImage" pkg
+
+      - name: Boot it inside ubuntu:24.04
+        if: steps.download.outputs.skipped != 'yes'
+        shell: bash
+        run: |
+          set -euo pipefail
+          appimage=$(find pkg -maxdepth 1 -type f -name '*.AppImage' -print -quit)
+          if [ -z "$appimage" ]; then
+            echo "::error::the step above downloaded no AppImage to boot"
+            exit 1
           fi
+          # The AppImage declares nothing. What a desktop is expected to carry is
+          # what the `.deb` of this version promises, so that list is the one the
+          # container installs before trying to open the window.
+          node -p "require('./package.json').build.deb.depends.join('\n')" > pkg/depends.txt
+          status=0
+          docker run --rm \
+            -v "$PWD/$appimage:/tmp/app.AppImage:ro" \
+            -v "$PWD/pkg/depends.txt:/tmp/depends.txt:ro" \
+            -v "$PWD/scripts/ubuntu-appimage-smoke.sh:/tmp/ubuntu-appimage-smoke.sh:ro" \
+            -v "$PWD/scripts/ubuntu-app-boot.sh:/tmp/ubuntu-app-boot.sh:ro" \
+            ubuntu:24.04 bash -euo pipefail /tmp/ubuntu-appimage-smoke.sh || status=$?
+          {
+            echo "### published AppImage on a clean Ubuntu 24.04"
+            echo
+            echo "- asset: \`${{ steps.download.outputs.asset }}\` from \`${{ steps.download.outputs.tag }}\`"
+            echo "- sha256: \`${{ steps.download.outputs.digest }}\`"
+            echo "- size: ${{ steps.download.outputs.bytes }} bytes"
+            echo "- runtime: \`--appimage-extract-and-run\`, because a container has no FUSE mount"
+            if [ "$status" -eq 0 ]; then
+              echo "- verdict: extracted, and its window loaded"
+            else
+              echo "- verdict: failed, see the container log above"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
           exit "$status"
