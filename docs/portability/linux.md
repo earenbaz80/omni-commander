@@ -4,8 +4,8 @@
 avanzada: el servidor arranca con `paths`/`volumes`, lista una carpeta real con rutas POSIX y la UI conserva `/`;
 copiar, mover, renombrar, recorrer el árbol, extraer de un ZIP y mandar a la papelera pasan contra el servidor real
 en `linux-integration.yml`, en cada push a `master` y en cada pull request. La papelera Linux usa `gio trash` con
-fallback XDG. Los targets AppImage y `.deb` de prueba y su build de CI ya existen —el preflight empaqueta ambos como
-artefactos de la corrida—, pero no se publica ninguna release Linux; Windows sigue siendo la única plataforma distribuida.
+fallback XDG. Los targets AppImage y `.deb` y su build de CI ya existen: el preflight empaqueta ambos, y cada release
+publica los dos paquetes con su canal `latest-linux.yml`; Windows sigue siendo la plataforma soportada.
 
 **Objetivo inicial:** Linux x64 con gestión de archivos local —listar, copiar,
 mover, renombrar, borrar, papelera, abrir y línea de órdenes— y empaquetado
@@ -55,7 +55,7 @@ arreglos funcionales en el mismo commit.
 | Propiedades | Atributos Windows | Modo POSIX, propietario, grupo, enlaces | La UI muestra lo que el adaptador declara, no un union de ambos |
 | Temporales | `%TEMP%`, Prefetch | `$XDG_RUNTIME_DIR`, `/tmp` | `tempDir()` y `cleanupTargets()` por adaptador |
 | Empaquetado | NSIS + portable | AppImage + `.deb` | `electron-builder` con targets separados; no reutilizar `latest.yml` |
-| Actualizador | `latest.yml` | `latest-linux.yml` | Decidir por formato: AppImage actualiza; `.deb` puede requerir repositorio o descarga manual |
+| Actualizador | `latest.yml` | `latest-linux.yml` | `electron-updater` resuelve una entrada por extensión: `DebUpdater` baja el `.deb` y lo instala con `dpkg`/`apt` bajo sudo; el AppImage se reemplaza sólo si se lo abrió como AppImage |
 
 ## 4. Puntos de acoplamiento medidos
 
@@ -198,7 +198,10 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
   un runner con FUSE. El arranque y la comprobación de que la ventana cargó
   viven en `scripts/ubuntu-app-boot.sh`, compartidos por los dos humos para que
   no se separen en qué aceptan como "abrió".
-- Faltan `latest-linux.yml`, el updater Linux y una release de prueba. Bajo
+- `latest-linux.yml` y el updater Linux ya están: el canal lo escribe el
+  preflight desde los paquetes publicados y el job
+  `Find the published Linux channel with the app's updater` levanta `DebUpdater`
+  contra el feed. Falta una release de prueba. Bajo
   Xvfb el preflight ya no sólo abre el AppImage empaquetado y comprueba que
   lista un montaje: también abre una carpeta, copia un fichero entre paneles,
   borra otro sin papelera y, con la papelera encendida, manda uno a la papelera

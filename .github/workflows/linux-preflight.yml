@@ -425,3 +425,169 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$status"
+
+  # The file a Linux copy reads has a name the Windows job's latest.yml never
+  # has: on Linux x64 electron-updater asks GitHub for `latest-linux.yml`. A
+  # release that carries the `.deb` and the AppImage without that file offers no
+  # update at all -- the check answers ERR_UPDATER_CHANNEL_FILE_NOT_FOUND, which
+  # is what a 1.0.52 copy installed on Ubuntu reported while both packages sat on
+  # the release page.
+  #
+  # The channel is written from the published files, not from this run's build:
+  # timestamps travel inside a `.deb` and an AppImage, so a rebuild of the same
+  # tree has different bytes and a channel written from it would describe files
+  # nobody can download. What it declares -- name, size and sha512 -- is then what
+  # a client verifies before installing.
+  publish-linux-channel:
+    name: Publish the Linux update channel
+    # The only job here that writes to a release: it asks for that permission and
+    # nothing else, and only on a manual dispatch, so a push to the port branch
+    # cannot rewrite an asset people are downloading.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    outputs:
+      skipped: ${{ steps.publish.outputs.skipped }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Both downloads go through the script the other released-asset jobs use:
+      # it compares the bytes with the size and the digest GitHub records for the
+      # asset, so the channel cannot describe a file the download URL does not
+      # serve.
+      - name: Download the published .deb for this version
+        id: deb
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          node scripts/fetch-release-asset.mjs \
+            "v$version" "OmniCommander-Pro-${version}-amd64.deb" pkg
+
+      - name: Download the published AppImage for this version
+        id: appimage
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          node scripts/fetch-release-asset.mjs \
+            "v$version" "OmniCommander-Pro-${version}-x86_64.AppImage" pkg
+
+      - name: Write the channel from both packages
+        if: steps.deb.outputs.skipped != 'yes' && steps.appimage.outputs.skipped != 'yes'
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          node scripts/linux-update-channel.cjs write pkg --out channel --version "$version"
+          cat channel/latest-linux.yml
+
+      # A size or a sha512 that disagrees with the file is an update every client
+      # downloads and then refuses, so the channel is checked before it is
+      # attached rather than after somebody reports it.
+      - name: Check the channel describes the files it names
+        if: steps.deb.outputs.skipped != 'yes' && steps.appimage.outputs.skipped != 'yes'
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          for channel in channel/*-linux.yml; do
+            node scripts/linux-update-channel.cjs verify "$channel" pkg --version "$version"
+          done
+
+      - name: Publish the channel file
+        id: publish
+        if: steps.deb.outputs.skipped != 'yes' && steps.appimage.outputs.skipped != 'yes'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          node scripts/publish-release-asset.mjs "v$version" channel/*-linux.yml
+          {
+            echo "### Linux update channel on v$version"
+            echo
+            echo "- the updater reads: \`latest-linux.yml\`"
+            echo "- files: \`$(cd channel && ls *-linux.yml | tr '\n' ' ')\`"
+            echo "- verdict: written from the published packages and attached"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # A version that has not been cut publishes nothing, and that is not a
+      # finding about the package. The summary says so, because a green job with
+      # no row of its own reads like a run that did something.
+      - name: Say the version is not published yet
+        if: steps.deb.outputs.skipped == 'yes' || steps.appimage.outputs.skipped == 'yes'
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          {
+            echo "### Linux update channel: nothing to write"
+            echo
+            echo "- \`v$version\` publishes no \`.deb\` and no AppImage yet"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # What somebody on a fresh Ubuntu asks is whether the app offers them anything,
+  # and only the updater answers that. This job installs nothing and boots
+  # nothing: it builds the updater the `.deb` ships -- electron-updater's
+  # DebUpdater, which is what `resources/package-type` selects -- and requires it
+  # to read the published channel and name both packages. A file that is missing,
+  # stale, or names a package the release does not have fails here with the error
+  # the window shows.
+  find-linux-channel:
+    name: Find the published Linux channel with the app's updater
+    needs: publish-linux-channel
+    if: github.event_name == 'workflow_dispatch' && needs.publish-linux-channel.outputs.skipped == 'no'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+
+      # The probe imports electron-updater itself, so it needs the tree the app
+      # is built from rather than a copy of the YAML it produced.
+      - name: Install dependencies
+        run: npm ci --engine-strict
+
+      # Every asset on a release carries a digest GitHub records. Reading the
+      # channel through the same check the `.deb` and the AppImage jobs use keeps
+      # the probe from passing on a file the download URL does not serve.
+      - name: Download the published channel file
+        id: channel
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          node scripts/fetch-release-asset.mjs "v$version" latest-linux.yml channel
+
+      - name: Read the feed the way an installed copy does
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          if [ ! -s channel/latest-linux.yml ]; then
+            echo "::error::the release served no latest-linux.yml"
+            exit 1
+          fi
+          node scripts/probe-linux-updater.cjs --version "$version"
+          {
+            echo "### Linux updater on v$version"
+            echo
+            echo "- channel: \`latest-linux.yml\`, downloaded from the release"
+            echo "- verdict: DebUpdater found both packages in it"
+          } >> "$GITHUB_STEP_SUMMARY"

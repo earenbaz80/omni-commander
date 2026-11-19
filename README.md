@@ -6,11 +6,11 @@ Administrador de archivos de doble panel: dos listados lado a lado, barra de tec
 
 La app **distribuida** es solo para Windows, y la compatibilidad con Linux o macOS no es un objetivo. No es una carencia pendiente: es el diseño. Los paneles se direccionan por letra de unidad (`C:\`), la línea de órdenes ejecuta verbos de DOS (`dir`, `cls`, `vol`), y el servidor local se apoya en el shell de Windows para la papelera, los accesos directos `.lnk`, los App Paths del registro, las propiedades de archivo y la elevación con UAC. Ninguna de esas piezas tiene equivalente directo fuera de Windows, y sustituirlas cambiaría el producto, no solo su implementación.
 
-El diseño exploratorio de una futura capa Linux, todavía sin soporte, vive en [docs/portability/linux.md](docs/portability/linux.md). Incluye targets AppImage y `.deb` de prueba que el CI Linux genera como artefactos, pero no se publican ni se distribuyen: Windows sigue siendo la única plataforma con releases.
+El diseño exploratorio de una futura capa Linux, todavía sin soporte, vive en [docs/portability/linux.md](docs/portability/linux.md). Incluye targets AppImage y `.deb` que se publican como assets de cada release, con su propio canal de actualización, pero Linux sigue sin soporte: el producto distribuido es Windows.
 
 En la práctica eso significa:
 
-- El empaquetado soportado produce instalador NSIS y portable para Windows, y el updater (`latest.yml` + `electron-updater`) es el de Windows. Los targets AppImage y `.deb` de Linux existen solo para probar el port desde artefactos de CI, sin release ni updater.
+- El empaquetado soportado produce instalador NSIS y portable para Windows, con `latest.yml` como canal. Los targets AppImage y `.deb` de Linux también se publican en cada release, y su canal es `latest-linux.yml`: el `.deb` comprueba y aplica la actualización con el mismo `electron-updater` (`DebUpdater`, `dpkg`/`apt` bajo sudo) y el AppImage sólo se reemplaza cuando se lo abre como AppImage. Linux sigue sin soporte; son paquetes del puerto.
 - Hacerla compatible no es un refactor: si algún día se quiere, es una decisión de producto con su propio diseño, y toca el modelo de rutas del servidor (47 usos de `path.win32`), las unidades que muestra el cliente y los tests que las asumen.
 - Para usarla desde otro sistema, la vía razonable es una máquina virtual con Windows: no compromete nada del código ni añade una segunda plataforma que mantener.
 
@@ -192,11 +192,15 @@ La lista, en orden:
 
 ## Actualizaciones y releases
 
-La copia instalada no se actualiza sola a ciegas: `electron-updater` lee el `latest.yml` que electron-builder escribe dentro del paquete y comprueba si hay una versión más nueva en el repositorio. El updater solo existe en la instalación NSIS —un `npm run dev` o el portable, que se descomprime en un temporal en cada arranque, no tienen copia que reemplazar—, y nada se descarga hasta que se pulsa el botón: la comprobación es automática, la descarga es una decisión.
+La copia instalada no se actualiza sola a ciegas: `electron-updater` lee el canal que electron-builder escribe dentro del paquete y comprueba si hay una versión más nueva en el repositorio. El updater existe en la instalación NSIS y en los paquetes de Linux —un `npm run dev` o el portable, que se descomprime en un temporal en cada arranque, no tienen copia que reemplazar—, y nada se descarga hasta que se pulsa el botón: la comprobación es automática, la descarga es una decisión.
+
+### El canal de Linux
+
+Un `.deb` instalado no lee `latest.yml`: en Linux x64 `electron-updater` pide `latest-linux.yml`, y el paquete declara `resources/package-type` (`deb`), así que el updater que corre es `DebUpdater`. Ese archivo lo escribe el preflight de Linux con los paquetes ya publicados —nombre, tamaño y sha512 de cada uno, la misma lista que el cliente verifica antes de instalar— y lo adjunta a la release; el job `Find the published Linux channel with the app's updater` levanta ese mismo updater contra el feed y exige que nombre los dos paquetes. No se genera desde la compilación: un rebuild del mismo árbol tiene otros bytes y el canal describiría ficheros que nadie puede descargar. Una versión sin ese archivo no ofrece ninguna actualización en Linux, aunque los paquetes estén en la página.
 
 ### Sin credenciales
 
-El repositorio es público, así que comprobar actualizaciones no necesita ninguna credencial: `electron-updater` lee el `latest.yml` de la última release por la misma URL anónima que usaría cualquiera, y el destino sale del `app-update.yml` que electron-builder deja en el paquete. Hubo una época en que no era así: con el repositorio privado esa URL contestaba `404` y la app pedía un token de solo lectura que el usuario tenía que crear a mano. Al abrirlo desaparecieron el campo del token, `OMNI_UPDATE_TOKEN`, el fichero `update-token` y la fecha de caducidad anotada. Si una copia antigua conserva `%APPDATA%\omnicommander-pro\update-token`, se puede borrar: ya nada lo lee.
+El repositorio es público, así que comprobar actualizaciones no necesita ninguna credencial: `electron-updater` lee el canal de la última release (`latest.yml` en Windows, `latest-linux.yml` en Linux) por la misma URL anónima que usaría cualquiera, y el destino sale del `app-update.yml` que electron-builder deja en el paquete. Hubo una época en que no era así: con el repositorio privado esa URL contestaba `404` y la app pedía un token de solo lectura que el usuario tenía que crear a mano. Al abrirlo desaparecieron el campo del token, `OMNI_UPDATE_TOKEN`, el fichero `update-token` y la fecha de caducidad anotada. Si una copia antigua conserva `%APPDATA%\omnicommander-pro\update-token`, se puede borrar: ya nada lo lee.
 
 ### Cuando GitHub falla
 
