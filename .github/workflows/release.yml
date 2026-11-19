@@ -472,16 +472,9 @@ jobs:
               exit 1
             fi
           done
-          actual=$(dpkg-deb -f "$deb" Version)
-          # A Debian version cannot carry a hyphen: electron-builder writes the
-          # semver prerelease with `~` (1.0.53~beta.1), which sorts before the
-          # release. That spelling is the same version, not a mismatch.
-          expected="${version/-/\~}"
-          if [ "$actual" != "$version" ] && [ "$actual" != "$expected" ]; then
-            echo "::error::the .deb reports version $actual, package.json says $version"
-            exit 1
-          fi
-          dpkg-deb -f "$deb" Package Version
+          # The version check is shared with the preflight, so neither job can
+          # accept a spelling the other rejects.
+          node scripts/check-deb-version.cjs "$deb"
           ls -lh "$deb" "$appimage"
 
       - name: Keep the packages for the publishing job

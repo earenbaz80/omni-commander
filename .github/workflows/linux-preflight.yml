@@ -75,18 +75,9 @@ jobs:
             echo "::error::electron-builder produced no .deb"
             exit 1
           fi
-          expected=$(node -p "require('./package.json').version")
-          actual=$(dpkg-deb -f "$deb" Version)
-          # A Debian version cannot carry a hyphen: electron-builder writes the
-          # semver prerelease with `~` (1.0.53~beta.1), which sorts before the
-          # release. That spelling is the same version, not a mismatch -- the tag
-          # job learned the same thing the hard way on v1.0.53-beta.1.
-          debian_expected="${expected/-/\~}"
-          if [ "$actual" != "$expected" ] && [ "$actual" != "$debian_expected" ]; then
-            echo "::error::the .deb reports version $actual, package.json says $expected"
-            exit 1
-          fi
-          dpkg-deb -f "$deb" Package Version Maintainer
+          # The same check the tag runs: one script, one spelling rule, and the
+          # control fields it prints are the ones this job used to echo.
+          node scripts/check-deb-version.cjs "$deb"
           file "$appimage" "$deb"
           ls -lh "$appimage" "$deb"
 
