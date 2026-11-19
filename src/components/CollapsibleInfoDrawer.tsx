@@ -16,6 +16,7 @@ import { ThemeConfig } from '../services/themeManager';
 import { FileItem, Drive, LanguageCode } from '../types';
 import { getTranslations } from '../i18n/translations';
 import { useSystemStats } from '../hooks/useSystemStats';
+import { useShareStatus } from '../hooks/useShareStatus';
 import { formatBytesTwoDecimals } from '../utils/formatBytes';
 
 interface CollapsibleInfoDrawerProps {
@@ -64,8 +65,16 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  const usedBytes = activeDrive.totalBytes - activeDrive.freeBytes;
-  const usedPercent = Math.min(100, Math.round((usedBytes / activeDrive.totalBytes) * 100));
+  // A mapped drive whose server is away reports no size at all, and dividing by
+  // that zero printed NaN%. Until the drive reports a capacity the three figures
+  // read as unknown, and the meter keeps its resting width.
+  const hasCapacity = activeDrive.totalBytes > 0;
+  const usedBytes = hasCapacity ? activeDrive.totalBytes - activeDrive.freeBytes : 0;
+  const usedPercent = hasCapacity ? Math.min(100, Math.round((usedBytes / activeDrive.totalBytes) * 100)) : null;
+  const freePercent = usedPercent === null ? null : 100 - usedPercent;
+  const totalText = hasCapacity ? formatBytesTwoDecimals(activeDrive.totalBytes) : '—';
+  const freeText = hasCapacity ? formatBytesTwoDecimals(activeDrive.freeBytes) : '—';
+  const usedText = usedPercent === null ? '—' : `${formatBytesTwoDecimals(usedBytes)} (${usedPercent}%)`;
 
   // Real load of this machine, not the fixed figures that used to sit here. It
   // is only polled while the drawer is open, and a dash means the server has
@@ -79,6 +88,15 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
     systemStats && systemStats.ramTotalBytes > 0
       ? `${formatBytesTwoDecimals(systemStats.ramUsedBytes)} / ${formatBytesTwoDecimals(systemStats.ramTotalBytes)}`
       : '—';
+
+  // The share the server is actually serving, read while the drawer is open. The
+  // row used to say "Blocked" on every machine, which was a claim nobody made.
+  const shareStatus = useShareStatus(isExpanded);
+  const shareText = !shareStatus
+    ? '—'
+    : shareStatus.active
+      ? t.shareRunning.replace('{port}', shareStatus.port === null ? '—' : String(shareStatus.port))
+      : t.shareIdle;
 
   return (
     <div
@@ -111,12 +129,12 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
             <HardDrive className="w-3 h-3 text-cyan-400 shrink-0" />
             <span className="font-bold">{activeDrive.letter}</span>
             <span className="opacity-80 font-mono">
-              {formatBytesTwoDecimals(activeDrive.freeBytes)} {t.freeLabel} ({100 - usedPercent}%)
+              {freeText} {t.freeLabel} ({freePercent === null ? '—' : `${freePercent}%`})
             </span>
             <div className="w-16 h-2 bg-black/60 rounded-full overflow-hidden border border-white/20">
               <div
-                className={`h-full ${usedPercent > 85 ? 'nc-danger-fill' : 'nc-ok-fill'}`}
-                style={{ width: `${usedPercent}%` }}
+                className={`h-full ${usedPercent !== null && usedPercent > 85 ? 'nc-danger-fill' : 'nc-ok-fill'}`}
+                style={{ width: `${usedPercent ?? 0}%` }}
               />
             </div>
           </div>
@@ -202,10 +220,6 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
                 <span className="opacity-70">{t.ramUsed}</span>
                 <span className="font-bold text-cyan-400 tabular-nums">{ramText}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="opacity-70">{t.vfsEngine}</span>
-                <span className="text-white">{t.vfsEngineActive}</span>
-              </div>
             </div>
           </div>
 
@@ -217,17 +231,15 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
             <div className="space-y-[var(--space-1)] text-[10px]">
               <div className="flex justify-between">
                 <span className="opacity-70">{t.spaceTotal}</span>
-                <span className="font-bold">{formatBytesTwoDecimals(activeDrive.totalBytes)}</span>
+                <span className="font-bold">{totalText}</span>
               </div>
               <div className="flex justify-between">
                 <span className="opacity-70">{t.spaceAvailable}</span>
-                <span className="font-bold text-emerald-300">{formatBytesTwoDecimals(activeDrive.freeBytes)}</span>
+                <span className="font-bold text-emerald-300">{freeText}</span>
               </div>
               <div className="flex justify-between">
                 <span className="opacity-70">{t.spaceUsed}</span>
-                <span className="font-bold text-amber-300">
-                  {formatBytesTwoDecimals(usedBytes)} ({usedPercent}%)
-                </span>
+                <span className="font-bold text-amber-300">{usedText}</span>
               </div>
             </div>
           </div>
@@ -266,11 +278,9 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
             <div className="space-y-[var(--space-1)] text-[10px]">
               <div className="flex justify-between">
                 <span className="opacity-70">{t.sharedNetworks}</span>
-                <span className="text-emerald-400 font-bold">{t.smbOnline}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="opacity-70">{t.appEncryption}</span>
-                <span className="text-sky-300 font-bold">{t.aesActive}</span>
+                <span className={`font-bold ${shareStatus?.active ? 'text-emerald-400' : 'text-slate-300'}`}>
+                  {shareText}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="opacity-70">{t.terminalMode}</span>

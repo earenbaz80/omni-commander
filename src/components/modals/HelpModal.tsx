@@ -330,7 +330,11 @@ export const HelpModal: React.FC<HelpModalProps> = ({ theme, lang, onClose }) =>
             borderColor: theme.modalBorder,
           }}
         >
-          <span className="opacity-70 text-[var(--fs-sm)]">{t.helpFooter}</span>
+          {/* Injected by vite.config.ts from package.json: the footer used to
+              carry a fixed "v5.50" that no build ever produced. */}
+          <span className="opacity-70 text-[var(--fs-sm)]">
+            {t.helpFooter} v{__APP_VERSION__}
+          </span>
           <button
             onClick={onClose}
             className="px-5 py-[var(--space-2)] bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded cursor-pointer shadow"
