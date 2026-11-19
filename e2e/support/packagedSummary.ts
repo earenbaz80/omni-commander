@@ -56,6 +56,11 @@ class PackagedSummary implements Reporter {
       }
     }
 
+    // A pass leaves no trace in the API, and a run that collected no tests at all
+    // would otherwise look exactly like one that passed: say how many ran.
+    const passed = this.rows.length - this.failures.length;
+    console.log(`::notice::packaged e2e: ${passed} passed, ${this.failures.length} failed of ${this.rows.length}`);
+
     if (this.failures.length) {
       const list = this.failures.join(', ').slice(0, ANNOTATION_LIMIT);
       console.log(`::error::packaged e2e failed ${this.failures.length} case(s): ${list}`);

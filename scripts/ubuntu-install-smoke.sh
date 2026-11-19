@@ -94,13 +94,6 @@ if [ -n "$desktop_file" ] && ! grep -q "$(basename "$program")" "$desktop_file";
   exit 1
 fi
 
-# `--version` starts the same binary without a window: when the boot below dies
-# with nothing in its log, this says whether the program itself runs at all. It
-# carries the same container concessions as the boot, and it is flattened to one
-# line because a newline would cut the `::error::` command in half.
-version_output=$(timeout 20 "$program" --no-sandbox --version 2>&1 | tr '\n' ' ' | cut -c1-400 || true)
-echo "version output: ${version_output:-none}"
-
 # The shared libraries the binary itself resolves. Empty here means the package
 # brought everything it links against.
 missing=$(ldd "$program" 2>&1 | grep 'not found' || true)
@@ -141,7 +134,10 @@ done
 # the port but never loaded the packaged renderer has not started the app.
 pages=""
 if [ "$opened" = 1 ]; then
-  pages=$(timeout 5 bash -c 'exec 3<>/dev/tcp/127.0.0.1/9333; printf "GET /json/list HTTP/1.0\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n" >&3; cat <&3' 2>/dev/null || true)
+  # HTTP/1.1, not 1.0: the DevTools server rejects the older protocol outright
+  # ("Cannot handle request with protocol: HTTP/1.0"), so a 1.0 probe cannot
+  # tell a window that never loaded from a request that was never answered.
+  pages=$(timeout 5 bash -c 'exec 3<>/dev/tcp/127.0.0.1/9333; printf "GET /json/list HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n" >&3; cat <&3' 2>/dev/null || true)
 fi
 
 app_log() {
@@ -151,7 +147,7 @@ app_log() {
 if [ "$opened" != 1 ] || ! printf '%s' "$pages" | grep -q 'index\.html'; then
   tail -n 40 /tmp/app.log
   echo "app log is $(wc -c </tmp/app.log) bytes; alive: $(kill -0 "$app" 2>/dev/null && echo yes || echo no)"
-  echo "::error::the app did not load its window on a clean ubuntu:24.04 ($program, version output: ${version_output:-none}); log: $(app_log)"
+  echo "::error::the app did not load its window on a clean ubuntu:24.04 ($program); log: $(app_log)"
   exit 1
 fi
 
