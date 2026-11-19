@@ -202,6 +202,54 @@ async function enterPath(page, panel, target) {
 const ROWS_TIMEOUT_MS = 90_000;
 
 /**
+ * What the app was doing while a row never came.
+ *
+ * The window can be interactive -- the path bar opens and takes the path -- and
+ * still never paint a row, which leaves two very different culprits: the app's
+ * own server not answering, or the renderer never getting the answer onto the
+ * screen. The probe asks the server directly (its port is announced in the log)
+ * and reads the page's own request timings, so the failure says which of the two
+ * it was instead of leaving it to a guess.
+ */
+async function diagnoseStall(page) {
+  const log = app.log.join('');
+  const port = /listening on http:\/\/(?:localhost|127\.0\.0\.1):(\d+)/.exec(log)?.[1];
+
+  const probes = [];
+  if (port) {
+    for (const route of ['/api/drives', '/api/list?path=%2F']) {
+      const started = Date.now();
+      try {
+        const response = await fetch(`http://127.0.0.1:${port}${route}`, { signal: AbortSignal.timeout(5000) });
+        probes.push(`${route} ${response.status} in ${Date.now() - started} ms`);
+      } catch (error) {
+        probes.push(`${route} ${error?.name ?? 'error'} after ${Date.now() - started} ms`);
+      }
+    }
+  } else {
+    probes.push('the app never announced its API port');
+  }
+
+  // The page's own view: a request it started and never got an answer for is the
+  // difference between "the server is stuck" and "the renderer stopped asking".
+  const pageRequests = await page
+    .evaluate(() =>
+      performance
+        .getEntriesByType('resource')
+        .filter((entry) => entry.name.includes('127.0.0.1') || entry.name.includes('localhost'))
+        .slice(-8)
+        .map((entry) => {
+          const url = new URL(entry.name);
+          return `${url.pathname} ${Math.round(entry.duration)}ms ${entry.responseStatus ?? '?'}`;
+        }),
+    )
+    .catch(() => []);
+
+  const boot = log.split('\n').slice(0, 12).join(' | ');
+  return `api: ${probes.join('; ')}; page requests: ${pageRequests.join(' | ') || 'none'}; boot: ${boot}`;
+}
+
+/**
  * Waits for a row, and reports what the window was showing when it never came.
  *
  * "The row never appeared" says nothing about why: the panel can be showing an
@@ -216,8 +264,9 @@ async function waitForRow(page, name) {
       (await locator.innerText().catch(() => '')).replace(/\s+/g, ' ').trim().slice(0, 300);
     const bar = await squash(page.locator('[data-path-bar]').first());
     const lists = await squash(page.locator('[data-name]').first().locator('..'));
+    const state = await diagnoseStall(page).catch((probeError) => `diagnosis failed: ${probeError?.message}`);
     throw new Error(
-      `${name} never appeared; path bar shows "${bar}"; the list shows "${lists}": ${error?.message ?? error}`,
+      `${name} never appeared; path bar shows "${bar}"; the list shows "${lists}"; ${state}: ${error?.message ?? error}`,
     );
   }
 }
