@@ -13,17 +13,27 @@ import type { Reporter, TestCase, TestResult } from '@playwright/test/reporter';
 /** How much of the failure list an annotation carries before it is cut. */
 const ANNOTATION_LIMIT = 900;
 
+/**
+ * The statuses that are a finding. `skipped` is not one: the suite marks its
+ * Windows-only cases that way, and a Linux run of it skips most of them, which
+ * is the specs saying they do not apply here rather than the package failing.
+ */
+const FINDINGS = new Set(['failed', 'timedOut', 'interrupted']);
+
 class PackagedSummary implements Reporter {
   private rows: string[] = [];
   private failures: string[] = [];
+  private skipped = 0;
   private reasons: string[] = [];
   private seen = new Set<string>();
 
   onTestEnd(test: TestCase, result: TestResult): void {
     const name = test.titlePath().filter(Boolean).slice(1).join(' > ');
-    const passed = result.status === 'passed';
-    this.rows.push(`| ${name} | ${passed ? 'passed' : `**${result.status}**`} | ${Math.round(result.duration)} ms |`);
-    if (!passed) {
+    const isFinding = FINDINGS.has(result.status);
+    const shown = result.status === 'passed' ? 'passed' : isFinding ? `**${result.status}**` : 'skipped';
+    this.rows.push(`| ${name} | ${shown} | ${Math.round(result.duration)} ms |`);
+    if (!isFinding && result.status !== 'passed') this.skipped += 1;
+    if (isFinding) {
       this.failures.push(name);
       // A log is not readable from the API and an annotation is, so the run says
       // why it broke. One message per distinct cause: sixty-nine copies of the
@@ -38,8 +48,15 @@ class PackagedSummary implements Reporter {
   }
 
   onEnd(): void {
+    // A pass leaves no trace in the API, and a run that collected no tests at all
+    // would otherwise look exactly like one that passed: say how many ran.
+    const passed = this.rows.length - this.failures.length - this.skipped;
+    console.log(
+      `::notice::packaged e2e: ${passed} passed, ${this.failures.length} failed, ${this.skipped} skipped of ${this.rows.length}`,
+    );
+
     const markdown = [
-      `### Packaged app e2e: ${this.rows.length - this.failures.length} of ${this.rows.length} cases passed`,
+      `### Packaged app e2e: ${passed} passed, ${this.failures.length} failed, ${this.skipped} skipped of ${this.rows.length}`,
       '',
       '| case | result | time |',
       '| --- | --- | --- |',
@@ -55,11 +72,6 @@ class PackagedSummary implements Reporter {
         // The step's own guard reports a summary it could not read.
       }
     }
-
-    // A pass leaves no trace in the API, and a run that collected no tests at all
-    // would otherwise look exactly like one that passed: say how many ran.
-    const passed = this.rows.length - this.failures.length;
-    console.log(`::notice::packaged e2e: ${passed} passed, ${this.failures.length} failed of ${this.rows.length}`);
 
     if (this.failures.length) {
       const list = this.failures.join(', ').slice(0, ANNOTATION_LIMIT);

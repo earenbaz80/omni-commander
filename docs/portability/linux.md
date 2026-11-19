@@ -180,10 +180,12 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
   documentos locales; `a11y.axe` pide una pestaña nueva que el puerto de
   depuración de Electron no abre; y `settings-updates` intercepta el feed de
   actualización desde la página, pero en el paquete ese feed vive en el proceso
-  principal. Los 86 casos restantes pasaron en la primera corrida contra el
-  paquete. El AppImage se descomprime una vez (`--appimage-extract`) en lugar de
-  una por test: cada arranque del runtime deja una copia entera en `/tmp` y
-  noventa de esas llenaron el disco del runner. Lo que falta es que Linux sea un
+  principal. La corrida de Linux recoge los 86 casos restantes: 21 se ejecutan y
+  los otros 65 se declaran omitidos por ser de Windows (`ipconfig`, `tasklist`,
+  los `.lnk`), y los 21 pasan contra el paquete; en Windows, la misma corrida
+  deja 86 de 86. El AppImage se descomprime una vez (`--appimage-extract`) en
+  lugar de una por test: cada arranque del runtime deja una copia entera en
+  `/tmp`, y las copias de noventa arranques llenaron el disco del runner. Lo que falta es que Linux sea un
   gate, no que haya casos.
 
 ### Fase 5 — Paridad
