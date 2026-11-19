@@ -113,11 +113,22 @@ export async function launchPackagedWindow(appPath: string): Promise<PackagedWin
   }
 
   const stop = async () => {
+    const gone = () => child.exitCode !== null || child.signalCode !== null;
     try {
       // The whole tree: an Electron parent leaves helpers behind if only it dies.
-      process.kill(-child.pid!, 'SIGKILL');
+      // SIGTERM first, because an AppImage removes what it unpacked on a normal
+      // exit and a killed one leaves that copy behind -- ninety of those filled
+      // the runner's disk and the cases after them failed for it.
+      process.kill(-child.pid!, 'SIGTERM');
     } catch {
       // Already gone: nothing to clean up.
+    }
+    const deadline = Date.now() + 3000;
+    while (!gone() && Date.now() < deadline) await sleep(100);
+    try {
+      process.kill(-child.pid!, 'SIGKILL');
+    } catch {
+      // It exited on its own, which is the outcome this waits for.
     }
     await rm(profile, { recursive: true, force: true }).catch(() => {});
   };

@@ -16,10 +16,17 @@
  *   localStorage and the API it serves are all new in every case, which is the
  *   isolation the suite relies on.
  *
- * `dashboard-click.spec.ts` stays out: it navigates the page to the `__jobs`
- * HTML the API serves, and the packaged window refuses to leave its own two
- * documents (`electron/main.cjs`), so the case cannot run against the package
- * by design, not by accident.
+ * Three specs stay out, each for a reason the package cannot change:
+ *
+ * - `dashboard-click.spec.ts` navigates the page to the `__jobs` HTML the API
+ *   serves, and the packaged window refuses to leave its own two documents
+ *   (`electron/main.cjs`);
+ * - `a11y.axe.spec.ts` asks `@axe-core/playwright` for a page of its own, and a
+ *   browser driven over Electron's debugging port cannot open one
+ *   (`Target.createTarget: Not supported`);
+ * - `settings-updates.spec.ts` feeds the update check from the spec and waits for
+ *   the dialogs that follow, which the packaged updater does not offer -- its
+ *   feed lives in the main process, outside anything the page can intercept.
  */
 import { defineConfig } from '@playwright/test';
 
@@ -29,7 +36,7 @@ if (!process.env.OMNI_PACKAGED_APP) {
 
 export default defineConfig({
   testDir: './e2e',
-  testIgnore: ['**/dashboard-click.spec.ts'],
+  testIgnore: ['**/dashboard-click.spec.ts', '**/a11y.axe.spec.ts', '**/settings-updates.spec.ts'],
   // One app at a time: each case owns a window, a profile and a server, and
   // running them side by side would have several Electron instances competing
   // for the same virtual display.

@@ -175,8 +175,15 @@ jobs:
             sudo apt-get install -y --no-install-recommends xvfb
           fi
           status=0
-          OMNI_PACKAGED_APP="$appimage" xvfb-run -a npx playwright test \
-            --config=playwright.packaged.config.ts --max-failures=12 || status=$?
+          # Unpacked once, not once per test: the runtime extracts a whole copy
+          # of the app on every launch, and a test that ends with SIGKILL leaves
+          # that copy behind. Ninety launches filled the runner's disk and every
+          # case after that failed for a reason that had nothing to do with the
+          # app.
+          (cd release && "./$(basename "$appimage")" --appimage-extract >/dev/null)
+          status=0
+          OMNI_PACKAGED_APP="$PWD/release/squashfs-root/AppRun" xvfb-run -a npx playwright test \
+            --config=playwright.packaged.config.ts || status=$?
           if [ -s "${GITHUB_STEP_SUMMARY:-/dev/null}" ] && grep -q 'Packaged app e2e' "$GITHUB_STEP_SUMMARY"; then
             echo "the cases are in the run's step summary"
           else

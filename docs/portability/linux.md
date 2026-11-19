@@ -175,9 +175,16 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
   (`--user-data-dir`), su propio puerto y su propio servidor, y `page.goto('/')`
   —lo único que los specs piden— se traduce en recargar esa ventana, donde ya
   están registrados los `addInitScript` que siembran los ajustes.
-  `dashboard-click.spec.ts` queda fuera: navega a la página `__jobs` que sirve la
-  API y la ventana empaquetada no sale de sus dos documentos locales. Lo que
-  falta es que Linux sea un gate, no que haya casos.
+  De la suite quedan fuera tres specs: `dashboard-click` navega a la página
+  `__jobs` que sirve la API y la ventana empaquetada no sale de sus dos
+  documentos locales; `a11y.axe` pide una pestaña nueva que el puerto de
+  depuración de Electron no abre; y `settings-updates` intercepta el feed de
+  actualización desde la página, pero en el paquete ese feed vive en el proceso
+  principal. Los 86 casos restantes pasaron en la primera corrida contra el
+  paquete. El AppImage se descomprime una vez (`--appimage-extract`) en lugar de
+  una por test: cada arranque del runtime deja una copia entera en `/tmp` y
+  noventa de esas llenaron el disco del runner. Lo que falta es que Linux sea un
+  gate, no que haya casos.
 
 ### Fase 5 — Paridad
 
