@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './support/appTest';
 import { seedSettings } from './support/settings';
 import { BOOT_TIMEOUT_MS } from './support/boot';
 

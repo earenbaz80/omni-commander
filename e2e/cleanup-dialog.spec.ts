@@ -1,4 +1,4 @@
-import { test, expect, type Page, type Route } from '@playwright/test';
+import { test, expect, type Page, type Route } from './support/appTest';
 import { seedSettings } from './support/settings';
 import { BOOT_TIMEOUT_MS } from './support/boot';
 import { formatBytes } from '../src/utils/formatBytes';

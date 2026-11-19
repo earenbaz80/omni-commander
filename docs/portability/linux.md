@@ -168,8 +168,16 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
   lista un montaje: también abre una carpeta, copia un fichero entre paneles,
   borra otro sin papelera y, con la papelera encendida, manda uno a la papelera
   XDG —comprobando `files/`, el `.trashinfo` y la restauración—, con las carpetas
-  y la papelera leídas de disco. Lo que falta es que corra allí la suite e2e
-  completa, no cuatro casos, antes de que Linux sea un gate.
+  y la papelera leídas de disco. Los cuatro casos son un piso escrito a mano; la
+  suite e2e del proyecto corre además contra el AppImage con
+  `playwright.packaged.config.ts`, que reemplaza la pestaña del servidor de Vite
+  por la ventana de Electron: cada test arranca el paquete con su propio perfil
+  (`--user-data-dir`), su propio puerto y su propio servidor, y `page.goto('/')`
+  —lo único que los specs piden— se traduce en recargar esa ventana, donde ya
+  están registrados los `addInitScript` que siembran los ajustes.
+  `dashboard-click.spec.ts` queda fuera: navega a la página `__jobs` que sirve la
+  API y la ventana empaquetada no sale de sus dos documentos locales. Lo que
+  falta es que Linux sea un gate, no que haya casos.
 
 ### Fase 5 — Paridad
 

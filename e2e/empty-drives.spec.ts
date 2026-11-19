@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './support/appTest';
 import { SETTINGS_KEY } from '../src/services/storage';
 import { BOOT_TIMEOUT_MS } from './support/boot';
 

@@ -1,4 +1,4 @@
-import { test, expect, type Locator, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from './support/appTest';
 import { seedSettings } from './support/settings';
 import { execFile } from 'node:child_process';
 import fs from 'node:fs/promises';

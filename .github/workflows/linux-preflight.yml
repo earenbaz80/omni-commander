@@ -158,6 +158,33 @@ jobs:
           fi
           exit "$status"
 
+      # The four cases above are a hand-written floor: they prove the window can
+      # be used, not that the app the suite describes is in the package. This runs
+      # the suite's own specs against the AppImage -- the same files the dev run
+      # uses, with the page fixture pointed at Electron's window (see
+      # playwright.packaged.config.ts) -- and puts every case in the step summary.
+      - name: Run the suite's specs against the packaged AppImage
+        timeout-minutes: 40
+        shell: bash
+        run: |
+          set -euo pipefail
+          appimage=$(find release -maxdepth 1 -type f -name '*.AppImage' -print -quit)
+          chmod +x "$appimage"
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends xvfb
+          fi
+          status=0
+          OMNI_PACKAGED_APP="$appimage" xvfb-run -a npx playwright test \
+            --config=playwright.packaged.config.ts --max-failures=12 || status=$?
+          if [ -s "${GITHUB_STEP_SUMMARY:-/dev/null}" ] && grep -q 'Packaged app e2e' "$GITHUB_STEP_SUMMARY"; then
+            echo "the cases are in the run's step summary"
+          else
+            echo "::error::the packaged specs left no verdict in the step summary"
+            status=1
+          fi
+          exit "$status"
+
       # A .deb is a different package from the AppImage: the program lands under
       # /opt, its dependencies are declared, and a .desktop file points at it.
       # Building one proves neither that apt can install it nor that the copy it

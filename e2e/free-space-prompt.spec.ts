@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './support/appTest';
 import { seedSettings } from './support/settings';
 import fs from 'node:fs/promises';
 import os from 'node:os';

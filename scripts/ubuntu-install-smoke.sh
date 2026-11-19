@@ -114,11 +114,13 @@ fi
 # `--no-install-recommends` would leave it out.
 apt-get install -y -qq --no-install-recommends xvfb xauth
 
-# `--no-zygote` and `--no-sandbox` are container concessions, not app settings:
-# this runs as root in a container without user namespaces, where Chromium's
-# zygote cannot start. A desktop user never needs either flag.
-ELECTRON_ENABLE_LOGGING=1 xvfb-run -a "$program" \
-  --no-sandbox --no-zygote --disable-gpu --disable-dev-shm-usage --remote-debugging-port=9333 \
+# `--no-sandbox` is a container concession, not an app setting: this runs as root,
+# where Electron refuses to start. The switch alone is not enough, though -- a
+# renderer started as its own process reads the environment, not the parent's
+# argv, and dies on the same check (exitCode 133) -- so the sandbox is disabled
+# through the environment as well. A desktop user needs neither.
+ELECTRON_ENABLE_LOGGING=1 ELECTRON_DISABLE_SANDBOX=1 xvfb-run -a "$program" \
+  --no-sandbox --disable-gpu --disable-dev-shm-usage --remote-debugging-port=9333 \
   >/tmp/app.log 2>&1 &
 app=$!
 

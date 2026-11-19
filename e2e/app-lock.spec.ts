@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './support/appTest';
 import { SETTINGS_KEY } from '../src/services/storage';
 import crypto from 'node:crypto';
 import { BOOT_TIMEOUT_MS } from './support/boot';
