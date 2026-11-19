@@ -15,7 +15,10 @@
 
 APT_TIMEOUT_UPDATE=${APT_TIMEOUT_UPDATE:-120}
 APT_TIMEOUT_INSTALL=${APT_TIMEOUT_INSTALL:-300}
-APT_TIMEOUT_SIMULATE=${APT_TIMEOUT_SIMULATE:-120}
+# The dry run only reads the index on disk, so it needs no patience: thirty
+# seconds is already generous for a few hundred dependency names, and anything
+# past that is a broken index, not a slow one.
+APT_TIMEOUT_SIMULATE=${APT_TIMEOUT_SIMULATE:-30}
 APT_TIMEOUT_ACQUIRE=${APT_TIMEOUT_ACQUIRE:-15}
 # The index is not retried: a mirror that cannot be reached answers the same way
 # three times, and that finding is worth reporting as it is. A package download
@@ -77,7 +80,7 @@ ubuntu_apt_simulate() {
 
   tail -n 20 "$log"
   if [ "$status" -eq 124 ]; then
-    echo "::error::apt ran a dry run for ${APT_TIMEOUT_SIMULATE}s, which only reads the local index: that index is unusable, not slow"
+    echo "::error::apt could not read its own index in ${APT_TIMEOUT_SIMULATE}s: the dry run never touches the network, so that index is unusable, not slow"
     return 1
   fi
   echo "::error::apt cannot install $* from the index it received: $(grep -E 'Depends:|E:' "$log" | tail -n 3 | tr '\n' ' ')"
