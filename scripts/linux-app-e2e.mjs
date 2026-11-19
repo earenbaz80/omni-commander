@@ -201,12 +201,33 @@ async function enterPath(page, panel, target) {
  */
 const ROWS_TIMEOUT_MS = 90_000;
 
+/**
+ * Waits for a row, and reports what the window was showing when it never came.
+ *
+ * "The row never appeared" says nothing about why: the panel can be showing an
+ * error, another folder, or an overlay, and the difference is the whole
+ * diagnosis. Both texts travel in the failure instead of being guessed at.
+ */
+async function waitForRow(page, name) {
+  try {
+    await row(page, name).waitFor({ state: 'visible', timeout: ROWS_TIMEOUT_MS });
+  } catch (error) {
+    const squash = async (locator) =>
+      (await locator.innerText().catch(() => '')).replace(/\s+/g, ' ').trim().slice(0, 300);
+    const bar = await squash(page.locator('[data-path-bar]').first());
+    const lists = await squash(page.locator('[data-name]').first().locator('..'));
+    throw new Error(
+      `${name} never appeared; path bar shows "${bar}"; the list shows "${lists}": ${error?.message ?? error}`,
+    );
+  }
+}
+
 /** Points both panels at the scratch folders and waits for their rows. */
 async function openPanels(page) {
   await enterPath(page, 0, origen);
   await enterPath(page, 1, destino);
-  await row(page, 'nota.txt').waitFor({ state: 'visible', timeout: ROWS_TIMEOUT_MS });
-  await row(page, 'marcador.txt').waitFor({ state: 'visible', timeout: ROWS_TIMEOUT_MS });
+  await waitForRow(page, 'nota.txt');
+  await waitForRow(page, 'marcador.txt');
 }
 
 /**
@@ -259,7 +280,7 @@ const cases = [
       // Double-click is how the list opens a row; the panel has to leave the
       // folder it was in, not paint the child's name over the parent's rows.
       await row(page, 'abrir').dblclick();
-      await row(page, 'dentro.txt').waitFor({ state: 'visible', timeout: ROWS_TIMEOUT_MS });
+      await waitForRow(page, 'dentro.txt');
 
       if ((await page.locator('[data-name="nota.txt"]').count()) !== 0) {
         throw new Error('the panel still shows the folder it was in after opening a child');

@@ -20,21 +20,23 @@ const ANNOTATION_LIMIT = 900;
  */
 const FINDINGS = new Set(['failed', 'timedOut', 'interrupted']);
 
+interface Outcome {
+  name: string;
+  status: string;
+  duration: number;
+}
+
 class PackagedSummary implements Reporter {
-  private rows: string[] = [];
-  private failures: string[] = [];
-  private skipped = 0;
+  /** One entry per test: a retry replaces the attempt it repeated. */
+  private outcomes = new Map<string, Outcome>();
   private reasons: string[] = [];
   private seen = new Set<string>();
 
   onTestEnd(test: TestCase, result: TestResult): void {
     const name = test.titlePath().filter(Boolean).slice(1).join(' > ');
-    const isFinding = FINDINGS.has(result.status);
-    const shown = result.status === 'passed' ? 'passed' : isFinding ? `**${result.status}**` : 'skipped';
-    this.rows.push(`| ${name} | ${shown} | ${Math.round(result.duration)} ms |`);
-    if (!isFinding && result.status !== 'passed') this.skipped += 1;
-    if (isFinding) {
-      this.failures.push(name);
+    this.outcomes.set(test.id, { name, status: result.status, duration: result.duration });
+
+    if (FINDINGS.has(result.status)) {
       // A log is not readable from the API and an annotation is, so the run says
       // why it broke. One message per distinct cause: sixty-nine copies of the
       // same fixture error would hide the second reason.
@@ -48,20 +50,22 @@ class PackagedSummary implements Reporter {
   }
 
   onEnd(): void {
-    // A pass leaves no trace in the API, and a run that collected no tests at all
-    // would otherwise look exactly like one that passed: say how many ran.
-    const passed = this.rows.length - this.failures.length - this.skipped;
-    console.log(
-      `::notice::packaged e2e: ${passed} passed, ${this.failures.length} failed, ${this.skipped} skipped of ${this.rows.length}`,
-    );
+    const all = [...this.outcomes.values()];
+    const failures = all.filter((outcome) => FINDINGS.has(outcome.status));
+    const skipped = all.filter((outcome) => outcome.status !== 'passed' && !FINDINGS.has(outcome.status));
+    const passed = all.length - failures.length - skipped.length;
 
     const markdown = [
-      `### Packaged app e2e: ${passed} passed, ${this.failures.length} failed, ${this.skipped} skipped of ${this.rows.length}`,
+      `### Packaged app e2e: ${passed} passed, ${failures.length} failed, ${skipped.length} skipped of ${all.length}`,
       '',
       '| case | result | time |',
       '| --- | --- | --- |',
-      ...this.rows,
-      ...(this.failures.length ? ['', 'Failed:', ...this.failures.map((name) => `- ${name}`)] : []),
+      ...all.map((outcome) => {
+        const shown =
+          outcome.status === 'passed' ? 'passed' : FINDINGS.has(outcome.status) ? `**${outcome.status}**` : 'skipped';
+        return `| ${outcome.name} | ${shown} | ${Math.round(outcome.duration)} ms |`;
+      }),
+      ...(failures.length ? ['', 'Failed:', ...failures.map((outcome) => `- ${outcome.name}`)] : []),
     ].join('\n');
 
     const file = process.env.GITHUB_STEP_SUMMARY;
@@ -73,9 +77,18 @@ class PackagedSummary implements Reporter {
       }
     }
 
-    if (this.failures.length) {
-      const list = this.failures.join(', ').slice(0, ANNOTATION_LIMIT);
-      console.log(`::error::packaged e2e failed ${this.failures.length} case(s): ${list}`);
+    // A pass leaves no trace in the API, and a run that collected no tests at all
+    // would otherwise look exactly like one that passed: say how many ran.
+    console.log(
+      `::notice::packaged e2e: ${passed} passed, ${failures.length} failed, ${skipped.length} skipped of ${all.length}`,
+    );
+
+    if (failures.length) {
+      const list = failures
+        .map((outcome) => outcome.name)
+        .join(', ')
+        .slice(0, ANNOTATION_LIMIT);
+      console.log(`::error::packaged e2e failed ${failures.length} case(s): ${list}`);
       for (const reason of this.reasons) {
         const flat = reason.replaceAll('%', '%25').replaceAll('\r', '').replaceAll('\n', ' ');
         console.log(`::error::first failures: ${flat}`);
