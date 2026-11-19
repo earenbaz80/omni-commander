@@ -20,16 +20,17 @@ fi
 
 # The container fetches its package index over the runner's network, and a
 # partially written index makes every dependency below read as "not installable"
-# -- an apt failure that looks like a package problem. apt retries the transfer
-# itself, which is cheaper than a red run for a truncated index.
-apt-get -o Acquire::Retries=3 update -qq || {
+# -- an apt failure that looks like a package problem. Retrying here would not
+# help: when the archive is unreachable apt is waiting on a connection, not on a
+# transfer it could start over, so the run is left to fail once and say why.
+apt-get update -qq || {
   echo "::error::apt-get update failed in the container"
   exit 1
 }
 
 # By path, so apt resolves the dependencies of this package and not those of a
 # release that happens to be published.
-if ! install_log=$(apt-get -o Acquire::Retries=3 install -y --no-install-recommends "$PACKAGE" 2>&1); then
+if ! install_log=$(apt-get install -y --no-install-recommends "$PACKAGE" 2>&1); then
   printf '%s\n' "$install_log" | tail -n 25
   # A candidate of "(none)" says the index never arrived, which is a different
   # failure from a dependency this release of Ubuntu genuinely cannot satisfy.
