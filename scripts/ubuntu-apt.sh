@@ -17,6 +17,12 @@ APT_TIMEOUT_UPDATE=${APT_TIMEOUT_UPDATE:-120}
 APT_TIMEOUT_INSTALL=${APT_TIMEOUT_INSTALL:-300}
 APT_TIMEOUT_SIMULATE=${APT_TIMEOUT_SIMULATE:-120}
 APT_TIMEOUT_ACQUIRE=${APT_TIMEOUT_ACQUIRE:-15}
+# The index is not retried: a mirror that cannot be reached answers the same way
+# three times, and that finding is worth reporting as it is. A package download
+# is different -- the runner's route to archive.ubuntu.com drops single
+# connections -- so it gets two more tries, each still capped at
+# APT_TIMEOUT_ACQUIRE and the whole step at APT_TIMEOUT_INSTALL.
+APT_RETRIES_INSTALL=${APT_RETRIES_INSTALL:-2}
 
 ubuntu_apt_update() {
   local log=/tmp/apt-update.log
@@ -82,7 +88,7 @@ ubuntu_apt_install() {
   local log=/tmp/apt-install.log
   local status=0
   timeout "$APT_TIMEOUT_INSTALL" apt-get install -y --no-install-recommends \
-    -o "Acquire::Retries=0" \
+    -o "Acquire::Retries=$APT_RETRIES_INSTALL" \
     -o "Acquire::http::Timeout=$APT_TIMEOUT_ACQUIRE" \
     -o "Acquire::https::Timeout=$APT_TIMEOUT_ACQUIRE" \
     "$@" >"$log" 2>&1 || status=$?
