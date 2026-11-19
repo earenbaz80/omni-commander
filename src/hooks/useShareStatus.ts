@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ShareStatus } from '../types';
-import { fetchShareStatus } from '../services/shareStatus';
+import { fetchShareStatus, SharedFolder } from '../services/shareStatus';
 
 /**
  * Follows the share the local server is running while `enabled` is true.
@@ -11,7 +10,7 @@ import { fetchShareStatus } from '../services/shareStatus';
  * that blinked out would read as "not shared" for a second.
  */
 export function useShareStatus(enabled: boolean, intervalMs = 5000) {
-  const [status, setStatus] = useState<ShareStatus | null>(null);
+  const [status, setStatus] = useState<SharedFolder | null>(null);
 
   useEffect(() => {
     if (!enabled) return;

@@ -1,4 +1,4 @@
-import type { PlatformCapabilities, PlatformId } from '../services/platform';
+import type { PlatformInfo } from '../services/platform';
 import { cleanupTargets, CleanupTargetId } from '../services/fileSystem';
 
 /**
@@ -20,7 +20,7 @@ export const cleanupTargetLabel = (id: CleanupTargetId, t: Record<string, string
  * the user's temp one exists everywhere: the Windows temp folder and Prefetch
  * are named after a host this may not be, so they are offered on Windows only.
  */
-export const cleanupTargetsFor = (capabilities: PlatformCapabilities, platform: PlatformId): typeof cleanupTargets => {
-  if (!capabilities.cleanup) return [];
-  return cleanupTargets.filter((entry) => entry.id === 'user-temp' || platform === 'win32');
+export const cleanupTargetsFor = (platform: PlatformInfo): typeof cleanupTargets => {
+  if (!platform.capabilities.cleanup) return [];
+  return cleanupTargets.filter((entry) => entry.id === 'user-temp' || platform.platform === 'win32');
 };

@@ -1,6 +1,17 @@
-import { ShareStatus } from '../types';
 import { API_BASE } from './apiBase';
 import { fetchWithRetry } from '../utils/fetchWithRetry';
+
+/**
+ * What the info drawer states about the share: whether one runs and where.
+ *
+ * The drawer names a port and nothing else, so the link list and the token the
+ * share dialog needs are not copied over here.
+ */
+export interface SharedFolder {
+  active: boolean;
+  /** The port the server listens on, which it only has while serving. */
+  port: number | null;
+}
 
 /**
  * The folder the local server is serving to the network right now.
@@ -10,20 +21,13 @@ import { fetchWithRetry } from '../utils/fetchWithRetry';
  * failed or incomplete read answers null, which the caller shows as unknown
  * rather than as "nothing is shared".
  */
-export async function fetchShareStatus(): Promise<ShareStatus | null> {
+export async function fetchShareStatus(): Promise<SharedFolder | null> {
   try {
     const response = await fetchWithRetry(`${API_BASE}/api/share`, { timeoutMs: 4000, retries: 1 });
     if (!response.ok) return null;
-    const data = (await response.json()) as Partial<ShareStatus>;
+    const data = (await response.json()) as Partial<SharedFolder>;
     if (typeof data.active !== 'boolean') return null;
-    return {
-      active: data.active,
-      folder: typeof data.folder === 'string' ? data.folder : null,
-      port: typeof data.port === 'number' ? data.port : null,
-      token: typeof data.token === 'string' ? data.token : null,
-      startedAt: typeof data.startedAt === 'string' ? data.startedAt : null,
-      urls: Array.isArray(data.urls) ? data.urls.filter((url): url is string => typeof url === 'string') : [],
-    };
+    return { active: data.active, port: typeof data.port === 'number' ? data.port : null };
   } catch {
     return null;
   }

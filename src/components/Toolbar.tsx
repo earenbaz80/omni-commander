@@ -104,7 +104,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   // offer a cleanup its adapter says it does not have, nor the two folders only
   // Windows has.
   const platformInfo = usePlatformInfo();
-  const cleanupOffers = cleanupTargetsFor(platformInfo.capabilities, platformInfo.platform);
+  const cleanupOffers = cleanupTargetsFor(platformInfo);
 
   // Closes the cleanup menu on a click anywhere else and on Escape. Its own
   // controls stop propagation, so toggling it open is not what closes it again.

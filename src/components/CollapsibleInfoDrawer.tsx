@@ -71,7 +71,6 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
   const hasCapacity = activeDrive.totalBytes > 0;
   const usedBytes = hasCapacity ? activeDrive.totalBytes - activeDrive.freeBytes : 0;
   const usedPercent = hasCapacity ? Math.min(100, Math.round((usedBytes / activeDrive.totalBytes) * 100)) : null;
-  const freePercent = usedPercent === null ? null : 100 - usedPercent;
   const totalText = hasCapacity ? formatBytesTwoDecimals(activeDrive.totalBytes) : '—';
   const freeText = hasCapacity ? formatBytesTwoDecimals(activeDrive.freeBytes) : '—';
   const usedText = usedPercent === null ? '—' : `${formatBytesTwoDecimals(usedBytes)} (${usedPercent}%)`;
@@ -129,7 +128,7 @@ export const CollapsibleInfoDrawer: React.FC<CollapsibleInfoDrawerProps> = ({
             <HardDrive className="w-3 h-3 text-cyan-400 shrink-0" />
             <span className="font-bold">{activeDrive.letter}</span>
             <span className="opacity-80 font-mono">
-              {freeText} {t.freeLabel} ({freePercent === null ? '—' : `${freePercent}%`})
+              {freeText} {t.freeLabel} ({usedPercent === null ? '—' : `${100 - usedPercent}%`})
             </span>
             <div className="w-16 h-2 bg-black/60 rounded-full overflow-hidden border border-white/20">
               <div

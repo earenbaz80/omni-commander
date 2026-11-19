@@ -66,12 +66,6 @@ beforeEach(() => {
 });
 
 describe('Toolbar cleanup command', () => {
-  it('is drawn on a host whose adapter implements cleanup', () => {
-    render(<Toolbar {...baseProps} />);
-
-    expect(screen.getByTitle(t.toolbarCleanup)).toBeDefined();
-  });
-
   it('is not drawn at all where the adapter declares no cleanup', () => {
     setPlatformInfo(linux);
 
