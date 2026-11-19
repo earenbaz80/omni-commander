@@ -147,6 +147,9 @@ beforeAll(async () => {
       OMNI_LOG_DIR: path.join(root, 'logs'),
       OMNI_MAP_CACHE_DIR: path.join(root, 'map-tiles'),
       XDG_DATA_HOME: path.join(root, 'xdg-data'),
+      // The fixture wrote the desktop's file under this HOME; naming the config
+      // root keeps the case independent of whatever the runner exports.
+      XDG_CONFIG_HOME: path.join(root, '.config'),
       HOME: root,
       PATH: emptyPath,
       OMNI_RUN_DRY_RUN: '1',
@@ -184,9 +187,24 @@ describe.runIf(process.platform === 'linux')('Linux filesystem integration', () 
 
   it('reports the user folders the desktop itself names', async () => {
     const { status, body } = await get('/api/user-folders');
+    // When the route answers empty, say what the adapter sees for the same
+    // fixture in this process: it separates a wrong env from a wrong route.
+    let seen = '';
+    if (Array.isArray(body) && body.length === 0) {
+      const { createLinuxUserFolders } = require('./server/platform/linuxUserFolders.cjs');
+      const foldersInProcess = await createLinuxUserFolders({
+        env: { HOME: root, XDG_CONFIG_HOME: path.join(root, '.config') },
+      }).list();
+      seen = JSON.stringify({
+        home: process.env.HOME,
+        configRoot: process.env.XDG_CONFIG_HOME,
+        inProcess: foldersInProcess,
+        root: fs.readdirSync(root).sort(),
+      });
+    }
 
     expect(status).toBe(200);
-    expect(body).toEqual([
+    expect(body, seen).toEqual([
       { key: 'desktop', path: path.join(root, 'Escritorio') },
       { key: 'documents', path: path.join(root, 'Documentos') },
       { key: 'downloads', path: path.join(root, 'Descargas') },
