@@ -41,28 +41,62 @@ fi
 
 package_name=$(dpkg-deb -f "$PACKAGE" Package)
 
-# The program to run, taken from the package's own file list rather than from a
-# name written here. The launcher on PATH comes first: Chromium's helpers ship
-# next to the app under /opt and `chrome-sandbox` is executable too, so "the
-# first executable under /opt" is a binary that answers every switch with a
-# sandbox error instead of the app.
-launcher=""
-via_launcher=no
-while IFS= read -r candidate; do
-  case "$candidate" in
-    /usr/bin/*)
-      if [ -f "$candidate" ]; then
-        launcher=$candidate
-        break
-      fi
-      ;;
-  esac
-done < <(dpkg -L "$package_name")
+# The program to run, taken from what the package itself says a click runs. The
+# `.deb` installs no command on PATH -- the menu entry is the launcher -- so
+# reading `Exec=` is the only way to start what a desktop user starts; a name
+# written here, or the first executable under /opt, would be a guess that
+# answers a different question.
+program=""
+args=()
+started_via=""
+desktop_file=$(dpkg -L "$package_name" | grep -E '^/usr/share/applications/.*\.desktop$' | head -n 1 || true)
+if [ -n "$desktop_file" ]; then
+  exec_line=$(grep -m1 '^Exec=' "$desktop_file" | cut -d= -f2- || true)
+  # Field codes (%U, %F, %i, ...) are arguments the desktop fills in, not part of
+  # the command the entry names.
+  exec_line=$(printf '%s' "$exec_line" | sed -E 's/[[:space:]]*%[fFuUdDnNickvm]//g')
+  rest=""
+  if [[ $exec_line =~ ^\"([^\"]*)\"(.*)$ ]]; then
+    program=${BASH_REMATCH[1]}
+    rest=${BASH_REMATCH[2]}
+  elif [[ $exec_line =~ ^([^[:space:]]+)(.*)$ ]]; then
+    program=${BASH_REMATCH[1]}
+    rest=${BASH_REMATCH[2]}
+  fi
+  read -r -a args <<< "$rest" || true
+  started_via="the desktop entry $desktop_file"
+fi
 
-if [ -n "$launcher" ]; then
+if [ -n "$program" ]; then
+  if [ ! -x "$program" ]; then
+    echo "::error::the desktop entry runs $program, which the package did not install or cannot execute"
+    exit 1
+  fi
+  program=$(readlink -f "$program")
+fi
+
+# Fallbacks for a package that ships no menu entry: a command on PATH first, and
+# only then a scan of /opt. Chromium's helpers ship next to the app under /opt
+# and `chrome-sandbox` is executable too, so "the first executable under /opt"
+# is a binary that answers every switch with a sandbox error instead of the app.
+launcher=""
+if [ -z "$program" ]; then
+  while IFS= read -r candidate; do
+    case "$candidate" in
+      /usr/bin/*)
+        if [ -f "$candidate" ]; then
+          launcher=$candidate
+          break
+        fi
+        ;;
+    esac
+  done < <(dpkg -L "$package_name")
+fi
+if [ -z "$program" ] && [ -n "$launcher" ]; then
   program=$(readlink -f "$launcher")
-  via_launcher=yes
-else
+  started_via="the command on PATH $launcher"
+fi
+if [ -z "$program" ]; then
   program=$(dpkg -L "$package_name" | while IFS= read -r candidate; do
     case "$candidate" in
       /opt/*) ;;
@@ -81,6 +115,7 @@ else
       break
     fi
   done)
+  started_via="a scan of /opt, because the package installs no menu entry"
 fi
 if [ -z "$program" ]; then
   echo "::error::the .deb installed no runnable program under /opt; it installed: $(dpkg -L "$package_name" | tr '\n' ' ')"
@@ -95,22 +130,9 @@ case "$program" in
     ;;
 esac
 echo "installed $package_name, program at $program"
-# Which path was taken matters: a desktop starts the package through the
-# launcher on PATH, so "the window loaded" only speaks for a user's click when
-# the launcher was the thing that started it.
-if [ "$via_launcher" = yes ]; then
-  echo "started through the launcher the package installs at $launcher"
-else
-  echo "the package installs no launcher on PATH; the program was run directly"
-fi
-
-# The menu entry has to name the program that was installed, or a desktop user
-# gets an icon that does nothing.
-desktop_file=$(dpkg -L "$package_name" | grep -E '^/usr/share/applications/.*\.desktop$' | head -n 1 || true)
-if [ -n "$desktop_file" ] && ! grep -q "$(basename "$program")" "$desktop_file"; then
-  echo "::error::the desktop entry does not name the installed program: $(grep -E '^Exec=' "$desktop_file" | tr '\n' ' ')"
-  exit 1
-fi
+# The log says which of the three paths was taken, because only the first
+# answers the question a user has: does clicking the icon open the app.
+echo "the launcher is $started_via"
 
 # The shared libraries the binary itself resolves. Empty here means the package
 # brought everything it links against.
@@ -130,7 +152,7 @@ apt-get install -y -qq --no-install-recommends xvfb xauth
 # renderer started as its own process reads the environment, not the parent's
 # argv, and dies on the same check (exitCode 133) -- so the sandbox is disabled
 # through the environment as well. A desktop user needs neither.
-ELECTRON_ENABLE_LOGGING=1 ELECTRON_DISABLE_SANDBOX=1 xvfb-run -a "$program" \
+ELECTRON_ENABLE_LOGGING=1 ELECTRON_DISABLE_SANDBOX=1 xvfb-run -a "$program" "${args[@]}" \
   --no-sandbox --disable-gpu --disable-dev-shm-usage --remote-debugging-port=9333 \
   >/tmp/app.log 2>&1 &
 app=$!

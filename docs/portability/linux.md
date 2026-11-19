@@ -167,9 +167,13 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
   alguien descarga es el asset del Release, que con la misma versión son otros
   bytes. Por eso `released-deb-install` baja el asset publicado de `v<versión>`,
   lo compara con el `digest` y el tamaño que GitHub registra para él y lo
-  instala en el mismo `ubuntu:24.04`, arrancando el lanzador que deja el
+  instala en el mismo `ubuntu:24.04` y arranca el lanzador que deja el
   paquete: lo que se prueba es el archivo que se entrega, no una recompilación
-  suya. No espera al build, porque lo que verifica ya está publicado.
+  suya. No espera al build, porque lo que verifica ya está publicado. Ese
+  lanzador es la entrada `.desktop`, no un comando en `/usr/bin`: el paquete
+  pone el programa en `/opt/OmniCommander Pro` y el humo ejecuta el `Exec=` que
+  la entrada declara, con sus códigos de campo quitados, porque es lo que corre
+  un clic y lo único que puede decir si el icono abre algo.
 - Faltan `latest-linux.yml`, el updater Linux y una release de prueba. Bajo
   Xvfb el preflight ya no sólo abre el AppImage empaquetado y comprueba que
   lista un montaje: también abre una carpeta, copia un fichero entre paneles,
