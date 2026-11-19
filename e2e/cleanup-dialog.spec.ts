@@ -1,6 +1,7 @@
 import { test, expect, type Page, type Route } from './support/appTest';
 import { seedSettings } from './support/settings';
 import { BOOT_TIMEOUT_MS } from './support/boot';
+import { readCapabilities } from './support/capabilities';
 import { formatBytes } from '../src/utils/formatBytes';
 
 /**
@@ -113,9 +114,23 @@ const runAnswer = (overrides: Record<string, unknown> = {}): Answer => ({
   },
 });
 
+/**
+ * Stops the case where the host draws no cleanup command at all.
+ *
+ * The adapters that implement cleanup are the ones that declare it, and the
+ * toolbar follows that answer: on a host without it there is no button to press,
+ * and failing to find one would be reporting the app's correct behaviour as a
+ * broken interface.
+ */
+async function requireCleanup(page: Page) {
+  const capabilities = await readCapabilities(page);
+  test.skip(!capabilities.cleanup, 'this host implements no cleanup, so the toolbar draws no command');
+}
+
 /** Opens the toolbar menu and picks the user's own temp folder. */
 async function openCleanup(page: Page) {
   await page.goto('/');
+  await requireCleanup(page);
 
   // The toolbar is chrome: it mounts before the boot resolves, so waiting for it
   // says nothing about the app behind it. A row is the real gate -- a drive was
@@ -142,6 +157,7 @@ test('it measures first, asks once, and only the second press deletes', async ({
   const calls = await stubCleanup(page, { scan: () => scanAnswer(), run: () => runAnswer() });
 
   await page.goto('/');
+  await requireCleanup(page);
   // Same gate as `openCleanup`: the toolbar is up before the boot finishes.
   await expect(page.locator('[data-name]').first()).toBeVisible({ timeout: BOOT_TIMEOUT_MS });
   const toolbar = page.getByTitle(TOOLBAR_LABEL);

@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import { removeWorkspace } from './support/tempWorkspaces';
 import { BOOT_TIMEOUT_MS } from './support/boot';
+import { readCapabilities } from './support/capabilities';
 import path from 'node:path';
 
 // Pin the UI language so the specs don't break if the app default changes.
@@ -149,6 +150,11 @@ test('every grouping or landmark is named', async ({ page }) => {
   const onLoad = await auditContainers();
   // The two panels' lists alone already prove the query ran.
   expect(onLoad.length).toBeGreaterThanOrEqual(2);
+
+  // The menu below is the cleanup command's, so on a host whose adapter declares
+  // no cleanup there is no menu to open and nothing here to audit.
+  const capabilities = await readCapabilities(page);
+  test.skip(!capabilities.cleanup, 'this host draws no cleanup menu to audit');
 
   // A menu only exists while it is open, so the page as loaded would never
   // audit one. This is the only place in the app that declares `role="menu"`.
