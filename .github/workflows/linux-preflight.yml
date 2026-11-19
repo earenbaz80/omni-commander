@@ -303,16 +303,26 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Download the published .deb for this version
+        id: download
         shell: bash
         run: |
           set -euo pipefail
           version=$(node -p "require('./package.json').version")
           tag="v$version"
           asset="OmniCommander-Pro-${version}-amd64.deb"
+          api="https://api.github.com/repos/${{ github.repository }}/releases/tags/$tag"
+
+          # Read with the workflow's own token: an anonymous call shares the
+          # runner's address with everything else on it and starts answering 403
+          # once that hourly quota is gone, which is not the same as "no release".
+          code=$(curl -sS -o release.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            -H "Accept: application/vnd.github+json" "$api" || echo 000)
 
           # A version that has not been cut yet has no released file to install,
-          # and saying so is different from reporting a package that failed.
-          if ! curl -fsS -o release.json "https://api.github.com/repos/${{ github.repository }}/releases/tags/$tag"; then
+          # and saying so is different from reporting a package or a network fault.
+          if [ "$code" = 404 ]; then
+            echo "skipped=yes" >> "$GITHUB_OUTPUT"
             echo "::notice::$tag has no release yet, so there is no published .deb to install"
             {
               echo "### published .deb on a clean Ubuntu 24.04: skipped"
@@ -321,6 +331,12 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+          if [ "$code" != 200 ]; then
+            head -c 300 release.json || true
+            echo "::error::the release API answered HTTP $code for $tag"
+            exit 1
+          fi
+          echo "skipped=no" >> "$GITHUB_OUTPUT"
 
           url=$(jq -r --arg name "$asset" '.assets[] | select(.name == $name) | .browser_download_url' release.json)
           digest=$(jq -r --arg name "$asset" '.assets[] | select(.name == $name) | .digest // ""' release.json)
@@ -352,13 +368,14 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Install and boot it inside ubuntu:24.04
+        if: steps.download.outputs.skipped != 'yes'
         shell: bash
         run: |
           set -euo pipefail
           deb=$(find pkg -maxdepth 1 -type f -name '*.deb' -print -quit)
           if [ -z "$deb" ]; then
-            echo "::notice::no published .deb to install: the step above reported why"
-            exit 0
+            echo "::error::the step above downloaded no .deb to install"
+            exit 1
           fi
           status=0
           docker run --rm \
