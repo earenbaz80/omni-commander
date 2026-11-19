@@ -297,8 +297,8 @@ jobs:
           status=0
           docker run --rm \
             -v "$PWD/$deb:/tmp/package.deb:ro" \
-            -v "$PWD/scripts/ubuntu-install-smoke.sh:/tmp/ubuntu-install-smoke.sh:ro" \
-            ubuntu:24.04 bash -euo pipefail /tmp/ubuntu-install-smoke.sh || status=$?
+            -v "$PWD/scripts:/tmp/scripts:ro" \
+            ubuntu:24.04 bash -euo pipefail /tmp/scripts/ubuntu-install-smoke.sh || status=$?
           if [ "$status" -eq 0 ]; then
             echo "### .deb on a clean Ubuntu 24.04: installed and booted" >> "$GITHUB_STEP_SUMMARY"
           else
@@ -350,10 +350,8 @@ jobs:
           status=0
           docker run --rm \
             -v "$PWD/$deb:/tmp/package.deb:ro" \
-            -v "$PWD/scripts/ubuntu-install-smoke.sh:/tmp/ubuntu-install-smoke.sh:ro" \
-            -v "$PWD/scripts/ubuntu-app-boot.sh:/tmp/ubuntu-app-boot.sh:ro" \
-            -v "$PWD/scripts/ubuntu-apt.sh:/tmp/ubuntu-apt.sh:ro" \
-            ubuntu:24.04 bash -euo pipefail /tmp/ubuntu-install-smoke.sh || status=$?
+            -v "$PWD/scripts:/tmp/scripts:ro" \
+            ubuntu:24.04 bash -euo pipefail /tmp/scripts/ubuntu-install-smoke.sh || status=$?
           {
             echo "### published .deb on a clean Ubuntu 24.04"
             echo
@@ -411,10 +409,8 @@ jobs:
           docker run --rm \
             -v "$PWD/$appimage:/tmp/app.AppImage:ro" \
             -v "$PWD/pkg/depends.txt:/tmp/depends.txt:ro" \
-            -v "$PWD/scripts/ubuntu-appimage-smoke.sh:/tmp/ubuntu-appimage-smoke.sh:ro" \
-            -v "$PWD/scripts/ubuntu-app-boot.sh:/tmp/ubuntu-app-boot.sh:ro" \
-            -v "$PWD/scripts/ubuntu-apt.sh:/tmp/ubuntu-apt.sh:ro" \
-            ubuntu:24.04 bash -euo pipefail /tmp/ubuntu-appimage-smoke.sh || status=$?
+            -v "$PWD/scripts:/tmp/scripts:ro" \
+            ubuntu:24.04 bash -euo pipefail /tmp/scripts/ubuntu-appimage-smoke.sh || status=$?
           {
             echo "### published AppImage on a clean Ubuntu 24.04"
             echo
