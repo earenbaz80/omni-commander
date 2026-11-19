@@ -66,11 +66,21 @@ process.env.OMNI_LOG_DIR = path.join(app.getPath('userData'), 'logs');
 // so we must learn which port it actually bound before the renderer can talk to it.
 let apiPort = null;
 let serverApi = null;
+/** True while a window exists that was created before the port was known. */
+let windowBuiltWithoutPort = false;
 try {
   // server.cjs only uses dependencies already included in the app package.
   serverApi = require(path.join(__dirname, '..', 'server.cjs'));
   serverApi.onPortReady((port) => {
     apiPort = port;
+    // A window created during that four-second window carries an empty port, and
+    // preload falls back to 3001 on its own. When the server bound somewhere
+    // else -- another copy of the app holding 3001 is enough -- the renderer
+    // then talks to nothing: the interface answers clicks, and no drive is ever
+    // listed, for the whole session. Reload it once now that it can be told.
+    if (!windowBuiltWithoutPort) return;
+    windowBuiltWithoutPort = false;
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.reload();
   });
   // A transfer can end with the window closed; the toast is the only way back to it.
   serverApi.onJobFinished(notifyJobEnded);
@@ -561,6 +571,10 @@ function createMainWindow() {
   // The taskbar button itself is drawn from the app identity set at the top; this
   // picture is what Alt-Tab and the window previews under that button show.
   const icon = loadIcon(WINDOW_ICON, 'Window');
+  // Remembered so the port's arrival can fix a window that was handed nothing;
+  // the alternative is a renderer guessing 3001 until the user restarts.
+  windowBuiltWithoutPort = apiPort == null;
+  if (windowBuiltWithoutPort) console.warn('Creating the window before the local server announced its port');
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 840,

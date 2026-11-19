@@ -433,10 +433,23 @@ const cases = [
 const results = [];
 const app = startPackagedApp(appImage, port);
 let browser;
+/**
+ * The port the window itself was told to use, read while it is still open.
+ *
+ * The app's server picks its port and hands it to the renderer; when that hand
+ * over misses, the renderer falls back to 3001 and the window answers every
+ * click while listing nothing. Printing both numbers makes that visible on a run
+ * that passes, instead of only on one that stalls.
+ */
+let windowApiPort = null;
 
 /** Puts the verdicts on the run page, where a reader of the log cannot be lost. */
 function report() {
   const failed = results.filter((result) => !result.ok);
+  const announced = /listening on http:\/\/(?:localhost|127\.0\.0\.1):(\d+)/.exec(app.log.join(''))?.[1];
+  console.log(
+    `::notice::linux e2e boot: app announced port ${announced ?? 'none'}, window uses ${windowApiPort ?? 'none'}`,
+  );
   appendSummary(
     [
       `### Linux AppImage e2e: ${results.length - failed.length} of ${results.length} cases passed`,
@@ -469,6 +482,7 @@ function report() {
 try {
   const attached = await attachToWindow(app, port);
   browser = attached.browser;
+  windowApiPort = await attached.page.evaluate(() => window.electronAPI?.apiPort ?? null).catch(() => null);
 
   for (const testCase of cases) {
     try {
