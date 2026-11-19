@@ -5,9 +5,9 @@
 # A container's apt has no reason to hang for the length of a job: a mirror that
 # stopped answering and a truncated index both look exactly like "still working",
 # and the job is then killed by its own timeout with nothing said about why. The
-# wrappers below bound every network wait, check that the index actually offers a
-# candidate before asking for one, and turn each way apt can fail into the
-# sentence that names it.
+# wrappers below bound every network wait, check that the index can satisfy the
+# request before asking for it, and turn each way apt can fail into the sentence
+# that names it.
 #
 # The waits are deliberately short: fetching an index or a handful of library
 # packages from archive.ubuntu.com is seconds of work on a runner, so a wait that
@@ -15,16 +15,8 @@
 
 APT_TIMEOUT_UPDATE=${APT_TIMEOUT_UPDATE:-120}
 APT_TIMEOUT_INSTALL=${APT_TIMEOUT_INSTALL:-300}
+APT_TIMEOUT_SIMULATE=${APT_TIMEOUT_SIMULATE:-120}
 APT_TIMEOUT_ACQUIRE=${APT_TIMEOUT_ACQUIRE:-15}
-
-# The names a Depends field mentions: no versions, no alternatives, because what
-# apt needs is a candidate for the first one it can use.
-ubuntu_deb_dependency_names() {
-  dpkg-deb -f "$1" Depends |
-    tr ',' '\n' |
-    sed -E 's/\(.*\)//g; s/\|.*//; s/[[:space:]]//g' |
-    grep -v '^$' || true
-}
 
 ubuntu_apt_update() {
   local log=/tmp/apt-update.log
@@ -39,13 +31,13 @@ ubuntu_apt_update() {
     # An update that exits 0 says the lists were written, not that they carry
     # anything: a mirror or a caching proxy answering with an empty file leaves
     # an index with no packages in it, and every dependency then reads as
-    # `(none)`. The count is the cheapest way to tell that apart from a slow
+    # unsatisfiable. The count is the cheapest way to tell that apart from a slow
     # mirror, and it is the number the next failure would have to explain.
     local packages
     packages=$(apt-cache pkgnames 2>/dev/null | wc -l | tr -d ' ')
     if [ "$packages" -eq 0 ]; then
       tail -n 10 "$log"
-      echo "::error::apt-get update exited 0 but left an index with no packages: the lists it downloaded are empty, so every dependency would read as (none) and apt would have refused them one by one"
+      echo "::error::apt-get update exited 0 but left an index with no packages: the lists it downloaded are empty, so nothing could be installed from them"
       return 1
     fi
     echo "the index apt received lists $packages packages"
@@ -61,28 +53,28 @@ ubuntu_apt_update() {
   return 1
 }
 
-# `Candidate: (none)` means the index knows the name but has no version it can
-# install. A truncated or half-written index produces that for every dependency
-# at once, and apt then reports each of them as "not installable" -- which reads
-# like a broken package and is really a broken download.
-ubuntu_require_candidates() {
-  local missing=()
-  local pkg
-  for pkg in "$@"; do
-    if ! apt-cache policy "$pkg" 2>/dev/null | grep -q '^ *Candidate:'; then
-      missing+=("$pkg")
-    elif apt-cache policy "$pkg" 2>/dev/null | grep -q '^ *Candidate: (none)'; then
-      missing+=("$pkg")
-    fi
-  done
+# A dry run answers "can the index install this?" in a second and with no
+# download, so a missing candidate stops the job instead of becoming a transfer
+# apt waits on. It is also the only check that is right about names apt resolves
+# through a `Provides`: in 24.04 the `.deb` depends on `libgtk-3-0`, which is a
+# virtual name provided by `libgtk-3-0t64`, and `apt-cache policy libgtk-3-0`
+# reports `Candidate: (none)` for it while apt installs it without complaint.
+ubuntu_apt_simulate() {
+  local log=/tmp/apt-simulate.log
+  local status=0
+  timeout "$APT_TIMEOUT_SIMULATE" apt-get install -y --no-install-recommends -s "$@" \
+    >"$log" 2>&1 || status=$?
 
-  if [ "${#missing[@]}" -eq 0 ]; then
+  if [ "$status" -eq 0 ]; then
     return 0
   fi
 
-  echo "no installable candidate for: ${missing[*]}"
-  apt-cache policy "${missing[0]}" 2>&1 | head -n 4
-  echo "::error::the package index offers no candidate for ${missing[*]}, so apt would have waited on a download and then refused every dependency in turn: the index this container received is incomplete"
+  tail -n 20 "$log"
+  if [ "$status" -eq 124 ]; then
+    echo "::error::apt ran a dry run for ${APT_TIMEOUT_SIMULATE}s, which only reads the local index: that index is unusable, not slow"
+    return 1
+  fi
+  echo "::error::apt cannot install $* from the index it received: $(grep -E 'Depends:|E:' "$log" | tail -n 3 | tr '\n' ' ')"
   return 1
 }
 

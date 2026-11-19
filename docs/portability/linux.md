@@ -164,10 +164,14 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
   `libgbm1` y `libasound2t64 | libasound2`: en 24.04 `libasound2` es un paquete
   virtual, y la alternativa cubre 22.04 sin dejar de instalar en 24.04. El apt
   de ese contenedor va acotado (`scripts/ubuntu-apt.sh`): el índice tiene 120 s
-  y cada descarga 15 s sin reintentos, y antes de instalar se comprueba que el
-  índice ofrezca candidato para cada dependencia declarada —`(none)` para todas
-  a la vez es un índice truncado, no un paquete roto—. Antes, un mirror que no
-  contestaba se comía los 20 minutos del job sin decir nada. Ese job
+  y cada descarga 15 s sin reintentos, se cuenta cuántos paquetes trajo el índice
+  —cero es una descarga vacía, no un paquete roto— y antes de instalar corre un
+  `apt-get -s`, que resuelve la petición sin bajar nada: con un índice truncado
+  falla en un segundo y nombra la dependencia que no puede satisfacer. El ensayo
+  hace falta porque `apt-cache policy` no sirve para eso: `libgtk-3-0` en 24.04 es
+  un nombre virtual que provee `libgtk-3-0t64` y reporta `Candidate: (none)` para
+  un paquete que apt instala sin problema. Antes, un mirror que no contestaba se
+  comía los 20 minutos del job sin decir nada. Ese job
   sólo habla del paquete que su propio run acaba de compilar; el fichero que
   alguien descarga es el asset del Release, que con la misma versión son otros
   bytes. Por eso `released-deb-install` baja el asset publicado de `v<versión>`,

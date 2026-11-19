@@ -28,11 +28,10 @@ source "$(dirname "${BASH_SOURCE[0]}")/ubuntu-apt.sh"
 # which of the two happened.
 ubuntu_apt_update
 
-# What the package declares, checked against the index before apt is asked to
-# resolve it: with no candidate for one of these, apt spends its time downloading
-# and then refuses every dependency in turn.
-mapfile -t declared < <(ubuntu_deb_dependency_names "$PACKAGE")
-ubuntu_require_candidates "${declared[@]}"
+# Resolved against the index before anything is fetched: a dependency this index
+# cannot satisfy has to stop the job here, not become a download apt waits on and
+# then refuses one package at a time.
+ubuntu_apt_simulate "$PACKAGE"
 
 # By path, so apt resolves the dependencies of this package and not those of a
 # release that happens to be published.

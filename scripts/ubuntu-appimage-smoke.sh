@@ -49,7 +49,7 @@ while IFS= read -r line; do
 done < "$DEPENDS"
 echo "installing the libraries the .deb declares: ${packages[*]}"
 
-ubuntu_require_candidates "${packages[@]}"
+ubuntu_apt_simulate "${packages[@]}" xvfb xauth
 ubuntu_apt_install "${packages[@]}" xvfb xauth
 
 # shellcheck source=scripts/ubuntu-app-boot.sh
