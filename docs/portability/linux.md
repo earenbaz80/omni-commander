@@ -162,7 +162,14 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
   encontradas, así que `build.deb.depends` repite la lista por defecto de
   electron-builder —declarar `depends` la reemplaza, no la extiende— y le añade
   `libgbm1` y `libasound2t64 | libasound2`: en 24.04 `libasound2` es un paquete
-  virtual, y la alternativa cubre 22.04 sin dejar de instalar en 24.04.
+  virtual, y la alternativa cubre 22.04 sin dejar de instalar en 24.04. Ese job
+  sólo habla del paquete que su propio run acaba de compilar; el fichero que
+  alguien descarga es el asset del Release, que con la misma versión son otros
+  bytes. Por eso `released-deb-install` baja el asset publicado de `v<versión>`,
+  lo compara con el `digest` y el tamaño que GitHub registra para él y lo
+  instala en el mismo `ubuntu:24.04`, arrancando el lanzador que deja el
+  paquete: lo que se prueba es el archivo que se entrega, no una recompilación
+  suya. No espera al build, porque lo que verifica ya está publicado.
 - Faltan `latest-linux.yml`, el updater Linux y una release de prueba. Bajo
   Xvfb el preflight ya no sólo abre el AppImage empaquetado y comprueba que
   lista un montaje: también abre una carpeta, copia un fichero entre paneles,
