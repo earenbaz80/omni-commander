@@ -144,6 +144,28 @@ describe('TreeNavigationPane libraries', () => {
   });
 });
 
+describe('Quick Access on a POSIX desktop', () => {
+  // Linux answers with the folders its desktop names, as absolute POSIX paths
+  // under the `/` mount. The pane used to be fed the Windows library table, so
+  // there was nothing of the system it runs on to show.
+  it('lists the folders the Linux server resolved and opens one', async () => {
+    vi.mocked(loadUserFolders).mockResolvedValueOnce([
+      { key: 'desktop', path: '/home/ana/Escritorio' },
+      { key: 'downloads', path: '/home/ana/Descargas' },
+    ]);
+    const { onNavigate, onSelectDrive } = renderPane({
+      drives: [drive('real_root', '/')],
+      currentPath: '/',
+      currentDriveId: 'real_root',
+    });
+
+    fireEvent.click(await screen.findByText('Descargas'));
+
+    expect(onSelectDrive).toHaveBeenCalledWith('real_root');
+    expect(onNavigate).toHaveBeenCalledWith('/home/ana/Descargas');
+  });
+});
+
 describe('TreeNavigationPane favorites', () => {
   const projects = 'C:\\Users\\ana\\proyectos';
 
