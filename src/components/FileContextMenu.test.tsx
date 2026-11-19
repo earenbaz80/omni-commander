@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { FileContextMenu, favoritePath, type FileContextMenuProps } from './FileContextMenu';
 import { themes } from '../services/themeManager';
+import { setPlatformInfo, type PlatformInfo } from '../services/platform';
 import { FileItem, PanelTab, UserSettings } from '../types';
 
 // The wrapper asks the engine what the target allows while it renders; these
@@ -149,5 +150,43 @@ describe('FileContextMenu', () => {
     render(<FileContextMenu {...buildProps()} />);
 
     expect(screen.queryByText('Compartir en red…')).toBeNull();
+  });
+});
+
+describe('FileContextMenu open with', () => {
+  const windows: PlatformInfo = {
+    platform: 'win32',
+    caseSensitive: false,
+    separator: '\\',
+    capabilities: { paths: true, volumes: true, cleanup: true, trash: true, openWith: true },
+  };
+
+  afterEach(() => setPlatformInfo(windows));
+
+  it('offers it where the adapter implements it', () => {
+    setPlatformInfo(windows);
+
+    render(<FileContextMenu {...buildProps()} />);
+
+    expect(screen.getByText('Abrir con…')).toBeDefined();
+  });
+
+  /**
+   * Linux has no chooser and its server does not register the routes, so the
+   * submenu could only report that nothing is registered and fail on a click.
+   */
+  it('does not offer it on a host whose adapter has none', () => {
+    setPlatformInfo({
+      platform: 'linux',
+      caseSensitive: true,
+      separator: '/',
+      capabilities: { paths: true, volumes: true, cleanup: false, trash: true, openWith: false },
+    });
+
+    render(<FileContextMenu {...buildProps()} />);
+
+    expect(screen.queryByText('Abrir con…')).toBeNull();
+    // The rest of the menu is still there.
+    expect(screen.getByText('Renombrar')).toBeDefined();
   });
 });

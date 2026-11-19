@@ -16,6 +16,7 @@ import { setServerExtractionPaused } from '../services/serverArchive';
 import type { ExtractConflict, ExtractConflictAnswer } from '../services/fileArchiveOps';
 import { log } from '../utils/logger';
 import { getTranslations } from '../i18n/translations';
+import { usePlatformInfo } from './usePlatformInfo';
 
 export interface FileOperationsDeps {
   lang: LanguageCode;
@@ -84,6 +85,10 @@ export function useFileOperations({
 }: FileOperationsDeps): FileOperations {
   const t = getTranslations(lang);
 
+  // A host whose adapter declares no trash cannot park a file there, so the
+  // delete has to be permanent instead of asking the server for a bin it lacks.
+  const capabilities = usePlatformInfo().capabilities;
+
   // The extraction runs inside a task, so its question is state this hook owns
   // and the modal layer renders, exactly like the queue owns its own prompt.
   const [extractConflict, setExtractConflict] = useState<PendingConflict | null>(null);
@@ -109,7 +114,7 @@ export function useFileOperations({
 
   const handleConfirmDelete = () => {
     const items: FileItem[] = transferItems;
-    const useTrash = settings.useRecycleBin !== false;
+    const useTrash = settings.useRecycleBin !== false && capabilities.trash;
     const startedAt = Date.now();
     const totalEntries = items.length || 1;
     let taskId = '';

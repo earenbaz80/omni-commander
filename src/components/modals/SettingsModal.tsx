@@ -717,14 +717,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ theme, lang, setti
           <span>{t.settingsShowSystem}</span>
         </label>
 
-        <label className="flex items-center gap-[var(--space-2)] cursor-pointer font-bold nc-danger-ink">
-          <input
-            type="checkbox"
-            checked={formData.useRecycleBin !== false}
-            onChange={(e) => handleChange('useRecycleBin', e.target.checked)}
-          />
-          <span>{t.settingsUseRecycleBin}</span>
-        </label>
+        {/* A host with no trash would accept the switch and ignore it, so the
+            setting is only offered where the adapter implements one. */}
+        {platformInfo.capabilities.trash && (
+          <label className="flex items-center gap-[var(--space-2)] cursor-pointer font-bold nc-danger-ink">
+            <input
+              type="checkbox"
+              checked={formData.useRecycleBin !== false}
+              onChange={(e) => handleChange('useRecycleBin', e.target.checked)}
+            />
+            <span>{t.settingsUseRecycleBin}</span>
+          </label>
+        )}
       </SectionCard>
     </div>
   );

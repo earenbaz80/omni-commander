@@ -13,6 +13,7 @@ import { PathBar } from './PathBar';
 import { QuickViewPane } from './QuickViewPane';
 import { FileList } from './FileList';
 import { PanelBrowser } from './PanelBrowser';
+import { usePlatformInfo } from '../hooks/usePlatformInfo';
 
 interface PanelViewProps {
   side: 'left' | 'right';
@@ -133,6 +134,9 @@ export const PanelView: React.FC<PanelViewProps> = ({
   onCloseBrowser,
 }) => {
   const isActive = activePanel === side;
+  // The row of drives is an offer to switch volumes; a host that declares none
+  // keeps its single root and no selector.
+  const capabilities = usePlatformInfo().capabilities;
   const t = getTranslations(lang);
 
   return (
@@ -186,14 +190,16 @@ export const PanelView: React.FC<PanelViewProps> = ({
       )}
 
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
-        <DriveBar
-          theme={currentTheme}
-          drives={drives}
-          currentDriveId={tab.driveId}
-          onSelectDrive={onSelectDrive}
-          panelSide={side}
-          isActive={isActive}
-        />
+        {capabilities.volumes && (
+          <DriveBar
+            theme={currentTheme}
+            drives={drives}
+            currentDriveId={tab.driveId}
+            onSelectDrive={onSelectDrive}
+            panelSide={side}
+            isActive={isActive}
+          />
+        )}
 
         {panel.panelView === 'diskUsage' ? (
           <DiskUsagePane

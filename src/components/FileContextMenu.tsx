@@ -7,6 +7,7 @@ import { soundManager } from '../services/soundEffects';
 import { consoleCommandFor } from '../services/appOpeners';
 import { formatFromExtension, isOpenable } from '../services/archiveBackend';
 import { appendPath } from '../services/platform';
+import { usePlatformInfo } from '../hooks/usePlatformInfo';
 
 /** What the menu is open on: where it was clicked and what it was clicked over. */
 export interface FileContextMenuState {
@@ -82,6 +83,10 @@ export const FileContextMenu: React.FC<FileContextMenuProps> = ({
   onExecuteCommand,
   onExtract,
 }) => {
+  // Whether this host has an "Open with" at all is the adapter's answer: Linux
+  // has none yet, and its server does not even register the routes.
+  const capabilities = usePlatformInfo().capabilities;
+
   if (!state.visible) return null;
 
   const item = state.targetItem;
@@ -193,7 +198,7 @@ export const FileContextMenu: React.FC<FileContextMenuProps> = ({
       }}
       onSplitFile={() => openTool('file_splitter')}
       onArchiveInfo={() => openTool('archive_info')}
-      canOpenWith={!!item && !item.isDirectory && fsEngine.isRealFile(item)}
+      canOpenWith={capabilities.openWith && !!item && !item.isDirectory && fsEngine.isRealFile(item)}
       loadOpenWithPrograms={() => (item ? fsEngine.openWithPrograms(item) : Promise.resolve([]))}
       onOpenWithProgram={(program) => {
         if (!item) return;

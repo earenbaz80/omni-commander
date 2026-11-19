@@ -1,8 +1,9 @@
 import { render } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PanelView } from './PanelView';
 import { themes } from '../services/themeManager';
 import { translations } from '../i18n/translations';
+import { setPlatformInfo, type PlatformInfo } from '../services/platform';
 import type { Drive, PanelState, PanelTab } from '../types';
 
 /**
@@ -87,6 +88,15 @@ const props = () => ({
   onItemHover: vi.fn(),
 });
 
+const withVolumes: PlatformInfo = {
+  platform: 'win32',
+  caseSensitive: false,
+  separator: '\\',
+  capabilities: { paths: true, volumes: true, cleanup: true, trash: true, openWith: true },
+};
+
+afterEach(() => setPlatformInfo(withVolumes));
+
 describe('PanelView with no drives', () => {
   it('says there are no drives instead of offering an empty folder', () => {
     const { container } = render(<PanelView {...props()} />);
@@ -98,5 +108,36 @@ describe('PanelView with no drives', () => {
 
     // The file view's empty state is for a folder that exists and has nothing in it.
     expect(container.textContent).not.toContain(t.emptyFolder);
+  });
+});
+
+describe('PanelView volumes', () => {
+  const oneDrive: Drive = { ...emptyDrive, id: 'real_C', root: 'C:\\', letter: 'C:', isMounted: true };
+  const withDrive = () => ({
+    ...props(),
+    drives: [oneDrive],
+    drive: oneDrive,
+    tab: { ...tab, driveId: 'real_C', currentPath: 'C:\\', history: ['C:\\'] },
+  });
+
+  it('draws the drive selector where the host declares volumes', () => {
+    setPlatformInfo(withVolumes);
+
+    const { container } = render(<PanelView {...withDrive()} />);
+
+    expect(container.textContent).toContain('Alt+F1');
+  });
+
+  /** A host with no volumes has one root and nothing to switch to. */
+  it('draws no drive selector where the adapter declares none', () => {
+    setPlatformInfo({
+      ...withVolumes,
+      platform: 'linux',
+      capabilities: { ...withVolumes.capabilities, volumes: false },
+    });
+
+    const { container } = render(<PanelView {...withDrive()} />);
+
+    expect(container.textContent).not.toContain('Alt+F1');
   });
 });

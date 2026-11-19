@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useFileOperations } from './useFileOperations';
+import { setPlatformInfo, type PlatformInfo } from '../services/platform';
 import type { ConflictResolution, FileItem, PanelTab, UserSettings } from '../types';
 import type { ExtractConflict } from '../services/fileArchiveOps';
 
@@ -9,7 +10,7 @@ const { addTask, updateTaskMeta, playSuccess, deleteItems, createPasswordRecord,
     addTask: vi.fn(() => 'task-1'),
     updateTaskMeta: vi.fn(),
     playSuccess: vi.fn(),
-    deleteItems: vi.fn(async () => undefined),
+    deleteItems: vi.fn(async (_items: unknown, _useTrash: boolean) => undefined),
     createPasswordRecord: vi.fn(async () => ({ hash: 'derivado', salt: 'sal' })),
     setSettings: vi.fn(),
     extractArchive: vi.fn(),
@@ -64,13 +65,78 @@ const appliedUpdater = (previous: Partial<UserSettings>) => {
   return updater(previous);
 };
 
+const windowsPlatform: PlatformInfo = {
+  platform: 'win32',
+  caseSensitive: false,
+  separator: '\\',
+  capabilities: { paths: true, volumes: true, cleanup: true, trash: true, openWith: true },
+};
+
+afterEach(() => setPlatformInfo(windowsPlatform));
+
 beforeEach(() => {
   addTask.mockReset();
   addTask.mockReturnValue('task-1');
   updateTaskMeta.mockClear();
+  deleteItems.mockClear();
   setSettings.mockClear();
   createPasswordRecord.mockClear();
   extractArchive.mockReset();
+});
+
+describe('useFileOperations delete', () => {
+  /**
+   * Where the adapter declares no trash, the request must not ask the server for
+   * one: a delete that names a bin the host lacks would fail on the machine, or
+   * claim a recovery the app cannot offer.
+   */
+  it('deletes permanently on a host whose adapter declares no trash', async () => {
+    setPlatformInfo({
+      platform: 'linux',
+      caseSensitive: true,
+      separator: '/',
+      capabilities: { paths: true, volumes: true, cleanup: false, trash: false, openWith: false },
+    });
+    let run: (() => Promise<void>) | undefined;
+    addTask.mockImplementation(((
+      _type: string,
+      _title: string,
+      _detail: unknown,
+      _total: number,
+      executor: (progress: () => void, signal: { paused: boolean; cancelled: boolean }) => Promise<void>,
+    ) => {
+      run = () => executor(() => {}, { paused: false, cancelled: false });
+      return 'task-1';
+    }) as never);
+    const { result } = render({ useRecycleBin: true });
+
+    result.current.handleConfirmDelete();
+    await run!();
+
+    // Second argument is the trash flag the engine passes on to the server.
+    expect(deleteItems.mock.calls[0][1]).toBe(false);
+  });
+
+  it('still asks for the trash where the adapter implements one', async () => {
+    setPlatformInfo(windowsPlatform);
+    let run: (() => Promise<void>) | undefined;
+    addTask.mockImplementation(((
+      _type: string,
+      _title: string,
+      _detail: unknown,
+      _total: number,
+      executor: (progress: () => void, signal: { paused: boolean; cancelled: boolean }) => Promise<void>,
+    ) => {
+      run = () => executor(() => {}, { paused: false, cancelled: false });
+      return 'task-1';
+    }) as never);
+    const { result } = render({ useRecycleBin: true });
+
+    result.current.handleConfirmDelete();
+    await run!();
+
+    expect(deleteItems.mock.calls[0][1]).toBe(true);
+  });
 });
 
 describe('useFileOperations', () => {

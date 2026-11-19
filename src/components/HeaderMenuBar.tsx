@@ -7,6 +7,7 @@ import { ThemeConfig } from '../services/themeManager';
 import { soundManager } from '../services/soundEffects';
 import { PWAInstallButton } from './PWAInstallButton';
 import { UpdateBadge } from './UpdateBadge';
+import { usePlatformInfo } from '../hooks/usePlatformInfo';
 
 /**
  * How long a hover-opened menu survives the pointer leaving the bar.
@@ -74,6 +75,9 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
   onCloseWindow,
 }) => {
   const t = getTranslations(lang);
+  // A platform without a bin has nowhere to put what it deletes, so the command
+  // that lists one is not offered there.
+  const capabilities = usePlatformInfo().capabilities;
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   // The pane's browser is a native layer above this page, so a pull-down would
   // be painted under it: the menu announces itself and the browser hides.
@@ -369,12 +373,14 @@ export const HeaderMenuBar: React.FC<HeaderMenuBarProps> = ({
                   <span>{t.headerSwapPanels}</span> <span className="opacity-60">Ctrl+U</span>
                 </button>
               )}
-              <button
-                onClick={() => handleAction(() => onOpenModal('recycle_bin'))}
-                className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between nc-danger-ink"
-              >
-                <span>{t.recycleBin}</span> <span className="opacity-60">TR:</span>
-              </button>
+              {capabilities.trash && (
+                <button
+                  onClick={() => handleAction(() => onOpenModal('recycle_bin'))}
+                  className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between nc-danger-ink"
+                >
+                  <span>{t.recycleBin}</span> <span className="opacity-60">TR:</span>
+                </button>
+              )}
               <button
                 onClick={() => handleAction(() => onOpenModal('background_tasks'))}
                 className="w-full text-left px-[var(--space-3)] py-[var(--space-1)] hover:bg-white/20 flex justify-between text-cyan-300 font-bold"
