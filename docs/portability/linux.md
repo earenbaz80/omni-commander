@@ -82,11 +82,12 @@ arreglos funcionales en el mismo commit.
   con alias POSIX sueltos (`ls`, `cat`, `rm`, `clear`). El campo se llama
   `letter` en todo el renderer aunque ya acepte una raíz `/`.
 - **Empaquetado:** `package.json` declara `win` (NSIS/portable) y un target
-  `linux` con AppImage y `.deb` de prueba; `.github/workflows/release.yml` corre
-  en `windows-latest` y ejecuta `electron-builder --win`, mientras que
-  `.github/workflows/linux-preflight.yml` genera el AppImage y el `.deb` como
-  artefactos de CI con `--publish never`. No hay `latest-linux.yml` ni release
-  Linux.
+  `linux` con AppImage y `.deb`; `.github/workflows/release.yml` publica los
+  cuatro en la release de la etiqueta —el AppImage y el `.deb` se empaquetan en
+  `ubuntu-latest` y se adjuntan con los de Windows, y un job escribe después el
+  `latest-linux.yml` desde esos assets—, y
+  `.github/workflows/linux-preflight.yml` los genera además como artefactos de
+  CI con `--publish never` para probar el puerto sin cortar una versión.
 - **Tests:** `server.open.test.ts`, `server.run.test.ts` y
   `server.share.test.ts` tienen casos condicionados a `win32`; la suite Linux
   necesitará sus equivalentes, no borrar los de Windows.
@@ -198,8 +199,9 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
   un runner con FUSE. El arranque y la comprobación de que la ventana cargó
   viven en `scripts/ubuntu-app-boot.sh`, compartidos por los dos humos para que
   no se separen en qué aceptan como "abrió".
-- `latest-linux.yml` y el updater Linux ya están: el canal lo escribe el
-  preflight desde los paquetes publicados y el job
+- `latest-linux.yml` y el updater Linux ya están: el canal lo escribe el job
+  `linux-channel` de la release desde los paquetes que esa release sirve, el
+  preflight lo repite a mano sobre una versión cortada y el job
   `Find the published Linux channel with the app's updater` levanta `DebUpdater`
   contra el feed. Falta una release de prueba. Bajo
   Xvfb el preflight ya no sólo abre el AppImage empaquetado y comprueba que

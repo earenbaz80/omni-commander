@@ -414,6 +414,82 @@ jobs:
       - name: Build Storybook
         run: npm run build-storybook
 
+  # A tag used to publish Windows only: the `.deb` and the AppImage were attached
+  # by hand after the release was cut, so a version could go out with no Linux
+  # package at all, and the channel that tells a copy about it was written even
+  # later, by a workflow someone had to dispatch. They are built here, before the
+  # release exists, and published with it, so a cut carries both or does not
+  # happen. electron-builder cannot cross-build a `.deb` from Windows, which is
+  # why this runs on its own runner rather than inside the publishing job.
+  linux-packages:
+    name: Package the Linux AppImage and .deb
+    # Only `verify`: the packages take longer than the end-to-end suite, so
+    # building them next to it instead of after it costs the tag run nothing,
+    # and the publishing job still waits for both before anything is uploaded.
+    needs: verify
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --engine-strict
+
+      # The renderer the Windows job packages: `--mode electron` is the build the
+      # app reads from inside the installer, so both platforms ship the same one.
+      - name: Build Electron app
+        run: npm run build:electron
+
+      # `--publish never`, because this job does not own the release: the files
+      # go up with the one the publishing job creates, so the page never shows a
+      # version that carries Windows but not Linux.
+      - name: Package the AppImage and the .deb
+        run: npx electron-builder --linux AppImage deb --publish never
+
+      # The tag is checked against package.json in the publishing job, but the
+      # package has to say the same too: a `.deb` built from another tree would
+      # install and report a version nobody asked for. The names come from
+      # `build.linux.artifactName`, so they are the ones the channel and the
+      # updater look for later.
+      - name: Check the packages carry this version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          deb="release/OmniCommander-Pro-${version}-amd64.deb"
+          appimage="release/OmniCommander-Pro-${version}-x86_64.AppImage"
+          for file in "$deb" "$appimage"; do
+            if [ ! -f "$file" ]; then
+              echo "::error::electron-builder produced no $file; release/ holds: $(ls release 2>/dev/null | tr '\n' ' ')"
+              exit 1
+            fi
+          done
+          actual=$(dpkg-deb -f "$deb" Version)
+          if [ "$actual" != "$version" ]; then
+            echo "::error::the .deb reports version $actual, package.json says $version"
+            exit 1
+          fi
+          dpkg-deb -f "$deb" Package Version
+          ls -lh "$deb" "$appimage"
+
+      - name: Keep the packages for the publishing job
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: linux-packages
+          path: |
+            release/*.deb
+            release/*.AppImage
+          if-no-files-found: error
+          retention-days: 1
+
   # The generator is the one piece of the publish job that can run without a
   # tag, and it is also the piece that had never run on a runner: it needs
   # nothing but git and node, so the preview installs no dependencies and writes
@@ -457,7 +533,10 @@ jobs:
 
   build:
     name: Build and publish
-    needs: [verify, e2e]
+    # The Linux packages are built before the release exists and published with
+    # it: a broken `.deb` blocks the cut instead of leaving a page that carries
+    # half a version.
+    needs: [verify, e2e, linux-packages]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: windows-latest
     permissions:
@@ -493,6 +572,15 @@ jobs:
       # one step publishes them all into a single release.
       - name: Package Windows artifacts
         run: npx electron-builder --win --publish never
+
+      # The Linux packages are built on their own runner, so they arrive here as
+      # a run artifact and land beside the Windows ones. Both platforms then go
+      # up in the same release, which is what the page and the updater expect.
+      - name: Download the Linux packages
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: linux-packages
+          path: release
 
       # The tag is not trusted for the file names: the package version is what
       # electron-builder names the artifacts after, so both must agree.
@@ -642,5 +730,102 @@ jobs:
             release/*.blockmap
             release/*.yml
             release/*.zip
+            release/*.deb
+            release/*.AppImage
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # The Windows channel is written by electron-builder inside the package it
+  # uploads. The Linux one cannot be: it has to describe the files the release
+  # serves, and a rebuild of the same tree has different bytes, so it is written
+  # from the assets just published -- name, size and sha512, checked against the
+  # bytes GitHub hands out -- and attached to the release the job above created.
+  # Without it a `.deb` copy finds no feed at all, which is what a 1.0.52 on
+  # Ubuntu reported while both packages sat on the page.
+  linux-channel:
+    name: Publish the Linux update channel
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Downloading through the script the other released-asset jobs use keeps
+      # the channel tied to what the release serves: it compares the bytes with
+      # the size and the digest GitHub records for the asset, so a channel cannot
+      # describe a file the download URL does not hand out.
+      - name: Download the published .deb
+        id: deb
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          node scripts/fetch-release-asset.mjs \
+            "v$version" "OmniCommander-Pro-${version}-amd64.deb" pkg
+
+      - name: Download the published AppImage
+        id: appimage
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          node scripts/fetch-release-asset.mjs \
+            "v$version" "OmniCommander-Pro-${version}-x86_64.AppImage" pkg
+
+      - name: Write the channel from both packages
+        if: steps.deb.outputs.skipped != 'yes' && steps.appimage.outputs.skipped != 'yes'
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          node scripts/linux-update-channel.cjs write pkg --out channel --version "$version"
+          cat channel/latest-linux.yml
+
+      # A size or a sha512 that disagrees with the file is an update every client
+      # downloads and then refuses, so the channel is checked before it is
+      # attached rather than after somebody reports it.
+      - name: Check the channel describes the files it names
+        if: steps.deb.outputs.skipped != 'yes' && steps.appimage.outputs.skipped != 'yes'
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          for channel in channel/*-linux.yml; do
+            node scripts/linux-update-channel.cjs verify "$channel" pkg --version "$version"
+          done
+
+      - name: Publish the channel file
+        if: steps.deb.outputs.skipped != 'yes' && steps.appimage.outputs.skipped != 'yes'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          node scripts/publish-release-asset.mjs "v$version" channel/*-linux.yml
+          {
+            echo "### Linux update channel on v$version"
+            echo
+            echo "- the updater reads: \`latest-linux.yml\`"
+            echo "- files: \`$(cd channel && ls *-linux.yml | tr '\n' ' ')\`"
+            echo "- written from the packages the release serves and attached"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # A tag whose packages are missing gives the release nothing to describe.
+      # The Windows job publishes both, so this only fires on a run that skipped
+      # it, and says so instead of ending green with no row about the channel.
+      - name: Say the release carries no Linux packages
+        if: steps.deb.outputs.skipped == 'yes' || steps.appimage.outputs.skipped == 'yes'
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "::error::v$version has no release with the .deb and the AppImage, so it has no Linux feed"
+          exit 1
