@@ -37,14 +37,26 @@ class NodeHttpExecutor extends require('builder-util-runtime').HttpExecutor {
 /**
  * The updater reads four facts off the app it belongs to: its version, its name
  * (for the sudo prompt), whether it is packaged, and two cache directories.
+ *
+ * It also reads the `app-update.yml` the package ships, and not only at startup:
+ * an update that is offered prepares the download helper, which loads that file
+ * again. Without it a feed newer than the tree -- a dispatch on a branch behind
+ * the release, which is the case the version check below is here to report --
+ * fails with ERR_INVALID_ARG_TYPE before the check can say what it found.
  */
-function appAdapter(version, cacheDir) {
+function appAdapter(version, cacheDir, { owner, repo } = DEFAULTS) {
+  const appUpdateConfigPath = path.join(cacheDir, 'app-update.yml');
+  fs.writeFileSync(
+    appUpdateConfigPath,
+    `provider: github\nowner: ${owner}\nrepo: ${repo}\nupdaterCacheDirName: omni-updater-probe\n`,
+  );
   return {
     version,
     name: 'OmniCommander Pro',
     isPackaged: true,
     userDataPath: cacheDir,
     baseCachePath: cacheDir,
+    appUpdateConfigPath,
     whenReady: async () => {},
     quit: () => {},
     relaunch: () => {},
@@ -75,7 +87,7 @@ async function probe({ version, owner, repo }) {
   // No feed in the constructor: the provider keeps the executor it is built
   // with, and a DebUpdater created with an adapter gets none, so the URL is set
   // after the node executor is in place.
-  const updater = new DebUpdater(null, appAdapter(version, cacheDir));
+  const updater = new DebUpdater(null, appAdapter(version, cacheDir, { owner, repo }));
   updater.logger = { info() {}, warn() {}, error() {} };
   updater.httpExecutor = new NodeHttpExecutor();
   // `@internal`, and the only way to pin the platform: the channel name carries
