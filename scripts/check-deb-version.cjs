@@ -9,8 +9,7 @@
 // preflight on the same cut. The rule lives here so there is one spelling and
 // one message, and neither workflow can drift from it.
 //
-// Usage: node scripts/check-deb-version.cjs <package.deb> [--version <v>]
-// Without --version the expected version comes from package.json.
+// Usage: node scripts/check-deb-version.cjs <package.deb>
 const { execFileSync } = require('node:child_process');
 
 const FIELDS = ['Package', 'Version', 'Maintainer'];
@@ -35,8 +34,7 @@ function controlVersion(deb) {
 
 function main(argv) {
   const [deb] = argv;
-  const asked = argv.indexOf('--version');
-  const expected = asked >= 0 ? argv[asked + 1] : require('../package.json').version;
+  const expected = require('../package.json').version;
 
   console.log(controlFields(deb));
   const actual = controlVersion(deb);
@@ -47,9 +45,9 @@ function main(argv) {
 }
 
 if (require.main === module) {
-  const [deb] = process.argv.slice(2);
-  if (!deb || deb.startsWith('--')) {
-    console.error('usage: check-deb-version.cjs <package.deb> [--version <v>]');
+  const argv = process.argv.slice(2);
+  if (argv.length !== 1) {
+    console.error('usage: check-deb-version.cjs <package.deb>');
     process.exit(2);
   }
   try {
