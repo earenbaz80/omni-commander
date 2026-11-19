@@ -36,6 +36,19 @@ ubuntu_apt_update() {
     >"$log" 2>&1 || status=$?
 
   if [ "$status" -eq 0 ]; then
+    # An update that exits 0 says the lists were written, not that they carry
+    # anything: a mirror or a caching proxy answering with an empty file leaves
+    # an index with no packages in it, and every dependency then reads as
+    # `(none)`. The count is the cheapest way to tell that apart from a slow
+    # mirror, and it is the number the next failure would have to explain.
+    local packages
+    packages=$(apt-cache pkgnames 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$packages" -eq 0 ]; then
+      tail -n 10 "$log"
+      echo "::error::apt-get update exited 0 but left an index with no packages: the lists it downloaded are empty, so every dependency would read as (none) and apt would have refused them one by one"
+      return 1
+    fi
+    echo "the index apt received lists $packages packages"
     return 0
   fi
 
