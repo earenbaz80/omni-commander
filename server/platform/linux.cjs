@@ -13,6 +13,7 @@ const path = require('node:path');
 const { createAppPaths } = require('./appPaths.cjs');
 const { CONTRACT_VERSION, capabilitiesOf, definePlatform } = require('./contract.cjs');
 const { createLinuxTrash } = require('./linuxTrash.cjs');
+const { createLinuxUserFolders } = require('./linuxUserFolders.cjs');
 const { createLinuxVolumes } = require('./linuxVolumes.cjs');
 
 function createLinuxPlatform(options = {}) {
@@ -40,13 +41,22 @@ function createLinuxPlatform(options = {}) {
     logDebug: options.logDebug,
   });
 
+  // The libraries the panel shows first are the desktop's XDG folders, which
+  // the locale names: the Windows table cannot answer this question here.
+  const userFolders = createLinuxUserFolders({
+    env,
+    fs: options.fs,
+    home: options.home,
+  });
+
   return definePlatform({
     id: 'linux',
     contractVersion: CONTRACT_VERSION,
-    capabilities: capabilitiesOf({ paths: true, trash: true, volumes: true }),
+    capabilities: capabilitiesOf({ paths: true, trash: true, volumes: true, userFolders: true }),
     paths,
     volumes,
     trash,
+    userFolders,
   });
 }
 

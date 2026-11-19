@@ -3,15 +3,16 @@ import { fetchWithRetry } from '../utils/fetchWithRetry';
 import { log } from '../utils/logger';
 
 /**
- * The folders Windows treats as libraries. The server resolves them for the
- * profile that is signed in, because Desktop and Documents are frequently
- * redirected into OneDrive and a path guessed here would miss them.
+ * The folders a desktop presents first: the Windows libraries, or the desktop's
+ * XDG user directories on Linux. The server resolves them, because Desktop and
+ * Documents are frequently redirected into OneDrive on Windows and named by the
+ * locale on Linux, so a path guessed here would miss them.
  */
 export type UserFolderKey = 'desktop' | 'documents' | 'pictures' | 'music' | 'videos' | 'downloads';
 
 export interface UserFolder {
   key: UserFolderKey;
-  /** Absolute path, e.g. `C:\Users\ana\OneDrive\Escritorio`. */
+  /** Absolute path, e.g. `C:\Users\ana\OneDrive\Escritorio` or `/home/ana/Escritorio`. */
   path: string;
 }
 

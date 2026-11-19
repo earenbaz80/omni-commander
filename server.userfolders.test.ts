@@ -26,7 +26,9 @@ const fetchFolders = async () => {
   return { status: response.status, headers: response.headers, body: await response.json().catch(() => null) };
 };
 
-describe('GET /api/user-folders', () => {
+// The answer is the signed-in profile's, which only exists on Windows; the Linux
+// counterpart runs in `server.linux.integration.test.ts`, against XDG folders.
+describe.runIf(process.platform === 'win32')('GET /api/user-folders', () => {
   it('answers the Windows libraries that exist on this machine', async () => {
     const { status, body } = await fetchFolders();
 

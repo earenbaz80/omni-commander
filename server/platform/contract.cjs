@@ -9,7 +9,7 @@
 
 const CONTRACT_VERSION = 1;
 
-const CAPABILITIES = Object.freeze(['paths', 'volumes', 'cleanup', 'trash', 'openWith']);
+const CAPABILITIES = Object.freeze(['paths', 'volumes', 'cleanup', 'trash', 'openWith', 'userFolders']);
 
 const PLATFORM_IDS = Object.freeze(['win32', 'linux']);
 
@@ -84,6 +84,12 @@ function assertPlatform(platform) {
     const methods = ['programsFor', 'isProgram', 'launch', 'picker'];
     if (!openWith || typeof openWith !== 'object' || methods.some((method) => typeof openWith[method] !== 'function')) {
       throw new Error(`Platform ${platform.id} declares openWith but does not implement it`);
+    }
+  }
+  if (platform.capabilities.userFolders) {
+    const userFolders = platform.userFolders;
+    if (!userFolders || typeof userFolders !== 'object' || typeof userFolders.list !== 'function') {
+      throw new Error(`Platform ${platform.id} declares userFolders but does not implement it`);
     }
   }
   return platform;

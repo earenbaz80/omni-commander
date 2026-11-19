@@ -118,6 +118,25 @@ beforeAll(async () => {
   zip.file('carpeta/extraido.txt', 'contenido extraido\n');
   fs.writeFileSync(zipPath, await zip.generateAsync({ type: 'nodebuffer' }));
 
+  // Quick Access reads the desktop's own folder names. This run's HOME is
+  // temporary, so it writes the file `xdg-user-dirs` writes and creates the
+  // folders a Spanish desktop would have; Música is declared but left off the
+  // disk on purpose, because a configured folder that is not there must not be
+  // offered.
+  fs.mkdirSync(path.join(root, '.config'), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, '.config', 'user-dirs.dirs'),
+    [
+      'XDG_DESKTOP_DIR="$HOME/Escritorio"',
+      'XDG_DOCUMENTS_DIR="$HOME/Documentos"',
+      'XDG_MUSIC_DIR="$HOME/Música"',
+      'XDG_DOWNLOAD_DIR="$HOME/Descargas"',
+    ].join('\n') + '\n',
+  );
+  for (const folder of ['Escritorio', 'Documentos', 'Descargas']) {
+    fs.mkdirSync(path.join(root, folder), { recursive: true });
+  }
+
   // Every app-owned folder lives under the temporary root. HOME is redirected
   // too, because a `gio trash` fallback may choose ~/.local/share/Trash.
   server = await startServer({
@@ -161,6 +180,17 @@ describe.runIf(process.platform === 'linux')('Linux filesystem integration', () 
     expect(status).toBe(200);
     const names = (body as { fullName: string }[]).map((entry) => entry.fullName);
     expect(names).toEqual(expect.arrayContaining(['nota.txt', 'nested']));
+  });
+
+  it('reports the user folders the desktop itself names', async () => {
+    const { status, body } = await get('/api/user-folders');
+
+    expect(status).toBe(200);
+    expect(body).toEqual([
+      { key: 'desktop', path: path.join(root, 'Escritorio') },
+      { key: 'documents', path: path.join(root, 'Documentos') },
+      { key: 'downloads', path: path.join(root, 'Descargas') },
+    ]);
   });
 
   it('copies a folder through the job engine', async () => {

@@ -688,67 +688,16 @@ function createFileOps(deps = {}) {
     return knownUserFoldersPromise;
   }
 
-  /**
-   * The five folders Explorer shows as libraries: id used by the renderer, and the
-   * .NET SpecialFolder name that resolves it.
-   */
-  const USER_LIBRARY_FOLDERS = [
-    ['desktop', 'Desktop'],
-    ['documents', 'MyDocuments'],
-    ['pictures', 'MyPictures'],
-    ['music', 'MyMusic'],
-    ['videos', 'MyVideos'],
-    // .NET has no SpecialFolder for Downloads: it is only ever the profile one.
-    ['downloads', null],
-  ];
+  // The libraries the panel presents first are per-profile on Windows and per
+  // desktop on Linux, so the resolution belongs to the adapter; this module only
+  // names the capability, the same way it does for cleanup and the trash. A
+  // platform that has no notion of them answers with no rows rather than with
+  // guessed paths.
+  const userFolders =
+    platform.capabilities && platform.capabilities.userFolders ? requireCapability(platform, 'userFolders') : null;
 
-  /** The profile's own folder names, which is all that is left when the lookup fails. */
-  function guessedUserFolders() {
-    const profile = process.env.USERPROFILE || '';
-    if (!profile) return {};
-    return {
-      desktop: path.win32.join(profile, 'Desktop'),
-      documents: path.win32.join(profile, 'Documents'),
-      pictures: path.win32.join(profile, 'Pictures'),
-      music: path.win32.join(profile, 'Music'),
-      videos: path.win32.join(profile, 'Videos'),
-      downloads: path.win32.join(profile, 'Downloads'),
-    };
-  }
-
-  /**
-   * Resolves the library folders for the signed-in profile and drops the ones this
-   * machine does not have, so the tree never offers a folder that would fail to
-   * open. Every candidate is checked against the disk before it is reported.
-   */
   async function readUserLibraries() {
-    let resolved = {};
-    try {
-      const body = USER_LIBRARY_FOLDERS.filter(([, special]) => special)
-        .map(([key, special]) => `${key} = [Environment]::GetFolderPath('${special}')`)
-        .join('; ');
-      const { stdout } = await execFileAsync(
-        'powershell',
-        [
-          '-NoProfile',
-          '-NonInteractive',
-          '-ExecutionPolicy',
-          'Bypass',
-          '-Command',
-          `@{ ${body} } | ConvertTo-Json -Compress`,
-        ],
-        { encoding: 'utf8', windowsHide: true, maxBuffer: 1024 * 1024, timeout: POWERSHELL_TIMEOUT_MS },
-      );
-      resolved = JSON.parse(String(stdout || '').trim() || '{}');
-    } catch {
-      // A failed lookup is not a machine without folders: fall back to the profile.
-      resolved = {};
-    }
-    const guessed = guessedUserFolders();
-    return USER_LIBRARY_FOLDERS.map(([key]) => ({
-      key,
-      path: String(resolved[key] || guessed[key] || ''),
-    })).filter((entry) => entry.path && fs.existsSync(entry.path));
+    return userFolders ? userFolders.list() : [];
   }
 
   /** An absolute path that must already be a folder the shortcut can land in. */

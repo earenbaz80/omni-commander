@@ -17,6 +17,7 @@ const { createPathPolicy } = require('../pathSafety.cjs');
 const { createAppPaths } = require('./appPaths.cjs');
 const { CONTRACT_VERSION, capabilitiesOf, definePlatform } = require('./contract.cjs');
 const { createWindowsVolumes } = require('./windowsVolumes.cjs');
+const { createWindowsUserFolders } = require('./windowsUserFolders.cjs');
 
 const WIN32 = path.win32;
 const WIN32_PATH_POLICY = createPathPolicy('win32');
@@ -90,6 +91,12 @@ function createWindowsPlatform(options = {}) {
     fs: options.fs,
     execFileAsync: options.execFileAsync,
     logDebug: options.logDebug,
+    powershellTimeoutMs: options.powershellTimeoutMs,
+  });
+  const userFolders = createWindowsUserFolders({
+    env,
+    fs: options.fs,
+    execFileAsync: options.execFileAsync,
     powershellTimeoutMs: options.powershellTimeoutMs,
   });
   // Lazy so requiring this module from `scratch.cjs` (which needs `paths`) does
@@ -272,12 +279,20 @@ function createWindowsPlatform(options = {}) {
   return definePlatform({
     id: 'win32',
     contractVersion: CONTRACT_VERSION,
-    capabilities: capabilitiesOf({ cleanup: true, paths: true, trash: true, openWith: true, volumes: true }),
+    capabilities: capabilitiesOf({
+      cleanup: true,
+      paths: true,
+      trash: true,
+      openWith: true,
+      volumes: true,
+      userFolders: true,
+    }),
     cleanup: Object.freeze({ targets, targetPath, resolveRoot }),
     paths,
     volumes,
     trash,
     openWith: Object.freeze({ programsFor, isProgram, launch, picker }),
+    userFolders,
   });
 }
 

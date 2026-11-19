@@ -133,6 +133,13 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
 - El servidor arranca con el adaptador Linux y `/api/drives` responde; el listado
   POSIX está probado con un sistema de archivos inyectado y con una carpeta real
   a través de la ruta POSIX.
+- Los accesos rápidos del panel de árbol son las carpetas XDG del escritorio:
+  `server/platform/linuxUserFolders.cjs` lee `$XDG_CONFIG_HOME/user-dirs.dirs`,
+  expande `$HOME` y sólo ofrece las que están en disco, así que en una
+  instalación en español son `Escritorio`, `Documentos`, `Descargas` y no los
+  nombres ingleses. La resolución es una capacidad del adaptador (`userFolders`):
+  Windows sigue preguntando al perfil por sus bibliotecas redirigidas, y una
+  plataforma sin esa capacidad responde vacío en vez de adivinar rutas.
 - Copiar, mover, renombrar, recorrer y medir el árbol, extraer de un ZIP,
   mandar a la papelera y borrar sin papelera ya están cubiertos por
   `server.linux.integration.test.ts`, que arranca el servidor real en CI. Sigue
