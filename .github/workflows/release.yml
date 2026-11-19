@@ -783,19 +783,36 @@ jobs:
       # DebUpdater is the class `resources/package-type` selects, and it asks for
       # `latest-linux.yml` -- or `beta-linux.yml` on a prerelease, which is why the
       # probe derives the channel from the version rather than taking it from here.
+      # No `cache: npm`: the only thing this job installs is the one library the
+      # probe imports, and restoring the app's cache to install sixteen packages
+      # costs more than the install. Measured on the 1.0.53-beta.1 run: `npm ci`
+      # there took 7.5 s with a warm cache and setup-node 2.1 s to restore it.
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
-          cache: 'npm'
 
-      - name: Install dependencies
-        run: npm ci --engine-strict
+      # The probe imports `electron-updater` and `builder-util-runtime` and nothing
+      # else from the tree, so the whole dependency tree -- 800 MB of it -- has no
+      # business in this job. The version comes from the lockfile, which is what
+      # electron-builder packed into the `.deb`, so the probe asks with the same
+      # client the package ships rather than with whatever the range resolves to.
+      - name: Install the updater the .deb ships
+        shell: bash
+        run: |
+          set -euo pipefail
+          updater=$(node -p "require('./package-lock.json').packages['node_modules/electron-updater'].version")
+          npm install --prefix probe-deps --no-save --no-package-lock --no-audit --no-fund "electron-updater@$updater"
+          node -p "'installed electron-updater ' + require('./probe-deps/node_modules/electron-updater/package.json').version + ', the lockfile says $updater'"
 
       # The asset was attached seconds ago and the feed can lag behind the API;
       # the retries cover that, and the last error is the one that decides.
+      # NODE_PATH is how the probe finds the package installed beside it: the
+      # workspace itself has no `node_modules` in this job.
       - name: Read the feed with the app's updater
         shell: bash
+        env:
+          NODE_PATH: ${{ github.workspace }}/probe-deps/node_modules
         run: |
           set -euo pipefail
           version=$(node -p "require('./package.json').version")
