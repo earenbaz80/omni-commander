@@ -100,6 +100,7 @@
     "lint:eslint": "eslint src --max-warnings 0",
     "typecheck:strict": "tsc --noEmit -p tsconfig.strict.json",
     "test": "vitest run",
+    "test:counts": "node scripts/test-counts.cjs",
     "test:coverage": "vitest run --coverage",
     "test:server:coverage": "node scripts/server-coverage.mjs",
     "check:links": "node scripts/check-links.cjs",

@@ -1,0 +1,162 @@
+#!/usr/bin/env node
+// Prints the test counts a release note quotes, measured from a real run, and
+// rewrites them in place with `--write`.
+//
+// The numbers kept going stale because they were typed by hand from a run whose
+// output nobody kept: a test added anywhere moves the total, and the note went on
+// saying otherwise until somebody noticed. The suite already reports them in a
+// form a machine reads, so this asks for that report instead of counting by eye.
+//
+// Only the numbers move. Which files are named and why each one exists stays as
+// written, and a file the doc counts that the run did not produce is an error
+// rather than a silent zero -- that is the case where the prose and the tree have
+// separated, and rewriting the number would hide it.
+//
+// Usage: node scripts/test-counts.cjs [--doc <file>] [--write]
+// Without `--doc` it lists every file's case count; `--write` needs one.
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
+
+const ROOT = path.join(__dirname, '..');
+// Not `require.resolve`: vitest's exports map does not expose the bin, and this is
+// the same entry `npx vitest` runs.
+const VITEST = path.join(ROOT, 'node_modules', 'vitest', 'vitest.mjs');
+
+/** `1 572`: the separator the release notes use, not a locale's. */
+function formatNumber(value) {
+  return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+/**
+ * The numbers the tests paragraph quotes, out of vitest's JSON report. Files are
+ * keyed by basename because the report carries absolute paths and the doc names
+ * them from the repository root.
+ */
+function countsFrom(report) {
+  const files = {};
+  for (const result of report.testResults ?? []) {
+    files[path.basename(result.name)] = (result.assertionResults ?? []).length;
+  }
+  return {
+    passed: report.numPassedTests ?? 0,
+    skipped: report.numPendingTests ?? 0,
+    total: report.numTotalTests ?? 0,
+    files,
+  };
+}
+
+/** `**1 563 passed, 9 skipped de 1 572**`, the one sentence that carries all three. */
+function summaryLine(counts) {
+  return `**${formatNumber(counts.passed)} passed, ${formatNumber(counts.skipped)} skipped de ${formatNumber(counts.total)}**`;
+}
+
+const SUMMARY = /\*\*[\d ]+ passed, [\d ]+ skipped de [\d ]+\*\*/;
+// Any `` `scripts/x.test.ts` (N casos `` in the doc: the number in front of the
+// prose is the only part this owns. The gap is `\s+` because the paragraph wraps,
+// and a path that ends a line opens the parenthesis on the next one.
+const COUNTED_FILE = /(`([^`]+\.test\.tsx?)`\s+\()(\d+)( casos)/g;
+
+/** Rewrites the numbers in `text`; returns what changed, what already matched and
+ * what the run could not answer for. */
+function patchDoc(text, counts) {
+  const updated = [];
+  const kept = [];
+  const missing = [];
+
+  const patched = text.replace(COUNTED_FILE, (match, prefix, file, current, suffix) => {
+    const measured = counts.files[path.basename(file)];
+    if (measured == null) {
+      missing.push(file);
+      return match;
+    }
+    if (measured === Number(current)) {
+      kept.push(`${file}: ${current} casos`);
+      return match;
+    }
+    updated.push(`${file}: ${current} -> ${measured} casos`);
+    return `${prefix}${measured}${suffix}`;
+  });
+
+  const found = SUMMARY.exec(patched);
+  if (found == null) {
+    throw new Error('the doc quotes no "N passed, N skipped de N" sentence');
+  }
+  const summary = summaryLine(counts);
+  if (found[0] === summary)
+    kept.push(
+      `the suite: ${formatNumber(counts.passed)} passed, ${formatNumber(counts.skipped)} skipped de ${formatNumber(counts.total)}`,
+    );
+  else updated.push(`the suite: ${found[0]} -> ${summary}`);
+
+  return { text: patched.replace(found[0], summary), updated, kept, missing };
+}
+
+/** Asks the suite for its report: the numbers come from the run, not from a guess. */
+function measure() {
+  if (!fs.existsSync(VITEST)) throw new Error(`vitest is not installed; run npm ci first`);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-counts-'));
+  const reportPath = path.join(dir, 'report.json');
+  try {
+    const run = spawnSync(process.execPath, [VITEST, 'run', '--reporter=json', `--outputFile=${reportPath}`], {
+      cwd: ROOT,
+      stdio: ['ignore', 'ignore', 'inherit'],
+      encoding: 'utf8',
+    });
+    if (!fs.existsSync(reportPath)) throw new Error(`the suite wrote no report (node exited ${run.status})`);
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    if (!report.success) {
+      throw new Error(`the suite did not pass: ${report.numFailedTests} failed of ${report.numTotalTests}`);
+    }
+    return countsFrom(report);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+function parseArgs(argv) {
+  const options = { doc: null, write: false };
+  for (let index = 0; index < argv.length; index += 1) {
+    const flag = argv[index];
+    if (flag === '--doc') options.doc = argv[(index += 1)];
+    else if (flag === '--write') options.write = true;
+  }
+  return options;
+}
+
+function main() {
+  const options = parseArgs(process.argv.slice(2));
+  if (options.write && options.doc == null) throw new Error('--write needs --doc <file>');
+
+  const counts = measure();
+  console.log(
+    `the suite: ${formatNumber(counts.passed)} passed, ${formatNumber(counts.skipped)} skipped de ${formatNumber(counts.total)}`,
+  );
+
+  if (options.doc == null) {
+    for (const [name, cases] of Object.entries(counts.files).sort()) console.log(`  ${name}: ${cases} casos`);
+    return;
+  }
+
+  const docPath = path.resolve(ROOT, options.doc);
+  const { text, updated, kept, missing } = patchDoc(fs.readFileSync(docPath, 'utf8'), counts);
+  if (missing.length) {
+    throw new Error(`the run has no results for ${missing.join(', ')}, which ${options.doc} counts`);
+  }
+  for (const line of kept) console.log(`kept ${line}`);
+  for (const line of updated) console.log(`${options.write ? 'changed' : 'would change'} ${line}`);
+  if (!updated.length) console.log(`${options.doc} already quotes these numbers`);
+  else if (options.write) fs.writeFileSync(docPath, text);
+}
+
+if (require.main === module) {
+  try {
+    main();
+  } catch (error) {
+    console.error(`::error::${error.message}`);
+    process.exit(1);
+  }
+}
+
+module.exports = { countsFrom, formatNumber, patchDoc, summaryLine };
