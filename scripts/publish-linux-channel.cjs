@@ -22,7 +22,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { version } = require('../package.json');
-const { verifyChannel, writeChannel } = require('./linux-update-channel.cjs');
+const { publishedReleaseDate, verifyChannel, writeChannel } = require('./linux-update-channel.cjs');
 
 const ASSETS = [`OmniCommander-Pro-${version}-amd64.deb`, `OmniCommander-Pro-${version}-x86_64.AppImage`];
 
@@ -57,12 +57,31 @@ async function main() {
     console.log(`${assetName}: ${asset.bytes} bytes, ${asset.digest}`);
   }
 
+  // Rewriting the channel must not change it: the packages it names are the ones
+  // the release already serves, so the only field that could move is the stamp,
+  // and a fresh one would give a republication a new digest -- invalidating the
+  // hash the release notes record for a release nobody re-cut. The stamp of the
+  // channel already published is reused; the first write chooses one.
+  let publishedStamp = null;
+  try {
+    const existing = await fetchReleaseAsset({
+      tag,
+      assetName: 'latest-linux.yml',
+      destDir: path.join(artifactsDir, 'published-channel'),
+    });
+    if (!existing.skipped) publishedStamp = publishedReleaseDate(fs.readFileSync(existing.path, 'utf8'));
+  } catch (error) {
+    console.log(`no published channel to reuse (${error.message}); writing a fresh stamp`);
+  }
+  const releaseDate = publishedStamp ?? new Date().toISOString();
+  console.log(`releaseDate: ${releaseDate} (${publishedStamp ? 'kept from the published channel' : 'first write'})`);
+
   const channelDir = path.join(artifactsDir, 'channel');
   const { names, text } = writeChannel({
     artifactsDir,
     outDir: channelDir,
     version,
-    releaseDate: new Date().toISOString(),
+    releaseDate,
   });
   console.log(text);
 

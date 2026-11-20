@@ -9,8 +9,11 @@ import path from 'node:path';
 // CommonJS so the workflow can run it with plain `node`, which is also how the
 // publishing step invokes it.
 const loadCjs = createRequire(import.meta.url);
-const { channelNameFor, readChannel, verifyChannel, writeChannel } = loadCjs('./linux-update-channel.cjs') as {
+const { channelNameFor, publishedReleaseDate, readChannel, verifyChannel, writeChannel } = loadCjs(
+  './linux-update-channel.cjs',
+) as {
   channelNameFor: (version: string) => string[];
+  publishedReleaseDate: (text: string) => string | null;
   readChannel: (text: string) => { version: string | null; files: ChannelEntry[] };
   verifyChannel: (input: {
     channelFile: string;
@@ -184,5 +187,65 @@ describe('verifyChannel', () => {
     expect(() =>
       verifyChannel({ channelFile: path.join(out, 'latest-linux.yml'), artifactsDir: dir, version: VERSION }),
     ).toThrow(/not in/);
+  });
+});
+
+describe('publishedReleaseDate', () => {
+  it('reads the stamp the published channel carries', () => {
+    expect(publishedReleaseDate("version: 9.9.9\nreleaseDate: '2026-11-20T06:37:48.709Z'\n")).toBe(
+      '2026-11-20T06:37:48.709Z',
+    );
+    expect(publishedReleaseDate('releaseDate: 2026-11-20T06:37:48.709Z')).toBe('2026-11-20T06:37:48.709Z');
+  });
+
+  it('answers null when there is nothing usable, so the caller writes a fresh one', () => {
+    expect(publishedReleaseDate('')).toBeNull();
+    expect(publishedReleaseDate('version: 9.9.9\n')).toBeNull();
+    expect(publishedReleaseDate("releaseDate: 'yesterday'")).toBeNull();
+  });
+});
+
+// The digest of this file is recorded in the release notes, so a republication
+// that changes nothing must leave the bytes, and the digest, where they were.
+describe('rewriting a channel that is already published', () => {
+  it('keeps the same bytes when the stamp it carries is reused', () => {
+    const dir = artifacts();
+    const first = tempDir();
+    const { text } = writeChannel({
+      artifactsDir: dir,
+      outDir: first,
+      version: VERSION,
+      releaseDate: '2026-11-20T06:37:48.709Z',
+    });
+
+    const stamp = publishedReleaseDate(fs.readFileSync(path.join(first, 'latest-linux.yml'), 'utf8'));
+    expect(stamp).toBe('2026-11-20T06:37:48.709Z');
+
+    const second = tempDir();
+    writeChannel({ artifactsDir: dir, outDir: second, version: VERSION, releaseDate: stamp! });
+
+    expect(fs.readFileSync(path.join(second, 'latest-linux.yml'))).toEqual(
+      fs.readFileSync(path.join(first, 'latest-linux.yml')),
+    );
+    expect(second).not.toBe(first);
+    expect(text).toContain("releaseDate: '2026-11-20T06:37:48.709Z'");
+  });
+
+  it('would move the digest if the stamp were fresh, which is the bug it prevents', () => {
+    const dir = artifacts();
+    const a = writeChannel({
+      artifactsDir: dir,
+      outDir: tempDir(),
+      version: VERSION,
+      releaseDate: '2026-11-20T06:37:48.709Z',
+    });
+    const b = writeChannel({
+      artifactsDir: dir,
+      outDir: tempDir(),
+      version: VERSION,
+      releaseDate: '2026-11-20T06:38:00.000Z',
+    });
+
+    expect(a.text).not.toBe(b.text);
   });
 });

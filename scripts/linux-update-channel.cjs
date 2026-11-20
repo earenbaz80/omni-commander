@@ -96,6 +96,24 @@ function unquote(value) {
 }
 
 /**
+ * The `releaseDate` a channel already published carries, or null when there is
+ * no readable one.
+ *
+ * The channel describes files that do not change, so rewriting it must not
+ * change it: the stamp is the only field written at publish time, and giving a
+ * republication a fresh one changes the file's bytes, and therefore the digest
+ * the release notes record, for a release nobody re-cut. Reusing the published
+ * stamp keeps the file identical across runs; only the first write has a date to
+ * choose.
+ */
+function publishedReleaseDate(text) {
+  const match = /^releaseDate:[ \t]*(\S.*)$/m.exec(String(text ?? ''));
+  if (!match) return null;
+  const value = unquote(match[1].trim());
+  return Number.isNaN(Date.parse(value)) ? null : value;
+}
+
+/**
  * Reads the parts of the channel this script writes and the updater reads. Only
  * line by line, so a file electron-builder wrote by another route is read the
  * same way as long as it carries `version` and a `files` list.
@@ -224,6 +242,7 @@ module.exports = {
   artifactsIn,
   channelNameFor,
   describeArtifact,
+  publishedReleaseDate,
   readChannel,
   sha512Of,
   verifyChannel,
