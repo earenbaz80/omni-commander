@@ -1,11 +1,17 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { createRequire } from 'node:module';
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 // CommonJS so the workflow can run it with plain `node`; the test loads the same
 // module the CLI runs.
 const loadCjs = createRequire(import.meta.url);
-const { countsFrom, dirtyTests, formatNumber, patchDoc, unnamedTests } = loadCjs('./test-counts.cjs') as {
+const { countsFrom, dirtyTests, formatNumber, patchDoc, testsChangedSince, unnamedTests } = loadCjs(
+  './test-counts.cjs',
+) as {
   dirtyTests: (status: string) => string[];
   formatNumber: (value: number) => string;
   countsFrom: (report: Report) => Counts;
@@ -14,7 +20,8 @@ const { countsFrom, dirtyTests, formatNumber, patchDoc, unnamedTests } = loadCjs
     counts: Counts,
     commit: string,
   ) => { text: string; updated: string[]; kept: string[]; missing: string[]; named: string[] };
-  unnamedTests: (counts: Counts, named: Set<string>, added: string[]) => { file: string; cases: number }[];
+  unnamedTests: (counts: Counts, named: Set<string>, changed: string[]) => { file: string; cases: number }[];
+  testsChangedSince: (root?: string) => { tag: string; files: string[] } | null;
 };
 
 interface Report {
@@ -184,5 +191,33 @@ describe('warning about a test file the note leaves out', () => {
       ]),
     ).toEqual([]);
     expect(unnamedTests(counts, new Set(), ['scripts/not-in-the-run.test.ts'])).toEqual([]);
+  });
+
+  // "New or expanded" is what the note promises, so a file the branch touched
+  // belongs in the list even when it was there before the last release: the cases
+  // it already had are not the reason to name it, the ones added to it are.
+  it('counts a test file the branch expanded, not only the ones it added', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-counts-git-'));
+    const git = (...args: string[]) => {
+      const run = spawnSync('git', args, { cwd: dir, encoding: 'utf8' });
+      if (run.status !== 0) throw new Error(`git ${args.join(' ')}: ${String(run.stderr).trim()}`);
+    };
+
+    try {
+      git('init', '-q');
+      git('config', 'user.email', 'tests@example.com');
+      git('config', 'user.name', 'Tests');
+      git('config', 'commit.gpgsign', 'false');
+      fs.writeFileSync(path.join(dir, 'old.test.ts'), "it('first', () => {});\n");
+      git('add', '.');
+      git('commit', '-qm', 'first');
+      git('tag', 'v1.0.0');
+      fs.writeFileSync(path.join(dir, 'old.test.ts'), "it('first', () => {});\nit('second', () => {});\n");
+      git('commit', '-qam', 'expand the tests');
+
+      expect(testsChangedSince(dir)).toEqual({ tag: 'v1.0.0', files: ['old.test.ts'] });
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
