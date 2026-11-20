@@ -33,17 +33,22 @@ describe('the Linux update channel', () => {
     const probe = release.indexOf(PROBE);
     expect(channel).toBeGreaterThan(-1);
     expect(probe).toBeGreaterThan(channel);
-    expect(release.split(PROBE)).toHaveLength(2);
+    // One plain call, inside the retries that cover the feed's lag; the copy of
+    // the previous release is asked by the step after it, which adds `--installed`.
+    const plain = 'node scripts/probe-linux-updater.cjs --version "$version"; then';
+    expect(release.split(plain)).toHaveLength(2);
+    expect(release.indexOf('--installed')).toBeGreaterThan(release.indexOf(plain));
   });
 
   // Whether a machine that has not updated is offered this cut was answered by
-  // hand, with a version typed on the command line, which goes stale. The step
-  // reads the previous release from the page and asks the probe as that copy.
-  it('asks the feed as the previous release copy in the preflight', () => {
-    const preflight = text('.github/workflows/linux-preflight.yml');
-    expect(preflight).toContain('node scripts/previous-release.cjs --current "$version"');
-    expect(preflight).toContain('node scripts/probe-linux-updater.cjs --version "$version" --installed "$previous"');
+  // hand, with a version typed on the command line, which goes stale. Both paths
+  // read the previous release from the page and ask the probe as that copy: the
+  // preflight proves it before a tag and the tag path proves it on the cut.
+  it.each(WORKFLOWS)('%s asks the feed as the previous release copy', (file) => {
+    const workflow = text(file);
+    expect(workflow).toContain('node scripts/previous-release.cjs --current "$version"');
+    expect(workflow).toContain('node scripts/probe-linux-updater.cjs --version "$version" --installed "$previous"');
     // The fallback is a reported skip, not a failure of the cut.
-    expect(preflight).toMatch(/if \[ -z "\$previous" \]; then[\s\S]*?exit 0/);
+    expect(workflow).toMatch(/if \[ -z "\$previous" \]; then[\s\S]*?exit 0/);
   });
 });

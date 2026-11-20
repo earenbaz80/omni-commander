@@ -818,3 +818,40 @@ jobs:
           done
           echo "::error::DebUpdater never read the channel of v$version"
           exit 1
+
+      # The step above proves this cut finds its own feed; a copy that has not
+      # updated yet is the one that needs to be told, and that question was
+      # answered by hand until the preflight got the same block. The version is
+      # the last published stable release before this one, read from the page
+      # rather than written here: a number in this file goes stale, and drafts and
+      # pre-releases are skipped because the copies behind them ask for another
+      # channel. With no earlier release it reports the fallback and carries on --
+      # the first stable cut has no installed copy behind it. The retries are the
+      # same lag as the step above: right after publishing, `/releases/latest` can
+      # still answer with the previous cut.
+      - name: Ask the feed the way the previous release's copy does
+        shell: bash
+        env:
+          NODE_PATH: ${{ github.workspace }}/probe-deps/node_modules
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          previous=$(node scripts/previous-release.cjs --current "$version")
+          if [ -z "$previous" ]; then
+            echo "::notice::v$version is the first stable release; there is no older copy to simulate"
+            exit 0
+          fi
+          offered=false
+          for attempt in 1 2 3 4 5 6; do
+            if node scripts/probe-linux-updater.cjs --version "$version" --installed "$previous"; then
+              offered=true
+              break
+            fi
+            echo "attempt $attempt: the feed did not answer yet, retrying in 20s"
+            sleep 20
+          done
+          if [ "$offered" != true ]; then
+            echo "::error::an installed $previous was never offered v$version"
+            exit 1
+          fi
