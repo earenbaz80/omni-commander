@@ -19,7 +19,10 @@
 //
 // The sentence also names the commit whose tree was measured. That is what keeps
 // the note from ageing: it describes that commit, so a test added afterwards does
-// not make it wrong. `--write` stamps `HEAD`, which is the tree it just measured.
+// not make it wrong. `--write` stamps `HEAD`, which is the tree it just measured,
+// but only when a number or a counted test changed since the note's stamp: a
+// commit that only touches documentation cannot move either, and re-stamping on
+// it would make the note chase its own commit forever.
 //
 // Usage: node scripts/test-counts.cjs [--doc <file>] [--write]
 // Without `--doc` it lists every file's case count; `--write` needs one.
@@ -68,10 +71,18 @@ const MEASURED_AT = /(medidos en `)([0-9a-f]{7,40})(`)/;
 // and a path that ends a line opens the parenthesis on the next one.
 const COUNTED_FILE = /(`([^`]+\.test\.tsx?)`\s+\()(\d+)( casos)/g;
 
-/** Rewrites the numbers and the commit in `text`; returns what changed, what
- * already matched, what the run could not answer for and which files the doc
- * names, which is what the list check needs. */
-function patchDoc(text, counts, commit) {
+/** The commit the doc says its numbers were measured at. */
+function measuredAtOf(text) {
+  const found = MEASURED_AT.exec(text);
+  if (found == null) throw new Error('the doc does not say which commit the numbers were measured at');
+  return found[2];
+}
+
+/** Rewrites the numbers in `text`; returns what changed, what already matched,
+ * what the run could not answer for and which files the doc names, which is what
+ * the list check needs. The commit is left alone: whether it is still current
+ * needs the git history, which is the caller's to read. */
+function patchDoc(text, counts) {
   const updated = [];
   const kept = [];
   const missing = [];
@@ -104,19 +115,23 @@ function patchDoc(text, counts, commit) {
   else updated.push(`the suite: ${found[0]} -> ${summary}`);
   const stamped = patched.replace(found[0], summary);
 
-  const at = MEASURED_AT.exec(stamped);
-  if (at == null) throw new Error('the doc does not say which commit the numbers were measured at');
-  if (at[2] === commit) kept.push(`the commit: ${commit}`);
-  else updated.push(`the commit: ${at[2]} -> ${commit}`);
-
   return {
-    text: stamped.replace(at[0], `${at[1]}${commit}${at[3]}`),
+    text: stamped,
     updated,
     kept,
     missing,
     named,
-    measuredAt: at[2],
+    measuredAt: measuredAtOf(stamped),
   };
+}
+
+/** Whether the note's stamp has aged: the numbers moved, or a counted test
+ * changed after the measurement. A commit that only touches documentation cannot
+ * move either, so the commit that adds the note must not make its own stamp
+ * stale -- otherwise every note commit would ask to be re-stamped forever. */
+function stampIsStale(measuredAt, commit, countsChanged, root = ROOT) {
+  if (measuredAt === commit) return false;
+  return countsChanged || testsChangedSince(measuredAt, commit, root).length > 0;
 }
 
 /**
@@ -255,14 +270,27 @@ function main() {
   }
 
   const docPath = path.resolve(ROOT, options.doc);
-  const { text, updated, kept, missing, named, measuredAt } = patchDoc(
-    fs.readFileSync(docPath, 'utf8'),
-    counts,
-    commit,
-  );
+  const {
+    text: patched,
+    updated,
+    kept,
+    missing,
+    named,
+    measuredAt,
+  } = patchDoc(fs.readFileSync(docPath, 'utf8'), counts);
   if (missing.length) {
     throw new Error(`the run has no results for ${missing.join(', ')}, which ${options.doc} counts`);
   }
+  // The stamp is the commit whose tree was measured. Moving it on every commit
+  // would make the note chase its own history: only a changed number or a counted
+  // test makes the measurement describe a tree other than HEAD.
+  const countsChanged = updated.length > 0;
+  let text = patched;
+  if (measuredAt === commit) kept.push(`the commit: ${commit}`);
+  else if (stampIsStale(measuredAt, commit, countsChanged)) {
+    updated.push(`the commit: ${measuredAt} -> ${commit}`);
+    text = text.replace(MEASURED_AT, `$1${commit}$3`);
+  } else kept.push(`the commit: ${measuredAt}`);
   const version = noteVersion(options.doc);
   const base = version == null ? null : previousRelease(releaseTags(), version);
   const changed = base == null ? [] : testsChangedSince(base, options.write ? commit : measuredAt);
@@ -289,9 +317,11 @@ module.exports = {
   countsFrom,
   dirtyTests,
   formatNumber,
+  measuredAtOf,
   noteVersion,
   patchDoc,
   previousRelease,
+  stampIsStale,
   summaryLine,
   testsChangedSince,
   unnamedTests,

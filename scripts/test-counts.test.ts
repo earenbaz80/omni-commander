@@ -16,6 +16,7 @@ const {
   noteVersion,
   patchDoc,
   previousRelease,
+  stampIsStale,
   testsChangedSince,
   unnamedTests,
 } = loadCjs('./test-counts.cjs') as {
@@ -25,7 +26,6 @@ const {
   patchDoc: (
     text: string,
     counts: Counts,
-    commit: string,
   ) => {
     text: string;
     updated: string[];
@@ -36,6 +36,7 @@ const {
   };
   noteVersion: (doc: string) => string | null;
   previousRelease: (tags: string[], version: string) => string | null;
+  stampIsStale: (measuredAt: string, commit: string, countsChanged: boolean, root?: string) => boolean;
   unnamedTests: (counts: Counts, named: Set<string>, changed: string[]) => { file: string; cases: number }[];
   testsChangedSince: (base: string, end: string, root?: string) => string[];
 };
@@ -95,14 +96,13 @@ describe('rewriting the numbers in a release note', () => {
     '`scripts/previous-release.test.ts` (8 casos sobre el selector) y',
     '`scripts/probe-linux-updater.test.ts` (7 casos: la elección de canal).',
   ].join('\n');
-  const commit = 'e241ed8';
 
-  it('updates the totals, the files and the commit, and nothing else', () => {
-    const patched = patchDoc(doc, countsFrom(report), commit);
+  it('updates the totals and the files, and leaves the commit to the caller', () => {
+    const patched = patchDoc(doc, countsFrom(report));
 
     expect(patched.text).toBe(
       [
-        'La suite cerró en **1 563 passed, 9 skipped de 1 572**, medidos en `e241ed8`.',
+        'La suite cerró en **1 563 passed, 9 skipped de 1 572**, medidos en `0591322`.',
         'Los ficheros nuevos o ampliados son',
         '`scripts/previous-release.test.ts` (11 casos sobre el selector) y',
         '`scripts/probe-linux-updater.test.ts` (8 casos: la elección de canal).',
@@ -112,22 +112,22 @@ describe('rewriting the numbers in a release note', () => {
       'scripts/previous-release.test.ts: 8 -> 11 casos',
       'scripts/probe-linux-updater.test.ts: 7 -> 8 casos',
       'the suite: **1 568 passed, 9 skipped de 1 577** -> **1 563 passed, 9 skipped de 1 572**',
-      'the commit: 0591322 -> e241ed8',
     ]);
+    expect(patched.measuredAt).toBe('0591322');
     expect(patched.missing).toEqual([]);
   });
 
   it('reports what already matched instead of writing the same file twice', () => {
-    const patched = patchDoc(patchDoc(doc, countsFrom(report), commit).text, countsFrom(report), commit);
+    const patched = patchDoc(patchDoc(doc, countsFrom(report)).text, countsFrom(report));
 
     expect(patched.updated).toEqual([]);
-    expect(patched.kept).toHaveLength(4);
+    expect(patched.kept).toHaveLength(3);
   });
 
   // A file the doc counts that the run never produced means the prose and the tree
   // have separated; leaving the number alone is the only honest answer.
   it('names a counted file the run has no results for', () => {
-    const patched = patchDoc(doc.replace('probe-linux-updater.test.ts', 'gone.test.ts'), countsFrom(report), commit);
+    const patched = patchDoc(doc.replace('probe-linux-updater.test.ts', 'gone.test.ts'), countsFrom(report));
 
     expect(patched.missing).toEqual(['scripts/gone.test.ts']);
     expect(patched.text).toContain('`scripts/gone.test.ts` (7 casos: la elección de canal).');
@@ -138,11 +138,11 @@ describe('rewriting the numbers in a release note', () => {
   // again -- the thing that kept ageing it.
   it('refuses a doc it cannot place: no totals, or no commit', () => {
     expect(() =>
-      patchDoc('Los ficheros nuevos son `scripts/previous-release.test.ts` (11 casos).', countsFrom(report), commit),
+      patchDoc('Los ficheros nuevos son `scripts/previous-release.test.ts` (11 casos).', countsFrom(report)),
     ).toThrow(/quotes no "N passed, N skipped de N" sentence/);
-    expect(() =>
-      patchDoc('La suite cerró en **1 563 passed, 9 skipped de 1 572**.', countsFrom(report), commit),
-    ).toThrow(/does not say which commit the numbers were measured at/);
+    expect(() => patchDoc('La suite cerró en **1 563 passed, 9 skipped de 1 572**.', countsFrom(report))).toThrow(
+      /does not say which commit the numbers were measured at/,
+    );
   });
 });
 
@@ -330,5 +330,54 @@ describe('the window a note is checked against', () => {
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+// A note is measured and then committed, so HEAD always ends up ahead of the sha
+// the note quotes. Re-stamping it then would only move it to the next commit, and
+// the note would chase its own history. The stamp is stale only when the tree it
+// describes stopped matching the one the suite runs on.
+describe('the commit a note quotes', () => {
+  it('keeps it when only documentation moved after the measurement', () => {
+    const { dir, git } = taggedRepo();
+
+    try {
+      fs.writeFileSync(path.join(dir, 'measured.test.ts'), "it('one', () => {});\n");
+      git('add', '.');
+      git('commit', '-qm', 'measure');
+      const measured = git('rev-parse', 'HEAD').trim();
+      fs.writeFileSync(path.join(dir, 'note.md'), '# note\n');
+      git('add', '.');
+      git('commit', '-qm', 'write the note');
+
+      expect(stampIsStale(measured, git('rev-parse', 'HEAD').trim(), false, dir)).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('moves it when a counted test changed after the measurement', () => {
+    const { dir, git } = taggedRepo();
+
+    try {
+      fs.writeFileSync(path.join(dir, 'measured.test.ts'), "it('one', () => {});\n");
+      git('add', '.');
+      git('commit', '-qm', 'measure');
+      const measured = git('rev-parse', 'HEAD').trim();
+      fs.writeFileSync(path.join(dir, 'measured.test.ts'), "it('one', () => {});\nit('two', () => {});\n");
+      git('commit', '-qam', 'add a test');
+
+      expect(stampIsStale(measured, git('rev-parse', 'HEAD').trim(), false, dir)).toBe(true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('moves it when a number changed, even if no test did', () => {
+    expect(stampIsStale('0591322', 'e241ed8', true)).toBe(true);
+  });
+
+  it('keeps it when the measurement is the head', () => {
+    expect(stampIsStale('0591322', '0591322', false)).toBe(false);
   });
 });
