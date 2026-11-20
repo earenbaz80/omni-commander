@@ -94,18 +94,19 @@ const CLI = path.join(path.dirname(fileURLToPath(import.meta.url)), 'previous-re
 // code, not the return of a function. A preload answers the releases request with
 // the list this test chooses, and the rest of the script runs untouched -- same
 // argv, same environment, same printing.
-function runCli(releases: Release[], args: string[]) {
+function runCli(releases: Release[], args: string[], response = { status: 200, statusText: 'OK' }) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'previous-release-'));
   const preload = path.join(dir, 'fake-releases.cjs');
   fs.writeFileSync(
     preload,
     [
+      `const response = ${JSON.stringify(response)};`,
       `const releases = ${JSON.stringify(releases)};`,
       'globalThis.fetch = async (url) => {',
       "  if (String(url) !== 'https://api.github.com/repos/earenbaz80/omni-commander/releases?per_page=30') {",
       '    throw new Error(`unexpected request: ${url}`);',
       '  }',
-      '  return { ok: true, status: 200, statusText: "OK", json: async () => releases };',
+      '  return { ...response, ok: response.status < 400, json: async () => releases };',
       '};',
       '',
     ].join('\n'),
@@ -142,5 +143,19 @@ describe('the previous release as the workflows ask for it', () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toBe('');
     expect(result.stderr).toBe('');
+  });
+
+  // The other branch: GitHub can refuse the request, and then there is no fallback
+  // to report. The stub answers a 403 with an empty list on purpose, which is what
+  // `fetch` does -- a body that cannot be mistaken for a crash. Answering nothing
+  // would look exactly like the empty answer above and quietly raise the notice
+  // "no earlier release", so the step has to fail with the status instead of
+  // guessing from a feed nobody could read.
+  it('exits 1 and names the status when the list answers an error', () => {
+    const result = runCli([], ['--current', '1.0.53'], { status: 403, statusText: 'Forbidden' });
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe('');
+    expect(result.stderr).toContain('::error::the releases list answered 403 Forbidden');
   });
 });
