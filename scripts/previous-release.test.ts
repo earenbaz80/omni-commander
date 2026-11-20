@@ -1,6 +1,11 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { createRequire } from 'node:module';
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // CommonJS so the workflow can run it with plain `node`, which is how the step
 // calls it: the same module, not a shape that only a bundler produces.
@@ -80,5 +85,62 @@ describe('the previous release the probe simulates', () => {
     expect(channelOf('1.0.53')).toBeNull();
     expect(channelOf('1.0.53-beta.1')).toBe('beta');
     expect(channelOf('1.0.54-beta.2')).toBe('beta');
+  });
+});
+
+const CLI = path.join(path.dirname(fileURLToPath(import.meta.url)), 'previous-release.cjs');
+
+// The workflows run the file itself, so what they get is its stdout and its exit
+// code, not the return of a function. A preload answers the releases request with
+// the list this test chooses, and the rest of the script runs untouched -- same
+// argv, same environment, same printing.
+function runCli(releases: Release[], args: string[]) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'previous-release-'));
+  const preload = path.join(dir, 'fake-releases.cjs');
+  fs.writeFileSync(
+    preload,
+    [
+      `const releases = ${JSON.stringify(releases)};`,
+      'globalThis.fetch = async (url) => {',
+      "  if (String(url) !== 'https://api.github.com/repos/earenbaz80/omni-commander/releases?per_page=30') {",
+      '    throw new Error(`unexpected request: ${url}`);',
+      '  }',
+      '  return { ok: true, status: 200, statusText: "OK", json: async () => releases };',
+      '};',
+      '',
+    ].join('\n'),
+  );
+  try {
+    return spawnSync(process.execPath, ['-r', preload, CLI, ...args], {
+      encoding: 'utf8',
+      env: { ...process.env, GITHUB_REPOSITORY: 'earenbaz80/omni-commander', GITHUB_TOKEN: '' },
+    });
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+describe('the previous release as the workflows ask for it', () => {
+  // The step reads the number off stdout, so the answer has to arrive as one bare
+  // version on its own line: anything else edits the `--installed` the probe gets.
+  it('prints the version alone and exits 0 for a cut that has one behind it', () => {
+    const result = runCli([release('1.0.53'), release('1.0.52'), release('1.0.51')], ['--current', '1.0.53']);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe('1.0.52\n');
+    expect(result.stderr).toBe('');
+  });
+
+  // The fallback the step turns into a notice: an empty line would be read as a
+  // version, and an error would fail a cut for being the first on its channel.
+  it('prints nothing and still exits 0 when the channel has no earlier release', () => {
+    const result = runCli(
+      [release('1.0.54-beta.1', { prerelease: true }), release('1.0.53')],
+      ['--current', '1.0.54-beta.1'],
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe('');
+    expect(result.stderr).toBe('');
   });
 });
