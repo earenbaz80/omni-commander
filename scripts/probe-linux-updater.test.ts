@@ -33,4 +33,20 @@ describe('the copy a probe simulates', () => {
       /--installed is the version of the copy/,
     );
   });
+
+  // A copy reads the feed file of its own channel, so a stable number asked
+  // against a beta cut describes no machine at all. Without this guard the probe
+  // would make the request and report the answer as a tree that is not the newest
+  // cut, which points at the wrong thing: the arguments are what disagree.
+  it('refuses a stable copy when the cut is a prerelease', async () => {
+    await expect(probe({ version: '1.0.54-beta.1', installed: '1.0.53' })).rejects.toThrow(
+      /--installed 1\.0\.53 reads latest-linux\.yml while --version 1\.0\.54-beta\.1 writes beta-linux\.yml/,
+    );
+  });
+
+  it('refuses a beta copy when the cut is stable', async () => {
+    await expect(probe({ version: '1.0.53', installed: '1.0.50-beta.1' })).rejects.toThrow(
+      /--installed 1\.0\.50-beta\.1 reads beta-linux\.yml while --version 1\.0\.53 writes latest-linux\.yml/,
+    );
+  });
 });

@@ -20,7 +20,9 @@
 // `--installed` makes the adapter report another version, so the published feed
 // can be asked the way a machine that still runs the previous release asks it:
 // the updater compares against that number, and the check still fails if the
-// feed does not offer the cut in `--version`.
+// feed does not offer the cut in `--version`. Both numbers have to sit on the
+// same channel: a copy reads the feed file of its own channel, so a stable one
+// is never offered a beta cut, and a mismatch is refused before any request.
 const fs = require('node:fs');
 const http = require('node:http');
 const https = require('node:https');
@@ -46,6 +48,11 @@ const DEFAULTS = { owner: 'earenbaz80', repo: 'omni-commander' };
 function channelOf(version) {
   const dash = version.indexOf('-');
   return dash < 0 ? null : version.slice(dash + 1).split('.')[0];
+}
+
+/** The feed file a copy on this channel reads, and the release writes. */
+function feedFile(channel) {
+  return channel ? `${channel}-linux.yml` : 'latest-linux.yml';
 }
 
 /** HttpExecutor is abstract: the one it wants is Electron's net, this is node's. */
@@ -109,8 +116,17 @@ function feedError(error) {
 
 async function probe({ version, installed = null, owner, repo, channel = channelOf(version) }) {
   const { DebUpdater } = require('electron-updater');
-  const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-updater-'));
   if (installed === version) throw new Error('--installed is the version of the copy, not the cut it should find');
+  // A copy reads the feed file of its own channel and nothing else, so a stable
+  // number asked against a beta cut describes no machine -- and if the request
+  // went out anyway, the version error below would blame this tree for a mistake
+  // in the arguments.
+  if (installed != null && channelOf(installed) !== channelOf(version)) {
+    throw new Error(
+      `--installed ${installed} reads ${feedFile(channelOf(installed))} while --version ${version} writes ${feedFile(channelOf(version))}; a copy on one channel is never offered a cut on another`,
+    );
+  }
+  const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-updater-'));
 
   // No feed in the constructor: the provider keeps the executor it is built
   // with, and a DebUpdater created with an adapter gets none, so the URL is set
@@ -164,8 +180,7 @@ async function probe({ version, installed = null, owner, repo, channel = channel
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const { version, files } = await probe(options);
-  const channelFile = options.channel ? `${options.channel}-linux.yml` : 'latest-linux.yml';
-  console.log(`the updater read ${channelFile} of ${version}`);
+  console.log(`the updater read ${feedFile(options.channel)} of ${version}`);
   if (options.installed) console.log(`a copy at ${options.installed} is offered ${version}`);
   for (const file of files)
     console.log(`  ${file.url}: ${file.size} bytes, sha512:${file.sha512.slice(0, 16)}... offered to ${file.consumer}`);
@@ -178,4 +193,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { NodeHttpExecutor, appAdapter, channelOf, probe };
+module.exports = { NodeHttpExecutor, appAdapter, channelOf, feedFile, probe };
