@@ -157,6 +157,21 @@ describe('telling whether the measured tree is the committed one', () => {
   });
 });
 
+/** A throwaway repository with a single commit and a tag on it: the shape the check
+ * compares HEAD against. */
+function taggedRepo() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-counts-git-'));
+  const git = (...args: string[]) => {
+    const run = spawnSync('git', args, { cwd: dir, encoding: 'utf8' });
+    if (run.status !== 0) throw new Error(`git ${args.join(' ')}: ${String(run.stderr).trim()}`);
+  };
+  git('init', '-q');
+  git('config', 'user.email', 'tests@example.com');
+  git('config', 'user.name', 'Tests');
+  git('config', 'commit.gpgsign', 'false');
+  return { dir, git };
+}
+
 // The list of files in the note is written by hand, so a test added while the
 // release is prepared can be counted and still be missing from it. The run can
 // tell which files are new -- the ones HEAD has added since the last release --
@@ -197,17 +212,9 @@ describe('warning about a test file the note leaves out', () => {
   // belongs in the list even when it was there before the last release: the cases
   // it already had are not the reason to name it, the ones added to it are.
   it('counts a test file the branch expanded, not only the ones it added', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-counts-git-'));
-    const git = (...args: string[]) => {
-      const run = spawnSync('git', args, { cwd: dir, encoding: 'utf8' });
-      if (run.status !== 0) throw new Error(`git ${args.join(' ')}: ${String(run.stderr).trim()}`);
-    };
+    const { dir, git } = taggedRepo();
 
     try {
-      git('init', '-q');
-      git('config', 'user.email', 'tests@example.com');
-      git('config', 'user.name', 'Tests');
-      git('config', 'commit.gpgsign', 'false');
       fs.writeFileSync(path.join(dir, 'old.test.ts'), "it('first', () => {});\n");
       git('add', '.');
       git('commit', '-qm', 'first');
@@ -216,6 +223,29 @@ describe('warning about a test file the note leaves out', () => {
       git('commit', '-qam', 'expand the tests');
 
       expect(testsChangedSince(dir)).toEqual({ tag: 'v1.0.0', files: ['old.test.ts'] });
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // A rename is neither an addition nor a modification, so a filter of A and M
+  // loses the new path: the run counts that file under the name only the rename
+  // left behind, which is the name the note has to carry.
+  it('counts a test file the branch renamed', () => {
+    const { dir, git } = taggedRepo();
+    const lines = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf', 'hotel'];
+    const body = (names: string[]) => names.map((name) => `it('${name}', () => {});`).join('\n') + '\n';
+
+    try {
+      fs.writeFileSync(path.join(dir, 'before.test.ts'), body(lines));
+      git('add', '.');
+      git('commit', '-qm', 'first');
+      git('tag', 'v1.0.0');
+      git('mv', 'before.test.ts', 'after.test.ts');
+      fs.writeFileSync(path.join(dir, 'after.test.ts'), body([...lines, 'india']));
+      git('commit', '-qam', 'rename and expand');
+
+      expect(testsChangedSince(dir)).toEqual({ tag: 'v1.0.0', files: ['after.test.ts'] });
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
