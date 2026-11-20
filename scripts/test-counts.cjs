@@ -109,7 +109,14 @@ function patchDoc(text, counts, commit) {
   if (at[2] === commit) kept.push(`the commit: ${commit}`);
   else updated.push(`the commit: ${at[2]} -> ${commit}`);
 
-  return { text: stamped.replace(at[0], `${at[1]}${commit}${at[3]}`), updated, kept, missing, named };
+  return {
+    text: stamped.replace(at[0], `${at[1]}${commit}${at[3]}`),
+    updated,
+    kept,
+    missing,
+    named,
+    measuredAt: at[2],
+  };
 }
 
 /**
@@ -123,6 +130,28 @@ function unnamedTests(counts, named, changed) {
   return changed
     .filter((file) => counts.files[path.basename(file)] != null && !named.has(file))
     .map((file) => ({ file, cases: counts.files[path.basename(file)] }));
+}
+
+/** The release a note is about, taken from its file name: `1.0.50-beta.1` still
+ * belongs to the 1.0.50 line, and a name that is not a version has no window. */
+function noteVersion(doc) {
+  const match = /^(\d+\.\d+\.\d+)(?:-[0-9A-Za-z.-]+)?$/.exec(path.basename(doc, '.md'));
+  return match == null ? null : match[1];
+}
+
+/** The release tag just before `version`: the base the note's list is measured
+ * from. A published note keeps its own release's window instead of sliding
+ * forward to the next tag, and a prerelease is not a base of its own. */
+function previousRelease(tags, version) {
+  const [major, minor, patch] = version.split('.').map(Number);
+  const earlier = tags
+    .map((tag) => /^v(\d+)\.(\d+)\.(\d+)$/.exec(tag))
+    .filter((match) => match != null)
+    .map((match) => [Number(match[1]), Number(match[2]), Number(match[3])])
+    .filter(([a, b, c]) => a < major || (a === major && (b < minor || (b === minor && c < patch))))
+    .sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
+  const last = earlier.at(-1);
+  return last == null ? null : `v${last.join('.')}`;
 }
 
 /** The test files the working tree has changed. */
@@ -156,24 +185,25 @@ function headCommit() {
   return run.stdout.trim();
 }
 
-/** The last release and the test files HEAD has added, expanded or renamed since:
- * the only local sign of which files are new enough to belong in the note's list.
- * `null` when there is no tag to compare against, which is a checkout without
- * history rather than a note with a problem. */
-function testsChangedSince(root = ROOT) {
-  const tag = spawnSync('git', ['describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*.[0-9]*.[0-9]*', 'HEAD'], {
-    cwd: root,
-    encoding: 'utf8',
-  });
-  if (tag.status !== 0) return null;
-  const name = tag.stdout.trim();
+/** The release tags the checkout has, for picking the note's base. */
+function releaseTags(root = ROOT) {
+  const run = spawnSync('git', ['tag', '--list', 'v*'], { cwd: root, encoding: 'utf8' });
+  if (run.status !== 0) throw new Error(`git could not list the tags: ${(run.stderr ?? '').trim()}`);
+  return run.stdout.split('\n').filter(Boolean);
+}
+
+/** The test files added, expanded or renamed between two commits: the window the
+ * note's list is written against, not everything the branch has done since. */
+function testsChangedSince(base, end, root = ROOT) {
   const run = spawnSync(
     'git',
-    ['diff', '--name-only', '--diff-filter=AMR', `${name}..HEAD`, '--', '*.test.ts', '*.test.tsx'],
+    ['diff', '--name-only', '--diff-filter=AMR', `${base}..${end}`, '--', '*.test.ts', '*.test.tsx'],
     { cwd: root, encoding: 'utf8' },
   );
-  if (run.status !== 0) throw new Error(`git could not compare the tests with ${name}: ${(run.stderr ?? '').trim()}`);
-  return { tag: name, files: run.stdout.split('\n').filter(Boolean) };
+  if (run.status !== 0) {
+    throw new Error(`git could not compare the tests between ${base} and ${end}: ${(run.stderr ?? '').trim()}`);
+  }
+  return run.stdout.split('\n').filter(Boolean);
 }
 
 /** Asks the suite for its report: the numbers come from the run, not from a guess. */
@@ -225,16 +255,22 @@ function main() {
   }
 
   const docPath = path.resolve(ROOT, options.doc);
-  const { text, updated, kept, missing, named } = patchDoc(fs.readFileSync(docPath, 'utf8'), counts, commit);
+  const { text, updated, kept, missing, named, measuredAt } = patchDoc(
+    fs.readFileSync(docPath, 'utf8'),
+    counts,
+    commit,
+  );
   if (missing.length) {
     throw new Error(`the run has no results for ${missing.join(', ')}, which ${options.doc} counts`);
   }
-  const changed = testsChangedSince();
+  const version = noteVersion(options.doc);
+  const base = version == null ? null : previousRelease(releaseTags(), version);
+  const changed = base == null ? [] : testsChangedSince(base, options.write ? commit : measuredAt);
   for (const line of kept) console.log(`kept ${line}`);
   for (const line of updated) console.log(`${options.write ? 'changed' : 'would change'} ${line}`);
-  if (changed == null) console.log('no release tag to compare the note against; its list was not checked');
-  for (const { file, cases } of changed == null ? [] : unnamedTests(counts, new Set(named), changed.files)) {
-    console.log(`unnamed ${file}: ${cases} casos, changed since ${changed.tag} and not named in ${options.doc}`);
+  if (base == null) console.log(`no release tag before ${version ?? options.doc}; the note's list was not checked`);
+  for (const { file, cases } of unnamedTests(counts, new Set(named), changed)) {
+    console.log(`unnamed ${file}: ${cases} casos, changed since ${base} and not named in ${options.doc}`);
   }
   if (!updated.length) console.log(`${options.doc} already quotes these numbers`);
   else if (options.write) fs.writeFileSync(docPath, text);
@@ -249,4 +285,14 @@ if (require.main === module) {
   }
 }
 
-module.exports = { countsFrom, dirtyTests, formatNumber, patchDoc, summaryLine, testsChangedSince, unnamedTests };
+module.exports = {
+  countsFrom,
+  dirtyTests,
+  formatNumber,
+  noteVersion,
+  patchDoc,
+  previousRelease,
+  summaryLine,
+  testsChangedSince,
+  unnamedTests,
+};

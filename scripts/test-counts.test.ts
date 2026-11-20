@@ -9,9 +9,16 @@ import path from 'node:path';
 // CommonJS so the workflow can run it with plain `node`; the test loads the same
 // module the CLI runs.
 const loadCjs = createRequire(import.meta.url);
-const { countsFrom, dirtyTests, formatNumber, patchDoc, testsChangedSince, unnamedTests } = loadCjs(
-  './test-counts.cjs',
-) as {
+const {
+  countsFrom,
+  dirtyTests,
+  formatNumber,
+  noteVersion,
+  patchDoc,
+  previousRelease,
+  testsChangedSince,
+  unnamedTests,
+} = loadCjs('./test-counts.cjs') as {
   dirtyTests: (status: string) => string[];
   formatNumber: (value: number) => string;
   countsFrom: (report: Report) => Counts;
@@ -19,9 +26,18 @@ const { countsFrom, dirtyTests, formatNumber, patchDoc, testsChangedSince, unnam
     text: string,
     counts: Counts,
     commit: string,
-  ) => { text: string; updated: string[]; kept: string[]; missing: string[]; named: string[] };
+  ) => {
+    text: string;
+    updated: string[];
+    kept: string[];
+    missing: string[];
+    named: string[];
+    measuredAt: string;
+  };
+  noteVersion: (doc: string) => string | null;
+  previousRelease: (tags: string[], version: string) => string | null;
   unnamedTests: (counts: Counts, named: Set<string>, changed: string[]) => { file: string; cases: number }[];
-  testsChangedSince: (root?: string) => { tag: string; files: string[] } | null;
+  testsChangedSince: (base: string, end: string, root?: string) => string[];
 };
 
 interface Report {
@@ -164,6 +180,7 @@ function taggedRepo() {
   const git = (...args: string[]) => {
     const run = spawnSync('git', args, { cwd: dir, encoding: 'utf8' });
     if (run.status !== 0) throw new Error(`git ${args.join(' ')}: ${String(run.stderr).trim()}`);
+    return run.stdout;
   };
   git('init', '-q');
   git('config', 'user.email', 'tests@example.com');
@@ -222,7 +239,7 @@ describe('warning about a test file the note leaves out', () => {
       fs.writeFileSync(path.join(dir, 'old.test.ts'), "it('first', () => {});\nit('second', () => {});\n");
       git('commit', '-qam', 'expand the tests');
 
-      expect(testsChangedSince(dir)).toEqual({ tag: 'v1.0.0', files: ['old.test.ts'] });
+      expect(testsChangedSince('v1.0.0', 'HEAD', dir)).toEqual(['old.test.ts']);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -245,7 +262,7 @@ describe('warning about a test file the note leaves out', () => {
       fs.writeFileSync(path.join(dir, 'after.test.ts'), body([...lines, 'india']));
       git('commit', '-qam', 'rename and expand');
 
-      expect(testsChangedSince(dir)).toEqual({ tag: 'v1.0.0', files: ['after.test.ts'] });
+      expect(testsChangedSince('v1.0.0', 'HEAD', dir)).toEqual(['after.test.ts']);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -269,7 +286,47 @@ describe('warning about a test file the note leaves out', () => {
       fs.writeFileSync(path.join(dir, 'after.test.ts'), body([...lines, 'india']));
       git('commit', '-qam', 'rename and expand');
 
-      expect(testsChangedSince(dir)).toEqual({ tag: 'v1.0.0', files: ['after.test.ts'] });
+      expect(testsChangedSince('v1.0.0', 'HEAD', dir)).toEqual(['after.test.ts']);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+// The list belongs to the release the note documents, so the window starts at the
+// release before its version and stops where the note says it was measured:
+// editing a published note must not pull in the tests of the release after it.
+describe('the window a note is checked against', () => {
+  it('reads the release from the note name, prerelease included', () => {
+    expect(noteVersion('docs/releases/1.0.53.md')).toBe('1.0.53');
+    expect(noteVersion('docs/releases/1.0.50-beta.1.md')).toBe('1.0.50');
+    expect(noteVersion('README.md')).toBeNull();
+  });
+
+  it('picks the release before that version, never a prerelease', () => {
+    const tags = ['v1.0.53', 'v1.0.52', 'v1.0.50-beta.1', 'v1.0.10', 'v1.0.9'];
+
+    expect(previousRelease(tags, '1.0.53')).toBe('v1.0.52');
+    expect(previousRelease(tags, '1.0.11')).toBe('v1.0.10');
+    expect(previousRelease(tags, '1.0.1')).toBeNull();
+  });
+
+  it('stops at the measured commit instead of the branch head', () => {
+    const { dir, git } = taggedRepo();
+
+    try {
+      git('commit', '--allow-empty', '-qm', 'start');
+      git('tag', 'v1.0.0');
+      fs.writeFileSync(path.join(dir, 'in-release.test.ts'), "it('first', () => {});\n");
+      git('add', '.');
+      git('commit', '-qm', 'this release');
+      const measured = git('rev-parse', 'HEAD').trim();
+      fs.writeFileSync(path.join(dir, 'later.test.ts'), "it('next', () => {});\n");
+      git('add', '.');
+      git('commit', '-qm', 'the next release');
+
+      expect(testsChangedSince('v1.0.0', measured, dir)).toEqual(['in-release.test.ts']);
+      expect(testsChangedSince('v1.0.0', 'HEAD', dir)).toEqual(['in-release.test.ts', 'later.test.ts']);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
