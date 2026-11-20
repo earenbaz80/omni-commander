@@ -479,16 +479,26 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # No `cache: npm`: the only thing this job installs is the one library the
+      # probe imports, and restoring the app's cache to install sixteen packages
+      # costs more than the install.
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
-          cache: npm
 
-      # The probe imports electron-updater itself, so it needs the tree the app
-      # is built from rather than a copy of the YAML it produced.
-      - name: Install dependencies
-        run: npm ci --engine-strict
+      # The probe imports `electron-updater` and `builder-util-runtime` and nothing
+      # else from the tree, so the whole dependency tree -- 800 MB of it -- has no
+      # business in this job either. The version comes from the lockfile, which is
+      # what electron-builder packed into the `.deb`, so the probe asks with the
+      # same client the package ships, exactly as the tag's channel job does.
+      - name: Install the updater the .deb ships
+        shell: bash
+        run: |
+          set -euo pipefail
+          updater=$(node -p "require('./package-lock.json').packages['node_modules/electron-updater'].version")
+          npm install --prefix probe-deps --no-save --no-package-lock --no-audit --no-fund "electron-updater@$updater"
+          node -p "'installed electron-updater ' + require('./probe-deps/node_modules/electron-updater/package.json').version + ', the lockfile says $updater'"
 
       # Every asset on a release carries a digest GitHub records. Reading the
       # channel through the same check the `.deb` and the AppImage jobs use keeps
@@ -503,8 +513,12 @@ jobs:
           version=$(node -p "require('./package.json').version")
           node scripts/fetch-release-asset.mjs "v$version" latest-linux.yml channel
 
+      # NODE_PATH is how the probe finds the package installed beside it: the
+      # workspace itself has no `node_modules` in this job.
       - name: Read the feed the way an installed copy does
         shell: bash
+        env:
+          NODE_PATH: ${{ github.workspace }}/probe-deps/node_modules
         run: |
           set -euo pipefail
           version=$(node -p "require('./package.json').version")
