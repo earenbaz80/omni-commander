@@ -14,7 +14,13 @@
 // node's http instead of Electron's net.
 //
 // Usage: node scripts/probe-linux-updater.cjs [--version <v>] [--channel <name>]
-//        [--owner <o>] [--repo <r>]
+//        [--owner <o>] [--repo <r>] [--installed <v>]
+//
+// `--version` is the cut this tree claims, which is what the feed has to offer.
+// `--installed` makes the adapter report another version, so the published feed
+// can be asked the way a machine that still runs the previous release asks it:
+// the updater compares against that number, and the check still fails if the
+// feed does not offer the cut in `--version`.
 const fs = require('node:fs');
 const http = require('node:http');
 const https = require('node:https');
@@ -84,6 +90,7 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const flag = argv[index];
     if (flag === '--version') options.version = argv[(index += 1)];
+    else if (flag === '--installed') options.installed = argv[(index += 1)];
     else if (flag === '--channel') options.channel = argv[(index += 1)];
     else if (flag === '--owner') options.owner = argv[(index += 1)];
     else if (flag === '--repo') options.repo = argv[(index += 1)];
@@ -100,16 +107,21 @@ function feedError(error) {
   return `${code}${firstLine}`;
 }
 
-async function probe({ version, owner, repo, channel = channelOf(version) }) {
+async function probe({ version, installed = null, owner, repo, channel = channelOf(version) }) {
   const { DebUpdater } = require('electron-updater');
   const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-updater-'));
+  if (installed === version) throw new Error('--installed is the version of the copy, not the cut it should find');
 
   // No feed in the constructor: the provider keeps the executor it is built
   // with, and a DebUpdater created with an adapter gets none, so the URL is set
   // after the node executor is in place.
-  const updater = new DebUpdater(null, appAdapter(version, cacheDir, { owner, repo }));
+  const updater = new DebUpdater(null, appAdapter(installed ?? version, cacheDir, { owner, repo }));
   updater.logger = { info() {}, warn() {}, error() {} };
   updater.httpExecutor = new NodeHttpExecutor();
+  // This reads the feed and nothing else. With a copy older than the feed the
+  // updater would otherwise start the download, which is the job of the steps
+  // that install the package, and the executor here does not implement it.
+  updater.autoDownload = false;
   // `@internal`, and the only way to pin the platform: the channel name carries
   // it, and a check that asked for the Windows `latest.yml` on a Linux runner
   // would pass for the wrong file the day it ran on another host.
@@ -154,6 +166,7 @@ async function main() {
   const { version, files } = await probe(options);
   const channelFile = options.channel ? `${options.channel}-linux.yml` : 'latest-linux.yml';
   console.log(`the updater read ${channelFile} of ${version}`);
+  if (options.installed) console.log(`a copy at ${options.installed} is offered ${version}`);
   for (const file of files)
     console.log(`  ${file.url}: ${file.size} bytes, sha512:${file.sha512.slice(0, 16)}... offered to ${file.consumer}`);
 }
