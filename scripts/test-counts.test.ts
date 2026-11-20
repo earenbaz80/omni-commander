@@ -5,7 +5,7 @@ import { createRequire } from 'node:module';
 // CommonJS so the workflow can run it with plain `node`; the test loads the same
 // module the CLI runs.
 const loadCjs = createRequire(import.meta.url);
-const { countsFrom, dirtyTests, formatNumber, patchDoc } = loadCjs('./test-counts.cjs') as {
+const { countsFrom, dirtyTests, formatNumber, patchDoc, unnamedTests } = loadCjs('./test-counts.cjs') as {
   dirtyTests: (status: string) => string[];
   formatNumber: (value: number) => string;
   countsFrom: (report: Report) => Counts;
@@ -13,7 +13,8 @@ const { countsFrom, dirtyTests, formatNumber, patchDoc } = loadCjs('./test-count
     text: string,
     counts: Counts,
     commit: string,
-  ) => { text: string; updated: string[]; kept: string[]; missing: string[] };
+  ) => { text: string; updated: string[]; kept: string[]; missing: string[]; named: string[] };
+  unnamedTests: (counts: Counts, named: Set<string>, added: string[]) => { file: string; cases: number }[];
 };
 
 interface Report {
@@ -146,5 +147,42 @@ describe('telling whether the measured tree is the committed one', () => {
   it('finds nothing to complain about in a tree whose tests are all committed', () => {
     expect(dirtyTests('')).toEqual([]);
     expect(dirtyTests(' M docs/releases/1.0.53.md\n M scripts/test-counts.cjs\n')).toEqual([]);
+  });
+});
+
+// The list of files in the note is written by hand, so a test added while the
+// release is prepared can be counted and still be missing from it. The run can
+// tell which files are new -- the ones HEAD has added since the last release --
+// and naming them with their counts is the reminder the paragraph needs.
+describe('warning about a test file the note leaves out', () => {
+  const newer: Report = {
+    numPassedTests: 19,
+    numPendingTests: 0,
+    numTotalTests: 19,
+    testResults: [
+      { name: '/repo/scripts/previous-release.test.ts', assertionResults: cases(11) },
+      { name: '/repo/scripts/test-counts.test.ts', assertionResults: cases(8) },
+    ],
+  };
+
+  it('names the counted file added since the last release that the doc omits', () => {
+    expect(
+      unnamedTests(countsFrom(newer), new Set(['scripts/previous-release.test.ts']), [
+        'scripts/previous-release.test.ts',
+        'scripts/test-counts.test.ts',
+        'scripts/not-in-the-run.test.ts',
+      ]),
+    ).toEqual([{ file: 'scripts/test-counts.test.ts', cases: 8 }]);
+  });
+
+  it('stays quiet when the new files are either named or not counted', () => {
+    const counts = countsFrom(newer);
+
+    expect(
+      unnamedTests(counts, new Set(['scripts/previous-release.test.ts', 'scripts/test-counts.test.ts']), [
+        'scripts/test-counts.test.ts',
+      ]),
+    ).toEqual([]);
+    expect(unnamedTests(counts, new Set(), ['scripts/not-in-the-run.test.ts'])).toEqual([]);
   });
 });

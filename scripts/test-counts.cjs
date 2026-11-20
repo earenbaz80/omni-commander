@@ -12,6 +12,11 @@
 // rather than a silent zero -- that is the case where the prose and the tree have
 // separated, and rewriting the number would hide it.
 //
+// The list is still written by hand, so the run looks at it from the other side
+// too: a test file it counted that the doc does not name, when HEAD has added that
+// file since the last release, is a line the note is missing -- the drift that
+// hides behind a total which still matches.
+//
 // The sentence also names the commit whose tree was measured. That is what keeps
 // the note from ageing: it describes that commit, so a test added afterwards does
 // not make it wrong. `--write` stamps `HEAD`, which is the tree it just measured.
@@ -64,13 +69,16 @@ const MEASURED_AT = /(medidos en `)([0-9a-f]{7,40})(`)/;
 const COUNTED_FILE = /(`([^`]+\.test\.tsx?)`\s+\()(\d+)( casos)/g;
 
 /** Rewrites the numbers and the commit in `text`; returns what changed, what
- * already matched and what the run could not answer for. */
+ * already matched, what the run could not answer for and which files the doc
+ * names, which is what the list check needs. */
 function patchDoc(text, counts, commit) {
   const updated = [];
   const kept = [];
   const missing = [];
+  const named = [];
 
   const patched = text.replace(COUNTED_FILE, (match, prefix, file, current, suffix) => {
+    named.push(file);
     const measured = counts.files[path.basename(file)];
     if (measured == null) {
       missing.push(file);
@@ -101,7 +109,20 @@ function patchDoc(text, counts, commit) {
   if (at[2] === commit) kept.push(`the commit: ${commit}`);
   else updated.push(`the commit: ${at[2]} -> ${commit}`);
 
-  return { text: stamped.replace(at[0], `${at[1]}${commit}${at[3]}`), updated, kept, missing };
+  return { text: stamped.replace(at[0], `${at[1]}${commit}${at[3]}`), updated, kept, missing, named };
+}
+
+/**
+ * The counted test files the doc does not name, out of the ones HEAD has added
+ * since the last release. A test that has been in the tree for releases belongs to
+ * no note's list, but one added since the last tag is exactly what a list of new or
+ * expanded files is supposed to mention: leaving it out is the drift nobody
+ * notices, because the total still matches.
+ */
+function unnamedTests(counts, named, added) {
+  return added
+    .filter((file) => counts.files[path.basename(file)] != null && !named.has(file))
+    .map((file) => ({ file, cases: counts.files[path.basename(file)] }));
 }
 
 /** The test files the working tree has changed. */
@@ -133,6 +154,26 @@ function headCommit() {
   const run = spawnSync('git', ['rev-parse', '--short=7', 'HEAD'], { cwd: ROOT, encoding: 'utf8' });
   if (run.status !== 0) throw new Error(`git could not name HEAD: ${(run.stderr ?? '').trim()}`);
   return run.stdout.trim();
+}
+
+/** The last release and the test files HEAD has added since: the only local sign of
+ * which files are new enough to belong in the note's list. `null` when there is no
+ * tag to compare against, which is a checkout without history rather than a note
+ * with a problem. */
+function testsAddedSince() {
+  const tag = spawnSync('git', ['describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*.[0-9]*.[0-9]*', 'HEAD'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
+  if (tag.status !== 0) return null;
+  const name = tag.stdout.trim();
+  const run = spawnSync(
+    'git',
+    ['diff', '--name-only', '--diff-filter=A', `${name}..HEAD`, '--', '*.test.ts', '*.test.tsx'],
+    { cwd: ROOT, encoding: 'utf8' },
+  );
+  if (run.status !== 0) throw new Error(`git could not compare the tests with ${name}: ${(run.stderr ?? '').trim()}`);
+  return { tag: name, files: run.stdout.split('\n').filter(Boolean) };
 }
 
 /** Asks the suite for its report: the numbers come from the run, not from a guess. */
@@ -184,12 +225,17 @@ function main() {
   }
 
   const docPath = path.resolve(ROOT, options.doc);
-  const { text, updated, kept, missing } = patchDoc(fs.readFileSync(docPath, 'utf8'), counts, commit);
+  const { text, updated, kept, missing, named } = patchDoc(fs.readFileSync(docPath, 'utf8'), counts, commit);
   if (missing.length) {
     throw new Error(`the run has no results for ${missing.join(', ')}, which ${options.doc} counts`);
   }
+  const added = testsAddedSince();
   for (const line of kept) console.log(`kept ${line}`);
   for (const line of updated) console.log(`${options.write ? 'changed' : 'would change'} ${line}`);
+  if (added == null) console.log('no release tag to compare the note against; its list was not checked');
+  for (const { file, cases } of added == null ? [] : unnamedTests(counts, new Set(named), added.files)) {
+    console.log(`unnamed ${file}: ${cases} casos added after ${added.tag} and not named in ${options.doc}`);
+  }
   if (!updated.length) console.log(`${options.doc} already quotes these numbers`);
   else if (options.write) fs.writeFileSync(docPath, text);
 }
@@ -203,4 +249,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { countsFrom, dirtyTests, formatNumber, patchDoc, summaryLine };
+module.exports = { countsFrom, dirtyTests, formatNumber, patchDoc, summaryLine, unnamedTests };
