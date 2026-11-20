@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { CPU_WINDOW_MS, readSystemStats } from './server/systemLoad.cjs';
 
 /**
@@ -24,22 +24,49 @@ describe('readSystemStats', () => {
   });
 
   it('espera la ventana de medida en vez de devolver un 0% inventado', async () => {
-    await readSystemStats();
-
     // Two readings in the same instant describe no elapsed time, so the second
-    // call waits out the window before it answers.
-    const started = Date.now();
-    const stats = await readSystemStats();
-    const elapsed = Date.now() - started;
+    // call waits out the window before it answers. The clock is faked because a
+    // real one measures the machine as much as the code: between the sample the
+    // first read keeps and its return, the function walks `os.cpus()` again for
+    // `cores`, and on a loaded runner those 60 ms come out of the wait -- a 239 ms
+    // answer once put this red with nothing wrong. With a fake clock the reading
+    // is still pending one millisecond before the window and resolves when it is
+    // due, which is stricter than the margin was and cannot flake.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    try {
+      // A fresh module, so its first sample is taken at the faked instant and the
+      // second call owes the whole window rather than the remainder of one.
+      vi.resetModules();
+      const fresh = (await import('./server/systemLoad.cjs')) as {
+        CPU_WINDOW_MS: number;
+        readSystemStats: () => Promise<{ cpuPercent: number | null }>;
+      };
 
-    // The window is the contract, not the literal 250 that used to be here. A
-    // timer that fires a few milliseconds early on a busy machine, or a clock
-    // read a tick out, is not the bug this guards against -- returning instantly
-    // with an invented 0% is -- and asserting the exact number put a red run on
-    // a suite where nothing was wrong. The margin keeps the meaning: an answer
-    // that did not wait cannot land within 50ms of the window.
-    expect(elapsed).toBeGreaterThanOrEqual(CPU_WINDOW_MS - 50);
-    expect(stats.cpuPercent).toBeGreaterThanOrEqual(0);
+      const first = fresh.readSystemStats();
+      await vi.advanceTimersByTimeAsync(fresh.CPU_WINDOW_MS);
+      await first;
+
+      const started = Date.now();
+      let settled = false;
+      const second = fresh.readSystemStats().then((stats) => {
+        settled = true;
+        return stats;
+      });
+
+      await vi.advanceTimersByTimeAsync(CPU_WINDOW_MS - 1);
+      expect(settled).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(1);
+      const stats = await second;
+      expect(settled).toBe(true);
+      expect(Date.now() - started).toBe(CPU_WINDOW_MS);
+      // No real time passed for the CPU counters, so there is no percentage to
+      // report and the reading is null rather than an invented 0. What the value
+      // must be is the first test's business, where the window is real.
+      expect(stats.cpuPercent === null || stats.cpuPercent >= 0).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('devuelve la forma que consume el panel de información', async () => {
