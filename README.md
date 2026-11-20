@@ -81,6 +81,7 @@ Hay variables que pone el propio proceso y no se configuran a mano: `OMNI_SESSIO
 | `npm run electron:build`   | Build + `electron-builder`; Windows, AppImage y `.deb` en `release/`.                      |
 | `npm test`                 | Suite unitaria (Vitest).                                                                   |
 | `npm run test:e2e`         | Playwright; arranca `dev` y `server` en puertos que pide al sistema, y los para al acabar. |
+| `npm run test:counts`      | Reescribe el recuento de la suite y el commit medido en la nota (`--doc`, `--write`).      |
 | `npm run lint`             | `tsc --noEmit` (tipos).                                                                    |
 | `npm run lint:eslint`      | ESLint sobre `src` con `--max-warnings 0`.                                                 |
 | `npm run typecheck:strict` | Tipos con `strict` y avisos de código muerto, que el tsconfig base no activa.              |
@@ -362,6 +363,20 @@ Tampoco sirve `/D=` para elegir carpeta cuando se instala así. En la misma prue
 ```
 
 Ese orden es el de la checklist: el paso 6 se cierra instalando en una máquina que se pueda tirar o desinstalando lo que se instaló, y la copia sirve sobre todo para el paso 7, porque el updater solo existe en la instalación NSIS. Una copia que se queda en `C:\Program Files` no daña nada, pero ocupa sitio y sale en «Aplicaciones instaladas» de todos los usuarios de la máquina.
+
+### Actualizar las cifras de una nota
+
+La sección «Tests» de una nota de release no se escribe a mano: `npm run test:counts` corre la suite y reescribe sólo los números que la nota ya cita —el total de la frase y los `N casos` de cada fichero nombrado— junto con el commit donde se midieron. La prosa, la lista de ficheros y las tablas se quedan como están, y un fichero nuevo no entra solo: hay que nombrarlo en la nota primero.
+
+```bash
+npm run test:counts -- --doc docs/releases/1.0.53.md          # qué cambiaría
+npm run test:counts -- --doc docs/releases/1.0.53.md --write  # lo escribe
+npm run test:counts                                           # el recuento, sin doc
+```
+
+Sin `--write` el fichero no se toca: imprime una línea `would change` por cada número que cambiaría, `kept` por cada uno que ya coincide, y termina con `already quotes these numbers` cuando no hay nada que hacer. Con `--write` escribe el fichero y deja las mismas líneas con `changed` como registro de lo que movió. El commit que se sella sale de `git rev-parse --short=7 HEAD`, y por eso la corrida se niega a empezar si hay algún `.test.ts` modificado o sin seguimiento —`uncommitted test changes: …`—: los números vendrían del árbol de trabajo y el sha de un commit que no los contiene. El orden es commitear el trabajo, medir y commitear la nota con ese sha.
+
+Dos cosas más cortan la corrida antes de escribir nada: una suite que no pasa (`the suite did not pass`), porque el recuento de un rojo no describe nada, y un fichero que la nota cuenta y la corrida no produjo (`the run has no results for …`), que es el caso en que la nota y los tests se separaron y reescribir el número taparía el hueco. Los fallos salen como `::error::…` y el proceso termina con estado 1, así que el script se puede correr tal cual en un workflow.
 
 ### Checklist de una release
 
