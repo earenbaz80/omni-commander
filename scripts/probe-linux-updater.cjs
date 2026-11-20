@@ -20,9 +20,10 @@
 // `--installed` makes the adapter report another version, so the published feed
 // can be asked the way a machine that still runs the previous release asks it:
 // the updater compares against that number, and the check still fails if the
-// feed does not offer the cut in `--version`. Both numbers have to sit on the
-// same channel: a copy reads the feed file of its own channel, so a stable one
-// is never offered a beta cut, and a mismatch is refused before any request.
+// feed does not offer the cut in `--version`. The simulated copy and the request
+// have to sit on the same channel: a copy reads the feed file of its own channel,
+// so a stable one is never offered a beta cut, and a mismatch is refused before
+// any request. The channel compared is the effective one, `--channel` included.
 const fs = require('node:fs');
 const http = require('node:http');
 const https = require('node:https');
@@ -117,13 +118,15 @@ function feedError(error) {
 async function probe({ version, installed = null, owner, repo, channel = channelOf(version) }) {
   const { DebUpdater } = require('electron-updater');
   if (installed === version) throw new Error('--installed is the version of the copy, not the cut it should find');
-  // A copy reads the feed file of its own channel and nothing else, so a stable
-  // number asked against a beta cut describes no machine -- and if the request
-  // went out anyway, the version error below would blame this tree for a mistake
-  // in the arguments.
-  if (installed != null && channelOf(installed) !== channelOf(version)) {
+  // A copy reads the feed file of its own channel and nothing else, so a copy
+  // whose number sits on another channel describes no machine -- and if the
+  // request went out anyway, the version error below would blame this tree for a
+  // mistake in the arguments. Compared against `channel`, not the cut's own
+  // suffix: an explicit `--channel` is what the request asks for, and a copy that
+  // never reads that file answers a question nobody asks.
+  if (installed != null && channelOf(installed) !== channel) {
     throw new Error(
-      `--installed ${installed} reads ${feedFile(channelOf(installed))} while --version ${version} writes ${feedFile(channelOf(version))}; a copy on one channel is never offered a cut on another`,
+      `--installed ${installed} reads ${feedFile(channelOf(installed))} while this probe asks for ${feedFile(channel)}; a copy on one channel is never offered a cut on another`,
     );
   }
   const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-updater-'));

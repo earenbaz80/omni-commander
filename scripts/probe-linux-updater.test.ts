@@ -7,7 +7,11 @@ import { createRequire } from 'node:module';
 const loadCjs = createRequire(import.meta.url);
 const { channelOf, probe } = loadCjs('./probe-linux-updater.cjs') as {
   channelOf: (version: string) => string | null;
-  probe: (input: { version: string; installed?: string }) => Promise<{ version: string; files: unknown[] }>;
+  probe: (input: {
+    version: string;
+    installed?: string;
+    channel?: string | null;
+  }) => Promise<{ version: string; files: unknown[] }>;
 };
 
 describe('the channel a version asks for', () => {
@@ -40,13 +44,23 @@ describe('the copy a probe simulates', () => {
   // cut, which points at the wrong thing: the arguments are what disagree.
   it('refuses a stable copy when the cut is a prerelease', async () => {
     await expect(probe({ version: '1.0.54-beta.1', installed: '1.0.53' })).rejects.toThrow(
-      /--installed 1\.0\.53 reads latest-linux\.yml while --version 1\.0\.54-beta\.1 writes beta-linux\.yml/,
+      /--installed 1\.0\.53 reads latest-linux\.yml while this probe asks for beta-linux\.yml/,
     );
   });
 
   it('refuses a beta copy when the cut is stable', async () => {
     await expect(probe({ version: '1.0.53', installed: '1.0.50-beta.1' })).rejects.toThrow(
-      /--installed 1\.0\.50-beta\.1 reads beta-linux\.yml while --version 1\.0\.53 writes latest-linux\.yml/,
+      /--installed 1\.0\.50-beta\.1 reads beta-linux\.yml while this probe asks for latest-linux\.yml/,
+    );
+  });
+
+  // `--channel` overrides the channel the cut's suffix implies, so the two
+  // numbers can agree with each other and the request still land on a feed the
+  // copy never reads. The guard has to compare against what the probe asks for,
+  // which is the effective channel, not the one `--version` spells out.
+  it('refuses a copy whose channel is not the one --channel asks for', async () => {
+    await expect(probe({ version: '1.0.53', installed: '1.0.52', channel: 'beta' })).rejects.toThrow(
+      /--installed 1\.0\.52 reads latest-linux\.yml while this probe asks for beta-linux\.yml/,
     );
   });
 });
