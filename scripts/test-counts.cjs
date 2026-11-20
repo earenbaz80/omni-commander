@@ -169,7 +169,7 @@ function testsChangedSince(root = ROOT) {
   const name = tag.stdout.trim();
   const run = spawnSync(
     'git',
-    ['diff', '--name-only', '--diff-filter=AMR', '--find-renames', `${name}..HEAD`, '--', '*.test.ts', '*.test.tsx'],
+    ['diff', '--name-only', '--diff-filter=AMR', `${name}..HEAD`, '--', '*.test.ts', '*.test.tsx'],
     { cwd: root, encoding: 'utf8' },
   );
   if (run.status !== 0) throw new Error(`git could not compare the tests with ${name}: ${(run.stderr ?? '').trim()}`);

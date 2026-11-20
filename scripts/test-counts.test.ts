@@ -250,4 +250,28 @@ describe('warning about a test file the note leaves out', () => {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  // A clone can turn rename detection off in its own config, and git then reports
+  // the move as a deletion plus an addition instead of a rename. The answer still
+  // has to be the new path in that shape, which is what this pins.
+  it('finds a rename when the repository turns rename detection off', () => {
+    const { dir, git } = taggedRepo();
+    const lines = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf', 'hotel'];
+    const body = (names: string[]) => names.map((name) => `it('${name}', () => {});`).join('\n') + '\n';
+
+    try {
+      git('config', 'diff.renames', 'false');
+      fs.writeFileSync(path.join(dir, 'before.test.ts'), body(lines));
+      git('add', '.');
+      git('commit', '-qm', 'first');
+      git('tag', 'v1.0.0');
+      git('mv', 'before.test.ts', 'after.test.ts');
+      fs.writeFileSync(path.join(dir, 'after.test.ts'), body([...lines, 'india']));
+      git('commit', '-qam', 'rename and expand');
+
+      expect(testsChangedSince(dir)).toEqual({ tag: 'v1.0.0', files: ['after.test.ts'] });
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
