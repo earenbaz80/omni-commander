@@ -13,9 +13,12 @@ const {
   countsFrom,
   dirtyTests,
   formatNumber,
+  namedTestsOf,
   noteVersion,
   patchDoc,
   previousRelease,
+  releaseCommit,
+  releaseTagOf,
   stampIsStale,
   testsChangedSince,
   unnamedTests,
@@ -34,8 +37,11 @@ const {
     named: string[];
     measuredAt: string;
   };
+  namedTestsOf: (text: string) => string[];
   noteVersion: (doc: string) => string | null;
   previousRelease: (tags: string[], version: string) => string | null;
+  releaseCommit: (tag: string, root?: string) => string | null;
+  releaseTagOf: (doc: string) => string | null;
   stampIsStale: (measuredAt: string, commit: string, countsChanged: boolean, root?: string) => boolean;
   unnamedTests: (counts: Counts, named: Set<string>, changed: string[]) => { file: string; cases: number }[];
   testsChangedSince: (base: string, end: string, root?: string) => string[];
@@ -143,6 +149,10 @@ describe('rewriting the numbers in a release note', () => {
     expect(() => patchDoc('La suite cerró en **1 563 passed, 9 skipped de 1 572**.', countsFrom(report))).toThrow(
       /does not say which commit the numbers were measured at/,
     );
+  });
+
+  it('lists the counted test files the doc names, in order', () => {
+    expect(namedTestsOf(doc)).toEqual(['scripts/previous-release.test.ts', 'scripts/probe-linux-updater.test.ts']);
   });
 });
 
@@ -303,6 +313,12 @@ describe('the window a note is checked against', () => {
     expect(noteVersion('README.md')).toBeNull();
   });
 
+  it('builds the tag from the note name, prerelease included', () => {
+    expect(releaseTagOf('docs/releases/1.0.53.md')).toBe('v1.0.53');
+    expect(releaseTagOf('docs/releases/1.0.50-beta.1.md')).toBe('v1.0.50-beta.1');
+    expect(releaseTagOf('README.md')).toBeNull();
+  });
+
   it('picks the release before that version, never a prerelease', () => {
     const tags = ['v1.0.53', 'v1.0.52', 'v1.0.50-beta.1', 'v1.0.10', 'v1.0.9'];
 
@@ -327,6 +343,26 @@ describe('the window a note is checked against', () => {
 
       expect(testsChangedSince('v1.0.0', measured, dir)).toEqual(['in-release.test.ts']);
       expect(testsChangedSince('v1.0.0', 'HEAD', dir)).toEqual(['in-release.test.ts', 'later.test.ts']);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+// The note's version may already have a tag: the release was cut, and everything
+// after it belongs to the next note. The tool needs that commit to close the
+// window at the release instead of following HEAD.
+describe('the release a note belongs to', () => {
+  it('finds the commit a release tag points at, and null without the tag', () => {
+    const { dir, git } = taggedRepo();
+
+    try {
+      git('commit', '--allow-empty', '-qm', 'release');
+      git('tag', 'v1.0.0');
+      const released = git('rev-parse', 'HEAD').trim();
+
+      expect(releaseCommit('v1.0.0', dir)).toBe(released);
+      expect(releaseCommit('v1.0.1', dir)).toBeNull();
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

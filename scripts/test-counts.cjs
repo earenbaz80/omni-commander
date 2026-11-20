@@ -125,6 +125,12 @@ function patchDoc(text, counts) {
   };
 }
 
+/** The counted test files `text` names, in order. */
+function namedTestsOf(text) {
+  COUNTED_FILE.lastIndex = 0;
+  return [...text.matchAll(COUNTED_FILE)].map((match) => match[2]);
+}
+
 /** Whether the note's stamp has aged: the numbers moved, or a counted test
  * changed after the measurement. A commit that only touches documentation cannot
  * move either, so the commit that adds the note must not make its own stamp
@@ -152,6 +158,13 @@ function unnamedTests(counts, named, changed) {
 function noteVersion(doc) {
   const match = /^(\d+\.\d+\.\d+)(?:-[0-9A-Za-z.-]+)?$/.exec(path.basename(doc, '.md'));
   return match == null ? null : match[1];
+}
+
+/** The tag the note's file name points at, suffix included: a prerelease note
+ * closes on its own tag, not on the stable one for the same line. */
+function releaseTagOf(doc) {
+  const base = path.basename(doc, '.md');
+  return /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(base) ? `v${base}` : null;
 }
 
 /** The release tag just before `version`: the base the note's list is measured
@@ -221,6 +234,15 @@ function testsChangedSince(base, end, root = ROOT) {
   return run.stdout.split('\n').filter(Boolean);
 }
 
+/** The commit a release tag points at, or null when the tag does not exist. */
+function releaseCommit(tag, root = ROOT) {
+  const run = spawnSync('git', ['rev-parse', '--verify', '--quiet', `refs/tags/${tag}^{commit}`], {
+    cwd: root,
+    encoding: 'utf8',
+  });
+  return run.status === 0 ? run.stdout.trim() : null;
+}
+
 /** Asks the suite for its report: the numbers come from the run, not from a guess. */
 function measure() {
   if (!fs.existsSync(VITEST)) throw new Error(`vitest is not installed; run npm ci first`);
@@ -257,6 +279,27 @@ function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.write && options.doc == null) throw new Error('--write needs --doc <file>');
 
+  const version = options.doc == null ? null : noteVersion(options.doc);
+  const base = version == null ? null : previousRelease(releaseTags(), version);
+  const tag = options.doc == null ? null : releaseTagOf(options.doc);
+  const released = tag == null ? null : releaseCommit(tag);
+
+  // A published note describes the tree its tag shipped. Checking it against HEAD
+  // would make every later release ask it to be re-sealed with tests it never
+  // carried, so its list is checked once against the tag and nothing is rewritten.
+  if (options.doc != null && released != null) {
+    console.log(`the note is closed at ${tag} (${released.slice(0, 7)}); nothing to re-seal`);
+    if (base == null) {
+      console.log(`no release tag before ${version}; the note's list was not checked`);
+      return;
+    }
+    const named = new Set(namedTestsOf(fs.readFileSync(path.resolve(ROOT, options.doc), 'utf8')));
+    for (const file of testsChangedSince(base, released)) {
+      if (!named.has(file)) console.log(`unnamed ${file}: changed since ${base} and not named in ${options.doc}`);
+    }
+    return;
+  }
+
   assertMeasuredTreeIsCommitted();
   const counts = measure();
   const commit = headCommit();
@@ -291,8 +334,6 @@ function main() {
     updated.push(`the commit: ${measuredAt} -> ${commit}`);
     text = text.replace(MEASURED_AT, `$1${commit}$3`);
   } else kept.push(`the commit: ${measuredAt}`);
-  const version = noteVersion(options.doc);
-  const base = version == null ? null : previousRelease(releaseTags(), version);
   const changed = base == null ? [] : testsChangedSince(base, options.write ? commit : measuredAt);
   for (const line of kept) console.log(`kept ${line}`);
   for (const line of updated) console.log(`${options.write ? 'changed' : 'would change'} ${line}`);
@@ -318,9 +359,12 @@ module.exports = {
   dirtyTests,
   formatNumber,
   measuredAtOf,
+  namedTestsOf,
   noteVersion,
   patchDoc,
   previousRelease,
+  releaseCommit,
+  releaseTagOf,
   stampIsStale,
   summaryLine,
   testsChangedSince,
