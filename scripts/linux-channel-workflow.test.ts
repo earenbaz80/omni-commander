@@ -35,4 +35,15 @@ describe('the Linux update channel', () => {
     expect(probe).toBeGreaterThan(channel);
     expect(release.split(PROBE)).toHaveLength(2);
   });
+
+  // Whether a machine that has not updated is offered this cut was answered by
+  // hand, with a version typed on the command line, which goes stale. The step
+  // reads the previous release from the page and asks the probe as that copy.
+  it('asks the feed as the previous release copy in the preflight', () => {
+    const preflight = text('.github/workflows/linux-preflight.yml');
+    expect(preflight).toContain('node scripts/previous-release.cjs --current "$version"');
+    expect(preflight).toContain('node scripts/probe-linux-updater.cjs --version "$version" --installed "$previous"');
+    // The fallback is a reported skip, not a failure of the cut.
+    expect(preflight).toMatch(/if \[ -z "\$previous" \]; then[\s\S]*?exit 0/);
+  });
 });

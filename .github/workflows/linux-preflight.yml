@@ -533,3 +533,36 @@ jobs:
             echo "- channel: \`latest-linux.yml\`, downloaded from the release"
             echo "- verdict: DebUpdater found both packages in it"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # The step above proves this cut finds its own feed; this one proves a
+      # machine that has not updated yet is offered it, which is the question that
+      # used to be answered by hand. The copy simulated is the last published
+      # stable release before this one, read from the page: a version written here
+      # would go stale, and failing because the release aged out says nothing
+      # about the app. With no earlier release the step reports the fallback and
+      # carries on -- the first stable cut has no installed copy behind it.
+      - name: Ask the feed the way the previous release's copy does
+        shell: bash
+        env:
+          NODE_PATH: ${{ github.workspace }}/probe-deps/node_modules
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          previous=$(node scripts/previous-release.cjs --current "$version")
+          if [ -z "$previous" ]; then
+            echo "::notice::v$version is the first stable release; there is no older copy to simulate"
+            {
+              echo "### A copy of the previous release"
+              echo
+              echo "- no earlier stable release on the page, so no older copy was asked"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          node scripts/probe-linux-updater.cjs --version "$version" --installed "$previous"
+          {
+            echo "### A copy at $previous"
+            echo
+            echo "- asked the feed as an installed $previous and the updater offered v$version"
+            echo "- the same two packages and sha512 prefixes as the updater on this cut"
+          } >> "$GITHUB_STEP_SUMMARY"
