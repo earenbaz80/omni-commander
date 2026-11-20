@@ -39,6 +39,11 @@ let cpuTimes = readCpuTimes();
 // Last real measurement, kept so two requests landing in the same instant still
 // get the previous load instead of null.
 let lastCpuPercent = null;
+// Read once: the number of cores does not change while the process runs, and
+// doing it per reading put a second walk over os.cpus() between the sample this
+// module keeps and the value it returns -- time the next caller saw as part of
+// its window.
+const CORES = os.cpus().length;
 
 async function readSystemStats() {
   const since = Date.now() - cpuTimes.at;
@@ -59,7 +64,7 @@ async function readSystemStats() {
   // itself reports as in use.
   const totalRam = os.totalmem();
   return {
-    cores: os.cpus().length,
+    cores: CORES,
     cpuPercent: lastCpuPercent,
     ramTotalBytes: totalRam,
     ramUsedBytes: Math.max(0, totalRam - os.freemem()),
