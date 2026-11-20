@@ -42,13 +42,17 @@ describe('the Linux update channel', () => {
 
   // Whether a machine that has not updated is offered this cut was answered by
   // hand, with a version typed on the command line, which goes stale. Both paths
-  // read the previous release from the page and ask the probe as that copy: the
-  // preflight proves it before a tag and the tag path proves it on the cut.
+  // read the previous release of this cut's channel from the page and ask the
+  // probe as that copy: the preflight proves it before a tag and the tag path
+  // proves it on the cut.
   it.each(WORKFLOWS)('%s asks the feed as the previous release copy', (file) => {
     const workflow = text(file);
     expect(workflow).toContain('node scripts/previous-release.cjs --current "$version"');
     expect(workflow).toContain('node scripts/probe-linux-updater.cjs --version "$version" --installed "$previous"');
-    // The fallback is a reported skip, not a failure of the cut.
+    // The fallback is a reported skip, not a failure of the cut, and it names
+    // the channel: a first beta has nothing to simulate even with stable cuts
+    // on the page, so the notice cannot call itself the first stable release.
     expect(workflow).toMatch(/if \[ -z "\$previous" \]; then[\s\S]*?exit 0/);
+    expect(workflow).toContain('no earlier release on its channel');
   });
 });

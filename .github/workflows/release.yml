@@ -822,13 +822,16 @@ jobs:
       # The step above proves this cut finds its own feed; a copy that has not
       # updated yet is the one that needs to be told, and that question was
       # answered by hand until the preflight got the same block. The version is
-      # the last published stable release before this one, read from the page
-      # rather than written here: a number in this file goes stale, and drafts and
-      # pre-releases are skipped because the copies behind them ask for another
-      # channel. With no earlier release it reports the fallback and carries on --
-      # the first stable cut has no installed copy behind it. The retries are the
-      # same lag as the step above: right after publishing, `/releases/latest` can
-      # still answer with the previous cut.
+      # the last published release of this cut's own channel, read from the page
+      # rather than written here: a number in this file goes stale, and a stable
+      # number would describe nobody here if this cut is a beta -- a stable copy
+      # reads `latest-linux.yml` and never `beta-linux.yml`, which is what the
+      # probe asks for a `-beta.1` version. Drafts are skipped, because no copy
+      # installs from a page nobody can see. With no earlier release on the
+      # channel it reports the fallback and carries on -- the first cut of a
+      # channel has no installed copy behind it. The retries are the same lag as
+      # the step above: right after publishing, `/releases/latest` can still
+      # answer with the previous cut.
       - name: Ask the feed the way the previous release's copy does
         shell: bash
         env:
@@ -839,7 +842,7 @@ jobs:
           version=$(node -p "require('./package.json').version")
           previous=$(node scripts/previous-release.cjs --current "$version")
           if [ -z "$previous" ]; then
-            echo "::notice::v$version is the first stable release; there is no older copy to simulate"
+            echo "::notice::v$version has no earlier release on its channel; there is no older copy to simulate"
             exit 0
           fi
           offered=false

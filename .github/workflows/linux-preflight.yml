@@ -537,10 +537,13 @@ jobs:
       # The step above proves this cut finds its own feed; this one proves a
       # machine that has not updated yet is offered it, which is the question that
       # used to be answered by hand. The copy simulated is the last published
-      # stable release before this one, read from the page: a version written here
-      # would go stale, and failing because the release aged out says nothing
-      # about the app. With no earlier release the step reports the fallback and
-      # carries on -- the first stable cut has no installed copy behind it.
+      # release of this cut's own channel, read from the page: a version written
+      # here would go stale, and failing because the release aged out says nothing
+      # about the app. The channel matters: a `-beta.1` cut writes its feed to
+      # `beta-linux.yml` and a stable copy never asks for that file, so a stable
+      # number would simulate a client that cannot be offered anything. With no
+      # earlier release on the channel the step reports the fallback and carries
+      # on -- the first cut of a channel has no installed copy behind it.
       - name: Ask the feed the way the previous release's copy does
         shell: bash
         env:
@@ -551,11 +554,11 @@ jobs:
           version=$(node -p "require('./package.json').version")
           previous=$(node scripts/previous-release.cjs --current "$version")
           if [ -z "$previous" ]; then
-            echo "::notice::v$version is the first stable release; there is no older copy to simulate"
+            echo "::notice::v$version has no earlier release on its channel; there is no older copy to simulate"
             {
               echo "### A copy of the previous release"
               echo
-              echo "- no earlier stable release on the page, so no older copy was asked"
+              echo "- no earlier release on this channel, so no older copy was asked"
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
