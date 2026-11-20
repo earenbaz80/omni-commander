@@ -5,10 +5,15 @@ import { createRequire } from 'node:module';
 // CommonJS so the workflow can run it with plain `node`; the test loads the same
 // module the CLI runs.
 const loadCjs = createRequire(import.meta.url);
-const { countsFrom, formatNumber, patchDoc } = loadCjs('./test-counts.cjs') as {
+const { countsFrom, dirtyTests, formatNumber, patchDoc } = loadCjs('./test-counts.cjs') as {
+  dirtyTests: (status: string) => string[];
   formatNumber: (value: number) => string;
   countsFrom: (report: Report) => Counts;
-  patchDoc: (text: string, counts: Counts) => { text: string; updated: string[]; kept: string[]; missing: string[] };
+  patchDoc: (
+    text: string,
+    counts: Counts,
+    commit: string,
+  ) => { text: string; updated: string[]; kept: string[]; missing: string[] };
 };
 
 interface Report {
@@ -61,19 +66,20 @@ describe('the counts a run reports', () => {
 // prose around them is the part nobody wants a script editing.
 describe('rewriting the numbers in a release note', () => {
   const doc = [
-    'La suite cerró en **1 568 passed, 9 skipped de 1 577** con el árbol de estas',
-    'notas. Los ficheros nuevos o ampliados son',
+    'La suite cerró en **1 568 passed, 9 skipped de 1 577**, medidos en `0591322`.',
+    'Los ficheros nuevos o ampliados son',
     '`scripts/previous-release.test.ts` (8 casos sobre el selector) y',
     '`scripts/probe-linux-updater.test.ts` (7 casos: la elección de canal).',
   ].join('\n');
+  const commit = 'e241ed8';
 
-  it('updates the totals and every file the doc counts, and nothing else', () => {
-    const patched = patchDoc(doc, countsFrom(report));
+  it('updates the totals, the files and the commit, and nothing else', () => {
+    const patched = patchDoc(doc, countsFrom(report), commit);
 
     expect(patched.text).toBe(
       [
-        'La suite cerró en **1 563 passed, 9 skipped de 1 572** con el árbol de estas',
-        'notas. Los ficheros nuevos o ampliados son',
+        'La suite cerró en **1 563 passed, 9 skipped de 1 572**, medidos en `e241ed8`.',
+        'Los ficheros nuevos o ampliados son',
         '`scripts/previous-release.test.ts` (11 casos sobre el selector) y',
         '`scripts/probe-linux-updater.test.ts` (8 casos: la elección de canal).',
       ].join('\n'),
@@ -82,29 +88,63 @@ describe('rewriting the numbers in a release note', () => {
       'scripts/previous-release.test.ts: 8 -> 11 casos',
       'scripts/probe-linux-updater.test.ts: 7 -> 8 casos',
       'the suite: **1 568 passed, 9 skipped de 1 577** -> **1 563 passed, 9 skipped de 1 572**',
+      'the commit: 0591322 -> e241ed8',
     ]);
     expect(patched.missing).toEqual([]);
   });
 
   it('reports what already matched instead of writing the same file twice', () => {
-    const patched = patchDoc(patchDoc(doc, countsFrom(report)).text, countsFrom(report));
+    const patched = patchDoc(patchDoc(doc, countsFrom(report), commit).text, countsFrom(report), commit);
 
     expect(patched.updated).toEqual([]);
-    expect(patched.kept).toHaveLength(3);
+    expect(patched.kept).toHaveLength(4);
   });
 
   // A file the doc counts that the run never produced means the prose and the tree
   // have separated; leaving the number alone is the only honest answer.
   it('names a counted file the run has no results for', () => {
-    const patched = patchDoc(doc.replace('probe-linux-updater.test.ts', 'gone.test.ts'), countsFrom(report));
+    const patched = patchDoc(doc.replace('probe-linux-updater.test.ts', 'gone.test.ts'), countsFrom(report), commit);
 
     expect(patched.missing).toEqual(['scripts/gone.test.ts']);
     expect(patched.text).toContain('`scripts/gone.test.ts` (7 casos: la elección de canal).');
   });
 
-  it('refuses a doc that quotes no totals at all', () => {
+  // Both halves of the sentence are load-bearing: without the totals there is
+  // nothing to place, and without the commit the note would describe "today"
+  // again -- the thing that kept ageing it.
+  it('refuses a doc it cannot place: no totals, or no commit', () => {
     expect(() =>
-      patchDoc('Los ficheros nuevos son `scripts/previous-release.test.ts` (11 casos).', countsFrom(report)),
+      patchDoc('Los ficheros nuevos son `scripts/previous-release.test.ts` (11 casos).', countsFrom(report), commit),
     ).toThrow(/quotes no "N passed, N skipped de N" sentence/);
+    expect(() =>
+      patchDoc('La suite cerró en **1 563 passed, 9 skipped de 1 572**.', countsFrom(report), commit),
+    ).toThrow(/does not say which commit the numbers were measured at/);
+  });
+});
+
+// The numbers come from the working tree; the commit that gets stamped is the last
+// one, which does not contain that tree. A note naming it would describe a suite
+// with other counts, so the run has to stop instead.
+describe('telling whether the measured tree is the committed one', () => {
+  it('picks out the test files the tree has changed, and only those', () => {
+    const status = [
+      ' M scripts/probe-linux-updater.test.ts',
+      '?? scripts/test-counts.test.ts',
+      ' D scripts/gone.test.tsx',
+      ' M docs/releases/1.0.53.md',
+      ' M scripts/test-counts.cjs',
+      ' M README.md',
+    ].join('\n');
+
+    expect(dirtyTests(status)).toEqual([
+      'scripts/probe-linux-updater.test.ts',
+      'scripts/test-counts.test.ts',
+      'scripts/gone.test.tsx',
+    ]);
+  });
+
+  it('finds nothing to complain about in a tree whose tests are all committed', () => {
+    expect(dirtyTests('')).toEqual([]);
+    expect(dirtyTests(' M docs/releases/1.0.53.md\n M scripts/test-counts.cjs\n')).toEqual([]);
   });
 });

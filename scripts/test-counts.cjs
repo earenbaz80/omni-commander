@@ -12,6 +12,10 @@
 // rather than a silent zero -- that is the case where the prose and the tree have
 // separated, and rewriting the number would hide it.
 //
+// The sentence also names the commit whose tree was measured. That is what keeps
+// the note from ageing: it describes that commit, so a test added afterwards does
+// not make it wrong. `--write` stamps `HEAD`, which is the tree it just measured.
+//
 // Usage: node scripts/test-counts.cjs [--doc <file>] [--write]
 // Without `--doc` it lists every file's case count; `--write` needs one.
 const fs = require('node:fs');
@@ -53,14 +57,15 @@ function summaryLine(counts) {
 }
 
 const SUMMARY = /\*\*[\d ]+ passed, [\d ]+ skipped de [\d ]+\*\*/;
+const MEASURED_AT = /(medidos en `)([0-9a-f]{7,40})(`)/;
 // Any `` `scripts/x.test.ts` (N casos `` in the doc: the number in front of the
 // prose is the only part this owns. The gap is `\s+` because the paragraph wraps,
 // and a path that ends a line opens the parenthesis on the next one.
 const COUNTED_FILE = /(`([^`]+\.test\.tsx?)`\s+\()(\d+)( casos)/g;
 
-/** Rewrites the numbers in `text`; returns what changed, what already matched and
- * what the run could not answer for. */
-function patchDoc(text, counts) {
+/** Rewrites the numbers and the commit in `text`; returns what changed, what
+ * already matched and what the run could not answer for. */
+function patchDoc(text, counts, commit) {
   const updated = [];
   const kept = [];
   const missing = [];
@@ -89,8 +94,45 @@ function patchDoc(text, counts) {
       `the suite: ${formatNumber(counts.passed)} passed, ${formatNumber(counts.skipped)} skipped de ${formatNumber(counts.total)}`,
     );
   else updated.push(`the suite: ${found[0]} -> ${summary}`);
+  const stamped = patched.replace(found[0], summary);
 
-  return { text: patched.replace(found[0], summary), updated, kept, missing };
+  const at = MEASURED_AT.exec(stamped);
+  if (at == null) throw new Error('the doc does not say which commit the numbers were measured at');
+  if (at[2] === commit) kept.push(`the commit: ${commit}`);
+  else updated.push(`the commit: ${at[2]} -> ${commit}`);
+
+  return { text: stamped.replace(at[0], `${at[1]}${commit}${at[3]}`), updated, kept, missing };
+}
+
+/** The test files the working tree has changed. */
+function dirtyTests(status) {
+  return status
+    .split('\n')
+    .map((line) => line.slice(3).trim())
+    .filter((file) => /\.test\.tsx?$/.test(file));
+}
+
+/** The numbers come from the working tree, but the commit they are stamped with
+ * would not contain it: the note would name a tree whose suite has other counts. */
+function assertMeasuredTreeIsCommitted() {
+  const run = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
+  if (run.status !== 0) throw new Error(`git could not describe the tree: ${(run.stderr ?? '').trim()}`);
+  const dirty = dirtyTests(run.stdout);
+  if (dirty.length) {
+    throw new Error(
+      `uncommitted test changes: ${dirty.join(', ')}; the suite counts them but the commit it stamps does not contain them`,
+    );
+  }
+}
+
+/** The commit whose tree the numbers describe. */
+function headCommit() {
+  const run = spawnSync('git', ['rev-parse', '--short=7', 'HEAD'], { cwd: ROOT, encoding: 'utf8' });
+  if (run.status !== 0) throw new Error(`git could not name HEAD: ${(run.stderr ?? '').trim()}`);
+  return run.stdout.trim();
 }
 
 /** Asks the suite for its report: the numbers come from the run, not from a guess. */
@@ -129,9 +171,11 @@ function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.write && options.doc == null) throw new Error('--write needs --doc <file>');
 
+  assertMeasuredTreeIsCommitted();
   const counts = measure();
+  const commit = headCommit();
   console.log(
-    `the suite: ${formatNumber(counts.passed)} passed, ${formatNumber(counts.skipped)} skipped de ${formatNumber(counts.total)}`,
+    `the suite: ${formatNumber(counts.passed)} passed, ${formatNumber(counts.skipped)} skipped de ${formatNumber(counts.total)}, measured at ${commit}`,
   );
 
   if (options.doc == null) {
@@ -140,7 +184,7 @@ function main() {
   }
 
   const docPath = path.resolve(ROOT, options.doc);
-  const { text, updated, kept, missing } = patchDoc(fs.readFileSync(docPath, 'utf8'), counts);
+  const { text, updated, kept, missing } = patchDoc(fs.readFileSync(docPath, 'utf8'), counts, commit);
   if (missing.length) {
     throw new Error(`the run has no results for ${missing.join(', ')}, which ${options.doc} counts`);
   }
@@ -159,4 +203,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { countsFrom, formatNumber, patchDoc, summaryLine };
+module.exports = { countsFrom, dirtyTests, formatNumber, patchDoc, summaryLine };
