@@ -1,0 +1,43 @@
+name: Apply README CI fix
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout the helper branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: readme-ci-jobs-helper
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --engine-strict
+
+      - name: Rewrite the CI section
+        run: node scripts/apply-readme-ci-fix.cjs
+
+      - name: Check documentation links
+        run: npm run check:links
+
+      - name: Commit only the README on a clean branch
+        shell: bash
+        run: |
+          git reset --mixed HEAD~1
+          rm .github/workflows/apply-readme-ci-fix.yml scripts/apply-readme-ci-fix.cjs
+          git add README.md
+          git diff --cached --check
+          git -c user.name="earenbaz80" -c user.email="297128986+earenbaz80@users.noreply.github.com" commit -m "docs(readme): describe the eight release jobs and the three-leg Node matrix"
+          git push origin HEAD:refs/heads/docs/readme-ci-jobs
