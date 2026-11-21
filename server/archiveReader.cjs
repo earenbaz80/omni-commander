@@ -471,7 +471,14 @@ function registerArchiveRoutes(app, deps) {
     }
     const candidates = override
       ? [override]
-      : [...(process.env.SystemRoot ? [path.join(process.env.SystemRoot, 'System32', 'tar.exe')] : []), 'tar'];
+      : [
+          ...(process.env.SystemRoot ? [path.join(process.env.SystemRoot, 'System32', 'tar.exe')] : []),
+          'tar',
+          // Debian and Ubuntu keep GNU tar as `tar` and install libarchive's
+          // reader as `bsdtar`; without this candidate the streaming path is
+          // unavailable there even when the package is present.
+          'bsdtar',
+        ];
     for (const candidate of candidates) {
       try {
         const version = execFileSync(candidate, ['--version'], { encoding: 'utf8', timeout: 5000, windowsHide: true });

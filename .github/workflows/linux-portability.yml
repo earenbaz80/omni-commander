@@ -31,6 +31,12 @@ jobs:
           node-version: 22
           cache: npm
 
+      # The streaming archive reader shells out to bsdtar. Ubuntu's `tar` is GNU
+      # tar, so without libarchive-tools the RAR streaming case correctly falls
+      # back to the in-memory ceiling and refuses a file that the app can stream.
+      - name: Install bsdtar
+        run: sudo apt-get update && sudo apt-get install -y libarchive-tools
+
       - name: Install dependencies
         run: npm ci --engine-strict
 
