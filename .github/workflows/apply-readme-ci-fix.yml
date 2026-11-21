@@ -44,4 +44,4 @@ jobs:
           git -c user.name="earenbaz80" -c user.email="297128986+earenbaz80@users.noreply.github.com" commit -m "docs(readme): describe the eight release jobs and the three-leg Node matrix"
           # The README-only commit above already ran check:links; the hook's
           # unrelated archive test would otherwise block the docs branch.
-          git push --no-verify origin HEAD:refs/heads/docs/readme-ci-jobs
+          git push --force --no-verify origin HEAD:refs/heads/docs/readme-ci-jobs

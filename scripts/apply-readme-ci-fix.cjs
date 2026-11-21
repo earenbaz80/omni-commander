@@ -77,7 +77,7 @@ while (coverageEnd < lines.length && !lines[coverageEnd].includes('Por eso la co
 if (coverageEnd >= lines.length) throw new Error('coverage end not found');
 lines.splice(
   coverageStart,
-  coverageEnd - coverageStart,
+  coverageEnd - coverageStart + 1,
   'Esa compuerta no se mide en segundos, y las patas ni siquiera ejecutan lo mismo: la de la última',
   '22.x mide con `test:coverage` y las del suelo y la 24 corren `Unit tests`, porque repetir la suite entera solo para medirla costaría una corrida más.',
   'En las seis corridas más recientes de `master` que se midieron, `Unit tests` tarda 33–48 s (mediana 45) y la variante con cobertura 50–79 s (mediana 72): unos 27 s de diferencia estructurales, que no dicen nada del código.',
