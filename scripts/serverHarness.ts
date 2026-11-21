@@ -1,5 +1,6 @@
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import net from 'node:net';
+import path from 'node:path';
 
 /**
  * Shared spawn/stop for the suites that run the real local drive server.
@@ -47,6 +48,32 @@ export interface TestServer {
   url(route: string): string;
   /** Stops the process and waits for it, so no server outlives its suite. */
   stop(): Promise<void>;
+}
+
+/** The fields of a drive the suites need to address it, as the server reports them. */
+export interface RealDrive {
+  id: string;
+  letter: string;
+  root: string;
+}
+
+/**
+ * The server's own drive containing `folder`. A suite that derives `real_C` from
+ * the first letter of `C:\\Users` works on Windows and invents a drive on POSIX,
+ * where the root is `/` and the server calls it `real_root`; asking the server
+ * avoids encoding either platform's spelling. The longest matching root wins so
+ * a mount under `/` is preferred over `/` itself.
+ */
+export async function driveContaining(server: TestServer, folder: string): Promise<RealDrive> {
+  const drives = (await (await fetch(server.url('/api/drives'))).json()) as RealDrive[];
+  const drive = drives
+    .filter((candidate) => {
+      const prefix = candidate.root.endsWith(path.sep) ? candidate.root : candidate.root + path.sep;
+      return folder === candidate.root || folder.startsWith(prefix);
+    })
+    .sort((a, b) => b.root.length - a.root.length)[0];
+  if (!drive) throw new Error(`no drive contains ${folder}: ${JSON.stringify(drives)}`);
+  return drive;
 }
 
 /**

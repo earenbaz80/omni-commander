@@ -15,7 +15,9 @@ import { renameWithRetry } from './server/fsRetry.cjs';
  * answers with what the file actually is.
  */
 
-const SAFE = /^[A-Za-z]:\\/;
+// A Windows drive or a POSIX root: the route's safety check is about absolute
+// paths, and the scratch folder is wherever the host puts it.
+const SAFE = /^(?:[A-Za-z]:[\\/]|\/)/;
 
 const deps = {
   fs,
@@ -82,11 +84,17 @@ describe('rutas de un solo fichero', () => {
     expect(answer.unchecked).toEqual(['ruta-relativa']);
   });
 
-  it('renombra y rechaza un nombre que Windows no admite', async () => {
+  it('renombra y rechaza un nombre con separadores', async () => {
     const source = path.join(root, 'nota.txt');
     await fs.promises.writeFile(source, 'hola');
-    const invalid = await post('/api/fs/rename', { path: source, newName: 'a:b.txt' });
+    // A separator is invalid on both systems, so this stays a refusal wherever
+    // the suite runs. Windows additionally refuses characters POSIX accepts.
+    const invalid = await post('/api/fs/rename', { path: source, newName: 'a/b.txt' });
     expect(invalid.status).toBe(400);
+    if (path.sep === '\\') {
+      const colon = await post('/api/fs/rename', { path: source, newName: 'a:b.txt' });
+      expect(colon.status).toBe(400);
+    }
 
     const renamed = await (await post('/api/fs/rename', { path: source, newName: 'otra.txt' })).json();
     expect(renamed.path).toBe(path.join(root, 'otra.txt'));

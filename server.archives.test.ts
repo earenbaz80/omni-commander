@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import JSZip from 'jszip';
-import { startServer, type TestServer } from '@/scripts/serverHarness';
+import { driveContaining, startServer, type TestServer } from '@/scripts/serverHarness';
 import { fsEngine } from './src/services/fileSystem';
 import { archiveEntryPath, bytesToBase64 } from './src/services/zipArchive';
 import type { FileItem } from './src/types';
@@ -27,8 +27,8 @@ let archive: FileItem;
 
 beforeAll(async () => {
   root = await fs.mkdtemp(path.join(os.tmpdir(), 'omni-archives-'));
-  driveId = `real_${root[0].toUpperCase()}`;
   server = await startServer({ env: { OMNI_SESSION_TOKEN: '' } });
+  driveId = (await driveContaining(server, root)).id;
   // The engine asks this file's relative `/api/...` routes, so the stub only has
   // to put the port in front of them; an absolute URL is left alone.
   vi.stubGlobal('fetch', (url: string, init?: RequestInit) =>

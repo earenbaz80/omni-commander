@@ -32,7 +32,7 @@ const DELETABLE_BYTES = 1000 + 2000 + 3000;
 const IN_USE_BYTES = 700;
 const FRESH_BYTES = 20 + 50;
 
-let server: TestServer;
+let server: TestServer | undefined;
 let locker: ChildProcess | null = null;
 let root = '';
 let outside = '';
@@ -42,7 +42,7 @@ let lockMarker = '';
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const post = async (route: string, body: unknown) => {
-  const response = await fetch(server.url(`/api/fs/${route}`), {
+  const response = await fetch(server!.url(`/api/fs/${route}`), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -108,6 +108,9 @@ async function holdFileOpen(filePath: string): Promise<void> {
 }
 
 beforeAll(async () => {
+  // The suite's premise is a Windows handle held with FileShare.None; POSIX
+  // unlinks an open file, so there is nothing to reproduce there.
+  if (process.platform !== 'win32') return;
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-cleanup-root-'));
   outside = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-cleanup-outside-'));
 
@@ -145,7 +148,7 @@ beforeAll(async () => {
 }, WINDOWS_PROCESS_CASE_TIMEOUT_MS);
 
 afterAll(async () => {
-  await server.stop();
+  await server?.stop();
   locker?.kill();
 
   // The file held open cannot be deleted until the holding process is gone, and
@@ -171,7 +174,7 @@ afterAll(async () => {
   await remove(outside);
 }, 20000);
 
-describe('POST /api/fs/cleanup/targets', () => {
+describe.runIf(process.platform === 'win32')('POST /api/fs/cleanup/targets', () => {
   it('offers the three folders and flags the two that need elevation', async () => {
     const { status, body } = await post('cleanup/targets', {});
 
@@ -188,7 +191,7 @@ describe('POST /api/fs/cleanup/targets', () => {
   });
 });
 
-describe('POST /api/fs/cleanup/scan', () => {
+describe.runIf(process.platform === 'win32')('POST /api/fs/cleanup/scan', () => {
   it('counts what the age filter would remove, and nothing else', async () => {
     const { status, body } = await post('cleanup/scan', { target: 'user-temp', minAgeDays: 1 });
 
@@ -231,7 +234,7 @@ describe('POST /api/fs/cleanup/scan', () => {
   });
 });
 
-describe('POST /api/fs/cleanup/run', () => {
+describe.runIf(process.platform === 'win32')('POST /api/fs/cleanup/run', () => {
   // The run deletes a file PowerShell is holding with FileShare.None, so how long
   // the refusal takes is up to that process, not to this one.
   it(

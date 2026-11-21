@@ -87,7 +87,7 @@ describe('POST /api/open', () => {
     expect(body).toEqual({ kind: 'folder', path: folder });
   });
 
-  it('expands environment variables like the Run box does', async () => {
+  it.runIf(process.platform === 'win32')('expands environment variables like the Run box does', async () => {
     const { status, body } = await post('%TEMP%');
     expect(status).toBe(200);
     expect(body.kind).toBe('folder');
@@ -133,7 +133,7 @@ describe('POST /api/open', () => {
     expect(body.launched).toBeUndefined();
   });
 
-  it('opens the Start Menu entry whose label was typed', async () => {
+  it.runIf(process.platform === 'win32')('opens the Start Menu entry whose label was typed', async () => {
     const response = await fetch(resolved.url('/api/open'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -147,7 +147,7 @@ describe('POST /api/open', () => {
     expect(body.launched[0]).toBe('rundll32.exe');
   });
 
-  it('opens a label made of more than one word, spaces included', async () => {
+  it.runIf(process.platform === 'win32')('opens a label made of more than one word, spaces included', async () => {
     const response = await fetch(resolved.url('/api/open'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

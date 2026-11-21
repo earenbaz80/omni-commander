@@ -50,14 +50,17 @@ describe('GET /api/run/suggestions', () => {
     expect((await ask('   ')).body.suggestions).toEqual([]);
   });
 
-  it('offers a Start Menu program as the shortcut path it can actually open', async () => {
-    const { status, body } = await ask('notepad');
-    expect(status).toBe(200);
-    const hit = body.suggestions.find((entry: any) => entry.label === 'Notepad++');
-    expect(hit).toBeDefined();
-    expect(hit.kind).toBe('app');
-    expect(hit.value.toLowerCase()).toBe(path.join(root, 'Programs', 'Notepad++.lnk').toLowerCase());
-  });
+  it.runIf(process.platform === 'win32')(
+    'offers a Start Menu program as the shortcut path it can actually open',
+    async () => {
+      const { status, body } = await ask('notepad');
+      expect(status).toBe(200);
+      const hit = body.suggestions.find((entry: any) => entry.label === 'Notepad++');
+      expect(hit).toBeDefined();
+      expect(hit.kind).toBe('app');
+      expect(hit.value.toLowerCase()).toBe(path.join(root, 'Programs', 'Notepad++.lnk').toLowerCase());
+    },
+  );
 
   it('finds a program by a word in the middle of its name', async () => {
     const { body } = await ask('fotos');

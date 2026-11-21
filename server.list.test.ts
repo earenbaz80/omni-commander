@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { startServer, type TestServer } from '@/scripts/serverHarness';
+import { driveContaining, startServer, type TestServer } from '@/scripts/serverHarness';
 
 /**
  * GET /api/list answers a browser that is deciding where to point a pane, a
@@ -19,7 +19,8 @@ import { startServer, type TestServer } from '@/scripts/serverHarness';
 let server: TestServer;
 let root = '';
 let driveId = '';
-let driveLetter = '';
+let driveLabel = '';
+let driveRoot = '';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -34,10 +35,14 @@ beforeAll(async () => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-list-'));
   fs.writeFileSync(path.join(root, 'informe.txt'), 'contenido');
   fs.mkdirSync(path.join(root, 'proyectos'));
-  driveLetter = `${path.parse(root).root.charAt(0).toUpperCase()}:`;
-  driveId = `real_${driveLetter.charAt(0)}`;
 
   server = await startServer({ env: { OMNI_SESSION_TOKEN: '' } });
+  // The drive id is the server's, not one derived from a Windows letter: on
+  // POSIX the root is `/` and the server calls that drive `real_root`.
+  const drive = await driveContaining(server, root);
+  driveId = drive.id;
+  driveLabel = drive.letter;
+  driveRoot = drive.root;
 }, 40000);
 
 afterAll(async () => {
@@ -82,15 +87,15 @@ describe('GET /api/list', () => {
 
   it('keeps refusing an unknown drive and a path outside it', async () => {
     const unknown = await list(root, 'real_ZZZ');
-    const outside = await list(`${driveLetter}\\Windows`, 'real_ZZZ');
+    const outside = await list(path.join(driveRoot, 'Windows'), 'real_ZZZ');
 
     expect(unknown.status).toBe(400);
     expect(unknown.body.error).toBe('Unknown drive');
     expect(outside.status).toBe(400);
   });
 
-  it('still lists the drive root, which the panels address as a bare letter', async () => {
-    const { status, body } = await list(driveLetter);
+  it('still lists the drive root, which the panels address by its own label', async () => {
+    const { status, body } = await list(driveLabel);
 
     expect(status).toBe(200);
     expect(Array.isArray(body)).toBe(true);

@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { startServer, type TestServer } from '@/scripts/serverHarness';
+import { driveContaining, startServer, type TestServer } from '@/scripts/serverHarness';
 
 /**
  * GET /api/treesize exists because the renderer used to build this tree from its
@@ -23,7 +23,6 @@ let bulk = '';
  */
 const BULK_FILES = 1500;
 let driveId = '';
-let driveLetter = '';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -64,10 +63,8 @@ beforeAll(async () => {
   bulk = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-tree-bulk-'));
   for (let i = 0; i < BULK_FILES; i++) fs.writeFileSync(path.join(bulk, `f${i}.txt`), 'x');
 
-  driveLetter = `${path.parse(root).root.charAt(0).toUpperCase()}:`;
-  driveId = `real_${driveLetter.charAt(0)}`;
-
   server = await startServer({ env: { OMNI_SESSION_TOKEN: '' } });
+  driveId = (await driveContaining(server, root)).id;
 }, 60_000);
 
 afterAll(async () => {
@@ -166,7 +163,7 @@ describe('GET /api/treesize', () => {
   it('keeps refusing a folder that is not there, an unknown drive and a path outside it', async () => {
     const missing = await treeSize(path.join(root, 'no-existe'));
     const unknown = await treeSize(root, 'real_ZZZ');
-    const outside = await treeSize(`${driveLetter}\\Windows`, 'real_ZZZ');
+    const outside = await treeSize(path.join(root, '..', 'Windows'), 'real_ZZZ');
 
     expect(missing.status).toBe(404);
     expect(missing.body.error).toContain('Folder not found');

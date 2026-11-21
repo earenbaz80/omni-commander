@@ -3,11 +3,15 @@ import express from 'express';
 import fs from 'node:fs';
 import type { Server } from 'node:http';
 import os from 'node:os';
+import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { registerTransferRoutes } from './server/routes/transfers.cjs';
 import { createPathPolicy } from './server/pathSafety.cjs';
 
-const pathPolicy = createPathPolicy('win32');
+// The routes read the host's policy, so the suite has to as well: a win32 policy
+// calls `/tmp` unsafe and rejects the transfer before the stub can record it.
+const pathPolicy = createPathPolicy(process.platform === 'win32' ? 'win32' : 'linux');
+const DRIVE_ROOT = path.parse(os.tmpdir()).root;
 
 /**
  * The transfer and cleanup routes moved out of `server.cjs`; the queue they drive
@@ -80,7 +84,7 @@ const post = (route: string, body: unknown = {}) =>
 
 describe('rutas de transferencia', () => {
   it('no arranca una copia sin fuentes y deja rastro del rechazo', async () => {
-    const response = await post('/api/fs/copy', { targetDir: 'C:\\destino' });
+    const response = await post('/api/fs/copy', { targetDir: path.join(os.tmpdir(), 'destino') });
     expect(response.status).toBe(400);
     expect(rejected).toContain('/api/fs/copy');
   });
@@ -92,14 +96,14 @@ describe('rutas de transferencia', () => {
   });
 
   it('no borra la raíz de una unidad, ni siquiera sin papelera', async () => {
-    const response = await post('/api/fs/delete', { targets: ['C:\\'], useTrash: false });
+    const response = await post('/api/fs/delete', { targets: [DRIVE_ROOT], useTrash: false });
     expect(response.status).toBe(400);
     expect((await response.json()).error).toMatch(/drive root/i);
   });
 
   it('marca el trabajo como continuación cuando la repetición lo pide', async () => {
     const response = await post('/api/fs/copy', {
-      sources: ['C:\\origen\\a.txt'],
+      sources: [path.join(DRIVE_ROOT, 'origen', 'a.txt')],
       targetDir: os.tmpdir(),
       resume: true,
     });
@@ -110,13 +114,16 @@ describe('rutas de transferencia', () => {
   });
 
   it('sigue borrando una carpeta normal', async () => {
-    const response = await post('/api/fs/delete', { targets: ['C:\\temp\\viejo'] });
+    const response = await post('/api/fs/delete', { targets: [path.join(os.tmpdir(), 'viejo')] });
     expect(response.status).toBe(200);
     expect((await response.json()).jobId).toBe('job-1');
   });
 
   it('no mueve la raíz de una unidad', async () => {
-    const response = await post('/api/fs/move', { sources: ['D:/'], targetDir: 'C:\\destino' });
+    const response = await post('/api/fs/move', {
+      sources: [DRIVE_ROOT],
+      targetDir: path.join(os.tmpdir(), 'destino'),
+    });
     expect(response.status).toBe(400);
     expect((await response.json()).error).toMatch(/drive root/i);
   });

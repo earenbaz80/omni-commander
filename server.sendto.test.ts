@@ -93,7 +93,7 @@ describe('POST /api/fs/sendto', () => {
   // the server runs one to write the .lnk (COM, WScript.Shell) and the test runs
   // another to read its target back. That is a spawn, not an assertion, so they
   // take the harness's Windows-process budget instead of a limit of their own.
-  it(
+  it.runIf(process.platform === 'win32')(
     'puts a shortcut on the desktop that points at the item',
     async () => {
       const { status, body } = await post('sendto', { path: targetFile, destination: 'desktop' });
@@ -106,7 +106,7 @@ describe('POST /api/fs/sendto', () => {
     WINDOWS_PROCESS_CASE_TIMEOUT_MS,
   );
 
-  it(
+  it.runIf(process.platform === 'win32')(
     'numbers a second desktop shortcut instead of replacing the first',
     async () => {
       const { status, body } = await post('sendto', { path: targetFile, destination: 'desktop' });

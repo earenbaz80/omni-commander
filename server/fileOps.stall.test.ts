@@ -142,7 +142,7 @@ describe('a destination that stops accepting data', () => {
       }
 
       const waited = Date.now() - startedAt;
-      const destination = path.win32.join(target, path.win32.basename(source));
+      const destination = path.join(target, path.basename(source));
       process.stdout.write(`write stall: waited ${waited} ms -> ${job.errors[0]?.message}\n`);
 
       // The timer is the only thing that can end this copy, so it has to have run

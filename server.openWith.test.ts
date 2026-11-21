@@ -47,7 +47,7 @@ afterAll(async () => {
   if (root) fs.rmSync(root, { recursive: true, force: true });
 });
 
-describe('POST /api/open-with', () => {
+describe.runIf(process.platform === 'win32')('POST /api/open-with', () => {
   it('hands a real file to the shell picker', async () => {
     const { status, body } = await post({ path: file });
     expect(status).toBe(200);
@@ -93,7 +93,7 @@ describe('POST /api/open-with', () => {
  * the app when the process that asked for it is not in the foreground, so the
  * menu has to be able to list and start the registered programs itself.
  */
-describe('GET /api/open-with/programs', () => {
+describe.runIf(process.platform === 'win32')('GET /api/open-with/programs', () => {
   const get = async (target: string) => {
     const response = await fetch(server.url(`/api/open-with/programs?path=${encodeURIComponent(target)}`));
     return { status: response.status, body: (await response.json().catch(() => ({}))) as any };
@@ -115,7 +115,7 @@ describe('GET /api/open-with/programs', () => {
   });
 });
 
-describe('POST /api/open-with/app', () => {
+describe.runIf(process.platform === 'win32')('POST /api/open-with/app', () => {
   // A real executable on the machine, so the check that it exists is honest.
   const program = process.execPath;
 

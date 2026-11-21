@@ -68,17 +68,20 @@ afterAll(async () => {
 });
 
 describe('POST /api/run', () => {
-  it('answers with the resolved argv and starts nothing until confirmed', async () => {
-    const { status, body } = await post(dry, { command: 'notepad C:\\nota.txt' });
-    expect(status).toBe(409);
-    expect(body.error).toBe('confirmation-required');
-    // The plan names the file that will run, not just the word that was typed.
-    expect(body.argv[0]).toMatch(/notepad\.exe$/i);
-    expect(body.argv[1]).toBe('C:\\nota.txt');
-    expect(body.kind).toBeUndefined();
-  });
+  it.runIf(process.platform === 'win32')(
+    'answers with the resolved argv and starts nothing until confirmed',
+    async () => {
+      const { status, body } = await post(dry, { command: 'notepad C:\\nota.txt' });
+      expect(status).toBe(409);
+      expect(body.error).toBe('confirmation-required');
+      // The plan names the file that will run, not just the word that was typed.
+      expect(body.argv[0]).toMatch(/notepad\.exe$/i);
+      expect(body.argv[1]).toBe('C:\\nota.txt');
+      expect(body.kind).toBeUndefined();
+    },
+  );
 
-  it('launches once the plan is confirmed', async () => {
+  it.runIf(process.platform === 'win32')('launches once the plan is confirmed', async () => {
     const { status, body } = await post(dry, { command: 'notepad C:\\nota.txt', confirmed: true });
     expect(status).toBe(200);
     expect(body.kind).toBe('launched');
@@ -86,33 +89,36 @@ describe('POST /api/run', () => {
     expect(body.argv[1]).toBe('C:\\nota.txt');
   });
 
-  it('carries the elevation flag through the plan and the confirmed launch', async () => {
-    const planned = await post(dry, { command: 'notepad C:\\nota.txt', elevated: true });
-    expect(planned.status).toBe(409);
-    expect(planned.body.elevated).toBe(true);
-    expect(planned.body.argv[0]).toMatch(/notepad\.exe$/i);
+  it.runIf(process.platform === 'win32')(
+    'carries the elevation flag through the plan and the confirmed launch',
+    async () => {
+      const planned = await post(dry, { command: 'notepad C:\\nota.txt', elevated: true });
+      expect(planned.status).toBe(409);
+      expect(planned.body.elevated).toBe(true);
+      expect(planned.body.argv[0]).toMatch(/notepad\.exe$/i);
 
-    // The dry run stops before PowerShell is asked anything, so this proves what
-    // the route was told, not that a UAC prompt was raised.
-    const launched = await post(dry, { command: 'notepad C:\\nota.txt', confirmed: true, elevated: true });
-    expect(launched.status).toBe(200);
-    expect(launched.body.elevated).toBe(true);
-    expect(launched.body.argv[1]).toBe('C:\\nota.txt');
-  });
+      // The dry run stops before PowerShell is asked anything, so this proves what
+      // the route was told, not that a UAC prompt was raised.
+      const launched = await post(dry, { command: 'notepad C:\\nota.txt', confirmed: true, elevated: true });
+      expect(launched.status).toBe(200);
+      expect(launched.body.elevated).toBe(true);
+      expect(launched.body.argv[1]).toBe('C:\\nota.txt');
+    },
+  );
 
-  it('does not elevate a confirmation that did not ask for it', async () => {
+  it.runIf(process.platform === 'win32')('does not elevate a confirmation that did not ask for it', async () => {
     const launched = await post(dry, { command: 'notepad', confirmed: true });
     expect(launched.status).toBe(200);
     expect(launched.body.elevated).toBe(false);
   });
 
-  it('keeps a quoted path as one argument', async () => {
+  it.runIf(process.platform === 'win32')('keeps a quoted path as one argument', async () => {
     const command = 'notepad "C:\\Program Files\\nota de prueba.txt"';
     const { body } = await post(dry, { command });
     expect(body.argv).toEqual([expect.stringMatching(/notepad\.exe$/i), 'C:\\Program Files\\nota de prueba.txt']);
   });
 
-  it('treats shell operators as arguments instead of operators', async () => {
+  it.runIf(process.platform === 'win32')('treats shell operators as arguments instead of operators', async () => {
     // A shell would stop at `&` and run a second process. Here they are just
     // words, which is the whole point of not going through one.
     const { body } = await post(dry, { command: 'notepad a && notepad b | more > C:\\x.txt' });
@@ -120,7 +126,7 @@ describe('POST /api/run', () => {
     expect(body.argv.slice(1)).toEqual(['a', '&&', 'notepad', 'b', '|', 'more', '>', 'C:\\x.txt']);
   });
 
-  it('expands environment variables once, before splitting', async () => {
+  it.runIf(process.platform === 'win32')('expands environment variables once, before splitting', async () => {
     const { body } = await post(dry, { command: 'notepad %TEMP%' });
     expect(body.argv[0]).toMatch(/notepad\.exe$/i);
     expect(body.argv[1]).toBe(process.env.TEMP);
@@ -151,7 +157,7 @@ describe('POST /api/run', () => {
     expect(confirmed.body.program).toBe(missing);
   });
 
-  it('completes a bare name from PATH with its extension', async () => {
+  it.runIf(process.platform === 'win32')('completes a bare name from PATH with its extension', async () => {
     const { status, body } = await post(resolved, { command: 'omni-tool' });
     expect(status).toBe(409);
     expect(body.argv[0]).toBe(path.join(root, 'bin', 'omni-tool.exe'));
@@ -175,7 +181,7 @@ describe('POST /api/run', () => {
     expect(launched.body.argv[4]).toBe(planned.body.argv[4]);
   });
 
-  it('opens the Start Menu entry whose label was typed', async () => {
+  it.runIf(process.platform === 'win32')('opens the Start Menu entry whose label was typed', async () => {
     const { status, body } = await post(resolved, { command: 'miprograma' });
     expect(status).toBe(409);
     expect(body.argv[0]).toBe('rundll32.exe');
@@ -184,20 +190,23 @@ describe('POST /api/run', () => {
 
   // "Google Chrome" is a name, not a program plus an argument: the label wins
   // over the first word, or two-word applications could never be typed.
-  it('completes a label that is more than one word', async () => {
+  it.runIf(process.platform === 'win32')('completes a label that is more than one word', async () => {
     const { status, body } = await post(resolved, { command: 'estudio visual' });
     expect(status).toBe(409);
     expect(body.target).toBe(path.join(root, 'start-menu', 'Estudio Visual.lnk'));
     expect(body.argv.at(-1)).toBe(path.join(root, 'start-menu', 'Estudio Visual.lnk'));
   });
 
-  it('treats what follows a label as arguments, which a shortcut cannot take', async () => {
-    const { status, body } = await post(resolved, { command: 'estudio visual C:\\proyecto' });
-    expect(status).toBe(409);
-    // The plan stays honest about what opens: the shortcut, not the folder.
-    expect(body.argv[0]).toBe('rundll32.exe');
-    expect(body.argv.at(-1)).toBe(path.join(root, 'start-menu', 'Estudio Visual.lnk'));
-  });
+  it.runIf(process.platform === 'win32')(
+    'treats what follows a label as arguments, which a shortcut cannot take',
+    async () => {
+      const { status, body } = await post(resolved, { command: 'estudio visual C:\\proyecto' });
+      expect(status).toBe(409);
+      // The plan stays honest about what opens: the shortcut, not the folder.
+      expect(body.argv[0]).toBe('rundll32.exe');
+      expect(body.argv.at(-1)).toBe(path.join(root, 'start-menu', 'Estudio Visual.lnk'));
+    },
+  );
 
   it.runIf(process.platform === 'win32')('hands a shell document like services.msc to the shell', async () => {
     const { status, body } = await post(dry, { command: 'services.msc' });
