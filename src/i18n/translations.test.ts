@@ -25,6 +25,16 @@ describe('i18n translations', () => {
     expect(mismatches).toEqual({});
   });
 
+  it('keeps the {extensions} placeholder once in every opening card', () => {
+    // The help card builds its list of runnable types from the code; a language
+    // that drops or duplicates the placeholder would show no list, or a raw
+    // marker, without failing any other check.
+    for (const lang of languages) {
+      const occurrences = translations[lang].helpOpenDesc.split('{extensions}').length - 1;
+      expect(occurrences, lang).toBe(1);
+    }
+  });
+
   it('has no empty or whitespace-only value in any language', () => {
     const empties: string[] = [];
     for (const lang of languages) {
