@@ -465,7 +465,7 @@ export const de = {
   helpScF9: 'Obere Menüleiste einblenden',
   helpScF10: 'Abmelden oder die Anwendung beenden',
   helpScTab: 'Fokus zwischen linkem und rechtem Fenster wechseln',
-  helpScEnter: 'Den Ordner öffnen oder die fokussierte Datei anzeigen',
+  helpScEnter: 'Den Ordner oder die fokussierte Datei öffnen',
   helpScBackspace: 'Zum übergeordneten Verzeichnis wechseln',
   helpScCtrlT: 'Neuen Tab im aktiven Fenster erstellen',
   helpScCtrlW: 'Aktiven Tab schließen',
@@ -552,6 +552,9 @@ export const de = {
   helpQuickViewDescPart1: 'Wenn du ',
   helpQuickViewDescPart2:
     ', wird das gegenüberliegende Fenster zu einer Live-Ansicht der Datei, die du gerade durchsuchst, und zeigt sofort Codeausschnitte, Hexadezimalausgaben, Bilder oder Metadaten an.',
+  helpOpenTitle: 'Dateien öffnen',
+  helpOpenDesc:
+    'Enter oder Doppelklick führen .exe-, .com-, .bat-, .cmd-, .lnk-, .msi-, .cpl- und .msc-Dateien über die Shell aus; alle anderen Dateien werden weiterhin im integrierten Viewer geöffnet.',
   helpCommandsIntro:
     'Die untere Befehlsleiste emuliert den klassischen MS-DOS- und PowerShell-Befehlsinterpreter mit einem navigierbaren Verlauf über die Pfeiltasten Auf / Ab.',
   helpCmdCdPath: 'cd <Pfad>',

@@ -463,7 +463,7 @@ export const pt = {
   helpScF9: 'Abrir a barra de menus superior',
   helpScF10: 'Sair da sessão ou fechar a aplicação',
   helpScTab: 'Alternar o foco entre o Painel Esquerdo e o Painel Direito',
-  helpScEnter: 'Abrir a pasta ou visualizar o arquivo em foco',
+  helpScEnter: 'Abrir a pasta ou o arquivo em foco',
   helpScBackspace: 'Subir para o diretório superior',
   helpScCtrlT: 'Criar uma nova aba no painel ativo',
   helpScCtrlW: 'Fechar a aba ativa',
@@ -550,6 +550,9 @@ export const pt = {
   helpQuickViewDescPart1: 'Ao pressionar ',
   helpQuickViewDescPart2:
     ', o painel oposto se torna um visualizador ao vivo do arquivo que você está navegando, mostrando instantaneamente trechos de código, despejos hexadecimais, imagens ou metadados.',
+  helpOpenTitle: 'Abertura de arquivos',
+  helpOpenDesc:
+    'Enter ou duplo clique executam com o shell os ficheiros .exe, .com, .bat, .cmd, .lnk, .msi, .cpl e .msc; os restantes continuam a abrir no visualizador interno.',
   helpCommandsIntro:
     'A barra de comandos inferior emula o interpretador de comandos clássico do MS-DOS e do PowerShell com histórico navegável pelas teclas de seta Cima / Baixo.',
   helpCmdCdPath: 'cd <caminho>',

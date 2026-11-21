@@ -166,6 +166,11 @@ export const HelpModal: React.FC<HelpModalProps> = ({ theme, lang, onClose }) =>
                   {t.helpQuickViewDescPart2}
                 </p>
               </div>
+
+              <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-2)]">
+                <h4 className="text-amber-300 font-bold text-xs uppercase">{t.helpOpenTitle}</h4>
+                <p>{t.helpOpenDesc}</p>
+              </div>
             </div>
           )}
 

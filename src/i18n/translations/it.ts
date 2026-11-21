@@ -463,7 +463,7 @@ export const it = {
   helpScF9: 'Apri la barra dei menu superiore',
   helpScF10: "Disconnetti o esci dall'applicazione",
   helpScTab: 'Alterna il focus tra pannello sinistro e pannello destro',
-  helpScEnter: 'Apri la cartella o visualizza il file in focus',
+  helpScEnter: 'Apri la cartella o il file in focus',
   helpScBackspace: 'Vai al direttorio superiore',
   helpScCtrlT: 'Crea una nuova scheda nel pannello attivo',
   helpScCtrlW: 'Chiudi la scheda attiva',
@@ -550,6 +550,9 @@ export const it = {
   helpQuickViewDescPart1: 'Premendo ',
   helpQuickViewDescPart2:
     ', il pannello opposto diventa un visualizzatore in tempo reale del file che stai sfogliando, mostrando istantaneamente frammenti di codice, dump esadecimali, immagini o metadati.',
+  helpOpenTitle: 'Apertura dei file',
+  helpOpenDesc:
+    'Invio o doppio clic eseguono tramite la shell i file .exe, .com, .bat, .cmd, .lnk, .msi, .cpl e .msc; tutti gli altri file continuano ad aprirsi nel visualizzatore integrato.',
   helpCommandsIntro:
     'La barra dei comandi inferiore emula il classico interprete di comandi MS-DOS e PowerShell con cronologia navigabile tramite i tasti freccia Su / Giù.',
   helpCmdCdPath: 'cd <percorso>',

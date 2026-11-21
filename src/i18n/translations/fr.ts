@@ -464,7 +464,7 @@ export const fr = {
   helpScF9: 'Déployer la barre de menus supérieure',
   helpScF10: "Se déconnecter ou quitter l'application",
   helpScTab: 'Basculer le focus entre le panneau gauche et le panneau droit',
-  helpScEnter: 'Ouvrir le dossier ou afficher le fichier sélectionné',
+  helpScEnter: 'Ouvrir le dossier ou le fichier sélectionné',
   helpScBackspace: 'Remonter au répertoire parent',
   helpScCtrlT: 'Créer un nouvel onglet dans le panneau actif',
   helpScCtrlW: "Fermer l'onglet actif",
@@ -552,6 +552,9 @@ export const fr = {
   helpQuickViewDescPart1: 'En appuyant sur ',
   helpQuickViewDescPart2:
     ', le panneau opposé devient une visionneuse en direct du fichier que vous parcourez, affichant instantanément des extraits de code, des vidages hexadécimaux, des images ou des métadonnées.',
+  helpOpenTitle: 'Ouverture des fichiers',
+  helpOpenDesc:
+    'Entrée ou un double-clic exécutent les fichiers .exe, .com, .bat, .cmd, .lnk, .msi, .cpl et .msc via le shell ; tous les autres fichiers continuent de s’ouvrir dans la visionneuse intégrée.',
   helpCommandsIntro:
     "La barre de commandes inférieure émule l'interpréteur de commandes classique MS-DOS et PowerShell avec un historique navigable via les touches fléchées Haut / Bas.",
   helpCmdCdPath: 'cd <chemin>',

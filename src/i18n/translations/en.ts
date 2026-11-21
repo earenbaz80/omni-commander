@@ -490,7 +490,7 @@ export const en = {
   helpScF9: 'Open the top menu bar',
   helpScF10: 'Log out or exit the application',
   helpScTab: 'Toggle focus between the Left Panel and Right Panel',
-  helpScEnter: 'Open the folder or view the focused file',
+  helpScEnter: 'Open the folder or the focused file',
   helpScBackspace: 'Go up to the parent directory',
   helpScCtrlT: 'Create a new tab in the active panel',
   helpScCtrlW: 'Close the active tab',
@@ -577,6 +577,9 @@ export const en = {
   helpQuickViewDescPart1: 'When you press ',
   helpQuickViewDescPart2:
     ', the opposite panel becomes a live viewer of the file you are browsing, showing code snippets, hexadecimal dumps, images or metadata instantly.',
+  helpOpenTitle: 'Opening files',
+  helpOpenDesc:
+    'Enter or double click run .exe, .com, .bat, .cmd, .lnk, .msi, .cpl and .msc files through the shell; every other file still opens in the built-in viewer.',
   helpCommandsIntro:
     'The bottom command bar emulates the classic MS-DOS and PowerShell command interpreter with a navigable history using the Up / Down arrow keys.',
   helpCmdCdPath: 'cd <path>',
