@@ -101,14 +101,10 @@ jobs:
 
       # Production dependencies must be clean: everything here ships inside the
       # installer, so an advisory in them is a real one. The full audit runs too
-      # and goes red on high or critical, but the four lows it reports today
-      # cannot be patched here: they are one chain (deepmerge under
-      # @rollup/plugin-node-resolve, which workbox-build uses, which
-      # vite-plugin-pwa uses), deepmerge 4.3.1 is the newest published version and
-      # the advisory covers everything up to it, and npm's only offered fix is a
-      # downgrade of vite-plugin-pwa to 0.2.1 that would break the PWA. Gating at
-      # high keeps a real advisory red; the one high with no release to move to is
-      # the single entry in `.github/audit-exceptions.json`, dated and expiring.
+      # and goes red on high or critical; today it reports nothing at any level,
+      # and `.github/audit-exceptions.json` holds no entry. A high with no
+      # published fix is accepted there by id, dated and expiring, rather than
+      # dropping the gate and going back to watching only the shipped tree.
       - name: Audit production dependencies
         run: npm audit --omit=dev
 
