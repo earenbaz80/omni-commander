@@ -552,7 +552,7 @@ export const pt = {
     ', o painel oposto se torna um visualizador ao vivo do arquivo que você está navegando, mostrando instantaneamente trechos de código, despejos hexadecimais, imagens ou metadados.',
   helpOpenTitle: 'Abertura de arquivos',
   helpOpenDesc:
-    'Enter ou duplo clique executam com o shell os ficheiros .exe, .com, .bat, .cmd, .lnk, .msi, .cpl e .msc; os arquivos comprimidos são montados como pastas e os restantes abrem no visualizador interno.',
+    'Enter ou duplo clique executam com o shell os arquivos {extensions}; os comprimidos são montados como pastas e os restantes abrem no visualizador interno.',
   helpCommandsIntro:
     'A barra de comandos inferior emula o interpretador de comandos clássico do MS-DOS e do PowerShell com histórico navegável pelas teclas de seta Cima / Baixo.',
   helpCmdCdPath: 'cd <caminho>',

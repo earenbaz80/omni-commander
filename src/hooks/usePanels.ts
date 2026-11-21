@@ -15,19 +15,10 @@ import {
 import { tGlobal } from '../i18n/translations';
 import type { TranslationKey } from '../i18n/translations';
 import { ARCHIVE_EXTENSIONS } from '../services/archiveBackend';
+import { RUNNABLE_EXTENSIONS } from '../services/fileOpenRules';
 import { openRunTarget, type RunFailure } from '../services/runLauncher';
 import { archiveLevelOf } from '../services/archivePath';
 import { matchesPanelFilter } from '../utils/panelFilter';
-
-/**
- * Extensions whose default shell action starts something: programs and scripts
- * Windows executes, shortcuts that resolve to their target, installers, Control
- * Panel applets and management consoles. A double click or Enter on one of
- * these has to reach the shell; loading its bytes into the viewer only ever
- * showed the file as noise, which is what made it look like a document the
- * editor could not render.
- */
-const RUNNABLE_EXTENSIONS = ['EXE', 'COM', 'BAT', 'CMD', 'LNK', 'MSI', 'CPL', 'MSC'];
 
 /** The launcher's own sentence for the targets an open can fail on. */
 const RUN_FAILURE_KEYS: Partial<Record<RunFailure, TranslationKey>> = {

@@ -5,6 +5,7 @@ import { ThemeConfig } from '../../services/themeManager';
 import { getTranslations } from '../../i18n/translations';
 import { soundManager } from '../../services/soundEffects';
 import { RUN_EXAMPLE_ROWS } from '../../services/runLauncher';
+import { runnableExtensionsLabel } from '../../services/fileOpenRules';
 import { buildShortcutGroups } from '../../services/shortcutGroups';
 
 import ModalShell from '../ModalShell';
@@ -169,7 +170,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ theme, lang, onClose }) =>
 
               <div className="p-[var(--space-3)] bg-black/40 rounded border border-white/10 space-y-[var(--space-2)]">
                 <h4 className="text-amber-300 font-bold text-xs uppercase">{t.helpOpenTitle}</h4>
-                <p>{t.helpOpenDesc}</p>
+                <p>{t.helpOpenDesc.replace('{extensions}', runnableExtensionsLabel())}</p>
               </div>
             </div>
           )}

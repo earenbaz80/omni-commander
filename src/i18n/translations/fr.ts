@@ -554,7 +554,7 @@ export const fr = {
     ', le panneau opposé devient une visionneuse en direct du fichier que vous parcourez, affichant instantanément des extraits de code, des vidages hexadécimaux, des images ou des métadonnées.',
   helpOpenTitle: 'Ouverture des fichiers',
   helpOpenDesc:
-    'Entrée ou un double-clic exécutent les fichiers .exe, .com, .bat, .cmd, .lnk, .msi, .cpl et .msc via le shell ; les archives sont montées comme des dossiers et tous les autres fichiers s’ouvrent dans la visionneuse intégrée.',
+    'Entrée ou double-clic exécutent les fichiers {extensions} via le shell ; les archives sont montées comme des dossiers et tous les autres fichiers s’ouvrent dans la visionneuse intégrée.',
   helpCommandsIntro:
     "La barre de commandes inférieure émule l'interpréteur de commandes classique MS-DOS et PowerShell avec un historique navigable via les touches fléchées Haut / Bas.",
   helpCmdCdPath: 'cd <chemin>',

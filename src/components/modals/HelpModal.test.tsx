@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { themes } from '../../services/themeManager';
 import { translations } from '../../i18n/translations';
+import { runnableExtensionsLabel } from '../../services/fileOpenRules';
 import { HelpModal } from './HelpModal';
 
 describe('HelpModal footer', () => {
@@ -20,6 +21,8 @@ describe('HelpModal footer', () => {
     fireEvent.click(screen.getByRole('button', { name: translations.es.helpTabDualPanel }));
 
     expect(screen.getByText(translations.es.helpOpenTitle)).toBeDefined();
-    expect(screen.getByText(translations.es.helpOpenDesc)).toBeDefined();
+    expect(
+      screen.getByText(translations.es.helpOpenDesc.replace('{extensions}', runnableExtensionsLabel())),
+    ).toBeDefined();
   });
 });

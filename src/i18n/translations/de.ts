@@ -554,7 +554,7 @@ export const de = {
     ', wird das gegenüberliegende Fenster zu einer Live-Ansicht der Datei, die du gerade durchsuchst, und zeigt sofort Codeausschnitte, Hexadezimalausgaben, Bilder oder Metadaten an.',
   helpOpenTitle: 'Dateien öffnen',
   helpOpenDesc:
-    'Enter oder Doppelklick führen .exe-, .com-, .bat-, .cmd-, .lnk-, .msi-, .cpl- und .msc-Dateien über die Shell aus; Archive werden als Ordner eingebunden und alle anderen Dateien im integrierten Viewer geöffnet.',
+    'Enter oder Doppelklick führen {extensions}-Dateien über die Shell aus; Archive werden als Ordner eingebunden und alle anderen Dateien werden im integrierten Viewer geöffnet.',
   helpCommandsIntro:
     'Die untere Befehlsleiste emuliert den klassischen MS-DOS- und PowerShell-Befehlsinterpreter mit einem navigierbaren Verlauf über die Pfeiltasten Auf / Ab.',
   helpCmdCdPath: 'cd <Pfad>',
