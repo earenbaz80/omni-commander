@@ -1206,6 +1206,8 @@ export const es = {
   runErrorFailed: 'Windows no pudo abrir el destino.',
   runErrorUnreachable: 'El servidor local no responde, así que no hay nada que abrir.',
   runErrorElevationDenied: 'Windows canceló el permiso de administrador, así que no se ejecutó nada.',
+  linuxCannotRunWindows:
+    'Linux no puede ejecutar archivos de Windows. Para inspeccionar el contenido, usá F3 y se abrirá en el visor.',
 
   // Ayuda: ejemplos de lo que acepta el campo Ejecutar.
   helpRunExamplesTitle: 'Lanzador (Ejecutar…): qué acepta',

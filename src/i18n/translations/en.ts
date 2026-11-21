@@ -1199,6 +1199,8 @@ export const en = {
   runErrorFailed: 'Windows could not open the target.',
   runErrorUnreachable: 'The local server is not answering, so there is nothing to open.',
   runErrorElevationDenied: 'Windows cancelled the administrator prompt, so nothing was started.',
+  linuxCannotRunWindows:
+    'Linux cannot run Windows files. To inspect the contents, press F3 to open the file in the viewer.',
 
   // Help: the examples of what the Run field accepts.
   helpRunExamplesTitle: 'Launcher (Run…): what it accepts',

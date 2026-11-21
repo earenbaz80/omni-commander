@@ -1181,6 +1181,8 @@ export const fr = {
   runErrorFailed: "Windows n'a pas pu ouvrir la cible.",
   runErrorUnreachable: "Le serveur local ne répond pas, il n'y a rien à ouvrir.",
   runErrorElevationDenied: 'Windows a annulé la demande d’administrateur, rien n’a donc été exécuté.',
+  linuxCannotRunWindows:
+    'Linux ne peut pas exécuter de fichiers Windows. Pour en inspecter le contenu, appuyez sur F3 pour l’ouvrir dans la visionneuse.',
 
   // Aide : exemples de ce que le champ Exécuter accepte.
   helpRunExamplesTitle: 'Lanceur (Exécuter…) : ce qu’il accepte',

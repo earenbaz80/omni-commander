@@ -1173,6 +1173,8 @@ export const pt = {
   runErrorFailed: 'O Windows não conseguiu abrir o destino.',
   runErrorUnreachable: 'O servidor local não responde, por isso não há nada para abrir.',
   runErrorElevationDenied: 'O Windows cancelou o pedido de administrador, por isso nada foi executado.',
+  linuxCannotRunWindows:
+    'O Linux não pode executar arquivos do Windows. Para inspecionar o conteúdo, pressione F3 para abri-lo no visualizador.',
 
   // Ajuda: exemplos do que o campo Executar aceita.
   helpRunExamplesTitle: 'Lançador (Executar…): o que aceita',

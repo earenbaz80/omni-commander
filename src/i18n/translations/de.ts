@@ -1178,6 +1178,8 @@ export const de = {
   runErrorFailed: 'Windows konnte das Ziel nicht öffnen.',
   runErrorUnreachable: 'Der lokale Server antwortet nicht, es gibt nichts zu öffnen.',
   runErrorElevationDenied: 'Windows hat die Administrator-Abfrage abgebrochen, es wurde nichts gestartet.',
+  linuxCannotRunWindows:
+    'Linux kann Windows-Dateien nicht ausführen. Um den Inhalt zu prüfen, öffne die Datei mit F3 im Viewer.',
 
   // Hilfe: Beispiele, was das Ausführen-Feld annimmt.
   helpRunExamplesTitle: 'Starter (Ausführen…): was er annimmt',

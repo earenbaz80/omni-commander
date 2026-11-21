@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePanels } from './usePanels';
+import { getTranslations, setCurrentLang } from '../i18n/translations';
 import { setPlatformInfo } from '../services/platform';
 import type { FileItem, UserSettings } from '../types';
 
@@ -9,8 +10,9 @@ import type { FileItem, UserSettings } from '../types';
  * that was not a folder or an archive in the viewer. A file whose shell action
  * is to run something decoded as text is only noise, so the program was never
  * started and the editor was shown instead. These cases pin the split: every
- * runnable type goes to the shell's default action, and a text file keeps the
- * viewer it had.
+ * runnable type goes to the shell's default action where the host has one, a
+ * real executable on Linux gets an explanation instead of binary bytes, and a
+ * text file keeps the viewer it had.
  */
 const { openRunTarget, absolutePathOf, isRealFile, readFileBytes } = vi.hoisted(() => ({
   openRunTarget: vi.fn(async () => ({ kind: 'opened' as const, target: 'C:\\Descargas\\setup.exe' })),
@@ -42,7 +44,16 @@ const WINDOWS = {
   capabilities: { paths: true, volumes: true, cleanup: true, trash: true, openWith: true },
 };
 
+const LINUX = {
+  ...WINDOWS,
+  platform: 'linux' as const,
+  caseSensitive: true,
+  separator: '/' as const,
+  capabilities: { ...WINDOWS.capabilities, openWith: false },
+};
+
 beforeEach(() => {
+  setCurrentLang('es');
   setPlatformInfo(WINDOWS);
 });
 
@@ -86,6 +97,7 @@ const open = async (target: FileItem) => {
 };
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.clearAllMocks();
 });
 
@@ -105,16 +117,26 @@ describe('usePanels openItem', () => {
     expect(deps.setActiveModal).not.toHaveBeenCalled();
   });
 
-  it('leaves the file in the viewer where the shell cannot open it', async () => {
-    setPlatformInfo({
-      ...WINDOWS,
-      platform: 'linux',
-      caseSensitive: true,
-      separator: '/',
-      capabilities: { ...WINDOWS.capabilities, openWith: false },
-    });
+  it('explains on Linux that a Windows executable cannot run instead of showing its bytes', async () => {
+    setPlatformInfo(LINUX);
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
     const deps = await open(item('setup', 'exe'));
 
+    expect(openRunTarget).not.toHaveBeenCalled();
+    expect(readFileBytes).not.toHaveBeenCalled();
+    expect(deps.setSelectedFileForModal).not.toHaveBeenCalled();
+    expect(deps.setActiveModal).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith(getTranslations('es').linuxCannotRunWindows);
+  });
+
+  it('keeps an archived executable in the viewer without the host warning', async () => {
+    setPlatformInfo(LINUX);
+    isRealFile.mockReturnValueOnce(false);
+    const archived = { ...item('setup', 'exe'), archiveRoot: 'C:\\Descargas\\paquete.zip' } as FileItem;
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    const deps = await open(archived);
+
+    expect(alertSpy).not.toHaveBeenCalled();
     expect(openRunTarget).not.toHaveBeenCalled();
     expect(deps.setActiveModal).toHaveBeenCalledWith('viewer');
   });

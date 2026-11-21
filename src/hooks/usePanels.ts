@@ -566,6 +566,9 @@ export function usePanels(deps: PanelDeps) {
   const handleOpenItem = useCallback(
     async (item: FileItem) => {
       try {
+        const realRunnable = RUNNABLE_EXTENSIONS.includes(item.ext.toUpperCase()) && fsEngine.isRealFile(item);
+        const canOpenWith = currentPlatformInfo().capabilities.openWith;
+
         if (item.isDirectory) {
           // One joiner for both kinds of folder. A level inside a mounted archive
           // is spelled like the mount that holds it, so the path it hangs from
@@ -599,15 +602,16 @@ export function usePanels(deps: PanelDeps) {
               throw e;
             }
           }
-        } else if (
-          RUNNABLE_EXTENSIONS.includes(item.ext.toUpperCase()) &&
-          fsEngine.isRealFile(item) &&
-          currentPlatformInfo().capabilities.openWith
-        ) {
-          // The shell's default action for an executable is to run it, where the
-          // host implements that: a file inside an archive has no path to hand
-          // over, and a platform without openWith keeps the viewer. A refusal is
-          // reported instead of silently doing nothing.
+        } else if (realRunnable && !canOpenWith) {
+          // A real Windows executable on a host without a shell action (Linux
+          // today). Falling through used to load its bytes into the viewer and
+          // show binary noise; name the capability gap instead, and leave F3 as
+          // the deliberate way to inspect the file.
+          alert(tGlobal('linuxCannotRunWindows'));
+        } else if (realRunnable) {
+          // The branch above owns the no-shell case, so the shell implements it
+          // here. A file inside an archive is not real and stays in the viewer;
+          // a refusal is reported instead of silently doing nothing.
           const result = await openRunTarget(fsEngine.absolutePathOf(item));
           if (result.kind === 'error') {
             alert(tGlobal(RUN_FAILURE_KEYS[result.reason]));

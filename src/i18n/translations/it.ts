@@ -1174,6 +1174,8 @@ export const it = {
   runErrorFailed: 'Windows non è riuscito ad aprire la destinazione.',
   runErrorUnreachable: 'Il server locale non risponde, quindi non c’è nulla da aprire.',
   runErrorElevationDenied: 'Windows ha annullato la richiesta di amministratore, quindi non è stato eseguito nulla.',
+  linuxCannotRunWindows:
+    'Linux non può eseguire file di Windows. Per ispezionare il contenuto, premi F3 per aprirlo nel visualizzatore.',
 
   // Guida: esempi di cosa accetta il campo Esegui.
   helpRunExamplesTitle: 'Avvio (Esegui…): cosa accetta',
