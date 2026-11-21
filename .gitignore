@@ -28,6 +28,9 @@ blob-report/
 # Debug dumps dropped in the repo root while debugging locally
 /*.txt
 
+# Installer test runs kept beside the checkout while verifying a build
+.tmp-installer-*/
+
 # Imported chat transcripts: local reference material, never part of the app
 .cloud-attachments/
 
