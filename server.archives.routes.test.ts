@@ -17,7 +17,9 @@ import { extractZipEntryTo } from './server/zipStream.cjs';
  * test pins, without needing a RAR on disk.
  */
 
-const SAFE = /^[A-Za-z]:\\/;
+// An absolute path on either platform: a drive letter on Windows, a rooted
+// path on POSIX. A relative path stays refused.
+const SAFE = /^(?:[A-Za-z]:\\|\/)/;
 
 /**
  * What the routes publish through: the real filesystem, except for a rename the
