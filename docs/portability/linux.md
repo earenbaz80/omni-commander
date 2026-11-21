@@ -1,11 +1,17 @@
 # Portabilidad a Linux: capa de plataforma
 
-**Estado:** fase 1 implementada (`volumes`, `cleanup`, `paths`, `trash` y `openWith` detrás del contrato) y fase 2
-avanzada: el servidor arranca con `paths`/`volumes`, lista una carpeta real con rutas POSIX y la UI conserva `/`;
-copiar, mover, renombrar, recorrer el árbol, extraer de un ZIP y mandar a la papelera pasan contra el servidor real
-en `linux-integration.yml`, en cada push a `master` y en cada pull request. La papelera Linux usa `gio trash` con
-fallback XDG. Los targets AppImage y `.deb` y su build de CI ya existen: el preflight empaqueta ambos, y cada release
-publica los dos paquetes con su canal `latest-linux.yml`; Windows sigue siendo la plataforma soportada.
+**Estado:** fase 2 avanzada: el servidor arranca con `paths`/`volumes`, lista una
+carpeta real con rutas POSIX y la UI conserva `/`; copiar, mover, renombrar,
+recorrer el árbol, extraer de un ZIP y mandar a la papelera pasan contra el
+servidor real en `linux-integration.yml`, en cada push a `master` y en cada pull
+request; `server.share.test.ts` también corre en POSIX dentro de la suite
+completa. La papelera Linux usa `gio trash` con fallback XDG. Linux
+implementa `cleanup` para el target `user-temp` (`TMPDIR` o `/tmp`, con override
+de test); `openWith` sigue sin implementación Linux. La suite completa de
+`linux-portability.yml` es un gate bloqueante desde `365f9f1`, posterior a la
+1.0.55. Los targets AppImage y `.deb` y su build de CI ya existen: el preflight
+empaqueta ambos, y cada release publica los dos paquetes con su canal
+`latest-linux.yml`; Windows sigue siendo la plataforma soportada.
 
 **Objetivo inicial:** Linux x64 con gestión de archivos local —listar, copiar,
 mover, renombrar, borrar, papelera, abrir y línea de órdenes— y empaquetado
@@ -53,21 +59,20 @@ arreglos funcionales en el mismo commit.
 | Elevación | UAC + `elevate.exe` | PolicyKit (`pkexec`) o portal | No ejecutar la app entera como root; el MVP puede declarar la elevación no soportada |
 | Procesos y carga | PowerShell/WMI | `/proc`, `ps`, APIs de Node | Misma forma de respuesta; el origen es del adaptador |
 | Propiedades | Atributos Windows | Modo POSIX, propietario, grupo, enlaces | La UI muestra lo que el adaptador declara, no un union de ambos |
-| Temporales | `%TEMP%`, Prefetch | `$XDG_RUNTIME_DIR`, `/tmp` | `tempDir()` y `cleanupTargets()` por adaptador |
+| Temporales | `%TEMP%`, `%SystemRoot%\Temp`, Prefetch | `TMPDIR` o `/tmp`; target `user-temp` | `tempDir()` y `cleanupTargets()` por adaptador; Linux no inventa Prefetch |
 | Empaquetado | NSIS + portable | AppImage + `.deb` | `electron-builder` con targets separados; no reutilizar `latest.yml` |
 | Actualizador | `latest.yml` | `latest-linux.yml` | `electron-updater` resuelve una entrada por extensión: `DebUpdater` baja el `.deb` y lo instala con `dpkg`/`apt` bajo sudo; el AppImage se reemplaza sólo si se lo abrió como AppImage |
 
 ## 4. Puntos de acoplamiento medidos
 
-- **Rutas:** quedan 47 usos de `path.win32` —el README ya lo refleja—, 37 de
-  ellos fuera de los tests: `server/runLauncher.cjs` (26), `server/fileOps.cjs`
-  (7), `server/pathSafety.cjs` (2), `server/platform/windows.cjs` y
-  `electron/trayMenu.cjs`. Los otros 10 están en siete ficheros de test
-  (`server.archives.routes.test.ts`, `server/fileOps.stall.test.ts` y
-  `server.files.routes.test.ts` con 2 cada uno, y `server.catalog.test.ts`,
-  `server.cleanup.test.ts`, `server.pathsafety.test.ts` y
-  `server.share.test.ts` con 1). `catalog`, `archiveReader` y las rutas de
-  ficheros ya no lo usan en producción.
+- **Rutas:** quedan 32 usos de `path.win32` en producción:
+  `server/runLauncher.cjs` (26), `server/pathSafety.cjs` (2),
+  `server/fileOps.cjs` (1), `server/platform/windows.cjs` (1),
+  `server/platform/windowsUserFolders.cjs` (1) y `electron/trayMenu.cjs` (1).
+  En tests quedan cinco líneas en cuatro ficheros
+  (`server.archives.routes.test.ts`, `server.catalog.test.ts`,
+  `server.files.routes.test.ts` y `server.pathsafety.test.ts`). `catalog`,
+  `archiveReader` y las rutas de ficheros ya no lo usan en producción.
 - **Servidor:** `server/platform/windowsVolumes.cjs` concentra el sondeo de
   unidades, WMI y las conexiones de red; `server/fileOps.cjs` y
   `server/openWith.cjs` ya delegan sus partes Windows en el adaptador;
@@ -88,9 +93,12 @@ arreglos funcionales en el mismo commit.
   `latest-linux.yml` desde esos assets—, y
   `.github/workflows/linux-preflight.yml` los genera además como artefactos de
   CI con `--publish never` para probar el puerto sin cortar una versión.
-- **Tests:** `server.open.test.ts`, `server.run.test.ts` y
-  `server.share.test.ts` tienen casos condicionados a `win32`; la suite Linux
-  necesitará sus equivalentes, no borrar los de Windows.
+- **Tests:** `server.cleanup.test.ts` y `server.share.test.ts` ya corren en
+  Linux; cleanup conserva sólo el caso del archivo en uso detrás de `win32`,
+  porque POSIX puede desvincular un archivo abierto. Siguen siendo Windows-only
+  los casos de `server.open`, `server.run`, `server.openWith`, `server.sendto`,
+  `server.run.suggestions` y `server.userfolders`, que ejercen shell, Run, Start
+  Menu, `.lnk` o bibliotecas de Windows.
 
 ## 5. Orden de trabajo
 
@@ -105,27 +113,28 @@ arreglos funcionales en el mismo commit.
 
 Implementada en `server/platform/`: el contrato común, el selector, el adaptador
 Windows y un adaptador Linux que ya resuelve las rutas XDG y lee los montajes de
-`/proc/self/mounts`; `trash` ya está implementado y `cleanup`/`openWith` siguen
-declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
-`scratch` consume `paths`; `openWith` consume el registro y el lanzador; y
-`catalog` consume `volumes` para enumerar unidades y montajes.
+`/proc/self/mounts`; `trash` ya está implementado, `cleanup` se agregó después
+para `user-temp` y `openWith` sigue declarado como no soportado en Linux.
+`fileOps` consume `cleanup` y `trash`; `scratch` consume `paths`; `openWith`
+consume el registro y el lanzador; y `catalog` consume `volumes` para enumerar
+unidades y montajes.
 
 - El contrato, el selector y los adaptadores están en `server/platform/`.
 - Los dominios `volumes`, `cleanup`, `paths`, `trash` y `openWith` se movieron al
   adaptador Windows y los módulos solo piden la capacidad; las suites HTTP y de
   logs siguen pasando sin cambios.
-- Linux ya resuelve `paths`, `volumes` y `trash`; `cleanup` y `openWith` se
-  declaran no soportadas en sus capacidades, así que las operaciones que todavía
-  no existen no caen silenciosamente a una implementación de Windows.
+- Linux ya resuelve `paths`, `volumes`, `trash` y `cleanup` (`user-temp`);
+  `openWith` se declara no soportada, así que las operaciones que todavía no
+  existen no caen silenciosamente a una implementación de Windows.
 
 ### Fase 2 — Corte vertical Linux (en curso)
 
 - `catalog` pide `paths.pathApi` al adaptador y usa `path.posix` para listar;
   `/api/list` acepta el punto de montaje como raíz y rechaza rutas fuera de él.
   El renderer conserva las rutas que empiezan por `/` y navega con ese separador.
-- `createFileOps` construye el servidor sin `cleanup` y `openWith` no registra sus
-  rutas cuando el adaptador no la declara. Así el arranque Linux no depende de
-  capacidades que todavía son un hueco explícito.
+- `createFileOps` construye el servidor Linux con `cleanup` (`user-temp`) y
+  `openWith` no registra sus rutas cuando el adaptador no la declara. Así el
+  arranque Linux no depende de capacidades que todavía son un hueco explícito.
 - `trash.move` usa `gio trash` para el lote completo y, si falla, mueve a
   `$XDG_DATA_HOME/Trash` (o `~/.local/share/Trash`) las entradas que sigan en
   disco. El fallback crea `files/` e `info/`, escribe un `.trashinfo` con la ruta
@@ -144,9 +153,9 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
 - Copiar, mover, renombrar, recorrer y medir el árbol, extraer de un ZIP,
   mandar a la papelera y borrar sin papelera ya están cubiertos por
   `server.linux.integration.test.ts`, que arranca el servidor real en CI. Sigue
-  faltando: `cleanup`, `openWith` y un paquete publicado desde el que instalar.
-  La UI muestra los montajes,
-  pero el resto de operaciones reales todavía asume Windows.
+  faltando: `openWith`, la integración de escritorio y la paridad de las
+  operaciones que aún asumen Windows. Los paquetes AppImage y `.deb` ya se
+  publican; `cleanup` cubre sólo `user-temp`, no los targets de Windows.
 
 ### Fase 3 — Integración de escritorio
 
@@ -225,8 +234,9 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
   los `.lnk`), y los 21 pasan contra el paquete; en Windows, la misma corrida
   deja 86 de 86. El AppImage se descomprime una vez (`--appimage-extract`) en
   lugar de una por test: cada arranque del runtime deja una copia entera en
-  `/tmp`, y las copias de noventa arranques llenaron el disco del runner. Lo que falta es que Linux sea un
-  gate, no que haya casos.
+  `/tmp`, y las copias de noventa arranques llenaron el disco del runner. La
+  suite completa de `linux-portability.yml` es un gate bloqueante desde
+  `365f9f1`; la e2e empaquetada sigue en el preflight manual.
 
 ### Fase 5 — Paridad
 
@@ -244,8 +254,9 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
 - El paquete Linux se instala, abre, se identifica con la versión correcta y
   actualiza desde una copia anterior.
 - La integración Linux corre en cada push a `master` y en cada pull request
-  (`linux-integration.yml`), así que el adaptador POSIX ya es un gate; el
-  preflight que empaqueta el AppImage y el `.deb` sigue siendo manual.
+  (`linux-integration.yml`) y la suite completa de `linux-portability.yml` es
+  bloqueante desde `365f9f1`; el preflight que empaqueta el AppImage y el `.deb`
+  sigue siendo manual.
 
 ## 7. Decisiones pendientes
 
@@ -259,5 +270,6 @@ declarados como no soportados en Linux. `fileOps` consume `cleanup` y `trash`;
 5. **Modelo de unidades:** puntos de montaje visibles, favoritos y unidades
    extraíbles; decidir qué reemplaza exactamente a `C:` en la barra de rutas.
 
-Este documento no cambia el soporte actual: hasta que las fases 1–4 estén
-verdes, Windows sigue siendo la única plataforma distribuida.
+Este documento no cambia el soporte actual: Windows sigue siendo la única
+plataforma soportada. Los paquetes Linux se publican como portabilidad en
+progreso, no como una plataforma con soporte.
