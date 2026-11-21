@@ -579,7 +579,7 @@ export const en = {
     ', the opposite panel becomes a live viewer of the file you are browsing, showing code snippets, hexadecimal dumps, images or metadata instantly.',
   helpOpenTitle: 'Opening files',
   helpOpenDesc:
-    'Enter or double click run .exe, .com, .bat, .cmd, .lnk, .msi, .cpl and .msc files through the shell; every other file still opens in the built-in viewer.',
+    'Enter or double click run .exe, .com, .bat, .cmd, .lnk, .msi, .cpl and .msc files through the shell; archives are mounted as folders and every other file opens in the built-in viewer.',
   helpCommandsIntro:
     'The bottom command bar emulates the classic MS-DOS and PowerShell command interpreter with a navigable history using the Up / Down arrow keys.',
   helpCmdCdPath: 'cd <path>',

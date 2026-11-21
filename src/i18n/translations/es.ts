@@ -580,7 +580,7 @@ export const es = {
     ', el panel opuesto se convierte en un visor en vivo del archivo que estés navegando, mostrando fragmentos de código, volcados hexadecimales, imágenes o metadatos al instante.',
   helpOpenTitle: 'Apertura de archivos',
   helpOpenDesc:
-    'Enter o doble clic ejecutan con el shell los archivos .exe, .com, .bat, .cmd, .lnk, .msi, .cpl y .msc; el resto de archivos sigue abriéndose en el visor interno.',
+    'Enter o doble clic ejecutan con el shell los archivos .exe, .com, .bat, .cmd, .lnk, .msi, .cpl y .msc; los comprimidos se montan como carpetas y el resto de archivos se abre en el visor interno.',
   helpCommandsIntro:
     'La barra de comandos inferior emula el intérprete de comandos clásico de MS-DOS y PowerShell con historial navegable mediante las teclas de flecha Arriba / Abajo.',
   helpCmdCdPath: 'cd <ruta>',
