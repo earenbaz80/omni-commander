@@ -74,7 +74,8 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "OmniCommander Pro"
+      "shortcutName": "OmniCommander Pro",
+      "include": "nsis/check-app-running.nsh"
     }
   },
   "private": true,
