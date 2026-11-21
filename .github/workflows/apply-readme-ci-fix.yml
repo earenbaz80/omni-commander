@@ -1,7 +1,9 @@
 name: Apply README CI fix
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - readme-ci-jobs-helper
 
 permissions:
   contents: write
@@ -35,7 +37,7 @@ jobs:
       - name: Commit only the README on a clean branch
         shell: bash
         run: |
-          git reset --mixed HEAD~1
+          git reset --mixed origin/master
           rm .github/workflows/apply-readme-ci-fix.yml scripts/apply-readme-ci-fix.cjs
           git add README.md
           git diff --cached --check
