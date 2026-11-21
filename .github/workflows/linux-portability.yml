@@ -5,7 +5,8 @@ name: Linux portability
 # a Linux image was the renderer's own opening rule with the host's `openWith`
 # capability false: the Windows verify job installs 22 and 24, but always on
 # Windows, where that capability is true. This workflow runs the specs that pin
-# the fallback on ubuntu-latest, on every push to master and every pull request.
+# the fallback and the whole suite on ubuntu-latest, on every push to master and
+# every pull request.
 on:
   push:
     branches:
@@ -67,11 +68,8 @@ jobs:
           src/hooks/useKeyboardShortcuts.keys.test.tsx
           src/i18n/translations.test.ts
 
-      # The whole suite still assumes Windows drives, shells and shortcuts in
-      # places, so it is not a gate yet: it runs to name the specs that fail on
-      # Linux, and a red result is reported in the log without blocking the
-      # push. Once it is green, drop `continue-on-error` and this step becomes
-      # the gate.
-      - name: Full suite (exploratory, does not gate)
-        continue-on-error: true
+      # The whole suite runs here as a gate. The cases that depend on the
+      # Windows shell are marked `runIf('win32')` in their own specs, so Linux
+      # skips those and runs everything else against the real POSIX adapter.
+      - name: Full suite
         run: npm test -- --maxWorkers=2
