@@ -446,6 +446,9 @@ export function useKeyboardShortcuts(d: KeyboardShortcutDeps) {
 
       if (e.key === 'Enter') {
         e.preventDefault();
+        // A held key repeats; opening on every repeat would start the same
+        // program again. One press is one open.
+        if (e.repeat) return;
         if (quickSearchQuery) {
           setQuickSearchQuery('');
           if (quickSearchTimerRef.current) clearTimeout(quickSearchTimerRef.current);

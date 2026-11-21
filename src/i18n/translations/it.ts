@@ -552,7 +552,7 @@ export const it = {
     ', il pannello opposto diventa un visualizzatore in tempo reale del file che stai sfogliando, mostrando istantaneamente frammenti di codice, dump esadecimali, immagini o metadati.',
   helpOpenTitle: 'Apertura dei file',
   helpOpenDesc:
-    'Invio o doppio clic eseguono tramite la shell i file {extensions}; gli archivi vengono montati come cartelle e tutti gli altri file si aprono nel visualizzatore integrato.',
+    'In Windows, Invio o doppio clic eseguono tramite la shell i file {extensions}; gli archivi vengono montati come cartelle e tutti gli altri file si aprono nel visualizzatore integrato.',
   helpCommandsIntro:
     'La barra dei comandi inferiore emula il classico interprete di comandi MS-DOS e PowerShell con cronologia navigabile tramite i tasti freccia Su / Giù.',
   helpCmdCdPath: 'cd <percorso>',

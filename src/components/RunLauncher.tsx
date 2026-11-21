@@ -4,6 +4,7 @@ import { ThemeConfig } from '../services/themeManager';
 import { soundManager } from '../services/soundEffects';
 import {
   RUN_EXAMPLE_ROWS,
+  RUN_FAILURE_KEYS,
   RunFailure,
   RunSuggestion,
   fetchRunSuggestions,
@@ -32,19 +33,6 @@ interface RunLauncherProps {
   /** Present only when the launcher is standing on its own and can be closed. */
   onDismiss?: () => void;
 }
-
-/** Words each refusal is shown with, so the dialog never says "error" alone. */
-const FAILURE_KEYS: Record<RunFailure, string> = {
-  'not-found': 'runErrorNotFound',
-  'not-accessible': 'runErrorNotAccessible',
-  'unsupported-target': 'runErrorUnsupported',
-  'invalid-target': 'runErrorInvalid',
-  'launch-failed': 'runErrorFailed',
-  unreachable: 'runErrorUnreachable',
-  'program-not-found': 'runErrorProgramNotFound',
-  'program-not-accessible': 'runErrorProgramNotAccessible',
-  'elevation-denied': 'runErrorElevationDenied',
-};
 
 /**
  * The toolbar's Run line, in the spirit of the Windows Run dialog: a field that
@@ -268,7 +256,7 @@ export const RunLauncher: React.FC<RunLauncherProps> = ({
   }, []);
 
   const failureText = (reason: RunFailure, program?: string) => {
-    const key = FAILURE_KEYS[reason] || 'runErrorFailed';
+    const key = RUN_FAILURE_KEYS[reason];
     return (t[key] || t.runErrorFailed).replace('{program}', program || '');
   };
 

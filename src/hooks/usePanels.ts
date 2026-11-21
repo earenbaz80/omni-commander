@@ -13,23 +13,12 @@ import {
   UserSettings,
 } from '../types';
 import { tGlobal } from '../i18n/translations';
-import type { TranslationKey } from '../i18n/translations';
 import { ARCHIVE_EXTENSIONS } from '../services/archiveBackend';
 import { RUNNABLE_EXTENSIONS } from '../services/fileOpenRules';
-import { openRunTarget, type RunFailure } from '../services/runLauncher';
+import { currentPlatformInfo } from '../services/platform';
+import { openRunTarget, RUN_FAILURE_KEYS } from '../services/runLauncher';
 import { archiveLevelOf } from '../services/archivePath';
 import { matchesPanelFilter } from '../utils/panelFilter';
-
-/** The launcher's own sentence for the targets an open can fail on. */
-const RUN_FAILURE_KEYS: Partial<Record<RunFailure, TranslationKey>> = {
-  'not-found': 'runErrorNotFound',
-  'not-accessible': 'runErrorNotAccessible',
-  'unsupported-target': 'runErrorUnsupported',
-  'invalid-target': 'runErrorInvalid',
-  'launch-failed': 'runErrorFailed',
-  unreachable: 'runErrorUnreachable',
-  'elevation-denied': 'runErrorElevationDenied',
-};
 
 interface PanelDeps {
   drives: Drive[];
@@ -610,14 +599,18 @@ export function usePanels(deps: PanelDeps) {
               throw e;
             }
           }
-        } else if (RUNNABLE_EXTENSIONS.includes(item.ext.toUpperCase()) && fsEngine.isRealFile(item)) {
-          // The shell's default action for an executable is to run it. A file
-          // inside an archive has no path to hand over, so it keeps the viewer;
-          // everything on a real drive goes through the same route the Run box
-          // uses, and a refusal is reported instead of silently doing nothing.
+        } else if (
+          RUNNABLE_EXTENSIONS.includes(item.ext.toUpperCase()) &&
+          fsEngine.isRealFile(item) &&
+          currentPlatformInfo().capabilities.openWith
+        ) {
+          // The shell's default action for an executable is to run it, where the
+          // host implements that: a file inside an archive has no path to hand
+          // over, and a platform without openWith keeps the viewer. A refusal is
+          // reported instead of silently doing nothing.
           const result = await openRunTarget(fsEngine.absolutePathOf(item));
           if (result.kind === 'error') {
-            alert(tGlobal(RUN_FAILURE_KEYS[result.reason] ?? 'runErrorFailed'));
+            alert(tGlobal(RUN_FAILURE_KEYS[result.reason]));
           }
         } else {
           const content =

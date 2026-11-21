@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePanels } from './usePanels';
+import { setPlatformInfo } from '../services/platform';
 import type { FileItem, UserSettings } from '../types';
 
 /**
@@ -33,6 +34,17 @@ vi.mock('../services/fileSystem', () => ({
     childAbsolutePath: (parent: string, name: string) => `${parent}\\${name}`,
   },
 }));
+
+const WINDOWS = {
+  platform: 'win32' as const,
+  caseSensitive: false,
+  separator: '\\' as const,
+  capabilities: { paths: true, volumes: true, cleanup: true, trash: true, openWith: true },
+};
+
+beforeEach(() => {
+  setPlatformInfo(WINDOWS);
+});
 
 const makeDeps = () => ({
   drives: [],
@@ -91,6 +103,20 @@ describe('usePanels openItem', () => {
     expect(readFileBytes).not.toHaveBeenCalled();
     expect(deps.setSelectedFileForModal).not.toHaveBeenCalled();
     expect(deps.setActiveModal).not.toHaveBeenCalled();
+  });
+
+  it('leaves the file in the viewer where the shell cannot open it', async () => {
+    setPlatformInfo({
+      ...WINDOWS,
+      platform: 'linux',
+      caseSensitive: true,
+      separator: '/',
+      capabilities: { ...WINDOWS.capabilities, openWith: false },
+    });
+    const deps = await open(item('setup', 'exe'));
+
+    expect(openRunTarget).not.toHaveBeenCalled();
+    expect(deps.setActiveModal).toHaveBeenCalledWith('viewer');
   });
 
   it('still opens a text file in the viewer', async () => {

@@ -115,13 +115,17 @@ function harness(deps: Partial<KeyboardShortcutDeps> = {}) {
   return { mocks, timerRef, handleSelectDrive };
 }
 
-function press(key: string, options: { alt?: boolean; ctrl?: boolean; shift?: boolean; target?: EventTarget } = {}) {
+function press(
+  key: string,
+  options: { alt?: boolean; ctrl?: boolean; shift?: boolean; repeat?: boolean; target?: EventTarget } = {},
+) {
   const target = options.target ?? window;
   const event = new KeyboardEvent('keydown', {
     key,
     altKey: !!options.alt,
     ctrlKey: !!options.ctrl,
     shiftKey: !!options.shift,
+    repeat: !!options.repeat,
     bubbles: true,
     cancelable: true,
   });
@@ -329,6 +333,14 @@ describe('useKeyboardShortcuts type-to-jump', () => {
 
     expect(mocks.setQuickSearchQuery).toHaveBeenCalledWith('');
     expect(mocks.handleOpenItem).toHaveBeenCalledWith(items[0]);
+  });
+
+  it('opens once while enter is held, so a repeated key cannot launch again', () => {
+    const { mocks } = harness();
+
+    press('Enter', { repeat: true });
+
+    expect(mocks.handleOpenItem).not.toHaveBeenCalled();
   });
 
   it('clears the search with escape before it closes a dialog', () => {

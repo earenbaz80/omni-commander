@@ -1,6 +1,7 @@
 import { API_BASE } from './apiBase';
 import { fetchWithRetry } from '../utils/fetchWithRetry';
 import { pathIdentity } from './platform';
+import type { TranslationKey } from '../i18n/translations';
 
 /**
  * The "Ejecutar" box: what Windows' Run dialog does.
@@ -22,6 +23,19 @@ export type RunFailure =
   | 'program-not-found'
   | 'program-not-accessible'
   | 'elevation-denied';
+
+/** Words each refusal is shown with, so neither screen says "error" alone. */
+export const RUN_FAILURE_KEYS: Record<RunFailure, TranslationKey> = {
+  'not-found': 'runErrorNotFound',
+  'not-accessible': 'runErrorNotAccessible',
+  'unsupported-target': 'runErrorUnsupported',
+  'invalid-target': 'runErrorInvalid',
+  'launch-failed': 'runErrorFailed',
+  unreachable: 'runErrorUnreachable',
+  'program-not-found': 'runErrorProgramNotFound',
+  'program-not-accessible': 'runErrorProgramNotAccessible',
+  'elevation-denied': 'runErrorElevationDenied',
+};
 
 /** One row of the autocomplete: a Start Menu shortcut, a Windows destination, or local memory. */
 export interface RunSuggestion {

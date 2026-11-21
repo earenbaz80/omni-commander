@@ -579,7 +579,7 @@ export const en = {
     ', the opposite panel becomes a live viewer of the file you are browsing, showing code snippets, hexadecimal dumps, images or metadata instantly.',
   helpOpenTitle: 'Opening files',
   helpOpenDesc:
-    'Enter or a double click run {extensions} files through the shell; archives are mounted as folders and every other file opens in the built-in viewer.',
+    'On Windows, Enter or a double click run {extensions} files through the shell; archives are mounted as folders and every other file opens in the built-in viewer.',
   helpCommandsIntro:
     'The bottom command bar emulates the classic MS-DOS and PowerShell command interpreter with a navigable history using the Up / Down arrow keys.',
   helpCmdCdPath: 'cd <path>',

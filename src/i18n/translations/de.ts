@@ -554,7 +554,7 @@ export const de = {
     ', wird das gegenüberliegende Fenster zu einer Live-Ansicht der Datei, die du gerade durchsuchst, und zeigt sofort Codeausschnitte, Hexadezimalausgaben, Bilder oder Metadaten an.',
   helpOpenTitle: 'Dateien öffnen',
   helpOpenDesc:
-    'Enter oder Doppelklick führen {extensions}-Dateien über die Shell aus; Archive werden als Ordner eingebunden und alle anderen Dateien werden im integrierten Viewer geöffnet.',
+    'Unter Windows führen Enter oder Doppelklick {extensions}-Dateien über die Shell aus; Archive werden als Ordner eingebunden und alle anderen Dateien werden im integrierten Viewer geöffnet.',
   helpCommandsIntro:
     'Die untere Befehlsleiste emuliert den klassischen MS-DOS- und PowerShell-Befehlsinterpreter mit einem navigierbaren Verlauf über die Pfeiltasten Auf / Ab.',
   helpCmdCdPath: 'cd <Pfad>',

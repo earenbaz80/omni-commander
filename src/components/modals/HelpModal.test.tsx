@@ -5,7 +5,7 @@ import { translations } from '../../i18n/translations';
 import { runnableExtensionsLabel } from '../../services/fileOpenRules';
 import { HelpModal } from './HelpModal';
 
-describe('HelpModal footer', () => {
+describe('HelpModal', () => {
   it('prints the version the package was built from, not a fixed one', () => {
     render(<HelpModal theme={themes.classic_blue} lang="es" onClose={() => {}} />);
 
@@ -21,8 +21,10 @@ describe('HelpModal footer', () => {
     fireEvent.click(screen.getByRole('button', { name: translations.es.helpTabDualPanel }));
 
     expect(screen.getByText(translations.es.helpOpenTitle)).toBeDefined();
-    expect(
-      screen.getByText(translations.es.helpOpenDesc.replace('{extensions}', runnableExtensionsLabel())),
-    ).toBeDefined();
+    const description = screen.getByText(
+      translations.es.helpOpenDesc.replace('{extensions}', runnableExtensionsLabel()),
+    );
+    expect(description).toBeDefined();
+    expect(description.textContent).toContain(runnableExtensionsLabel());
   });
 });
