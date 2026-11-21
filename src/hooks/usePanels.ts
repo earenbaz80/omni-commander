@@ -21,12 +21,13 @@ import { matchesPanelFilter } from '../utils/panelFilter';
 
 /**
  * Extensions whose default shell action starts something: programs and scripts
- * Windows executes, shortcuts that resolve to their target, installers and
- * Control Panel applets. A double click or Enter on one of these has to reach
- * the shell; loading its bytes into the viewer only ever showed the file as
- * noise, which is what made it look like a document the editor could not render.
+ * Windows executes, shortcuts that resolve to their target, installers, Control
+ * Panel applets and management consoles. A double click or Enter on one of
+ * these has to reach the shell; loading its bytes into the viewer only ever
+ * showed the file as noise, which is what made it look like a document the
+ * editor could not render.
  */
-const RUNNABLE_EXTENSIONS = ['EXE', 'COM', 'BAT', 'CMD', 'LNK', 'MSI', 'CPL'];
+const RUNNABLE_EXTENSIONS = ['EXE', 'COM', 'BAT', 'CMD', 'LNK', 'MSI', 'CPL', 'MSC'];
 
 /** The launcher's own sentence for the targets an open can fail on. */
 const RUN_FAILURE_KEYS: Partial<Record<RunFailure, TranslationKey>> = {

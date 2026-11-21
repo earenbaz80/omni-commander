@@ -83,6 +83,7 @@ describe('usePanels openItem', () => {
     ['lnk', 'acceso'],
     ['msi', 'instalador'],
     ['cpl', 'applet'],
+    ['msc', 'consola'],
   ])('runs a .%s through the shell instead of loading it into the viewer', async (ext, name) => {
     const deps = await open(item(name, ext));
 
