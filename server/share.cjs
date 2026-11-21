@@ -100,6 +100,9 @@ function isWithin(root, target) {
  */
 function resolveWithin(root, requested) {
   const relative = String(requested || '').replace(/\\/g, '/');
+  // A POSIX absolute path has no colon to give it away; without this check it
+  // would be joined under the root and reported as missing instead of refused.
+  if (path.posix.isAbsolute(relative)) throw new Error('Path leaves the shared folder');
   const segments = relative.split('/').filter((segment) => segment !== '' && segment !== '.');
   // `..` climbs and a colon makes a segment drive-qualified. Neither can name an
   // entry inside the share: Windows file names cannot contain a colon, and a
