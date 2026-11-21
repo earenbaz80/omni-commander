@@ -13,9 +13,30 @@ import {
   UserSettings,
 } from '../types';
 import { tGlobal } from '../i18n/translations';
+import type { TranslationKey } from '../i18n/translations';
 import { ARCHIVE_EXTENSIONS } from '../services/archiveBackend';
+import { openRunTarget, type RunFailure } from '../services/runLauncher';
 import { archiveLevelOf } from '../services/archivePath';
 import { matchesPanelFilter } from '../utils/panelFilter';
+
+/**
+ * Extensions Windows itself executes when the shell is asked to open them. A
+ * double click or Enter on one of these has to start the program: loading its
+ * bytes into the viewer only ever showed the binary as noise, which is what
+ * made an executable look like a document the editor could not render.
+ */
+const RUNNABLE_EXTENSIONS = ['EXE', 'COM', 'BAT', 'CMD'];
+
+/** The launcher's own sentence for the targets an open can fail on. */
+const RUN_FAILURE_KEYS: Partial<Record<RunFailure, TranslationKey>> = {
+  'not-found': 'runErrorNotFound',
+  'not-accessible': 'runErrorNotAccessible',
+  'unsupported-target': 'runErrorUnsupported',
+  'invalid-target': 'runErrorInvalid',
+  'launch-failed': 'runErrorFailed',
+  unreachable: 'runErrorUnreachable',
+  'elevation-denied': 'runErrorElevationDenied',
+};
 
 interface PanelDeps {
   drives: Drive[];
@@ -595,6 +616,15 @@ export function usePanels(deps: PanelDeps) {
               // with its own message through the outer catch.
               throw e;
             }
+          }
+        } else if (RUNNABLE_EXTENSIONS.includes(item.ext.toUpperCase()) && fsEngine.isRealFile(item)) {
+          // The shell's default action for an executable is to run it. A file
+          // inside an archive has no path to hand over, so it keeps the viewer;
+          // everything on a real drive goes through the same route the Run box
+          // uses, and a refusal is reported instead of silently doing nothing.
+          const result = await openRunTarget(fsEngine.absolutePathOf(item));
+          if (result.kind === 'error') {
+            alert(tGlobal(RUN_FAILURE_KEYS[result.reason] ?? 'runErrorFailed'));
           }
         } else {
           const content =
