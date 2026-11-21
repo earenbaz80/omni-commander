@@ -110,13 +110,13 @@ describe('platform contract', () => {
     const linux = createPlatform('linux');
 
     expect(linux.id).toBe('linux');
-    expect(linux.capabilities.cleanup).toBe(false);
+    expect(linux.capabilities.cleanup).toBe(true);
     expect(linux.capabilities.trash).toBe(true);
     expect(linux.capabilities.openWith).toBe(false);
     expect(linux.capabilities.volumes).toBe(true);
     expect(requireCapability(linux, 'volumes')).toBe(linux.volumes);
     expect(requireCapability(linux, 'trash')).toBe(linux.trash);
-    expect(() => requireCapability(linux, 'cleanup')).toThrow(/does not implement cleanup/);
+    expect(requireCapability(linux, 'cleanup')).toBe(linux.cleanup);
     expect(() => requireCapability(linux, 'openWith')).toThrow(/does not implement openWith/);
     expect(requireCapability(makeAdapter(), 'cleanup')).toBe(cleanup);
   });
@@ -177,6 +177,28 @@ describe('Windows cleanup adapter', () => {
   });
 });
 
+describe('Linux cleanup adapter', () => {
+  it('resolves the user temp target and leaves the Windows folders out', () => {
+    const linux = createLinuxPlatform({ env: { TMPDIR: '/var/tmp/user' } });
+
+    expect(Object.keys(linux.cleanup.targets)).toEqual(['user-temp']);
+    expect(linux.cleanup.targetPath('user-temp')).toBe('/var/tmp/user');
+    expect(linux.cleanup.targetPath('windows-temp')).toBe('');
+    expect(linux.cleanup.targetPath('prefetch')).toBe('');
+    expect(() => linux.cleanup.resolveRoot('prefetch')).toThrow(/Unknown cleanup target/);
+  });
+
+  it('takes the test override and refuses a filesystem root', () => {
+    const overridden = createLinuxPlatform({
+      env: { TMPDIR: '/tmp', OMNI_CLEANUP_USER_TEMP_ROOT: '/tmp/omni-cleanup' },
+    });
+    const root = createLinuxPlatform({ env: { TMPDIR: '/' } });
+
+    expect(overridden.cleanup.targetPath('user-temp')).toBe('/tmp/omni-cleanup');
+    expect(() => root.cleanup.resolveRoot('user-temp')).toThrow(/Refusing to clean a filesystem root/);
+  });
+});
+
 describe('Windows data paths', () => {
   const env = {
     APPDATA: String.raw`C:\Users\Admin\AppData\Roaming`,
@@ -223,14 +245,15 @@ describe('Linux data paths', () => {
     expect(linux.paths.logsDir()).toBe('/home/me/.config/omnicommander-pro/logs');
   });
 
-  it('honours the same overrides and keeps cleanup unsupported', () => {
+  it('honours the same overrides and keeps cleanup on the user temp folder', () => {
     const linux = createLinuxPlatform({
       env: { XDG_CONFIG_HOME: '/home/me/.config', OMNI_DATA_DIR: '/srv/omni' },
     });
 
     expect(linux.paths.appDataDir()).toBe('/srv/omni');
     expect(linux.paths.scratchDir()).toBe('/srv/omni/tmp');
-    expect(linux.capabilities.cleanup).toBe(false);
+    expect(linux.capabilities.cleanup).toBe(true);
+    expect(Object.keys(linux.cleanup.targets)).toEqual(['user-temp']);
   });
 });
 
@@ -645,10 +668,13 @@ describe('fileOps cleanup seam', () => {
     await expect(ops.deleteTarget(String.raw`C:\Temp\old.txt`, true)).rejects.toThrow(/not supported/);
   });
 
-  it('builds a Linux file-ops surface with cleanup declared unsupported', () => {
-    const ops = createFileOps({ platform: createLinuxPlatform({ env: { XDG_CONFIG_HOME: '/tmp/omni' } }) });
+  it('builds a Linux file-ops surface with the user temp cleanup target', () => {
+    const ops = createFileOps({
+      platform: createLinuxPlatform({ env: { XDG_CONFIG_HOME: '/tmp/omni', TMPDIR: '/tmp/omni-temp' } }),
+    });
 
-    expect(ops.CLEANUP_TARGETS).toEqual({});
-    expect(() => ops.resolveCleanupRoot('user-temp')).toThrow(/not supported/);
+    expect(Object.keys(ops.CLEANUP_TARGETS)).toEqual(['user-temp']);
+    expect(ops.resolveCleanupRoot('user-temp')).toBe('/tmp/omni-temp');
+    expect(() => ops.resolveCleanupRoot('prefetch')).toThrow(/Unknown cleanup target/);
   });
 });

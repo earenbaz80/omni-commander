@@ -26,6 +26,9 @@ import { startServer, WINDOWS_PROCESS_CASE_TIMEOUT_MS, type TestServer } from '@
  * FILE_SHARE_DELETE, so a file this process keeps open still deletes, and so does
  * one carrying the read-only attribute; neither reproduces "another program is
  * using it", which is the case the run has to survive.
+ *
+ * POSIX can unlink an open file, so that one case only runs on Windows. The
+ * rest of the rules are platform-neutral and run on both adapters.
  */
 const OLD_DAYS = 30;
 const DELETABLE_BYTES = 1000 + 2000 + 3000;
@@ -108,9 +111,6 @@ async function holdFileOpen(filePath: string): Promise<void> {
 }
 
 beforeAll(async () => {
-  // The suite's premise is a Windows handle held with FileShare.None; POSIX
-  // unlinks an open file, so there is nothing to reproduce there.
-  if (process.platform !== 'win32') return;
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-cleanup-root-'));
   outside = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-cleanup-outside-'));
 
@@ -127,16 +127,17 @@ beforeAll(async () => {
   fs.mkdirSync(path.join(root, 'nueva'));
   fs.writeFileSync(path.join(root, 'nueva', 'fresco.txt'), Buffer.alloc(20, 1));
 
-  // An old file another program is using.
+  // An old file another program may be using. Windows needs the PowerShell
+  // lock to reproduce the refusal; POSIX unlinks it while the handle is open.
   inUsePath = path.join(root, 'en-uso.bin');
   writeOld('en-uso.bin', IN_USE_BYTES);
-  await holdFileOpen(inUsePath);
+  if (process.platform === 'win32') await holdFileOpen(inUsePath);
 
   // A junction pointing outside the folder. The file it points at is old on
   // purpose: otherwise a walk that followed the junction would find only a fresh
   // entry there, nothing would be deleted, and the test would pass while the bug
   // it is meant to catch stayed hidden.
-  fs.symlinkSync(outside, path.join(root, 'enlace-externo'), 'junction');
+  fs.symlinkSync(outside, path.join(root, 'enlace-externo'), process.platform === 'win32' ? 'junction' : 'dir');
   const externalFile = path.join(outside, 'importante.txt');
   fs.writeFileSync(externalFile, Buffer.alloc(999, 9));
   const past = new Date(Date.now() - OLD_DAYS * 24 * 60 * 60 * 1000);
@@ -174,24 +175,25 @@ afterAll(async () => {
   await remove(outside);
 }, 20000);
 
-describe.runIf(process.platform === 'win32')('POST /api/fs/cleanup/targets', () => {
-  it('offers the three folders and flags the two that need elevation', async () => {
+describe('POST /api/fs/cleanup/targets', () => {
+  it('offers the folders the platform owns and flags the elevated ones', async () => {
     const { status, body } = await post('cleanup/targets', {});
 
     expect(status).toBe(200);
-    expect(body.targets.map((target: any) => target.id)).toEqual(['user-temp', 'windows-temp', 'prefetch']);
+    const ids = body.targets.map((target: any) => target.id);
+    expect(ids).toEqual(process.platform === 'win32' ? ['user-temp', 'windows-temp', 'prefetch'] : ['user-temp']);
     const user = body.targets.find((target: any) => target.id === 'user-temp');
     expect(user.requiresAdmin).toBe(false);
     expect(user.exists).toBe(true);
     // The test hook redirects the user temp target only, and this proves it.
-    expect(String(user.path).toLowerCase()).toBe(path.win32.normalize(root).toLowerCase());
-    for (const id of ['windows-temp', 'prefetch']) {
+    expect(String(user.path).toLowerCase()).toBe(path.normalize(root).toLowerCase());
+    for (const id of process.platform === 'win32' ? ['windows-temp', 'prefetch'] : []) {
       expect(body.targets.find((target: any) => target.id === id).requiresAdmin).toBe(true);
     }
   });
 });
 
-describe.runIf(process.platform === 'win32')('POST /api/fs/cleanup/scan', () => {
+describe('POST /api/fs/cleanup/scan', () => {
   it('counts what the age filter would remove, and nothing else', async () => {
     const { status, body } = await post('cleanup/scan', { target: 'user-temp', minAgeDays: 1 });
 
@@ -219,11 +221,13 @@ describe.runIf(process.platform === 'win32')('POST /api/fs/cleanup/scan', () => 
     expect(body.bytes).toBe(DELETABLE_BYTES + IN_USE_BYTES + FRESH_BYTES);
   });
 
-  it('refuses a target that needs elevation instead of trying', async () => {
+  it('refuses a target that is elevated or unknown instead of trying', async () => {
     const { status, body } = await post('cleanup/scan', { target: 'prefetch', minAgeDays: 0 });
 
     expect(status).toBe(400);
-    expect(body.error).toBe('prefetch needs administrator rights');
+    expect(body.error).toBe(
+      process.platform === 'win32' ? 'prefetch needs administrator rights' : 'Unknown cleanup target: prefetch',
+    );
   });
 
   it('refuses a path sent where a target belongs', async () => {
@@ -234,21 +238,23 @@ describe.runIf(process.platform === 'win32')('POST /api/fs/cleanup/scan', () => 
   });
 });
 
-describe.runIf(process.platform === 'win32')('POST /api/fs/cleanup/run', () => {
-  // The run deletes a file PowerShell is holding with FileShare.None, so how long
-  // the refusal takes is up to that process, not to this one.
+describe('POST /api/fs/cleanup/run', () => {
+  // On Windows the run meets a file PowerShell is holding with FileShare.None,
+  // so how long the refusal takes is up to that process, not to this one.
   it(
     'empties the old entries, keeps the fresh ones and reports what it could not remove',
     async () => {
       const { status, body } = await post('cleanup/run', { target: 'user-temp', minAgeDays: 1 });
 
+      const onWindows = process.platform === 'win32';
       expect(status).toBe(200);
-      expect(body.deletedFiles).toBe(3);
+      expect(body.deletedFiles).toBe(onWindows ? 3 : 4);
       expect(body.deletedDirs).toBe(2);
-      // The file in use is reported, never counted as freed space.
-      expect(body.freedBytes).toBe(DELETABLE_BYTES);
-      expect(body.failedCount).toBe(1);
-      expect(String(body.failed[0].path).toLowerCase()).toBe(inUsePath.toLowerCase());
+      // On Windows the file in use is reported, never counted as freed space;
+      // POSIX unlinks it while it is open.
+      expect(body.freedBytes).toBe(onWindows ? DELETABLE_BYTES : DELETABLE_BYTES + IN_USE_BYTES);
+      expect(body.failedCount).toBe(onWindows ? 1 : 0);
+      if (onWindows) expect(String(body.failed[0].path).toLowerCase()).toBe(inUsePath.toLowerCase());
 
       expect(fs.existsSync(path.join(root, 'viejo-a.bin'))).toBe(false);
       expect(fs.existsSync(path.join(root, 'vieja'))).toBe(false);
@@ -261,16 +267,18 @@ describe.runIf(process.platform === 'win32')('POST /api/fs/cleanup/run', () => {
       expect(fs.existsSync(path.join(root, 'enlace-externo'))).toBe(true);
       expect(fs.readFileSync(path.join(outside, 'importante.txt')).length).toBe(999);
 
-      // The file it could not delete is still there, as reported.
-      expect(fs.existsSync(inUsePath)).toBe(true);
+      // On Windows the file it could not delete is still there, as reported.
+      expect(fs.existsSync(inUsePath)).toBe(onWindows);
     },
     WINDOWS_PROCESS_CASE_TIMEOUT_MS,
   );
 
-  it('refuses a target that needs elevation', async () => {
+  it('refuses a target that is elevated or unknown', async () => {
     const { status, body } = await post('cleanup/run', { target: 'prefetch', minAgeDays: 0 });
 
     expect(status).toBe(400);
-    expect(body.error).toBe('prefetch needs administrator rights');
+    expect(body.error).toBe(
+      process.platform === 'win32' ? 'prefetch needs administrator rights' : 'Unknown cleanup target: prefetch',
+    );
   });
 });

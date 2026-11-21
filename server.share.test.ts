@@ -33,8 +33,6 @@ const { createShareService, formatSize } = require('./server/share.cjs') as {
   formatSize: (bytes: number) => string;
 };
 
-const windowsOnly = describe.skipIf(process.platform !== 'win32');
-
 let root: string;
 let shared: string;
 let service: ShareService;
@@ -43,7 +41,7 @@ let status: ShareStatus;
 const url = (relativePath: string, token = status?.token) =>
   `http://127.0.0.1:${status.port}/s/${token}?p=${encodeURIComponent(relativePath)}`;
 
-windowsOnly('the network share', () => {
+describe('the network share', () => {
   beforeAll(async () => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-share-'));
     shared = path.join(root, 'shared');
@@ -66,7 +64,7 @@ windowsOnly('the network share', () => {
     expect(status.active).toBe(true);
     expect(status.port).toBeGreaterThan(0);
     expect(status.token).toMatch(/^[0-9a-f]{32}$/);
-    expect(service.status().folder).toBe(path.win32.normalize(shared));
+    expect(service.status().folder).toBe(path.normalize(shared));
   });
 
   it('lists the shared folder', async () => {
