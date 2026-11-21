@@ -5,14 +5,18 @@ import type { FileItem, UserSettings } from '../types';
 
 /**
  * Enter and double click share `handleOpenItem`, and it used to end every file
- * that was not a folder or an archive in the viewer. An executable decoded as
- * text is only noise, so the program was never started and the editor was shown
- * instead. These two cases pin the split: a real executable goes to the shell's
- * default action, and a text file keeps the viewer it had.
+ * that was not a folder or an archive in the viewer. A file whose shell action
+ * is to run something decoded as text is only noise, so the program was never
+ * started and the editor was shown instead. These cases pin the split: every
+ * runnable type goes to the shell's default action, and a text file keeps the
+ * viewer it had.
  */
 const { openRunTarget, absolutePathOf, isRealFile, readFileBytes } = vi.hoisted(() => ({
   openRunTarget: vi.fn(async () => ({ kind: 'opened' as const, target: 'C:\\Descargas\\setup.exe' })),
-  absolutePathOf: vi.fn(() => 'C:\\Descargas\\setup.exe'),
+  absolutePathOf: vi.fn(
+    (file: { path: string; name: string; fullName?: string; ext: string }) =>
+      `${file.path}\\${file.fullName ?? `${file.name}.${file.ext}`}`,
+  ),
   isRealFile: vi.fn(() => true),
   readFileBytes: vi.fn(async () => new Uint8Array()),
 }));
@@ -74,10 +78,15 @@ afterEach(() => {
 });
 
 describe('usePanels openItem', () => {
-  it('runs an executable on a real drive instead of loading it into the viewer', async () => {
-    const deps = await open(item('setup', 'exe'));
+  it.each([
+    ['exe', 'programa'],
+    ['lnk', 'acceso'],
+    ['msi', 'instalador'],
+    ['cpl', 'applet'],
+  ])('runs a .%s through the shell instead of loading it into the viewer', async (ext, name) => {
+    const deps = await open(item(name, ext));
 
-    expect(openRunTarget).toHaveBeenCalledWith('C:\\Descargas\\setup.exe');
+    expect(openRunTarget).toHaveBeenCalledWith(`C:\\Descargas\\${name}.${ext}`);
     expect(readFileBytes).not.toHaveBeenCalled();
     expect(deps.setSelectedFileForModal).not.toHaveBeenCalled();
     expect(deps.setActiveModal).not.toHaveBeenCalled();
