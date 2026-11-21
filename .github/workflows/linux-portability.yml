@@ -1,0 +1,71 @@
+name: Linux portability
+
+# The renderer's POSIX halves are covered by mock harnesses on every platform,
+# and `linux-integration.yml` boots the real server on Linux. What no gate ran on
+# a Linux image was the renderer's own opening rule with the host's `openWith`
+# capability false: the Windows verify job installs 22 and 24, but always on
+# Windows, where that capability is true. This workflow runs the specs that pin
+# the fallback on ubuntu-latest, on every push to master and every pull request.
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  portability:
+    name: Portability gate on Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --engine-strict
+
+      # `npm run lint` is the app-wide typecheck (`tsc --noEmit`); there is no
+      # `typecheck` script. The strict config is a second, narrower pass, and
+      # both fail on a type error that the other would miss.
+      - name: Typecheck
+        run: npm run lint
+
+      - name: Strict typecheck
+        run: npm run typecheck:strict
+
+      # These specs decide that `openWith` is false and that the opening rule
+      # explains the gap instead of decoding the bytes. On Windows they run with
+      # the capability simulated; here the fallback in `src/services/platform.ts`
+      # is the one the process actually takes.
+      #
+      # `server.linux.integration.test.ts` is not repeated: it boots the real
+      # server and has its own workflow (`linux-integration.yml`) on the same
+      # events.
+      - name: Portability specs
+        run: >
+          npx vitest run
+          src/services/platform.test.ts
+          server.platform.test.ts
+          server/platform/linuxUserFolders.test.ts
+          src/hooks/usePanels.open.test.tsx
+          src/hooks/useKeyboardShortcuts.keys.test.tsx
+          src/i18n/translations.test.ts
+
+      # The whole suite still assumes Windows drives, shells and shortcuts in
+      # places, so it is not a gate yet: it runs to name the specs that fail on
+      # Linux, and a red result is reported in the log without blocking the
+      # push. Once it is green, drop `continue-on-error` and this step becomes
+      # the gate.
+      - name: Full suite (exploratory, does not gate)
+        continue-on-error: true
+        run: npm test -- --maxWorkers=2
