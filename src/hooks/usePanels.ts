@@ -16,7 +16,7 @@ import { tGlobal } from '../i18n/translations';
 import { ARCHIVE_EXTENSIONS } from '../services/archiveBackend';
 import { RUNNABLE_EXTENSIONS } from '../services/fileOpenRules';
 import { currentPlatformInfo } from '../services/platform';
-import { openRunTarget, RUN_FAILURE_KEYS } from '../services/runLauncher';
+import { quoteRunTarget, runCommand, RUN_FAILURE_KEYS } from '../services/runLauncher';
 import { archiveLevelOf } from '../services/archivePath';
 import { matchesPanelFilter } from '../utils/panelFilter';
 
@@ -609,10 +609,13 @@ export function usePanels(deps: PanelDeps) {
           // the deliberate way to inspect the file.
           alert(tGlobal('linuxCannotRunWindows'));
         } else if (realRunnable) {
-          // The branch above owns the no-shell case, so the shell implements it
-          // here. A file inside an archive is not real and stays in the viewer;
-          // a refusal is reported instead of silently doing nothing.
-          const result = await openRunTarget(fsEngine.absolutePathOf(item));
+          // A real program is started, not handed to the document shell: /api/open
+          // returns success as soon as rundll32 exits, even when Windows refused
+          // to start the target. /api/run spawns the executable (or its cmd.exe /
+          // shell action) and reports ENOENT, EACCES and a refused UAC prompt, so
+          // a failure is shown instead of looking like nothing happened. A file
+          // inside an archive is not real and stays in the viewer.
+          const result = await runCommand(quoteRunTarget(fsEngine.absolutePathOf(item)));
           if (result.kind === 'error') {
             alert(tGlobal(RUN_FAILURE_KEYS[result.reason]));
           }

@@ -1,14 +1,4 @@
 {
   "$comment": "High and critical advisories the dependency audit accepts without a fix, each with the date it was reviewed and the date it stops counting. scripts/audit-gate.cjs fails the run on any other advisory at those levels, and on one of these that outlived its expiry.",
-  "exceptions": [
-    {
-      "id": "GHSA-fc5q-39xc-vjpf",
-      "package": "picomatch",
-      "severity": "high",
-      "reviewed": "2026-11-18",
-      "expires": "2027-02-18",
-      "reason": "ReDoS through single-branch repeated extglobs, in picomatch <=4.0.7, which is the whole published range: there is no version to move to. Every path to it is build tooling -- Storybook and unplugin, @rollup/pluginutils, vite-plugin-pwa's globbers through tinyglobby and fdir, typescript-eslint -- and `npm audit --omit=dev` reports nothing, so no shipped code carries it. The globs come from this repository's own config, not from a user.",
-      "revisit": "Remove the entry and confirm the gate passes on its own once a picomatch release above 4.0.7 is in the tree."
-    }
-  ]
+  "exceptions": []
 }

@@ -3,14 +3,13 @@
  * The full dependency audit, with dated exceptions.
  *
  * `npm audit --audit-level=high` goes red on any high advisory, including one
- * that has no release to move to. picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf) is
- * that case today: 4.0.7 is the newest published version, and the advisory only
- * reaches the tree through build tooling. The step had two bad options -- fail
- * every push, or drop to `--omit=dev` and stop watching the toolchain -- so the
+ * that has no release to move to. The step had two bad options -- fail every
+ * push, or drop to `--omit=dev` and stop watching the toolchain -- so such an
  * advisory is listed in `.github/audit-exceptions.json` with the date it was
  * reviewed and the date it stops counting, and everything else at that level
- * stays red. An exception that outlives its expiry fails the gate, so the list
- * cannot quietly grow into a permanent allow.
+ * stays red. An exception that outlives its expiry fails the gate, and one that
+ * no longer matches an advisory is reported as unused, so the list cannot
+ * quietly grow into a permanent allow.
  *
  * The advisories are still npm's answer: this runs the same audit and reads its
  * JSON, rather than keeping a second opinion about what is vulnerable.

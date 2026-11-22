@@ -78,6 +78,14 @@ export async function fetchRunSuggestions(query: string): Promise<RunSuggestion[
 export type RunResult =
   { kind: 'folder'; path: string } | { kind: 'opened'; target: string } | { kind: 'error'; reason: RunFailure };
 
+/**
+ * Quotes one path for the Run box's line splitter. `/api/run` takes a command
+ * line, so a path with a space in it has to arrive as one quoted token; a file
+ * name cannot contain a double quote on Windows, but doubling one costs nothing
+ * and keeps the helper safe if that rule ever changes.
+ */
+export const quoteRunTarget = (target: string): string => `"${target.replace(/"/g, '""')}"`;
+
 /** Route status to the reason the dialog words its message with. */
 const STATUS_REASONS: Record<number, RunFailure> = {
   400: 'invalid-target',

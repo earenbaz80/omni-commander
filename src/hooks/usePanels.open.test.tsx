@@ -14,8 +14,11 @@ import type { FileItem, UserSettings } from '../types';
  * real executable on Linux gets an explanation instead of binary bytes, and a
  * text file keeps the viewer it had.
  */
-const { openRunTarget, absolutePathOf, isRealFile, readFileBytes } = vi.hoisted(() => ({
-  openRunTarget: vi.fn(async () => ({ kind: 'opened' as const, target: 'C:\\Descargas\\setup.exe' })),
+const { runCommand, absolutePathOf, isRealFile, readFileBytes } = vi.hoisted(() => ({
+  runCommand: vi.fn(async (): Promise<{ kind: 'launched'; argv: string[] } | { kind: 'error'; reason: string }> => ({
+    kind: 'launched',
+    argv: ['C:\\Descargas\\setup.exe'],
+  })),
   absolutePathOf: vi.fn(
     (file: { path: string; name: string; fullName?: string; ext: string }) =>
       `${file.path}\\${file.fullName ?? `${file.name}.${file.ext}`}`,
@@ -24,7 +27,10 @@ const { openRunTarget, absolutePathOf, isRealFile, readFileBytes } = vi.hoisted(
   readFileBytes: vi.fn(async () => new Uint8Array()),
 }));
 
-vi.mock('../services/runLauncher', () => ({ openRunTarget }));
+vi.mock('../services/runLauncher', async () => {
+  const actual = await vi.importActual<typeof import('../services/runLauncher')>('../services/runLauncher');
+  return { ...actual, runCommand };
+});
 vi.mock('../services/fileSystem', () => ({
   fsEngine: {
     isRealFile,
@@ -108,11 +114,28 @@ describe('usePanels openItem', () => {
     ['msi', 'instalador'],
     ['cpl', 'applet'],
     ['msc', 'consola'],
-  ])('runs a .%s through the shell instead of loading it into the viewer', async (ext, name) => {
+  ])('starts a .%s instead of loading it into the viewer', async (ext, name) => {
     const deps = await open(item(name, ext));
 
-    expect(openRunTarget).toHaveBeenCalledWith(`C:\\Descargas\\${name}.${ext}`);
+    expect(runCommand).toHaveBeenCalledWith(`"C:\\Descargas\\${name}.${ext}"`);
     expect(readFileBytes).not.toHaveBeenCalled();
+    expect(deps.setSelectedFileForModal).not.toHaveBeenCalled();
+    expect(deps.setActiveModal).not.toHaveBeenCalled();
+  });
+
+  it('quotes a path with spaces so /api/run keeps it as one target', async () => {
+    const target = { ...item('setup', 'exe'), path: 'C:\\Program Files\\App' } as FileItem;
+    await open(target);
+
+    expect(runCommand).toHaveBeenCalledWith('"C:\\Program Files\\App\\setup.exe"');
+  });
+
+  it('shows why a program could not be started', async () => {
+    runCommand.mockResolvedValueOnce({ kind: 'error', reason: 'program-not-found' });
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    const deps = await open(item('setup', 'exe'));
+
+    expect(alertSpy).toHaveBeenCalledWith(getTranslations('es').runErrorProgramNotFound);
     expect(deps.setSelectedFileForModal).not.toHaveBeenCalled();
     expect(deps.setActiveModal).not.toHaveBeenCalled();
   });
@@ -122,7 +145,7 @@ describe('usePanels openItem', () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
     const deps = await open(item('setup', 'exe'));
 
-    expect(openRunTarget).not.toHaveBeenCalled();
+    expect(runCommand).not.toHaveBeenCalled();
     expect(readFileBytes).not.toHaveBeenCalled();
     expect(deps.setSelectedFileForModal).not.toHaveBeenCalled();
     expect(deps.setActiveModal).not.toHaveBeenCalled();
@@ -137,14 +160,14 @@ describe('usePanels openItem', () => {
     const deps = await open(archived);
 
     expect(alertSpy).not.toHaveBeenCalled();
-    expect(openRunTarget).not.toHaveBeenCalled();
+    expect(runCommand).not.toHaveBeenCalled();
     expect(deps.setActiveModal).toHaveBeenCalledWith('viewer');
   });
 
   it('still opens a text file in the viewer', async () => {
     const deps = await open(item('notas', 'txt', 'hola'));
 
-    expect(openRunTarget).not.toHaveBeenCalled();
+    expect(runCommand).not.toHaveBeenCalled();
     expect(deps.setSelectedFileForModal).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'notas', content: 'hola' }),
     );
