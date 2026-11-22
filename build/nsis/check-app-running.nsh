@@ -14,7 +14,7 @@
 
 Var /GLOBAL omniAppRunning
 Var /GLOBAL omniExecResult
-Var /GLOBAL omniKillAttempt
+Var /GLOBAL omniWaitAttempt
 
 # Sets ${_RETURN} to 1 when at least one process runs from $INSTDIR, and to 0
 # otherwise. The @(...) wrapper makes .Count work for a single match too.
@@ -32,19 +32,16 @@ Var /GLOBAL omniKillAttempt
   ${EndIf}
 !macroend
 
-# Stops processes running from $INSTDIR. The first attempt asks the app to
-# close through its main window; retries use forced termination.
-!macro _OMNI_STOP_APP _FORCE
-  !if "${_FORCE}" == "1"
-    nsExec::Exec `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "Get-CimInstance -ClassName Win32_Process | Where-Object { ${_OMNI_PROCESS_FILTER} } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"`
-  !else
-    nsExec::Exec `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "Get-CimInstance -ClassName Win32_Process | Where-Object { ${_OMNI_PROCESS_FILTER} } | ForEach-Object { $$appProcess = Get-Process -Id $$_.ProcessId -ErrorAction SilentlyContinue; if ($$appProcess) { $$null = $$appProcess.CloseMainWindow() } }"`
-  !endif
+# Asks the app to close through its main window. It never terminates a process:
+# with live work the app hides to the tray, and the installer must abort instead
+# of destroying the transfer.
+!macro _OMNI_STOP_APP
+  nsExec::Exec `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "Get-CimInstance -ClassName Win32_Process | Where-Object { ${_OMNI_PROCESS_FILTER} } | ForEach-Object { $$appProcess = Get-Process -Id $$_.ProcessId -ErrorAction SilentlyContinue; if ($$appProcess) { $$null = $$appProcess.CloseMainWindow() } }"`
   Pop $omniExecResult
 !macroend
 
 !macro customCheckAppRunning
-  # One process filter for the three PowerShell calls below. It is defined at
+  # One process filter for the PowerShell calls below. It is defined at
   # insertion time because APP_EXECUTABLE_FILENAME comes from common.nsh, which
   # is included after this file. The trailing backslash keeps a sibling
   # directory such as "$INSTDIR-old" out.
@@ -73,19 +70,22 @@ Var /GLOBAL omniKillAttempt
 
   omni_stop_app:
   DetailPrint "$(appClosing)"
-  !insertmacro _OMNI_STOP_APP 0
+  !insertmacro _OMNI_STOP_APP
   Sleep 500
 
-  StrCpy $omniKillAttempt 0
+  StrCpy $omniWaitAttempt 0
 
   omni_wait_loop:
-    IntOp $omniKillAttempt $omniKillAttempt + 1
+    IntOp $omniWaitAttempt $omniWaitAttempt + 1
     !insertmacro _OMNI_APP_IS_RUNNING $omniAppRunning
     ${If} $omniAppRunning == 0
       Goto omni_check_done
     ${EndIf}
 
-    ${If} $omniKillAttempt > 3
+    # Four checks; the fourth aborts. Enough for a normal close, short enough
+    # that a silent install does not hang. A live transfer keeps the app alive
+    # on purpose; abort and leave it working instead of forcing the process.
+    ${If} $omniWaitAttempt > 3
       ${If} ${Silent}
         SetErrorLevel 2
         Quit
@@ -95,8 +95,6 @@ Var /GLOBAL omniKillAttempt
     ${EndIf}
 
     DetailPrint `Waiting for "${PRODUCT_NAME}" to close.`
-    Sleep 500
-    !insertmacro _OMNI_STOP_APP 1
     Sleep 500
     Goto omni_wait_loop
 
